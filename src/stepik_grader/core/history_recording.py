@@ -16,11 +16,13 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core import glossary, history, insights
+from stepik_grader.core.result import BenchResult, CaseResult
 
 # issue #818: единая пользовательская база — одна на человека, а не на папку.
 # Каталог с точкой, как у остальных пользовательских данных инструментов CLI;
@@ -45,7 +47,7 @@ __all__ = [
 ]
 
 
-def cases_from_test_results(cases: list[dict[str, Any]]) -> list[history.CaseRecord]:
+def cases_from_test_results(cases: list[CaseResult]) -> list[history.CaseRecord]:
     """``CaseRecord``'ы режимов 1/2 из ``result['cases']`` (issue #344/#395).
 
     ``error_class`` для RE достаётся тем же ``lookup_from_error``, что и
@@ -73,7 +75,7 @@ def cases_from_test_results(cases: list[dict[str, Any]]) -> list[history.CaseRec
 
 
 def cases_from_bench_results(
-    results: dict[Path, dict[str, Any]],
+    results: Mapping[Path, BenchResult],
 ) -> list[history.CaseRecord]:
     """``CaseRecord``'ы режимов 3/4 — вердикт по решению (issue #344/#395).
 

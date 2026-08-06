@@ -31,6 +31,21 @@ def _log_and_read(tmp_path: pathlib.Path, message: str, *args: object) -> str:
     return (tmp_path / "grader.log").read_text(encoding="utf-8")
 
 
+def _wait_terminal(job: object, *, timeout: float = 15.0) -> None:
+    """Дождаться терминального статуса job'а web-слоя."""
+    from stepik_grader.web import runs
+    from tests._wait import wait_until
+
+    def _done() -> bool | None:
+        current = runs.get_job(job.id)  # type: ignore[attr-defined]
+        assert current is not None
+        return (
+            True if current.to_status_dict()["status"] in ("done", "error", "cancelled") else None
+        )
+
+    assert wait_until(_done, timeout=timeout), "job не дошёл до терминального статуса"
+
+
 class TestRedact:
     def test_bearer_header_redacted(self, tmp_path: pathlib.Path) -> None:
         out = _log_and_read(tmp_path, "Authorization: Bearer abc.def-ghi_123")
@@ -248,3 +263,52 @@ def test_redact_thread_safe_under_concurrent_register() -> None:
     adder.join(timeout=2.0)
 
     assert not errors, errors
+
+
+class TestFailuresReachTheLog:
+    """issue #831 (DEV-12): широкие ``except`` пишут стек в диагностический лог.
+
+    Смысл ``core/diag_log.py`` — «диагностика с редакцией секретов», а форматтер
+    здесь с самого начала умел редактировать трейсбек (``record.exc_text``).
+    Но ни один широкий ``except`` в проекте им не пользовался: в лог попадали
+    строки запросов, а момент падения — нет. Пользователь видел «❌ Ошибка
+    обработки шага: 'steps'», и в баг-репорт (``core/feedback`` прикладывает
+    логи) класть было нечего.
+    """
+
+    def test_web_job_failure_logs_traceback(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from stepik_grader.web import runs
+
+        diag_log.configure_diagnostics("debug", log_dir=tmp_path)
+
+        def explode(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("сломался грейдинг")
+
+        monkeypatch.setattr(runs, "grade_path", explode)
+        solution = tmp_path / "task.py"
+        solution.write_text("print(1)\n", encoding="utf-8")
+
+        job = runs.submit_job("tests", solution, {})
+        _wait_terminal(job)
+        logging.getLogger("stepik_grader").handlers[0].flush()
+
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "Traceback (most recent call last)" in out, "стек не доехал до лога"
+        assert "сломался грейдинг" in out
+
+    def test_traceback_is_redacted_too(self, tmp_path: pathlib.Path) -> None:
+        """Стек проходит ту же редакцию, что и сообщение — секрет из текста
+        исключения в файл не попадает."""
+        diag_log.configure_diagnostics("debug", log_dir=tmp_path)
+        log = diag_log.get_logger("test")
+        try:
+            raise RuntimeError("Authorization: Bearer abc.def-ghi_123")
+        except RuntimeError:
+            log.exception("сбой")
+        logging.getLogger("stepik_grader").handlers[0].flush()
+
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "Traceback (most recent call last)" in out
+        assert "abc.def-ghi_123" not in out

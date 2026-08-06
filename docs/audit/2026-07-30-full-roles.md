@@ -163,7 +163,7 @@ Growth / Реклама / Комьюнити и три подсреза доку
 | `PY-11` | **low** | — | ◐ | `src/stepik_grader/core/stats.py:67` | Ротация журнала статистики переписывает файл неатомарно — прямо вопреки гарантии, заявленной в docstring модуля |
 | `PY-13` | **low** | — | ◐ | `src/stepik_grader/core/sandbox/_linux.py:176` | Sandbox-backend'ы читают лимит вывода из CONFIG вместо `RunSpec`, нарушая явно задекларированный config-agnostic контракт RunSpec |
 
-**Закрыто:** `PY-01` — PR #863 (stdin в daemon-потоке, как в `LocalRunner`); `PY-02` — PR #864 (`cancel_event` читается в цикле ожидания); `PY-05` — PR #865 (гарантированная уборка процесса в `finally`); `PY-13`, `PY-09` — PR #866 (лимит вывода из `RunSpec`; быстрый путь при TLE отдаёт измеренный пик памяти). `PY-03`, `PY-04`, `PY-08` — PR #868 (чтение решения/.type с заменой некорректных байт; потоки дочернего процесса всегда UTF-8; вывод ruff читается явным UTF-8). `PY-11` — PR #869 (ротация журнала заменяет файл атомарно). `PY-06` — PR #872 (`shutdown_jobs()` гасит активные прогоны и закрывает пул; замер зависания после «сервер остановлен» — 8.1 с до фикса, 0.1 с после).
+**Закрыто:** `PY-01` — PR #863 (stdin в daemon-потоке, как в `LocalRunner`); `PY-02` — PR #864 (`cancel_event` читается в цикле ожидания); `PY-05` — PR #865 (гарантированная уборка процесса в `finally`); `PY-13`, `PY-09` — PR #866 (лимит вывода из `RunSpec`; быстрый путь при TLE отдаёт измеренный пик памяти). `PY-03`, `PY-04`, `PY-08` — PR #868 (чтение решения/.type с заменой некорректных байт; потоки дочернего процесса всегда UTF-8; вывод ruff читается явным UTF-8). `PY-11` — PR #869 (ротация журнала заменяет файл атомарно). `PY-06` — PR #872 (`shutdown_jobs()` гасит активные прогоны и закрывает пул; замер зависания после «сервер остановлен» — 8.1 с до фикса, 0.1 с после). `PY-10` — PR #907 (docstring `collect_grouped_files` описывает фактическую группировку).
 
 ### 🔐 Безопасность: исполнение и изоляция
 
@@ -219,12 +219,15 @@ Growth / Реклама / Комьюнити и три подсреза доку
 
 | ID | Итог | Заявл. | ✓ | Место | Что не так |
 |---|---|---|---|---|---|
-| `SECW-01` | **medium** | critical | ◐ | `src/stepik_grader/web/http_guards.py:41` | Origin/Host-allowlist игнорирует порт: любая страница с localhost:* обходит CSRF-гард и получает RCE |
+| `SECW-01` | **medium** | critical | ✅ | `src/stepik_grader/web/http_guards.py:41` | Origin/Host-allowlist игнорирует порт: любая страница с localhost:* обходит CSRF-гард и получает RCE |
 | `SECW-04` | **medium** | — | ✅ | `src/stepik_grader/web/api_routes.py:749` | POST /api/stepik/submit жёстко читает workspace/secrets.json, игнорируя secrets_path из конфига |
 | `SECW-02` | **low** | high | ◐ | `src/stepik_grader/web/api_routes.py:341` | GET /api/source отдаёт содержимое ЛЮБОГО файла в workspace, включая secrets.json с OAuth-токенами |
 | `SECW-03` | **low** | medium | ✅ | `src/stepik_grader/web/runs.py:228` | Реестр job'ов растёт неограниченно: back-pressure считает только активные job'ы |
 | `SECW-05` | **low** | medium | ◐ | `src/stepik_grader/web/api_routes.py:394` | /api/downloader/config + /api/auth/start перезаписывают произвольный файл в workspace секретами |
 | `SECW-06` | **low** | — | ◐ | `src/stepik_grader/web/server.py:173` | GET / не проходит Host-гард и отдаёт абсолютный путь workspace любому origin |
+
+**Закрыто:** `SECW-01` — PR по #811 (`_authority_is_allowed` сверяет и порт, а не только
+hostname: страница на другом порту loopback больше не проходит CSRF-гард).
 
 ### 🔐 Actions: агент на чужом PR
 
@@ -250,14 +253,16 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 |---|---|---|---|---|---|
 | `SUP-01` | **high** | — | ✅ | `.github/workflows/release.yml:13` | Публикация в PyPI без гейта тестов: любой тег v* с любой ветки уходит в релиз |
 | `SUP-02` | **medium** | high | ◐ | `.github/workflows/release.yml:95` | Сторонние actions по плавающим ref в job с id-token: write и contents: write |
-| `SUP-03` | **medium** | high | ◐ | `src/stepik_grader/web/static/vendor/VERSIONS.md:121` | Вендоренный CodeMirror-бандл 360 КБ без хеша и без автопроверки целостности |
+| `SUP-03` | **medium** | high | ✅ | `src/stepik_grader/web/static/vendor/VERSIONS.md:121` | Вендоренный CodeMirror-бандл 360 КБ без хеша и без автопроверки целостности |
 | `SUP-04` | **medium** | — | ✅ | `.github/workflows/ci.yml:40` | contents: write выдан всей матрице тестов, а не отдельной badge-job |
 | `SUP-05` | **medium** | — | ✅ | `.pre-commit-config.yaml:9` | Версия ruff в pre-commit прибита, а в CI плавает: локальный проход не гарантирует зелёный CI |
 
 **Закрыто:** `SUP-01` — PR #848 (job `verify` с полным набором проверок CI на том же коммите,
 публикация через `needs: [build, verify]`, тег обязан стоять на коммите из `main`). `SUP-02`,
 `SUP-04` — PR #850 (пиннинг по SHA во всех workflow; `contents: write` снят с матрицы тестов и
-остался у единственного job'а, коммитящего бейджи).
+остался у единственного job'а, коммитящего бейджи). `SUP-03` — PR по #810 (SHA256 бандла в
+`vendor/VERSIONS.md` § Integrity сверяется `tests/test_packaging.py` на каждом прогоне CI; тем же
+тестом закреплено отсутствие Node-зависимых импортов).
 
 ### 🔐 Данные из сети на диск
 
@@ -301,11 +306,13 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 | `DEV-05` | **low** | medium | ✅ | `src/stepik_grader/web/runs.py:487` | Сетевые ошибки requests трактуются как «нет авторизации»: requests.ConnectionError — подкласс OSError и попадает в except (OSError, ValueError) |
 | `DEV-08` | **low** | medium | ◐ | `src/stepik_grader/config.py:173` | GraderConfig принимает любые значения из pyproject.toml без валидации — microbench_max_cases = 0 роняет режим 4 трейсбеком ValueError |
 | `DEV-09` | **low** | — | ✅ | `src/stepik_grader/web/runs.py:329` | Временный файл кода режима 1 утекает в папку задачи, если запись в него не удалась |
-| `DEV-10` | **low** | medium | ◐ | `src/stepik_grader/cli/commands.py:92` | Дубли preflight-отсева и _rel между CLI и web: одна и та же логика в двух файлах, уже разошедшаяся по параметрам |
-| `DEV-11` | **low** | medium | ◐ | `src/stepik_grader/core/stepik_client.py:512` | Файловый кэш Stepik API (.stepik_cache/) растёт без ограничения и не чистится ни TTL, ни --clear-cache |
-| `DEV-12` | **low** | — | ◐ | `src/stepik_grader/downloader.py:412` | Ни один широкий except в проекте не пишет traceback в диагностический лог — opt-in логирование (#148/#149) не помогает диагностировать именно сбои |
+| `DEV-10` | **low** | medium | ✅ | `src/stepik_grader/cli/commands.py:92` | Дубли preflight-отсева и _rel между CLI и web: одна и та же логика в двух файлах, уже разошедшаяся по параметрам |
+| `DEV-11` | **low** | medium | ✅ | `src/stepik_grader/core/stepik_client.py:512` | Файловый кэш Stepik API (.stepik_cache/) растёт без ограничения и не чистится ни TTL, ни --clear-cache |
+| `DEV-12` | **low** | — | ✅ | `src/stepik_grader/downloader.py:412` | Ни один широкий except в проекте не пишет traceback в диагностический лог — opt-in логирование (#148/#149) не помогает диагностировать именно сбои |
 
-**Закрыто:** `DEV-03` — PR #865 («Песочница» отдаёт частичный вывод при TLE и отмене, как это делает сам runner с #421). `DEV-01`, `DEV-02`, `DEV-06`, `DEV-07` — PR #872 (параметр `renderTermCards` переименован; резолвер `reference` требует `s in results`; сеть и `OSError` вокруг обновления токена; компиляция до подмены stdout и под своим `except`).
+**Закрыто:** `DEV-03` — PR #865 («Песочница» отдаёт частичный вывод при TLE и отмене, как это делает сам runner с #421). `DEV-01`, `DEV-02`, `DEV-06`, `DEV-07` — PR #872 (параметр `renderTermCards` переименован; резолвер `reference` требует `s in results`; сеть и `OSError` вокруг обновления токена; компиляция до подмены stdout и под своим `except`). `DEV-11` — PR по #816 (`prune_cache` с TTL и потолком 512 записей; `--clear-cache` чистит и `.stepik_cache`). `DEV-09`, `DEV-10`, `DEV-12` — PR #907 (путь временного файла запоминается до записи; одна реализация «путь относительно base» вместо трёх; стек упавшей job'ы уходит в диагностический лог).
+
+**Сверх аудита в `DEV-09`/`DEV-12`:** прогон показал, что тем же местом лечится и падение режима 4 на решении, обрывающем замер (`raise SystemExit` → `times=[]` при пустом `error` → `ValueError: min() iterable argument is empty` на весь режим), и рассинхрон формы ошибки между режимами 3 и 4 (`runs` был только у первого).
 
 Разведка прогоном расширила две формулировки. `DEV-01` заявлен как падение «на любом термине без карточки» — звучит экзотикой, но `try/except` сам по себе концепт без карточки, то есть панель разваливалась на самом обычном коде. `DEV-07` заявлен как «невнятный TraceError» — фактически пользователь получал трейсбек с абсолютными путями внутрь `src/stepik_grader/`, обрезанный на полуслове.
 
@@ -373,11 +380,21 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 | `ARCH-04` | **medium** | high | ✅ | `src/stepik_grader/core/grader_core.py:120` | Конфигурация вмораживается в module-level константы и в дефолты аргументов при импорте grader_core — ленивость config.CONFIG обесценена, per-request конфиг невозможен |
 | `ARCH-03` | **low** | high | ✅ | `src/stepik_grader/core/grader_core.py:188` | Реестр активного Runner живёт в оркестраторе grader_core, а не в core/runner.py — это порождает обратные рёбра microbench_runner→grader_core и tracer→grader_core, скрытые ленивыми импортами от DAG-guard'а |
 | `ARCH-05` | **low** | medium | ✅ | `src/stepik_grader/web/grading.py:21` | Boundary-guard ADR-0010 определяет «публичную поверхность» как «имя без подчёркивания», поэтому фасад web/grading реэкспортирует константы, явно исключённые из __all__ ядра |
-| `ARCH-06` | **low** | medium | ◐ | `src/stepik_grader/web/glossary_adapter.py:53` | web/glossary_adapter.py — не «тонкий адаптер», а 613 строк доменной логики глоссария (таксономия разделов, EN-подписи, сортировки), недоступной CLI |
+| `ARCH-06` | **low** | medium | ✅ | `src/stepik_grader/web/glossary_adapter.py:53` | web/glossary_adapter.py — не «тонкий адаптер», а 613 строк доменной логики глоссария (таксономия разделов, EN-подписи, сортировки), недоступной CLI |
 | `ARCH-07` | **low** | medium | ✅ | `src/stepik_grader/web/api_routes.py:19` | web/api_routes.py импортирует core/stepik_reference напрямую, минуя существующий web/reference_adapter.py — слой маршрутов протекает в ядро |
 | `ARCH-08` | **low** | medium | ✅ | `src/stepik_grader/web/__init__.py:13` | web/__init__.py реэкспортирует приватные внутренности ради обратной совместимости тестов, закрепляя их как де-факто публичный API и делая импорт пакета тяжёлым |
 | `ARCH-09` | **low** | medium | ✅ | `src/stepik_grader/core/grader_core.py:537` | Агрегатный результат (run_tests/run_benchmark/run_microbench_mode) не имеет типизированной модели — только dict[str, Any], хотя для case-уровня их уже две (CaseResult + TestResult) |
 | `ARCH-11` | **low** | — | ✅ | `docs/dev/result-contract.md:168` | result-contract.md указывает web/server.py как место error-конвертов API, которых там уже нет — они переехали в web/http_guards.py |
+
+**Закрыто:** `ARCH-06`, `ARCH-09` — PR #907. Доменные правила базы глоссария
+(таксономия разделов, EN-подписи, сортировки, приватность карточки, индексы
+концепций, наборы имён для сканера) переехали из `web/glossary_adapter.py`
+в `glossary/taxonomy.py`/`glossary/lookup.py`/`glossary/stdlib_inventory`:
+адаптер 613 → 357 строк, а классификация базы перестала быть доступной только
+через HTTP. Ребро `glossary → core` закрыто guard'ом
+`test_glossary_package_does_not_import_core` (учитывает и ленивые импорты).
+Агрегаты проверки получили типы `SolutionResult`/`BenchResult` — mypy проверяет
+ключи у всех потребителей.
 
 **Закрыто:** `ARCH-03`, `ARCH-04`, `ARCH-05`, `ARCH-07`, `ARCH-08` — PR #905.
 Реестр Runner переехал в `core/runner.py`, оба ленивых импорта (`microbench_runner`,

@@ -83,7 +83,17 @@ def find_all_solution_files(directory: pathlib.Path) -> list[pathlib.Path]:
 
 
 def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Path]]:
-    """Сгруппировать файлы-решения по номеру задачи (ключ — ``taskN``)."""
+    """Сгруппировать файлы-решения по ПАПКЕ, в которой они лежат.
+
+    Ключ — путь папки относительно ``directory`` (``"."`` для файлов в самом
+    ``directory``, ``"lesson1/step2"`` для вложенных); значение — список путей
+    к файлам-решениям в ней. Имя файла на номер задачи не разбирается: ``task1.py``
+    и ``task4_1.py`` из одной папки попадают в один ключ.
+
+    issue #831 (PY-10): docstring обещал ключ ``taskN`` — группировки по номеру
+    задачи здесь никогда не было, и потребитель, написанный по описанию, получал
+    не те ключи.
+    """
     grouped: dict[str, list[pathlib.Path]] = defaultdict(list)
 
     for root, _, files in os.walk(directory):

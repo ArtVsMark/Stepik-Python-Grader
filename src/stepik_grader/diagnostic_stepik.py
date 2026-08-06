@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from stepik_grader.core.diag_log import configure_diagnostics
+from stepik_grader.core.diag_log import configure_diagnostics, get_logger
 from stepik_grader.core.oauth_flow import authorize_via_browser, load_secrets, make_session
 from stepik_grader.core.stepik_client import API_HOST
 from stepik_grader.downloader import parse_stepik_step_url
@@ -64,6 +64,8 @@ def _print(text: str) -> None:
 
 
 # Задача 6: таймаут ожидания OAuth-кода от браузера
+_log = get_logger("diagnostic")  # issue #831 (DEV-12): стек падения в opt-in лог
+
 OAUTH_TIMEOUT_SECONDS = 120
 
 
@@ -288,6 +290,9 @@ def main() -> None:
         step_id, lesson, step_data = get_step_data_by_position(session, lesson_id, step_position)
         _print("✅ Step data получены через API /steps/{id}.")
     except Exception as error:
+        # issue #831 (DEV-12): в лог — стек, пользователю — короткая строка.
+        # Диагностика без места падения бесполезна ровно там, где нужна.
+        _log.exception("сбой диагностики Stepik (secrets=%s, url=%s)", secrets_file, step_url)
         _print(f"❌ Ошибка диагностики: {error}")
         return
     lesson_path = save_json(output_dir, "lesson_debug.json", lesson)

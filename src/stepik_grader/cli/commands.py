@@ -27,7 +27,8 @@ import contextlib
 import json
 import pathlib
 import sys
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from stepik_grader import rules
@@ -56,7 +57,9 @@ from stepik_grader.core.reporter import (
     print_correctness_results,
     print_lint_block,
     rich_track,
+    safe_rel,
 )
+from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult
 
 
 def _t(key: str, /, **kwargs: object) -> str:
@@ -71,23 +74,10 @@ def _t(key: str, /, **kwargs: object) -> str:
     return translate(key, **kwargs)
 
 
-def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
-    """Относительный путь для колонок таблиц (с ``..`` при выходе за ``base``).
-
-    Прямая замена ``os.path.relpath`` на pathlib (issue #354): лексический
-    расчёт без обращения к ФС, ``walk_up=True`` разрешает ``..`` (Python 3.12+).
-
-    Устойчив к разным anchor'ам (issue #440): относительный ``path`` против
-    абсолютного ``base`` (или разные диски на Windows) даёт ``ValueError`` —
-    тогда отдаём путь как есть, а не роняем режим/запись истории трейсбеком.
-    """
-    try:
-        return str(path.relative_to(base, walk_up=True))
-    except ValueError:
-        return str(path)
+_rel = safe_rel  # issue #831 (DEV-10): единственная реализация — в core/reporter
 
 
-def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
+def _verdict_counts_from_cases(cases: Sequence[CaseResult]) -> dict[str, int]:
     """Тальи вердиктов кейсов для режимов 1/2 (issue #268 — статистика)."""
     counts: dict[str, int] = {}
     for c in cases:
@@ -96,14 +86,14 @@ def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
-def _has_failures(cases: list[dict[str, Any]]) -> bool:
+def _has_failures(cases: Sequence[CaseResult]) -> bool:
     """Есть ли среди кейсов непройденные (для nudge «Подучить», issue #430)."""
     return any(not c.get("passed") for c in cases)
 
 
 def _preflight_skip(
     ctx: CliContext, solution: pathlib.Path, test_dir: pathlib.Path
-) -> dict[str, Any] | None:
+) -> BenchResult | None:
     """Отсеять решение, не прошедшее тесты, до замера скорости (issue #729).
 
     ``None`` — решение годится. Иначе — запись с ``verdict="SKIPPED"``: сравнение
@@ -126,7 +116,7 @@ def _preflight_skip(
     }
 
 
-def _verdict_counts_from_bench(results: dict[pathlib.Path, dict[str, Any]]) -> dict[str, int]:
+def _verdict_counts_from_bench(results: Mapping[pathlib.Path, BenchResult]) -> dict[str, int]:
     """Тальи вердиктов решений для режимов 3/4 (issue #268 — статистика).
 
     Ошибочные решения (``error`` вместо ``verdict``) считаются как ``ERR`` —
@@ -326,7 +316,9 @@ def _print_ai_limit_notice(limit: int) -> None:
     print(_t("ai_hints_capped", limit=limit))
 
 
-def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: str = "ru") -> None:
+def _print_ai_hints(
+    rows: Sequence[tuple[pathlib.Path, SolutionResult]], *, lang: str = "ru"
+) -> None:
     """AI-объяснения упавших кейсов режимов 1/2 (``--ai-hints``, issue #435/#542, ADR-0003).
 
     Только текстовый вывод; opt-in. Грейдинг НИКОГДА не падает из-за AI —
@@ -358,7 +350,7 @@ def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: st
 
 
 def _print_ai_hints_bench(
-    results: dict[pathlib.Path, dict[str, Any]], base: pathlib.Path, *, lang: str = "ru"
+    results: Mapping[pathlib.Path, BenchResult], base: pathlib.Path, *, lang: str = "ru"
 ) -> None:
     """AI-объяснения упавших решений режимов 3/4 (``--ai-hints``, issue #542).
 
@@ -405,7 +397,7 @@ def _run_tests_maybe_cached(
     verbose: bool,
     output: str,
     cache: GraderCache | None,
-) -> tuple[dict[str, Any], bool]:
+) -> tuple[SolutionResult, bool]:
     """Прогнать тесты, при активном кэше — переиспользуя актуальную запись.
 
     Возвращает пару (result, from_cache). Ключ кэша — sha256 содержимого
@@ -423,7 +415,9 @@ def _run_tests_maybe_cached(
     tests_sha = hash_tests(test_dir)
     cached = cache.get(solution, solution_sha, tests_sha)
     if cached is not None:
-        return cached, True
+        # Форма читается из results.json — статически её никто не гарантирует,
+        # поэтому cast, а не «типизированный» кэш с ложной уверенностью.
+        return cast("SolutionResult", cached), True
 
     result = ctx.run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
     cache.put(solution, solution_sha, tests_sha, result)
@@ -570,7 +564,7 @@ def _run_mode_2(
 
     col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
 
-    rows: list[tuple[pathlib.Path, dict[str, Any]]] = []
+    rows: list[tuple[pathlib.Path, SolutionResult]] = []
     machine_output = output != "text"
     cache = GraderCache() if use_cache else None
     cache_hits = 0
@@ -662,7 +656,7 @@ def _run_mode_3(
         print(ctx.t("no_solutions_found"))
         return
 
-    results: dict[pathlib.Path, dict[str, Any]] = {}
+    results: dict[pathlib.Path, BenchResult] = {}
     machine_output = output != "text"
     track = (
         scripts
@@ -776,7 +770,7 @@ def _run_mode_4(
     json_results: dict[str, dict[str, Any]] = {}
     table_rows: list[dict[str, Any]] = []
     printed_table = False
-    all_bench_results: dict[pathlib.Path, dict[str, Any]] = {}
+    all_bench_results: dict[pathlib.Path, BenchResult] = {}
 
     for folder, paths in sorted(grouped.items()):
         if folder != ".":
@@ -805,7 +799,7 @@ def _run_mode_4(
         # issue #729: то же предусловие, что в режиме 3 — в замер идут только
         # решения, прошедшие тесты; остальные попадают в результат как SKIPPED.
         eligible: list[pathlib.Path] = []
-        skipped: dict[pathlib.Path, dict[str, Any]] = {}
+        skipped: dict[pathlib.Path, BenchResult] = {}
         for sol in sorted(paths):
             skip = _preflight_skip(ctx, sol, test_dir)
             if skip is None:

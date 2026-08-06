@@ -113,6 +113,8 @@ Stepik-Python-Grader/
 │           ├── models.py         # GlossaryCard, GlossaryMissingEntry (leaf, только stdlib)
 │           ├── json_provider.py  # JsonGlossaryProvider + очередь пополнения (JSON-first)
 │           ├── detector.py       # MissingConceptDetector — AST-детект пробелов без исполнения
+│           ├── taxonomy.py       # Семейства разделов, EN-подписи, сортировки, приватность (leaf)
+│           ├── lookup.py         # Индексы «концепция из кода → карточка» (leaf)
 │           ├── stdlib_inventory.py # Офлайн-инвентарь официального Python/stdlib (leaf)
 │           ├── coverage.py       # Coverage-отчёт + missing JSON + CLI
 │           └── data/*.json        # Комплектная база карточек глоссария (package-data):

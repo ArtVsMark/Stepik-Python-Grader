@@ -16,7 +16,7 @@ import pathlib
 import re
 import threading
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader import rules
@@ -24,6 +24,7 @@ from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core import history, history_recording, lint
 from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.mtime_cache import MtimeCache
+from stepik_grader.core.result import BenchResult
 from stepik_grader.glossary.detector import MissingConceptDetector
 from stepik_grader.glossary.json_provider import (
     GlossaryError,
@@ -44,11 +45,12 @@ from stepik_grader.web.grading import (
     run_benchmark,
     run_microbench_mode,
     run_tests,
+    safe_rel,
 )
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message
 
 if TYPE_CHECKING:
-    from stepik_grader.core.result import CaseResult
+    from stepik_grader.core.result import CaseResult, SolutionResult
 
 # Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
 # suggestions/...) заполняются только для них (issue #125, web-contracts.md §
@@ -68,12 +70,7 @@ __all__ = [
 _TASK_NUM_RE = re.compile(r"^(task\d*)_(\d+)\.py$")
 
 
-def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
-    """Путь относительно base (для компактного отображения), с fallback."""
-    try:
-        return str(path.relative_to(base))
-    except ValueError:
-        return path.name
+_rel = safe_rel  # issue #831 (DEV-10): единственная реализация — в core/reporter
 
 
 def _task_key(path: pathlib.Path, workspace: pathlib.Path | None) -> str:
@@ -529,7 +526,7 @@ def _record_history_if_enabled(
     )
 
 
-def _bench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) -> dict[str, Any]:
+def _bench_row(sol: pathlib.Path, d: BenchResult, base: pathlib.Path) -> dict[str, Any]:
     """Строка ответа режима 3 (bench) для одного решения — секунды (issue #647).
 
     Полный набор колонок как в CLI-репортере (mean/max/std dev) — бэкенд уже
@@ -558,7 +555,7 @@ def _bench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) -> dict
     }
 
 
-def _microbench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) -> dict[str, Any]:
+def _microbench_row(sol: pathlib.Path, d: BenchResult, base: pathlib.Path) -> dict[str, Any]:
     """Строка ответа режима 4 (microbench) для одного решения — микросекунды (issue #647)."""
     return {
         "file": _rel(sol, base),
@@ -575,9 +572,9 @@ def _microbench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) ->
 
 
 def _ranked_bench_rows(
-    results: dict[pathlib.Path, dict[str, Any]],
+    results: Mapping[pathlib.Path, BenchResult],
     base: pathlib.Path,
-    row_of: Callable[[pathlib.Path, dict[str, Any], pathlib.Path], dict[str, Any]],
+    row_of: Callable[[pathlib.Path, BenchResult, pathlib.Path], dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Строки bench/microbench-ответа: успешные по возрастанию ``median``, ошибочные — в конец.
 
@@ -607,7 +604,7 @@ def _split_by_preflight(
     *,
     lang: str,
     cancel_event: threading.Event | None,
-) -> tuple[list[pathlib.Path], dict[pathlib.Path, dict[str, Any]]]:
+) -> tuple[list[pathlib.Path], dict[pathlib.Path, BenchResult]]:
     """Разделить решения на «годные к замеру» и «не прошли проверку» (issue #729).
 
     Версия для режима 4: там все решения группы гоняются одним вызовом
@@ -616,7 +613,7 @@ def _split_by_preflight(
     раз на решение целиком, и пре-флайт в его шкалу не заложен.
     """
     eligible: list[pathlib.Path] = []
-    skipped: dict[pathlib.Path, dict[str, Any]] = {}
+    skipped: dict[pathlib.Path, BenchResult] = {}
     for sol in solutions:
         skip = _preflight_skip(
             sol,
@@ -643,7 +640,7 @@ def _preflight_skip(
     max_memory_mb: int | None,
     progress_callback: Callable[[int], None] | None,
     cancel_event: threading.Event | None,
-) -> dict[str, Any] | None:
+) -> BenchResult | None:
     """Отсеять решение, не прошедшее тесты, до замера скорости (issue #729).
 
     ``None`` — решение годится, меряем. Иначе — готовая «ошибочная» запись с
@@ -677,7 +674,7 @@ def _preflight_skip(
 
 def _record_bench_history(
     mode: int,
-    results: dict[pathlib.Path, dict[str, Any]],
+    results: Mapping[pathlib.Path, BenchResult],
     base: pathlib.Path,
     workspace: pathlib.Path | None,
     cancel_event: threading.Event | None,
@@ -733,7 +730,7 @@ def grade_path(
     kind, base, solutions = resolved
 
     rows: list[dict[str, Any]] = []
-    graded: list[tuple[pathlib.Path, dict[str, Any]]] = []  # issue #395: для истории
+    graded: list[tuple[pathlib.Path, SolutionResult]] = []  # issue #395: для истории
     for sol in solutions:
         if cancel_event is not None and cancel_event.is_set():
             break
@@ -854,7 +851,7 @@ def grade_benchmark(
         return resolved
     kind, base, solutions = resolved
 
-    results: dict[pathlib.Path, dict[str, Any]] = {}
+    results: dict[pathlib.Path, BenchResult] = {}
     for sol in solutions:
         if cancel_event is not None and cancel_event.is_set():
             break

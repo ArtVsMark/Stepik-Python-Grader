@@ -17,6 +17,7 @@ import urllib.request
 
 import pytest
 
+from stepik_grader.glossary import taxonomy
 from stepik_grader.glossary.models import GlossaryCard, GlossaryMissingEntry
 from stepik_grader.web import glossary_adapter
 from stepik_grader.web import server as web_server
@@ -456,7 +457,7 @@ class TestGlossaryGroupsAndRelevance:
 
     def test_every_bundled_section_has_explicit_group(self) -> None:
         # Guard дрейфа (#684 активно правит разделы): «Прочее» в комплектной базе
-        # должно быть пустым — новый раздел классифицируется в _SECTION_GROUPS.
+        # должно быть пустым — новый раздел классифицируется в taxonomy.SECTION_GROUPS.
         unclassified = glossary_adapter.glossary_search("", group="other", status="all")
         assert unclassified == [], "разделы без семейства: " + ", ".join(
             sorted({c["section"] for c in unclassified})
@@ -467,7 +468,7 @@ class TestGlossaryGroupsAndRelevance:
         total = len(glossary_adapter.glossary_search("", status="all"))
         by_group = sum(
             len(glossary_adapter.glossary_search("", group=g, status="all"))
-            for g in sorted(glossary_adapter._GROUPS)
+            for g in sorted(taxonomy.GROUPS)
         )
         assert by_group == total
 
@@ -590,15 +591,15 @@ class TestGlossaryReadyDefaultAndPrivate:
 
 
 def test_is_private_name_unit() -> None:
-    from stepik_grader.web.glossary_adapter import _is_private_name
+    from stepik_grader.glossary.taxonomy import is_private_name
 
-    assert _is_private_name("os._exit")
-    assert _is_private_name("_pickle.pickleerror")
-    assert _is_private_name("warnings._optionerror")
-    assert not _is_private_name("str.split")
-    assert not _is_private_name("__init__")  # дандер публичен
-    assert not _is_private_name("str.__len__")
-    assert not _is_private_name("input")
+    assert is_private_name("os._exit")
+    assert is_private_name("_pickle.pickleerror")
+    assert is_private_name("warnings._optionerror")
+    assert not is_private_name("str.split")
+    assert not is_private_name("__init__")  # дандер публичен
+    assert not is_private_name("str.__len__")
+    assert not is_private_name("input")
 
 
 # ---------------------------------------------------------------------------

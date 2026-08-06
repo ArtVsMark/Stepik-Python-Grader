@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import pathlib
 import shutil
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader.core.error_glossary import resolve_error_hint
-from stepik_grader.core.result import CaseResult, TestResult
+from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult, TestResult
 
 if TYPE_CHECKING:
     from stepik_grader.core.grader_core import TestCase
@@ -36,6 +36,7 @@ __all__ = [
     "print_progress_summary",
     "print_stats_summary",
     "rich_track",
+    "safe_rel",
 ]
 
 # Ширина вывода: кап 200 (как раньше), но сжимаемся под узкий терминал (issue
@@ -88,18 +89,30 @@ _VERBOSE_MAX_VALUE_CHARS = 400
 _VERBOSE_MAX_DIFF_LINES = 20
 
 
-def _safe_rel(path: pathlib.Path, base: pathlib.Path) -> str:
-    """Относительный путь для колонок таблиц, устойчивый к разным anchor'ам.
+def safe_rel(path: pathlib.Path, base: pathlib.Path) -> str:
+    """Относительный путь для отображения, устойчивый к разным anchor'ам.
 
     ``Path.relative_to(base, walk_up=True)`` кидает ``ValueError``, когда путь и
     база имеют разные anchor'ы (относительный ввод ``task.py`` против
     абсолютного ``base``; разные диски на Windows) — issue #440. В этом случае
     отдаём сам путь строкой, а не роняем режимы 1/2/3/4 трейсбеком.
+
+    Единственная реализация на проект (issue #831, DEV-10): CLI, таблицы
+    reporter'а и web-строки показывают путь одинаково. Раньше их было три, и
+    web-версия отличалась молча — без ``walk_up`` и с откатом на голое имя
+    файла, из-за чего один и тот же файл вне ``base`` подписывался в web иначе,
+    чем в CLI.
+
+    Для ключа задачи в истории эта функция НЕ используется — там своя
+    нормализация ``history.task_key_for`` (issue #817), общая у CLI и web.
     """
     try:
         return str(path.relative_to(base, walk_up=True))
     except ValueError:
         return str(path)
+
+
+_safe_rel = safe_rel  # обратная совместимость: имя использовалось внутри модуля
 
 
 def fmt_time(t: float) -> str:
@@ -120,7 +133,7 @@ def fmt_time(t: float) -> str:
     return f"{t * 1e9:.3f} ns"
 
 
-def _correctness_status(result: dict[str, Any]) -> str:
+def _correctness_status(result: Mapping[str, Any]) -> str:
     """Вернуть "OK"/"FAIL"/"NO TESTS" для строки таблицы корректности (режимы 1/2).
 
     ``total == 0`` (тесты не найдены или директория tests/ пуста) — это не
@@ -137,7 +150,7 @@ def _correctness_status(result: dict[str, Any]) -> str:
 
 
 def format_correctness_row(
-    path: pathlib.Path, base_dir: pathlib.Path, result: dict[str, Any], *, col_file: int
+    path: pathlib.Path, base_dir: pathlib.Path, result: Mapping[str, Any], *, col_file: int
 ) -> str:
     """Сформатировать строку таблицы корректности для режимов 1 и 2."""
     total = result["total"]
@@ -167,7 +180,7 @@ def print_correctness_header(*, col_file: int) -> None:
 
 
 def format_benchmark_row(
-    path: pathlib.Path, base_dir: pathlib.Path, data: dict[str, Any], *, col_file: int
+    path: pathlib.Path, base_dir: pathlib.Path, data: Mapping[str, Any], *, col_file: int
 ) -> str:
     """Сформатировать строку benchmark-таблицы для режимов 3 и 4."""
     rel_path = _safe_rel(path, base_dir)
@@ -237,7 +250,7 @@ _VERDICT_COLORS: dict[str, str] = {
 
 
 def print_correctness_results(
-    rows: list[tuple[pathlib.Path, dict[str, Any]]], base_dir: pathlib.Path, *, col_file: int
+    rows: Sequence[tuple[pathlib.Path, SolutionResult]], base_dir: pathlib.Path, *, col_file: int
 ) -> None:
     """Напечатать таблицу корректности (rich при наличии, иначе plain-text)."""
     if _RICH and _console is not None:
@@ -270,7 +283,7 @@ def print_correctness_results(
 
 
 def print_benchmark_results(
-    rows: list[tuple[pathlib.Path, dict[str, Any]]],
+    rows: Sequence[tuple[pathlib.Path, BenchResult]],
     base_dir: pathlib.Path,
     *,
     col_file: int,

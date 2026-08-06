@@ -217,6 +217,33 @@ class TestRelativePathDifferentAnchor:
 
         assert _rel(pathlib.Path("."), pathlib.Path("/abs/cwd")) == "."
 
+    def test_cli_and_web_share_one_implementation(self) -> None:
+        """issue #831 (DEV-10): CLI и web показывают путь одной функцией.
+
+        Реализаций было три (``reporter._safe_rel``, ``cli.commands._rel``,
+        ``viewmodels._rel``) с разными правилами: web не использовал ``walk_up``
+        и откатывался на голое имя файла, поэтому один и тот же файл вне ``base``
+        подписывался в web иначе, чем в CLI. Сравниваются сами объекты — копия
+        с тем же телом снова разъедется при первой правке.
+        """
+        from stepik_grader.cli.commands import _rel as cli_rel
+        from stepik_grader.core.reporter import safe_rel
+        from stepik_grader.web.viewmodels import _rel as web_rel
+
+        assert cli_rel is safe_rel is web_rel
+
+    def test_outside_base_path_keeps_folder(self) -> None:
+        """Файл вне base подписывается путём с ``..``, а не голым именем.
+
+        Прежний web-fallback (``path.name``) для двух разных ``other/task.py`` и
+        ``third/task.py`` давал одинаковое «task.py» — строки в таблице
+        становились неразличимы.
+        """
+        from stepik_grader.core.reporter import safe_rel
+
+        rel = safe_rel(pathlib.Path("/abs/other/task.py"), pathlib.Path("/abs/dir"))
+        assert rel.endswith("task.py") and "other" in rel
+
 
 # ---------------------------------------------------------------------------
 # print_correctness_header / print_benchmark_header

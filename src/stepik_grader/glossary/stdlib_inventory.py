@@ -33,6 +33,7 @@ __all__ = [
     "InventoryKind",
     "StdlibItem",
     "build_stdlib_inventory",
+    "scanner_name_sets",
 ]
 
 InventoryKind = Literal["function", "class", "exception", "method"]
@@ -295,3 +296,36 @@ def build_stdlib_inventory(modules: frozenset[str] | None = None) -> list[Stdlib
         by_qualname.setdefault(item.qualname, item)
 
     return sorted(by_qualname.values())
+
+
+# issue #367: наборы builtins/методов для сканера кода — из инвентаря, а не из
+# узкого хардкода detector.py. Инвентарь детерминирован и стабилен в пределах
+# процесса (интроспекция running-интерпретатора, без ФС), поэтому считается один
+# раз лениво и кешируется. Жило в web/glossary_adapter.py — домен базы, не HTTP
+# (issue #831, ARCH-06).
+_SCANNER_SETS: tuple[frozenset[str], frozenset[str]] | None = None
+
+
+def scanner_name_sets() -> tuple[frozenset[str], frozenset[str]]:
+    """``(builtins, methods)`` из инвентаря — входные наборы ``scan_code_concepts``.
+
+    ``builtins`` — имена встроенных функций/классов (``frozenset``, ``super``,
+    ``hash``, …, которых узкий ``CODE_TERM_BUILTINS`` не знал) **и встроенных
+    исключений** (issue #686: без них ``ValueError("...")`` в коде не
+    распознавалось, хотя карточка есть); ``methods`` — имена публичных методов
+    встроенных типов (``removeprefix``, ``translate``, bytes-методы, …).
+    Кешируется на весь процесс.
+    """
+    global _SCANNER_SETS
+    if _SCANNER_SETS is None:
+        items = build_stdlib_inventory()
+        builtins_names = frozenset(
+            it.qualname
+            for it in items
+            if it.module == "builtins" and it.kind in ("function", "class", "exception")
+        )
+        method_names = frozenset(
+            it.qualname.rsplit(".", 1)[-1] for it in items if it.kind == "method"
+        )
+        _SCANNER_SETS = (builtins_names, method_names)
+    return _SCANNER_SETS
