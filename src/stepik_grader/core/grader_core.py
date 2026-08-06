@@ -86,7 +86,7 @@ from stepik_grader.core.mode_detector import (
 )
 from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
 from stepik_grader.core.normalizers import split_output_lines
-from stepik_grader.core.result import CaseResult, Verdict
+from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult, Verdict
 from stepik_grader.core.runner import (
     RunOutcome,
     RunSpec,
@@ -547,7 +547,7 @@ def run_tests(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
     max_memory_mb: int | None = None,
-) -> dict[str, Any]:
+) -> SolutionResult:
     """Запустить все тест-кейсы для решения и собрать статистику.
 
     verbose_callback: вызывается для каждого кейса при verbose=True (получает
@@ -717,7 +717,7 @@ def run_benchmark(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
     max_memory_mb: int | None = None,
-) -> dict[str, Any]:
+) -> BenchResult:
     """Запустить все тест-кейсы в режиме benchmark и собрать статистику времени.
 
     Аргумент repeats задаёт число повторений каждого тест-кейса.
@@ -816,7 +816,7 @@ def run_microbench_mode(
     number: int = 1000,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
-) -> dict[pathlib.Path, dict[str, Any]]:
+) -> dict[pathlib.Path, BenchResult]:
     """Запустить timeit-microbench для нескольких решений и вернуть сводную статистику.
 
     peak_memory_mb (Issue #25) — максимум по всем кейсам решения: RSS через
@@ -836,7 +836,7 @@ def run_microbench_mode(
         return {}
 
     cases_to_bench = test_cases[:MICROBENCH_MAX_CASES]
-    results: dict[pathlib.Path, dict[str, Any]] = {}
+    results: dict[pathlib.Path, BenchResult] = {}
 
     for path in solution_paths:
         if cancel_event is not None and cancel_event.is_set():
@@ -871,7 +871,10 @@ def run_microbench_mode(
                 for _ in range(sub_repeats):
                     r = run_single_test(path, case, timeout=60.0)
                     if r["error"] or r["timed_out"]:
-                        results[path] = {"error": f"test {case.index}: {r['error'] or 'timeout'}"}
+                        results[path] = {
+                            "error": f"test {case.index}: {r['error'] or 'timeout'}",
+                            "runs": 0,
+                        }
                         break
                     case_times.append(r["time"])
                     peak_mb = max(peak_mb, r["memory"])
@@ -885,15 +888,30 @@ def run_microbench_mode(
                 code, stdin_data=stdin_data, number=number, max_memory_mb=CONFIG.max_memory_mb
             )
             if bench["error"]:
-                results[path] = {"error": f"test {case.index}: {bench['error']}"}
+                results[path] = {"error": f"test {case.index}: {bench['error']}", "runs": 0}
                 break
             all_times.extend(bench["times"])
             peak_mb = max(peak_mb, bench["peak_memory_mb"])
         else:
+            if not all_times:
+                # issue #831: ``run_microbench`` возвращает ``times=[]`` при
+                # ``error=""`` — так завершается решение, обрывающее замер само
+                # (``raise SystemExit``, ``os._exit``): код выхода нулевой,
+                # тайминги не напечатаны. Раньше это уходило в ``_micro_stats([])``
+                # и роняло ВЕСЬ режим 4 трейсбеком ``min() iterable argument is
+                # empty`` — падало не решение, а грейдер.
+                results[path] = {"error": "microbench: нет замеров", "runs": 0}
+                continue
             stats = _micro_stats(all_times)
-            stats["runs"] = len(all_times)
-            stats["peak_memory_mb"] = peak_mb
-            results[path] = stats
+            results[path] = {
+                "runs": len(all_times),
+                "peak_memory_mb": peak_mb,
+                "min": stats["min"],
+                "max": stats["max"],
+                "mean": stats["mean"],
+                "median": stats["median"],
+                "stdev": stats["stdev"],
+            }
 
         if progress_callback is not None:
             progress_callback(1)

@@ -17,7 +17,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, NotRequired, TypedDict
 
-__all__ = ["CaseResult", "TestResult", "Verdict"]
+__all__ = ["BenchResult", "CaseResult", "SolutionResult", "TestResult", "Verdict"]
 
 Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]
 
@@ -50,6 +50,57 @@ class CaseResult(TypedDict):
     timed_out: bool
     exit_code: int | None
     stdin: NotRequired[str]
+
+
+class SolutionResult(TypedDict):
+    """Типизированная форма агрегата ``run_tests`` — результата по РЕШЕНИЮ (issue #831).
+
+    Тот же контракт, что в
+    [`docs/dev/result-contract.md § Solution result`](../../../docs/dev/result-contract.md)
+    и в docstring ``run_tests``. Как и ``CaseResult``, это тип самого словаря:
+    runtime-представление не меняется, но mypy начинает ловить опечатки ключей
+    у потребителей (``cli/commands``, ``web/viewmodels``, ``core/history_recording``,
+    ``pytest_plugin``) — самый широко разошедшийся контракт проекта до сих пор был
+    единственным без модели.
+
+    ``first_fail`` — индекс первого упавшего кейса либо ``None``, если всё прошло.
+    """
+
+    total: int
+    passed: int
+    failed: int
+    errors: int
+    total_time: float
+    avg_time: float
+    peak_memory_mb: float
+    first_fail: int | None
+    cases: list[CaseResult]
+
+
+class BenchResult(TypedDict):
+    """Типизированная форма результата ``run_benchmark`` — замера ОДНОГО решения.
+
+    Обязательный ключ один — ``runs``: ранние выходы (нет кейсов, ошибка кейса,
+    отмена) возвращают ``{"error": ..., "runs": 0}`` без статистики, и это часть
+    контракта, а не дефект. Поэтому статистические поля — ``NotRequired``, и
+    потребитель обязан проверять ``error``/``runs`` перед чтением медианы.
+
+    ``relative``/``verdict`` проставляются ранжированием
+    (``microbench_runner.apply_relative_ranking``/``apply_reference_ranking``)
+    и в одиночном замере несут нейтральные значения (``1.0``/``"SIMILAR"``).
+    """
+
+    runs: int
+    error: NotRequired[str]
+    cancelled: NotRequired[bool]
+    min: NotRequired[float]
+    max: NotRequired[float]
+    mean: NotRequired[float]
+    median: NotRequired[float]
+    stdev: NotRequired[float]
+    peak_memory_mb: NotRequired[float]
+    relative: NotRequired[float]
+    verdict: NotRequired[str]
 
 
 @dataclass(frozen=True)

@@ -32,6 +32,7 @@ from typing import Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.ai_hints import explain_failure, is_configured
+from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.failure_context import build_failure_context
 from stepik_grader.web.grading import find_all_solution_files, trace_code
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
@@ -44,6 +45,11 @@ from stepik_grader.web.viewmodels import (
 )
 
 __all__ = ["Job", "TooManyRunsError", "cancel_job", "get_job", "shutdown_jobs", "submit_job"]
+
+# issue #831 (DEV-12): диагностический логгер web-слоя. До него падение
+# job'а оставляло в логе только строки запросов, а само место сбоя нигде не
+# фиксировалось — `core/feedback` собирал для баг-репорта пустоту.
+_log = get_logger("web")
 
 # issue #262 добавил ровно 4 статуса ("cancelled" сообщался как status="error"
 # + message_id="run_cancelled"); issue #296 выделяет отмену в отдельный
@@ -385,11 +391,16 @@ def _run_job(
             tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
                 mode="w", suffix=".py", encoding="utf-8", delete=False, dir=parent
             )
+            # issue #831 (DEV-09): путь запоминается СРАЗУ, до записи. Файл уже
+            # существует на диске (``delete=False``), и сбой ``write``/``close``
+            # (диск полон, сетевой диск отвалился) иначе уходил в ``except`` с
+            # ``temp_code_path is None`` — уборка в ``finally`` не срабатывала, и
+            # ``tmpXXXXXX.py`` оставался в папке задачи пользователя.
+            temp_code_path = tmp.name
             try:
                 tmp.write(code)
             finally:
                 tmp.close()
-            temp_code_path = tmp.name
             graded_path = pathlib.Path(temp_code_path)
 
         solutions = [graded_path] if graded_path.is_file() else find_all_solution_files(graded_path)
@@ -442,10 +453,12 @@ def _run_job(
                 workspace=workspace,
             )
     except Exception as exc:
-        # this worker thread must never leave the job stuck "running" forever
-        # with no way for the poller to find out; surfaced via message_fields
-        # the same way any other /api/* error is, not via logging (no
-        # centralized web-layer logging exists yet — issue #150/#147-149).
+        # Рабочий поток не имеет права оставить job навсегда в "running" — ошибка
+        # доезжает до поллера через message_fields, как любая другая ошибка /api/*.
+        # issue #831 (DEV-12): плюс стек в диагностический лог (opt-in,
+        # с редакцией секретов) — иначе от падения прогона остаётся одна строка
+        # "внутренняя ошибка", и в баг-репорт нечего приложить.
+        _log.exception("сбой job %s (kind=%s, path=%s)", job.id, kind, path)
         error = exc
     finally:
         # issue #605: чистим temp ДО публикации терминального статуса, чтобы
