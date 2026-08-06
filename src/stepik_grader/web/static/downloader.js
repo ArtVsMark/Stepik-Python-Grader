@@ -275,36 +275,58 @@ async function startBrowserAuth() {
   }
 }
 
+// issue #802 (FED-01): какой прогон OAuth опрашивается прямо сейчас. Раньше
+// цикл не отменялся ничем: повторный клик по «Авторизоваться» заводил второй,
+// и два опроса писали в панель наперегонки. Приём тот же, что у
+// `state.activeRunId` и `_routeSeq` в роутере, — токен, по которому обогнанная
+// итерация выходит молча.
+let authPollRunId = null;
+
+function cancelAuthPoll() {
+  authPollRunId = null;
+}
+
 function pollAuth(runId) {
-  const progress = $("#auth-progress");
-  const btn = $("#auth-start");
+  authPollRunId = runId;
   const step = async () => {
+    if (authPollRunId !== runId) return; // цикл отменён или вытеснен новым
+    // issue #802 (FED-01): узлы ищем на каждом шаге, а не один раз при старте.
+    // `renderAuthPanel()` пересобирает панель целиком, и захваченные ссылки
+    // после этого указывают на элементы вне документа — итог OAuth уходил в
+    // никуда, хотя сам опрос продолжался.
+    const progress = () => $("#auth-progress");
+    const btn = () => $("#auth-start");
+    const fail = message => {
+      const el = progress();
+      if (el) el.textContent = message;
+      const b = btn();
+      if (b) b.disabled = false;
+      cancelAuthPoll();
+    };
     try {
       const r = await fetch("/api/v1/runs/" + runId);
       const data = await r.json();
+      if (authPollRunId !== runId) return; // навигацию/новый запуск обогнали
       if (!r.ok || !data.status) {
         // Job исчез (404 run_not_found) или ответ без статуса — не крутить опрос
         // бесконечно (issue #402).
-        if (progress)
-          progress.textContent = data.message || t("auth.status_failed");
-        if (btn) btn.disabled = false;
+        fail(data.message || t("auth.status_failed"));
         return;
       }
       if (data.status === "done") {
+        cancelAuthPoll();
         authChoice = null;
         loadAuthStatus(); // перерисует панель как «Доступ активен»
         return;
       }
       if (data.status === "error" || data.status === "cancelled") {
-        if (progress)
-          progress.textContent = data.message || t("auth.auth_failed");
-        if (btn) btn.disabled = false;
+        fail(data.message || t("auth.auth_failed"));
         return;
       }
       setTimeout(step, 800);
     } catch (e) {
-      if (progress) progress.textContent = t("auth.poll_error", { detail: String(e) });
-      if (btn) btn.disabled = false;
+      if (authPollRunId !== runId) return;
+      fail(t("auth.poll_error", { detail: String(e) }));
     }
   };
   step();
@@ -348,6 +370,9 @@ function handleDownloaderClick(e) {
     return;
   }
   if (id === "auth-back") {
+    // issue #802 (FED-01): «Отмена» уводит из мастера — опрос прежнего прогона
+    // здесь и заканчивается, иначе он дорисует свой итог поверх новой панели.
+    cancelAuthPoll();
     authChoice = null;
     loadAuthStatus();
     return;
