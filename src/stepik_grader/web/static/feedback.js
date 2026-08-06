@@ -92,8 +92,30 @@ async function _fetchDraft() {
   }
 }
 
+// issue #803 (FES-03): токен актуальности черновика. Debounce гасил только
+// таймер, но не сам запрос: набранный раньше текст мог ответить позже нового и
+// перезаписать предпросмотр вместе со ссылкой. Приём тот же, что у `_routeSeq`
+// в роутере и `authPollRunId` в загрузчике.
+let _draftSeq = 0;
+
+/** Обе ссылки — в неактивное состояние: показанному черновика не отвечает. */
+function _disableFeedbackLinks() {
+  for (const id of ["#feedback-open-github", "#feedback-discussions"]) {
+    const el = $(id);
+    if (!el) continue;
+    el.removeAttribute("href");
+    el.setAttribute("aria-disabled", "true");
+  }
+}
+
 async function refreshFeedbackDraft() {
+  const seq = ++_draftSeq;
+  // issue #803 (FES-02): пока новый черновик не пришёл, прежняя ссылка уже
+  // не соответствует форме — гасим её сразу, а не только при провале. Иначе
+  // между сменой типа и ответом сервера кнопка ведёт в форму прежнего вида.
+  _disableFeedbackLinks();
   const draft = await _fetchDraft();
+  if (seq !== _draftSeq) return; // ответ устарел — его обогнал более свежий
   _renderPreview(draft);
   const link = $("#feedback-open-github");
   if (!link) return;
