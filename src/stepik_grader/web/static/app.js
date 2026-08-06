@@ -1,9 +1,9 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
 import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
-import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
+import { $, SECTIONS, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, syncSectionHash, t } from "./core.js";
 import { downloadTask, handleDownloaderClick, loadAuthStatus, loadDownloaderConfig } from "./downloader.js";
 import { initFeedback, refreshFeedbackDraft } from "./feedback.js";
-import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
+import { cancelActiveRun, findReference, findSolutions, grade, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, scheduleCheckTerms, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
 import { drawMemArrows, renderTraceStep } from "./trace-player.js";
 
@@ -67,7 +67,8 @@ async function routeFromHash() {
   const rule = h.match(/^#\/rules\/(.+)$/);
   if (rule) {
     const code = decodeURIComponent(rule[1]);
-    if (state.section !== "rules") setSection("rules");
+    // syncHash: false — хэш уже адресует карточку, раздел его не затирает.
+    if (state.section !== "rules") setSection("rules", { syncHash: false });
     if (!state.rules.cards.length) await loadRules();
     if (seq !== _routeSeq) return;  // навигацию обогнали — не рисуем поверх неё
     if (state.rules.selectedId !== code) selectRuleCard(code, { fromHash: true });
@@ -75,13 +76,24 @@ async function routeFromHash() {
   }
   const id = parseGlossaryHash();
   if (id) {
-    if (state.section !== "glossary") setSection("glossary");
+    if (state.section !== "glossary") setSection("glossary", { syncHash: false });
     if (!state.glossary.cards.length) await loadGlossary();
     if (seq !== _routeSeq) return;
     if (state.glossary.selectedId !== id) selectGlossaryCard(id, { fromHash: true });
     return;
   }
-  if (h === "#/insights" && state.section !== "insights") setSection("insights");
+  // issue #804 (FER-03): раздел как адрес — формат ссылок сайдбара (`#check`) и
+  // ранее задокументированный `#/insights`. Ветка последняя: карточки выше
+  // адресуют точнее. Проверка по SECTIONS обязательна — иначе сюда попадёт
+  // якорь skip-ссылки `#main-content`.
+  const section = h.match(/^#\/?([\w-]+)$/);
+  if (section && SECTIONS.includes(section[1])) {
+    if (state.section !== section[1]) setSection(section[1], { syncHash: false });
+    return;
+  }
+  // Хэша нет вовсе: раздел восстановлен из localStorage — дописываем его в URL,
+  // чтобы F5 и «поделиться ссылкой» возвращали туда же. Чужой якорь не трогаем.
+  if (!h) syncSectionHash(state.section);
 }
 
 // issue #565 — статус OS-изоляции (бейдж в шапке) и однократное уведомление о
@@ -302,11 +314,8 @@ $("#find-solutions-btn").addEventListener("click", findSolutions);
 $("#find-reference-btn").addEventListener("click", findReference); // issue #55
 $("#save-solution-btn").addEventListener("click", saveSolution); // issue #297
 $("#path").addEventListener("input", updateDirtyIndicator); // issue #297 — папка влияет на доступность «Сохранить»
-$("#path").addEventListener("input", () => {
-  // issue #323: путь к .py-файлу тоже наполняет «Функции в коде» (debounce)
-  clearTimeout(checkTermsTimer);
-  checkTermsTimer = setTimeout(loadCheckTerms, 400);
-});
+// issue #323: путь к .py-файлу тоже наполняет «Функции в коде» (debounce)
+$("#path").addEventListener("input", scheduleCheckTerms);
 $("#micro-profile").addEventListener("change", updateMicroCustomVisibility);
 $("#repeats").addEventListener("change", updateRepeatsCustomVisibility); // issue #727
 $("#downloader-run").addEventListener("click", downloadTask);
@@ -368,7 +377,10 @@ applyTheme();
 syncLangButtons(); // issue #659 — язык из localStorage отражаем на тумблере
 applyUiLocale(state.lang); // issue #545 — восстановленный из localStorage язык применяем к разметке при загрузке
 mountEditor();
-setSection(state.section);
+// issue #804 (FER-03): syncHash: false — раздел из localStorage восстанавливаем
+// ДО роутера, и он не должен затирать прямую ссылку (`/#/glossary/keyerror`).
+// Хэш в URL допишет routeFromHash() ниже, когда разберёт его.
+setSection(state.section, { syncHash: false });
 restoreProfiles(); // issue #727 — профили режимов 3/4 из localStorage до setMode()
 setMode(state.mode);
 setResultTab(state.resultTab);

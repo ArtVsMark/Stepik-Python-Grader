@@ -261,9 +261,25 @@ function revealWithMotion(el, visible) {
   }
 }
 
-function setSection(section) {
+// issue #804 (FER-03): URL адресует раздел. Пишем ровно тот формат, что уже
+// стоит в `href` пунктов сайдбара (`#check`), — второй формат разошёлся бы с
+// разметкой. Через `replaceState`, а не `location.hash`: переключение раздела —
+// смена вида, а не шаг истории, и лишние записи ломали бы «Назад».
+// `window.` обязателен: строкой 5 в модуль импортирован CodeMirror'овский
+// `history` (расширение undo/redo) — он затеняет глобальный `History`, и голое
+// `history.replaceState` здесь падает с TypeError.
+function syncSectionHash(section) {
+  const target = "#" + section;
+  if (location.hash !== target) window.history.replaceState(null, "", target);
+}
+
+// `syncHash: false` — когда хэш адресует точнее (карточка `#/glossary/<id>`)
+// или ещё не разобран роутером (старт приложения): раздел из localStorage не
+// имеет права затирать прямую ссылку.
+function setSection(section, { syncHash = true } = {}) {
   state.section = section;
   localStorage.setItem("grader_section", section);
+  if (syncHash) syncSectionHash(section);
   document.querySelectorAll("[data-section]").forEach(a => {
     const active = a.dataset.section === section;
     a.classList.toggle("active", active);
@@ -760,6 +776,7 @@ export {
   skeletonBlock,
   skeletonListItems,
   skeletonWithLabel,
+  syncSectionHash,
   clearLoadError,
   fetchJsonOrThrow,
   renderLoadError,
