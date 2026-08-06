@@ -346,7 +346,7 @@ function makeEditor(mount, onChange, label) {
     ".cm-scroller": { overflow: "auto" },
     ".cm-gutters": {
       backgroundColor: "var(--color-surface-offset)",
-      color: "var(--color-text-faint)",
+      color: "var(--color-text-muted)", // issue #805: номера строк — текст, 4.5:1
       border: "none",
     },
     ".cm-activeLineGutter": { backgroundColor: "var(--color-surface-offset-2)" },
@@ -741,18 +741,53 @@ function toast(message, kind = "info", options = {}) {
   const el = document.createElement("div");
   el.className = "toast toast-" + kind;
   el.setAttribute("role", kind === "error" ? "alert" : "status");
-  el.textContent = message;
+
+  const text = document.createElement("span");
+  text.className = "toast-text";
+  text.textContent = message;
+  el.appendChild(text);
+
+  // issue #805 (DESW-06): сообщение об ошибке часто единственный канал
+  // диагностики, а уезжало оно по таймеру — перечитать, выделить и вставить в
+  // issue было нечем (WCAG 2.2.1). Отсюда кнопка закрытия у каждого тоста,
+  // пауза, пока на него смотрят, и отсутствие автозакрытия у ошибок.
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.textContent = "✕";
+  close.setAttribute("aria-label", t("toast.close_aria"));
+  el.appendChild(close);
+
   stack.appendChild(el);
 
   // Кадр на применение начального состояния — иначе элемент сразу окажется в
   // конечном и переход появления не отработает.
   requestAnimationFrame(() => el.classList.add("toast-visible"));
 
-  const life = options.timeout ?? (kind === "error" ? 6000 : 2500);
-  window.setTimeout(() => {
+  let timer = null;
+  const dismiss = () => {
     el.classList.remove("toast-visible");
     window.setTimeout(() => el.remove(), 200);
-  }, life);
+  };
+  // Ошибка ждёт закрытия рукой; `options.timeout` перекрывает это решение
+  // явным числом, если вызывающему нужно иное.
+  const life = options.timeout ?? (kind === "error" ? null : 2500);
+  const arm = () => {
+    if (life !== null) timer = window.setTimeout(dismiss, life);
+  };
+  const hold = () => {
+    window.clearTimeout(timer);
+    timer = null;
+  };
+
+  close.addEventListener("click", dismiss);
+  // Наведение и фокус внутри тоста откладывают уход: пока текст читают или
+  // выделяют, он не должен исчезать из-под курсора.
+  el.addEventListener("mouseenter", hold);
+  el.addEventListener("focusin", hold);
+  el.addEventListener("mouseleave", arm);
+  el.addEventListener("focusout", arm);
+  arm();
 }
 
 export {

@@ -18,7 +18,14 @@ import re
 import sys
 from pathlib import Path
 
-__all__ = ["Pair", "check", "contrast_ratio", "load_tokens", "main"]
+__all__ = [
+    "Pair",
+    "check",
+    "check_pairs_cover_text_tokens",
+    "contrast_ratio",
+    "load_tokens",
+    "main",
+]
 
 _CSS_PATH = (
     Path(__file__).resolve().parent.parent / "src" / "stepik_grader" / "web" / "static" / "app.css"
@@ -117,6 +124,12 @@ _PAIRS: list[Pair] = [
     Pair("text-muted / surface", "--color-text-muted", "--color-surface", 4.5),
     Pair("text-muted / surface-offset", "--color-text-muted", "--color-surface-offset", 4.5),
     Pair("text-muted / bg", "--color-text-muted", "--color-bg", 4.5),
+    # issue #805: hover-фон списков и кнопок — самый тёмный (в light) и самый
+    # светлый (в dark) из поверхностей, то есть худший случай для muted; именно
+    # на нём висит пустое состояние `.side-list li.empty` при наведении.
+    Pair("text-muted / surface-dynamic", "--color-text-muted", "--color-surface-dynamic", 4.5),
+    Pair("text-muted / surface-2", "--color-text-muted", "--color-surface-2", 4.5),
+    Pair("text-muted / surface-offset-2", "--color-text-muted", "--color-surface-offset-2", 4.5),
     # Плейсхолдеры (1.4.3 не покрывает — мягкий порог ради читаемости).
     Pair("placeholder / surface", "--color-text-placeholder", "--color-surface", 3.0),
     # Первичная кнопка: текст on-primary на фоне primary-btn во всех состояниях
@@ -156,6 +169,44 @@ _PAIRS: list[Pair] = [
 ]
 
 
+# issue #805 (DESW-01): токены, которые CSS ставит в `color:`, но текстом они
+# не являются — для них порог 1.4.3 не применяется. Список явный и с причиной:
+# молча «не покрыт парой» больше не бывает, см. check_pairs_cover_text_tokens.
+_NON_TEXT_FG: dict[str, str] = {
+    "--color-text-inverse": "текст на сплошной заливке акцентом — пара считается от неё",
+}
+
+# `color: var(--token)` в CSS и `color: "var(--token)"` в CSS-в-JS (тема
+# CodeMirror собирается объектом в core.js). Отрицательный просмотр назад
+# отсекает `border-left-color:`/`background-color:` и `caretColor:`.
+_COLOR_DECL_RE = re.compile(r"(?<![-\w])color\s*:\s*\"?var\((--[a-z0-9-]+)\)")
+
+
+def check_pairs_cover_text_tokens(css_path: Path = _CSS_PATH) -> list[str]:
+    """Каждый токен, стоящий как цвет текста, должен быть в ``_PAIRS``.
+
+    Дыра, из-за которой завели issue #805: ``--color-text-faint`` красил
+    вкладки, подсказки и номера строк при 1.7:1, а гейт печатал «все пары
+    проходят» — просто потому, что пары с этим токеном в списке не было.
+    Проверка ловит уже не значение, а сам пропуск.
+
+    Смотрим и на соседние ``*.js``: тема редактора задаёт цвета объектом
+    (``.cm-gutters`` в ``core.js``), и токен, живущий только там, мимо
+    проверки по одному ``app.css`` прошёл бы ровно так же.
+    """
+    sources = [css_path, *sorted(css_path.parent.glob("*.js"))]
+    used: set[str] = set()
+    for path in sources:
+        used |= {m.group(1) for m in _COLOR_DECL_RE.finditer(path.read_text(encoding="utf-8"))}
+    covered = {pair.fg for pair in _PAIRS}
+    missing = sorted(used - covered - set(_NON_TEXT_FG))
+    return [
+        f"{token} используется как цвет текста, но не покрыт ни одной парой в _PAIRS "
+        f"(добавьте пару или объявите токен нетекстовым в _NON_TEXT_FG)"
+        for token in missing
+    ]
+
+
 def _resolve(ref: str, tokens: dict[str, str]) -> str:
     """Имя токена → его hex; литеральный ``#hex`` возвращается как есть."""
     if ref.startswith("#"):
@@ -168,7 +219,7 @@ def _resolve(ref: str, tokens: dict[str, str]) -> str:
 def check(css_path: Path = _CSS_PATH) -> list[str]:
     """Проверить все пары в обеих темах. Вернуть список строк-провалов (пусто = ок)."""
     themes = load_tokens(css_path)
-    failures: list[str] = []
+    failures: list[str] = check_pairs_cover_text_tokens(css_path)
     for pair in _PAIRS:
         for theme in pair.themes:
             tokens = themes[theme]

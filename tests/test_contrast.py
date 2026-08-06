@@ -91,3 +91,67 @@ def _min_tokens(module: ModuleType, *, dark: bool) -> dict[str, str]:
         if any(m in name for m in bg_markers) or name.endswith(("-hover", "-active")):
             out[name] = bg
     return out
+
+
+# ---------------------------------------------------------------------------
+# issue #805 (DESW-01) — полнота самого списка пар. Провал WCAG держался
+# зелёным не из-за неверного порога, а из-за отсутствующей строки в `_PAIRS`:
+# токен красил вкладки и подсказки при 1.7:1, а чекер печатал «все пары
+# проходят». Проверка ловит пропуск, а эти тесты — что она его ловит.
+# ---------------------------------------------------------------------------
+
+
+def _css_with_extra(tmp_path: Path, extra: str) -> Path:
+    """Копия реального app.css с дописанным правилом (токены остаются валидными)."""
+    module = _load_module()
+    css = module._CSS_PATH.read_text(encoding="utf-8")
+    target = tmp_path / "app.css"
+    target.write_text(css + "\n" + extra + "\n", encoding="utf-8")
+    return target
+
+
+def test_coverage_guard_passes_on_the_real_stylesheet() -> None:
+    """Живой app.css проверку проходит — иначе гейт красный на пустом месте."""
+    module = _load_module()
+    assert module.check_pairs_cover_text_tokens() == []
+
+
+def test_coverage_guard_flags_a_text_token_without_a_pair(tmp_path: Path) -> None:
+    """Новый токен в `color:` без пары в `_PAIRS` — провал с именем токена."""
+    module = _load_module()
+    css = _css_with_extra(tmp_path, ".made-up { color: var(--color-faint); }")
+    failures = module.check_pairs_cover_text_tokens(css)
+    assert failures and "--color-faint" in failures[0], failures
+
+
+def test_coverage_guard_ignores_non_color_properties(tmp_path: Path) -> None:
+    """`border-left-color`/`background-color` — не цвет текста, порог не их."""
+    module = _load_module()
+    css = _css_with_extra(
+        tmp_path,
+        ".made-up { border-left-color: var(--color-faint); background-color: var(--color-faint); }",
+    )
+    assert module.check_pairs_cover_text_tokens(css) == []
+
+
+def test_coverage_guard_reads_css_in_js(tmp_path: Path) -> None:
+    """Тема редактора задаёт цвета объектом в JS — токен оттуда тоже покрывается.
+
+    Без этого `.cm-gutters` в `core.js` остаётся слепой зоной: токен, живущий
+    только там, прошёл бы мимо проверки по одному `app.css`.
+    """
+    module = _load_module()
+    css = _css_with_extra(tmp_path, "")
+    (tmp_path / "theme.js").write_text(
+        '".cm-gutters": { color: "var(--color-faint)", border: "none" },\n',
+        encoding="utf-8",
+    )
+    failures = module.check_pairs_cover_text_tokens(css)
+    assert failures and "--color-faint" in failures[0], failures
+
+
+def test_check_reports_coverage_gap_together_with_ratio_failures(tmp_path: Path) -> None:
+    """`check()` возвращает и пропуски покрытия — иначе CI их не увидит."""
+    module = _load_module()
+    css = _css_with_extra(tmp_path, ".made-up { color: var(--color-faint); }")
+    assert any("не покрыт ни одной парой" in f for f in module.check(css))
