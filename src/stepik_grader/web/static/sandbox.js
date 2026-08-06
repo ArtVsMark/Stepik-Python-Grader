@@ -1,5 +1,5 @@
 // sandbox.js — песочница: запуск/трейс, редактор, карточки ошибок (#426).
-import { $, esc, explainFailureWithAi, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, skeletonWithLabel, state, t } from "./core.js";
+import { $, esc, explainFailureWithAi, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, skeletonWithLabel, state, t, toast } from "./core.js";
 import { showTracePlayer } from "./trace-player.js";
 
 let sandboxView = null; // issue #317: отдельный редактор песочницы
@@ -130,10 +130,26 @@ function _finishSandboxUI() {
   $("#sandbox-cancel").hidden = true;
 }
 
-function cancelSandboxRun() {
-  if (!state.sandbox.activeRunId) return;
-  $("#sandbox-cancel").disabled = true;
-  fetch("/api/v1/runs/" + state.sandbox.activeRunId + "/cancel", { method: "POST" }).catch(() => {});
+// issue #803 (FES-01): кнопка гасла до ответа сервера, а отказ (500/404/обрыв)
+// уходил в пустой `catch` — «Отмена» оставалась неактивной навсегда, и второй
+// попытки не было. Дизейблим только на время запроса и возвращаем кнопку с
+// сообщением, если отменить не удалось.
+async function cancelSandboxRun() {
+  const runId = state.sandbox.activeRunId;
+  if (!runId) return;
+  const btn = $("#sandbox-cancel");
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/v1/runs/" + runId + "/cancel", { method: "POST" });
+    if (resp.ok) return; // прогон свернётся сам — кнопку снимет _finishSandboxUI
+    const data = await resp.json().catch(() => ({}));
+    toast(data.message || t("sandbox.cancel_failed"), "error");
+  } catch (e) {
+    toast(t("common.request_error_detail", { detail: String(e) }), "error");
+  }
+  // Сюда попадаем только при неудаче: прогон продолжается, отмену можно
+  // повторить — но лишь пока это тот же прогон.
+  if (state.sandbox.activeRunId === runId) btn.disabled = false;
 }
 
 function setSandboxStatus(status) {
