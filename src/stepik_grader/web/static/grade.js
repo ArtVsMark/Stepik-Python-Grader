@@ -142,6 +142,10 @@ function setResultTab(tab) {
     const active = b.dataset.restab === tab;
     b.classList.toggle("active", active);
     b.setAttribute("aria-selected", String(active));
+    // issue #805 (DESW-05): roving tabindex — в группе вкладок Tab попадает
+    // на выбранную и уходит дальше, между вкладками ходят стрелками
+    // (клавиатурная модель WAI-ARIA Tabs, обработчик — в app.js).
+    b.tabIndex = active ? 0 : -1;
   });
   // issue #634: вкладки результатов тоже появлялись мгновенным свитчем .hidden
   revealWithMotion($("#restab-table"), tab === "table");
@@ -248,6 +252,11 @@ function scheduleCheckTerms() {
 
 function mountEditor() {
   const mount = document.getElementById("solution-editor");
+  // issue #805 (DESW-07): `tabindex="0"` в разметке держит контейнер
+  // достижимым, пока редактор не смонтирован. После монтирования фокус берёт
+  // на себя contenteditable самого CodeMirror, и оставленный атрибут добавляет
+  // в обход клавиатурой лишнюю пустую остановку перед редактором.
+  mount.removeAttribute("tabindex");
   cmView = makeEditor(mount, () => {
     updateRunButtonState();
     updateDirtyIndicator(); // issue #297

@@ -198,13 +198,13 @@
           <div class="panel-header">
             <span class="panel-title" data-i18n="check.results_title">Результаты</span>
             <div class="panel-tabs" role="tablist">
-              <button class="panel-tab active" data-restab="table" role="tab" aria-selected="true" data-i18n="check.tab_table">Таблица</button>
-              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false" data-i18n="check.tab_detail">Разбор</button>
+              <button class="panel-tab active" data-restab="table" role="tab" id="restab-table-btn" aria-selected="true" aria-controls="restab-table" data-i18n="check.tab_table">Таблица</button>
+              <button class="panel-tab" data-restab="detail" role="tab" id="restab-detail-btn" aria-selected="false" aria-controls="restab-detail" tabindex="-1" data-i18n="check.tab_detail">Разбор</button>
             </div>
             <div class="panel-actions" id="result-summary-badges"></div>
           </div>
 
-          <div class="panel-body no-pad" id="restab-table" tabindex="-1">
+          <div class="panel-body no-pad" id="restab-table" role="tabpanel" aria-labelledby="restab-table-btn" tabindex="-1">
             <div id="bar" class="bar pad-t3-x4"></div>
             <div id="out"></div>
           </div>
@@ -215,7 +215,7 @@
                the intermediate skeleton. Visually hidden (.sr-only). -->
           <div id="result-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
-          <div class="panel-body" id="restab-detail" hidden>
+          <div class="panel-body" id="restab-detail" role="tabpanel" aria-labelledby="restab-detail-btn" tabindex="-1" hidden>
             <div id="detail-empty" class="empty-state">
               <h3 data-i18n="check.detail_empty_title">Кейс не выбран</h3>
               <p data-i18n="check.detail_empty_text">Выберите тест-кейс во вкладке «Таблица», чтобы увидеть разбор.</p>

@@ -240,6 +240,22 @@ document
   .querySelectorAll("[data-restab]")
   .forEach(b => b.addEventListener("click", () => setResultTab(b.dataset.restab)));
 
+// issue #805 (DESW-05): клавиатурная модель WAI-ARIA Tabs. `role="tab"` был
+// объявлен, но стрелки не работали — скринридер обещал вкладки, а вело себя
+// как две обычные кнопки. Выбор переносит и фокус: иначе roving tabindex
+// оставит фокус на кнопке, которая только что стала недостижимой для Tab.
+$(".panel-tabs").addEventListener("keydown", e => {
+  const tabs = [...document.querySelectorAll(".panel-tabs [data-restab]")];
+  const i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (to === undefined) return;
+  e.preventDefault();
+  const next = tabs[(to + tabs.length) % tabs.length];
+  setResultTab(next.dataset.restab);
+  next.focus();
+});
+
 $("#run").addEventListener("click", grade);
 $("#cancel-run").addEventListener("click", cancelActiveRun);
 $("#stepik-submit").addEventListener("click", submitToStepik); // issue #683
