@@ -204,6 +204,58 @@ def test_load_test_cases_format2(tmp_path: pathlib.Path):
     assert cases[0].expected_lines == ["25"]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="Missing expected_N.txt is silently skipped, see #959",
+)
+def test_load_test_cases_format2_missing_expected_warns(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 warns when an input_N.txt has no matching expected_N.txt."""
+    (tmp_path / "input_2.txt").write_text("5\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="expected_2.txt"):
+        grader.load_test_cases(tmp_path)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="input_03.txt is dropped, see #959",
+)
+def test_load_test_cases_format2_preserves_leading_zero(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 loads input_03.txt instead of losing the case."""
+    (tmp_path / "input_03.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_03.txt").write_text("25\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].index == 3
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["25"]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="input_2.txt and input_02.txt collide, see #959",
+)
+def test_load_test_cases_format2_distinguishes_leading_zero(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 does not collapse input_2.txt and input_02.txt."""
+    (tmp_path / "input_2.txt").write_text("2\n", encoding="utf-8")
+    (tmp_path / "expected_2.txt").write_text("20\n", encoding="utf-8")
+    (tmp_path / "input_02.txt").write_text("2\n", encoding="utf-8")
+    (tmp_path / "expected_02.txt").write_text("200\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2
+    assert [c.expected_lines for c in cases] == [["20"], ["200"]]
+
+
 def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     """An empty directory yields no cases."""
     assert grader.load_test_cases(tmp_path) == []
