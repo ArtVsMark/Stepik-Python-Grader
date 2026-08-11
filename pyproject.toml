@@ -26,6 +26,10 @@ keywords = [
     "sandbox",
     "glossary",
     "testing",
+    "pytest",
+    "cli",
+    "education",
+    "learn-python",
 ]
 # Уезжает в long_description дистрибутива КАК ЕСТЬ. Относительные ссылки PyPI не
 # переписывает — резолвит к pypi.org, поэтому README держит абсолютные адреса, а

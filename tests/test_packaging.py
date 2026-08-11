@@ -241,7 +241,17 @@ def test_keywords_cover_the_features_people_search_for() -> None:
     """PyPI ранжирует по name/summary/keywords: без keywords ищут только по имени."""
     keywords = _project_table()["keywords"]
     assert isinstance(keywords, list)
-    assert {"stepik", "autograder", "benchmark", "sandbox", "glossary"} <= set(keywords)
+    assert {
+        "stepik",
+        "autograder",
+        "benchmark",
+        "sandbox",
+        "glossary",
+        "pytest",
+        "cli",
+        "education",
+        "learn-python",
+    } <= set(keywords)
     assert all(k == k.lower() and " " not in k for k in keywords), keywords
 
 
