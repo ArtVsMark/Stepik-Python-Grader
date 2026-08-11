@@ -201,6 +201,7 @@ def test_load_test_cases_format2_missing_expected_warns(
     with pytest.warns(UserWarning, match="expected_2.txt"):
         grader.load_test_cases(tmp_path)
 
+
 def test_load_test_cases_format2_preserves_leading_zero(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -214,6 +215,7 @@ def test_load_test_cases_format2_preserves_leading_zero(
     assert cases[0].index == 3
     assert cases[0].input_lines == ["5"]
     assert cases[0].expected_lines == ["25"]
+
 
 def test_load_test_cases_format2_distinguishes_leading_zero(
     tmp_path: pathlib.Path,
