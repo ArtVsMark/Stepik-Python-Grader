@@ -11,6 +11,10 @@ cancelled / timed_out / RE / AC / WA) без реального subprocess-за�
 from __future__ import annotations
 
 import pathlib
+import shutil
+import stat
+import sys
+import tempfile
 import threading
 
 from stepik_grader.core.grader_core import (
@@ -144,8 +148,40 @@ def test_prepare_function_call_block_writes_wrapper(tmp_path: pathlib.Path) -> N
         assert plan.spec.stdin is None  # wrapper не читает stdin
         assert plan.tmp_wrapper_path.exists()
     finally:
-        if plan.tmp_wrapper_path is not None:
-            plan.tmp_wrapper_path.unlink(missing_ok=True)
+        if plan.tmp_wrapper_dir is not None:
+            shutil.rmtree(plan.tmp_wrapper_dir, ignore_errors=True)
+
+
+def test_wrapper_lives_in_private_dir_not_shared_tmp(tmp_path: pathlib.Path) -> None:
+    """Wrapper function-режима лежит в приватном каталоге 0700 (issue #945).
+
+    Каталог исполняемого скрипта CPython ставит ПЕРВЫМ в ``sys.path`` дочернего
+    процесса: в общем ``/tmp`` посторонний мог подложить свой ``json.py`` и
+    подменить импорт внутри wrapper'а. Права самого файла от этого не спасают —
+    цель атаки каталог, поэтому проверяется именно он. Тот же вектор уже закрыт
+    в ``runner.py``/``tracer.py`` (issue #799), function-режим в ту правку не
+    попал.
+    """
+    sol = tmp_path / "sol.py"
+    sol.write_text("def solve(n):\n    return n * 2\n", encoding="utf-8")
+    case = _case(input_lines=["print(solve(5))"], expected=["10"], test_type="function")
+    plan = _prepare_run_spec(sol, case, timeout=5.0, measure_memory=False, cancel_event=None)
+    try:
+        assert plan.tmp_wrapper_path is not None
+        assert plan.tmp_wrapper_dir is not None
+
+        shared_tmp = pathlib.Path(tempfile.gettempdir()).resolve()
+        wrapper_dir = plan.tmp_wrapper_dir.resolve()
+        assert wrapper_dir != shared_tmp, f"wrapper лежит прямо в общем temp: {wrapper_dir}"
+        assert plan.tmp_wrapper_path.parent.resolve() == wrapper_dir
+        assert wrapper_dir.name.startswith("stepik-wrapper-"), wrapper_dir
+
+        if sys.platform != "win32":
+            mode = stat.S_IMODE(wrapper_dir.stat().st_mode)
+            assert mode == 0o700, oct(mode)
+    finally:
+        if plan.tmp_wrapper_dir is not None:
+            shutil.rmtree(plan.tmp_wrapper_dir, ignore_errors=True)
 
 
 def test_prepare_function_missing_name_is_prep_error(tmp_path: pathlib.Path) -> None:
