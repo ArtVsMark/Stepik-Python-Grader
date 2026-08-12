@@ -20,7 +20,7 @@ import pathlib
 import shutil
 import warnings
 
-__all__ = ["save_tests", "write_testblock_tests"]
+__all__ = ["reset_tests_dir", "save_tests", "write_testblock_tests"]
 
 
 def _write_text(path: pathlib.Path, text: str) -> None:
@@ -45,7 +45,7 @@ def _write_text(path: pathlib.Path, text: str) -> None:
         path.write_text(text, encoding="utf-8", errors="replace")
 
 
-def _reset_tests_dir(tests_dir: pathlib.Path) -> None:
+def reset_tests_dir(tests_dir: pathlib.Path) -> None:
     """Очистить содержимое ``tests/`` перед записью нового набора (issue #394).
 
     Перескачивание в существующую ``task_dir`` иначе оставляет устаревшие
@@ -59,6 +59,12 @@ def _reset_tests_dir(tests_dir: pathlib.Path) -> None:
     заблокированном/read-only файле (Windows) — старый ``mkdir(exist_ok=True)``
     этого не делал, и обрывать скачивание из-за одного неудаляемого файла
     нельзя. Удаление каждого элемента — best-effort под ``OSError``.
+
+    Публична (issue #942), потому что общий путь записи нужен и тем источникам,
+    которые кладут файлы Format 3 байт-в-байт (GitHub-каталог с готовыми
+    ``input.txt``/``output.txt``) и потому не проходят через
+    :func:`write_testblock_tests`. Вызывать ПОСЛЕ получения всех данных: сброс
+    до сети оставил бы каталог пустым при обрыве.
     """
     tests_dir.mkdir(parents=True, exist_ok=True)
     for entry in tests_dir.iterdir():
@@ -81,7 +87,7 @@ def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int
     тестов. Каталог ``tests/`` очищается перед записью (issue #394).
     """
     tests_dir = task_dir / "tests"
-    _reset_tests_dir(tests_dir)
+    reset_tests_dir(tests_dir)
     for i, (input_data, expected, test_type) in enumerate(tests, start=1):
         _write_text(tests_dir / str(i), input_data)
         _write_text(tests_dir / f"{i}.clue", expected)
@@ -107,7 +113,7 @@ def write_testblock_tests(tests_dir: pathlib.Path, pairs: dict[int, tuple[str, s
     Каталог ``tests/`` очищается перед записью (issue #394), чтобы висящие
     Format-1 файлы прошлого скачивания не перебивали свежий Format 3.
     """
-    _reset_tests_dir(tests_dir)
+    reset_tests_dir(tests_dir)
     input_lines = ["# INPUT DATA:\n"]
     output_lines = ["# OUTPUT DATA:\n"]
     for idx in sorted(pairs.keys()):

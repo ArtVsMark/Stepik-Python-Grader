@@ -26,7 +26,7 @@ from stepik_grader.core.stepik_client import (
     external_download_get,
     is_stepik_url,
 )
-from stepik_grader.core.tests_writer import write_testblock_tests
+from stepik_grader.core.tests_writer import reset_tests_dir, write_testblock_tests
 
 __all__ = ["download_github_tests", "download_zip_tests"]
 
@@ -168,6 +168,25 @@ def _collect_zip_pairs(
                 pairs.setdefault(idx, {})["clue"] = _read_member(zf, name, budget=budget)
 
 
+def _fetch_text(url: str | None) -> str:
+    """Скачать текстовый файл кейса, декодируя явным UTF-8 (issue #942).
+
+    ``url`` ``None`` — файла в паре нет (``N`` без ``N.clue``), возвращается
+    пустая строка: пара всё равно попадёт в набор, чтобы неполнота была видна
+    как пустой кейс, а не как молча пропущенный номер.
+
+    Декодируем ``content`` сами, а не берём ``response.text``: без ``charset``
+    в заголовке ``requests`` разбирает ``text/*`` как latin-1 по букве
+    HTTP-спеки, и кириллический кейс превращался в мусор — тот же ложный ``WA``,
+    что и битая кодировка на диске. ``errors="replace"`` — как в ZIP-ветке.
+    """
+    if url is None:
+        return ""
+    response = external_download_get(url)
+    response.raise_for_status()
+    return response.content.decode("utf-8", errors="replace").rstrip("\n")
+
+
 def download_github_tests(
     task_dir: pathlib.Path,
     gh_url: str,
@@ -216,8 +235,10 @@ def download_github_tests(
         print(f"  ⚠️ GitHub API вернул не список файлов: {gh_url}")
         return 0
 
+    # issue #942: каталог НЕ создаётся заранее — при обрыве сети на первом же
+    # файле пустой ``tests/`` выглядел бы как «набор скачан, но пуст». Создание
+    # и сброс делает общий путь записи, уже после получения всех данных.
     tests_dir = task_dir / "tests"
-    tests_dir.mkdir(parents=True, exist_ok=True)
 
     # issue #814 (NETW-02): ответ API — недоверенный JSON, а индексация шла
     # напрямую. Файл без `download_url` (submodule, symlink, урезанная выдача
@@ -235,12 +256,32 @@ def download_github_tests(
 
     # Вариант А: input.txt + output.txt уже есть (Format 3)
     if "input.txt" in file_map and "output.txt" in file_map:
-        for fname in ("input.txt", "output.txt"):
-            r = external_download_get(file_map[fname])
-            r.raise_for_status()
-            (tests_dir / fname).write_bytes(r.content)
-        text = (tests_dir / "input.txt").read_text(encoding="utf-8")
-        count = len(parse_testblock_file(text))
+        # issue #942: сначала оба файла в память, и только потом — на диск.
+        # Раньше запись шла по ходу скачивания: обрыв на втором файле оставлял
+        # свежий ``input.txt`` рядом со СТАРЫМ ``output.txt``, и прогон сверял
+        # новые входные данные со старыми ожиданиями.
+        try:
+            blobs: dict[str, bytes] = {}
+            for fname in ("input.txt", "output.txt"):
+                response = external_download_get(file_map[fname])
+                response.raise_for_status()
+                blobs[fname] = response.content
+        except (requests.RequestException, ExternalUrlRejected) as exc:
+            print(f"  ⚠️ GitHub: не удалось скачать файлы тестов: {exc}")
+            return 0
+
+        # issue #942: через общий путь сброса. Прямая запись мимо него оставляла
+        # висящие Format-1 файлы (``N``/``N.clue``) прошлого скачивания, а
+        # автодетект отдаёт Format 1 приоритет — грейдер молча прогонял СТАРЫЙ
+        # набор. Триггер: перекачка шага, тесты которого раньше пришли из ZIP.
+        reset_tests_dir(tests_dir)
+        for fname, blob in blobs.items():
+            (tests_dir / fname).write_bytes(blob)
+
+        # issue #942: декодируем те же байты, а не перечитываем файл строгим
+        # UTF-8 — набор в cp1251 давал ``UnicodeDecodeError`` уже ПОСЛЕ записи,
+        # то есть после подмены каталога, и наружу летел трейсбек вместо счёта.
+        count = len(parse_testblock_file(blobs["input.txt"].decode("utf-8", errors="replace")))
         print(f"  🔗 GitHub: скачаны input.txt + output.txt (Format 3): {count} тест(ов)")
         return count
 
@@ -260,15 +301,19 @@ def download_github_tests(
         return 0
 
     # Скачиваем содержимое (сеть — здесь), тексты отдаём writer'у (issue #302).
+    # issue #942: вся ветка под перехватом — обрыв на середине пачки уносил
+    # трейсбек мимо счётчика, хотя запись ещё не начиналась; и `raise_for_status`
+    # на каждом файле, иначе 404-страница GitHub легла бы в тест-кейс как данные.
     text_pairs: dict[int, tuple[str, str]] = {}
-    for idx, pair in pairs.items():
-        inp_text = ""
-        clue_text = ""
-        if "input_url" in pair:
-            inp_text = external_download_get(pair["input_url"]).text.rstrip("\n")
-        if "clue_url" in pair:
-            clue_text = external_download_get(pair["clue_url"]).text.rstrip("\n")
-        text_pairs[idx] = (inp_text, clue_text)
+    try:
+        for idx, pair in pairs.items():
+            text_pairs[idx] = (
+                _fetch_text(pair.get("input_url")),
+                _fetch_text(pair.get("clue_url")),
+            )
+    except (requests.RequestException, ExternalUrlRejected) as exc:
+        print(f"  ⚠️ GitHub: не удалось скачать файлы тестов: {exc}")
+        return 0
 
     count = write_testblock_tests(tests_dir, text_pairs)
     print(f"  🔗 GitHub: сконвертировано {count} тест(ов) → Format 3")

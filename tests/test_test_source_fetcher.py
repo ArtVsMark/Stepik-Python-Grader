@@ -272,9 +272,11 @@ class TestDownloadGithubTests:
             },
         ]
         in_resp = MagicMock()
-        in_resp.text = "3 4"
+        in_resp.content = b"3 4"
+        in_resp.raise_for_status = MagicMock()
         clue_resp = MagicMock()
-        clue_resp.text = "7"
+        clue_resp.content = b"7"
+        clue_resp.raise_for_status = MagicMock()
 
         with patch(
             "stepik_grader.core.test_source_fetcher.external_download_get",
@@ -368,6 +370,182 @@ class TestDownloadGithubTests:
             _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
         mock_get.assert_called_once()
         assert "session" not in mock_get.call_args.kwargs
+
+
+# ── TestGithubFormat3WriteSafety ───────────────────────────────────────────
+
+
+def _format3_api_response() -> MagicMock:
+    """Ответ Contents API с готовой парой input.txt + output.txt (вариант А)."""
+    api_resp = MagicMock()
+    api_resp.raise_for_status = MagicMock()
+    api_resp.json.return_value = [
+        {
+            "name": "input.txt",
+            "type": "file",
+            "download_url": "https://raw.githubusercontent.com/o/r/main/input.txt",
+        },
+        {
+            "name": "output.txt",
+            "type": "file",
+            "download_url": "https://raw.githubusercontent.com/o/r/main/output.txt",
+        },
+    ]
+    return api_resp
+
+
+def _blob(content: bytes) -> MagicMock:
+    """Ответ raw.githubusercontent.com с телом файла."""
+    resp = MagicMock()
+    resp.content = content
+    resp.raise_for_status = MagicMock()
+    return resp
+
+
+class TestGithubFormat3WriteSafety:
+    """Вариант А (готовые input.txt/output.txt) пишет через общий путь (#942).
+
+    Раньше байты ложились на диск напрямую по ходу скачивания: без сброса
+    каталога и без перехвата сетевых ошибок. Оба следствия дают ТИХИЙ неверный
+    вердикт, поэтому проверяются состоянием каталога, а не текстом сообщения.
+    """
+
+    def test_stale_format1_files_are_removed(self, tmp_path: pathlib.Path) -> None:
+        """Остатки Format 1 не переживают перекачку в Format 3 (DEV-3-01).
+
+        Триггер: шаг раньше скачался из ZIP (в ``tests/`` легли ``N``/``N.clue``),
+        затем ZIP-ссылка исчезла и тесты пришли с GitHub. Автодетект отдаёт
+        Format 1 приоритет — висячие файлы молча перебивали свежий набор.
+        """
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir(parents=True)
+        (tests_dir / "1").write_text("СТАРЫЙ ввод", encoding="utf-8")
+        (tests_dir / "1.clue").write_text("СТАРЫЙ ответ", encoding="utf-8")
+
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get",
+            side_effect=[
+                _format3_api_response(),
+                _blob(b"# INPUT DATA:\n\n# TEST_1:\n5\n"),
+                _blob(b"# OUTPUT DATA:\n\n# TEST_1:\n25\n"),
+            ],
+        ):
+            count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
+
+        assert count == 1
+        assert sorted(p.name for p in tests_dir.iterdir()) == ["input.txt", "output.txt"]
+
+    def test_failure_on_second_file_leaves_previous_set_intact(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Обрыв на output.txt не оставляет смешанную пару (DEV-3-02).
+
+        Свежий ``input.txt`` рядом со старым ``output.txt`` — это сверка новых
+        входных данных со старыми ожиданиями, то есть ``WA`` на верном решении.
+        """
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir(parents=True)
+        (tests_dir / "input.txt").write_text(
+            "# INPUT DATA:\n\n# TEST_1:\nстарый\n", encoding="utf-8"
+        )
+        (tests_dir / "output.txt").write_text(
+            "# OUTPUT DATA:\n\n# TEST_1:\nстарый\n", encoding="utf-8"
+        )
+
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get",
+            side_effect=[
+                _format3_api_response(),
+                _blob("# INPUT DATA:\n\n# TEST_1:\nновый\n".encode()),
+                requests.ConnectionError("соединение оборвано"),
+            ],
+        ):
+            count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
+
+        assert count == 0
+        assert "старый" in (tests_dir / "input.txt").read_text(encoding="utf-8")
+        assert "старый" in (tests_dir / "output.txt").read_text(encoding="utf-8")
+        assert "не удалось скачать файлы тестов" in capsys.readouterr().out
+
+    def test_http_error_on_test_file_returns_zero(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """404 на самом файле кейса — счёт 0, а не трейсбек мимо перехвата."""
+        broken = MagicMock()
+        broken.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get",
+            side_effect=[_format3_api_response(), broken],
+        ):
+            count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
+
+        assert count == 0
+        assert "не удалось скачать файлы тестов" in capsys.readouterr().out
+
+    def test_non_utf8_bytes_do_not_raise(self, tmp_path: pathlib.Path) -> None:
+        """Набор в cp1251 не роняет скачивание ``UnicodeDecodeError``.
+
+        Раньше подсчёт кейсов перечитывал только что записанный файл строгим
+        UTF-8, то есть падал уже ПОСЛЕ подмены каталога: старый набор снесён,
+        новый лежит, а вызывающая сторона получает исключение вместо счёта.
+        """
+        cp1251 = "# INPUT DATA:\n\n# TEST_1:\nпривет\n".encode("cp1251")
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get",
+            side_effect=[
+                _format3_api_response(),
+                _blob(cp1251),
+                _blob(b"# OUTPUT DATA:\n\n# TEST_1:\nhi\n"),
+            ],
+        ):
+            count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
+
+        assert count == 1
+        # Байты легли на диск как есть — перекодировать чужой набор мы не вправе.
+        assert (tmp_path / "tests" / "input.txt").read_bytes() == cp1251
+
+    def test_no_tests_dir_created_when_download_fails(self, tmp_path: pathlib.Path) -> None:
+        """Провал скачивания не оставляет пустой ``tests/``.
+
+        Пустой каталог неотличим от «набор скачан, но пуст» — а это уже другой
+        диагноз для того, кто смотрит на папку задачи.
+        """
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get",
+            side_effect=[_format3_api_response(), requests.ConnectionError("нет сети")],
+        ):
+            count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
+
+        assert count == 0
+        assert not (tmp_path / "tests").exists()
+
+    def test_numeric_variant_network_failure_returns_zero(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Вариант Б: обрыв в середине пачки — счёт 0, каталог не создан."""
+        api_resp = MagicMock()
+        api_resp.raise_for_status = MagicMock()
+        api_resp.json.return_value = [
+            {
+                "name": "1",
+                "type": "file",
+                "download_url": "https://raw.githubusercontent.com/o/r/1",
+            },
+            {
+                "name": "1.clue",
+                "type": "file",
+                "download_url": "https://raw.githubusercontent.com/o/r/1.clue",
+            },
+        ]
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get",
+            side_effect=[api_resp, _blob(b"3 4"), requests.ConnectionError("обрыв")],
+        ):
+            count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
+
+        assert count == 0
+        assert not (tmp_path / "tests").exists()
+        assert "не удалось скачать файлы тестов" in capsys.readouterr().out
 
 
 # ── TestExtractExternalTestLinks ───────────────────────────────────────────
