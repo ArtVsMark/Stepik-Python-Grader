@@ -357,10 +357,19 @@ UX-полировка вывода `--version` (dev vs release маркер) р�
 [`docs/agent/claude-handoff.md`](docs/agent/claude-handoff.md).
 
 `scripts/version.py`'s "логическая" `X.Y.Z` (README `Version`-бейдж) считает
-PATCH через `git rev-list --invert-grep`, исключая автокоммиты CI
-`chore(ci): update badges [skip ci]` — иначе счётчик рос бы вдвое быстрее
-реальных изменений. `setuptools-scm`-версия пакета (`X.Y.0.postN`)
-это не затрагивает — у неё независимая логика без фильтрации по commit message.
+PATCH **по номерам PR** (`(#NNNN)` в теме коммита), а не по положению коммита в
+графе истории: номера уникализируются множеством, поэтому счётчик не зависит ни
+от формы истории, ни от дробления PR на коммиты. Коммиты без номера считаются с
+first-parent линии, кроме автокоммитов CI `chore(ci): update badges [skip ci]`
+(иначе счётчик рос бы вдвое быстрее реальных изменений) и склеек `git pull`.
+Топология не годится: `--first-parent` терял всё, что пришло с GitHub через
+merge-pull, а `--no-merges` завышал на дроблении — см. issue #1042 и
+[`docs/dev/versioning.md`](docs/dev/versioning.md). `setuptools-scm`-версия
+пакета (`X.Y.0.postN`) это не затрагивает — у неё независимая логика.
+
+**В клоне без тегов версия неполна и говорит об этом** (stderr, `git fetch
+--tags`): так клонирует облачная сессия, и `python scripts/version.py` там
+печатает `0.0.N` вместо `X.Y.N` — не пугаться и не «чинить» это правкой версии.
 
 ---
 
