@@ -345,13 +345,14 @@ class TestRefreshAccessToken:
             "expires_in": 3600,
         }
         with patch(
-            "stepik_grader.core.stepik_client.requests.post", return_value=mock_resp
+            "stepik_grader.core.stepik_client._token_session",
+            return_value=MagicMock(post=MagicMock(return_value=mock_resp)),
         ) as mock_post:
             result = refresh_access_token("cid", "csecret", "old_refresh")
         assert result["access_token"] == "new_access"
-        called_url = mock_post.call_args[0][0]
+        called_url = mock_post.return_value.post.call_args[0][0]
         assert called_url.endswith("/oauth2/token/")
-        sent_data = mock_post.call_args.kwargs["data"]
+        sent_data = mock_post.return_value.post.call_args.kwargs["data"]
         assert sent_data["grant_type"] == "refresh_token"
         assert sent_data["refresh_token"] == "old_refresh"
 
