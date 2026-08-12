@@ -15,6 +15,7 @@
 - [Где что настраивается](#где-что-настраивается)
 - [`[tool.stepik-grader]` в `pyproject.toml`](#toolstepik-grader-в-pyprojecttoml)
 - [`stepik_config.json` — корневая папка задач](#stepik_configjson--корневая-папка-задач)
+- [`STEPIK_GRADER_API_HOST` — увести запросы со stepik.org](#stepik_grader_api_host--увести-запросы-со-stepikorg)
 - [Таймауты](#таймауты)
 - [Замер памяти дочернего процесса](#замер-памяти-дочернего-процесса)
 - [Лимит тест-кейсов для microbench](#лимит-тест-кейсов-для-microbench)
@@ -34,6 +35,7 @@
 | OAuth-токены Stepik | `secrets.json` | JSON, пишется `storage.save_secrets()` (см. [installation.md](installation.md#работа-с-api-stepik-oauth)) |
 | Кэш результатов проверки | `.grader_cache/results.json` (в CWD) | JSON, opt-in (`--cache`) |
 | Поведение pytest-плагина | `pyproject.toml` → `[tool.pytest.ini_options]` `grader_mode` | TOML |
+| Хост Stepik API (тестовый стенд) | переменная окружения `STEPIK_GRADER_API_HOST` | URL со схемой, напр. `https://stage.example`; по умолчанию `https://stepik.org` |
 
 ---
 
@@ -210,6 +212,26 @@ StepikTasks/
 
 Подробнее о том, как `downloader.py` раскладывает файлы задачи и ищет
 тест-кейсы, — в [grader-workflow.md § Шаг скачивания задачи](grader-workflow.md#шаг-скачивания-задачи).
+
+---
+
+## `STEPIK_GRADER_API_HOST` — увести запросы со stepik.org
+
+По умолчанию грейдер, загрузчик и диагностика ходят на `https://stepik.org`.
+Переменная окружения `STEPIK_GRADER_API_HOST` переводит их все разом на другой
+адрес — тестовый стенд, локальный макет API, зеркало:
+
+```bash
+STEPIK_GRADER_API_HOST=http://127.0.0.1:8000 python -m stepik_grader.downloader
+```
+
+Значение обязано начинаться с `http://` или `https://`. Опечатка без схемы не
+принимается молча: грейдер пишет предупреждение в лог и остаётся на
+`https://stepik.org` — иначе каждый запрос падал бы непонятной ошибкой
+соединения.
+
+Переменная не отменяет OAuth: `secrets.json` и токены нужны те же, и стенд
+должен отвечать на `/oauth2/token/` и `/api/*` так же, как Stepik.
 
 ---
 

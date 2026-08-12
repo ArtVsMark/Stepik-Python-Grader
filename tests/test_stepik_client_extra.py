@@ -12,6 +12,7 @@ import pathlib
 import socket
 import threading
 import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -47,7 +48,8 @@ class TestAuthorizeViaBrowser:
                 "stepik_grader.core.stepik_client.wait_for_auth_code", return_value="CODE123"
             ) as mock_wait,
             patch(
-                "stepik_grader.core.stepik_client.requests.post", return_value=token_resp
+                "stepik_grader.core.stepik_client._token_session",
+                return_value=MagicMock(post=MagicMock(return_value=token_resp)),
             ) as mock_post,
         ):
             result = authorize_via_browser("cid", "csecret", "http://localhost:8080/cb")
@@ -59,7 +61,7 @@ class TestAuthorizeViaBrowser:
         assert wait_args[1] == 8080
         assert wait_args[2] == "/cb"
         assert isinstance(wait_args[3], str) and len(wait_args[3]) > 20  # random state
-        mock_post.assert_called_once()
+        mock_post.return_value.post.assert_called_once()
         assert result["access_token"] == "AT"
         assert result["refresh_token"] == "RT"
         assert result["expires_at"] > time.time()
@@ -75,7 +77,10 @@ class TestAuthorizeViaBrowser:
                 side_effect=OSError("no display"),
             ),
             patch("stepik_grader.core.stepik_client.wait_for_auth_code", return_value="CODE"),
-            patch("stepik_grader.core.stepik_client.requests.post", return_value=token_resp),
+            patch(
+                "stepik_grader.core.stepik_client._token_session",
+                return_value=MagicMock(post=MagicMock(return_value=token_resp)),
+            ),
         ):
             result = authorize_via_browser("cid", "csecret", "https://localhost/cb")
         assert result["access_token"] == "AT"
@@ -90,7 +95,10 @@ class TestAuthorizeViaBrowser:
             patch(
                 "stepik_grader.core.stepik_client.wait_for_auth_code", return_value="C"
             ) as mock_wait,
-            patch("stepik_grader.core.stepik_client.requests.post", return_value=token_resp),
+            patch(
+                "stepik_grader.core.stepik_client._token_session",
+                return_value=MagicMock(post=MagicMock(return_value=token_resp)),
+            ),
         ):
             authorize_via_browser("cid", "cs", "https://example.org")
         wait_args = mock_wait.call_args.args
@@ -112,7 +120,10 @@ class TestAuthorizeViaBrowserState:
             patch(
                 "stepik_grader.core.stepik_client.wait_for_auth_code", return_value="C"
             ) as mock_wait,
-            patch("stepik_grader.core.stepik_client.requests.post", return_value=token_resp),
+            patch(
+                "stepik_grader.core.stepik_client._token_session",
+                return_value=MagicMock(post=MagicMock(return_value=token_resp)),
+            ),
         ):
             authorize_via_browser("cid", "cs", "http://localhost:8080/cb")
 
@@ -131,7 +142,10 @@ class TestAuthorizeViaBrowserState:
             patch(
                 "stepik_grader.core.stepik_client.wait_for_auth_code", return_value="C"
             ) as mock_wait,
-            patch("stepik_grader.core.stepik_client.requests.post", return_value=token_resp),
+            patch(
+                "stepik_grader.core.stepik_client._token_session",
+                return_value=MagicMock(post=MagicMock(return_value=token_resp)),
+            ),
         ):
             authorize_via_browser("cid", "cs", "http://localhost:8080/cb")
             states.append(mock_wait.call_args.args[3])
@@ -585,6 +599,139 @@ class TestTokenPayloadValidation:
         response = MagicMock()
         response.raise_for_status = MagicMock()
         response.json.return_value = {"expires_in": 3600}
-        with patch("stepik_grader.core.stepik_client.requests.post", return_value=response):
+        with patch(
+            "stepik_grader.core.stepik_client._token_session",
+            return_value=MagicMock(post=MagicMock(return_value=response)),
+        ):
             with pytest.raises(ValueError, match="access_token"):
                 stepik_client.refresh_access_token("cid", "csecret", "RT")
+
+
+# ---------------------------------------------------------------------------
+# Надёжность и честность ответов — issue #997 (REV-3-04, STR-3-03, STR-3-06)
+# ---------------------------------------------------------------------------
+
+
+class TestTokenRequestsUseRetry:
+    """Токен-запросы идут через сессию с retry, а не голым requests.post."""
+
+    def test_refresh_survives_single_503(self, monkeypatch):
+        """REV-3-04: единичный 503 у Stepik ронял скачивание и отправку.
+
+        Тест сквозной: поднимает локальный токен-эндпоинт, который первый раз
+        отвечает 503, и уводит на него грейдер через ``STEPIK_GRADER_API_HOST``
+        (STR-3-06). Мок здесь не годится — повтор живёт в транспортном слое
+        urllib3, и подмена ``send`` проверяла бы сам мок.
+        """
+        hits = {"n": 0}
+
+        class _Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                hits["n"] += 1
+                if hits["n"] == 1:
+                    self.send_response(503)
+                    self.end_headers()
+                    return
+                body = b'{"access_token": "fresh", "refresh_token": "r2", "expires_in": 3600}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):  # заглушаем шум в stderr теста
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), _Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            host = f"http://127.0.0.1:{server.server_port}"
+            monkeypatch.setenv("STEPIK_GRADER_API_HOST", host)
+            monkeypatch.setattr(stepik_client, "API_HOST", stepik_client._resolve_api_host())
+            token = stepik_client.refresh_access_token("cid", "csecret", "rtoken")
+        finally:
+            server.shutdown()
+            server.server_close()
+
+        assert token["access_token"] == "fresh"
+        assert hits["n"] >= 2, "503 не был повторён — запрос идёт мимо retry-политики"
+
+    def test_token_session_carries_no_authorization_header(self):
+        """Bearer на токен-эндпоинте не нужен: учётные данные едут в Basic-auth."""
+        session = stepik_client._token_session()
+        assert "Authorization" not in session.headers
+        assert session.headers["User-Agent"] == stepik_client.HEADERS["User-Agent"]
+
+    def test_token_session_retries_post(self):
+        """Политика повторов покрывает POST — иначе обмен токена не защищён."""
+        session = stepik_client._token_session()
+        retry = session.adapters["https://"].max_retries
+        assert "POST" in retry.allowed_methods
+        assert 503 in retry.status_forcelist
+
+
+class TestResponseFormatIsNotConfusedWithNotFound:
+    """STR-3-03: сменившийся формат API не выдаётся за «шаг не найден»."""
+
+    def _session_returning(self, payload):
+        session = MagicMock()
+        response = MagicMock()
+        response.json.return_value = payload
+        session.get.return_value = response
+        return session
+
+    def test_missing_collection_key_says_format_changed(self):
+        session = self._session_returning({"items": [], "meta": {"has_next": False}})
+        with pytest.raises(stepik_client.StepikResponseFormatError) as excinfo:
+            stepik_client.fetch_step_data(session, 42, 3)
+        assert "формат" in str(excinfo.value).lower()
+
+    def test_steps_without_position_field_say_format_changed(self):
+        session = self._session_returning(
+            {"steps": [{"id": 1}, {"id": 2}], "meta": {"has_next": False}}
+        )
+        with pytest.raises(stepik_client.StepikResponseFormatError):
+            stepik_client.fetch_step_data(session, 42, 3)
+
+    def test_genuinely_absent_step_still_says_not_found(self):
+        """Регрессия: реальное «нет такого шага» остаётся ValueError, не форматом."""
+        session = self._session_returning(
+            {"steps": [{"id": 1, "position": 1}], "meta": {"has_next": False}}
+        )
+        with pytest.raises(ValueError) as excinfo:
+            stepik_client.fetch_step_data(session, 42, 3)
+        assert not isinstance(excinfo.value, stepik_client.StepikResponseFormatError)
+        assert "не найден" in str(excinfo.value)
+
+    def test_collection_of_wrong_type_says_format_changed(self):
+        session = self._session_returning({"steps": {"id": 1}, "meta": {}})
+        with pytest.raises(stepik_client.StepikResponseFormatError):
+            stepik_client.fetch_step_data(session, 42, 3)
+
+
+class TestApiHostIsOverridable:
+    """STR-3-06: хост API переопределяется окружением, диагностика это видит."""
+
+    def test_env_overrides_default(self, monkeypatch):
+        monkeypatch.setenv("STEPIK_GRADER_API_HOST", "https://stage.example/")
+        assert stepik_client._resolve_api_host() == "https://stage.example"
+
+    def test_default_without_env(self, monkeypatch):
+        monkeypatch.delenv("STEPIK_GRADER_API_HOST", raising=False)
+        assert stepik_client._resolve_api_host() == "https://stepik.org"
+
+    def test_value_without_scheme_falls_back(self, monkeypatch):
+        """Опечатка без схемы не должна тихо превращать запросы в мусор."""
+        monkeypatch.setenv("STEPIK_GRADER_API_HOST", "stage.example")
+        assert stepik_client._resolve_api_host() == "https://stepik.org"
+
+    def test_diagnostic_reads_module_attribute(self, monkeypatch):
+        """Диагностика обязана ходить туда же, куда грейдер."""
+        from stepik_grader import diagnostic_stepik
+
+        monkeypatch.setattr(stepik_client, "API_HOST", "https://stage.example")
+        session = MagicMock()
+        with patch.object(diagnostic_stepik, "api_get", return_value={"lessons": [{}]}) as mock_get:
+            diagnostic_stepik.get_lesson_data(session, 42)
+        assert mock_get.call_args[0][1].startswith("https://stage.example")

@@ -22,6 +22,7 @@ import contextlib
 import hashlib
 import ipaddress
 import json as _json_mod
+import os
 import pathlib
 import secrets as secrets_module
 import socketserver
@@ -53,6 +54,7 @@ __all__ = [
     "ExternalUrlRejected",
     "OAuthCallbackPortBusy",
     "StepikNetworkError",
+    "StepikResponseFormatError",
     "SubmissionResult",
     "authorize_via_browser",
     "clear_cache",
@@ -86,7 +88,31 @@ __all__ = [
 
 _log = get_logger("stepik_client")  # issue #148: диагностический лог (opt-in)
 
-API_HOST = "https://stepik.org"
+_DEFAULT_API_HOST = "https://stepik.org"
+
+
+def _resolve_api_host() -> str:
+    """Хост Stepik API: ``STEPIK_GRADER_API_HOST`` или дефолт (issue #997, STR-3-06).
+
+    Переменная окружения нужна тестовому стенду и будущему серверному режиму:
+    без неё единственный способ увести запросы с боевого stepik.org — патчить
+    модуль. Значение обязано быть http/https-URL, иначе молчаливая опечатка
+    превратила бы каждый запрос в непонятную ошибку соединения.
+    """
+    raw_host = os.environ.get("STEPIK_GRADER_API_HOST", "").strip()
+    if not raw_host:
+        return _DEFAULT_API_HOST
+    if not raw_host.startswith(("http://", "https://")):
+        _log.warning(
+            "STEPIK_GRADER_API_HOST=%r без схемы http(s) — использую %s",
+            raw_host,
+            _DEFAULT_API_HOST,
+        )
+        return _DEFAULT_API_HOST
+    return raw_host.rstrip("/")
+
+
+API_HOST = _resolve_api_host()
 
 # issue #943: шаг опроса колбэк-сервера. ``handle_request`` блокирует поток до
 # запроса или до своего таймаута, поэтому ждать им весь остаток дедлайна нельзя:
@@ -142,6 +168,50 @@ HEADERS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 
+def _retry_adapter_config(retries: int, backoff_factor: float) -> Retry:
+    """Единая политика повторов для всех запросов к Stepik (issue #997, REV-3-04).
+
+    Вынесено из ``make_session``, потому что токен-запросы (обновление
+    access_token и обмен authorization_code) шли голым ``requests.post`` мимо
+    любых повторов: единичный 503 у Stepik ронял скачивание и отправку
+    решения, хотя следующая попытка прошла бы.
+    """
+    return Retry(
+        total=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=RETRY_STATUS_FORCELIST,
+        respect_retry_after_header=True,
+        # issue #815 (NETA-01): POST в дефолтный allowed_methods urllib3 не
+        # входит (там только идемпотентные методы), поэтому единичный 429/503 на
+        # `/api/attempts` или `/api/submissions` ронял отправку решения с первой
+        # попытки — при том что докстринг `_post_json` обещал транспортный
+        # повтор. Повторяем ТОЛЬКО статусы из `RETRY_STATUS_FORCELIST`: это
+        # «сервер занят/временно недоступен», где повтор безопасен. Обычная
+        # ошибка POST (4xx кроме 429) как не повторялась, так и не повторяется.
+        allowed_methods=_RETRY_METHODS,
+        # issue #815 (NETA-03): потолок сна по `Retry-After`. Дефолт urllib3 —
+        # 6 часов: один 429 с большим заголовком подвешивал поток-обработчик
+        # web-запроса без возможности отмены, а в CLI — весь процесс. Честная
+        # ошибка «Stepik просит подождать» полезнее зависшего грейдера.
+        retry_after_max=_RETRY_AFTER_MAX_SECONDS,
+    )
+
+
+def _token_session(*, retries: int = 3, backoff_factor: float = 1.0) -> requests.Session:
+    """Сессия для токен-эндпоинта: те же повторы, но БЕЗ Authorization.
+
+    Bearer-заголовка здесь быть не должно — учётные данные едут в
+    ``HTTPBasicAuth``, а протухший access_token в заголовке только сбивал бы
+    сервер авторизации.
+    """
+    session = requests.Session()
+    session.headers.update({"User-Agent": HEADERS["User-Agent"]})
+    adapter = HTTPAdapter(max_retries=_retry_adapter_config(retries, backoff_factor))
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
 def make_session(
     access_token: str,
     *,
@@ -177,26 +247,7 @@ def make_session(
     session.headers.update(HEADERS)
     session.headers["Authorization"] = f"Bearer {access_token}"
 
-    retry = Retry(
-        total=retries,
-        backoff_factor=backoff_factor,
-        status_forcelist=RETRY_STATUS_FORCELIST,
-        respect_retry_after_header=True,
-        # issue #815 (NETA-01): POST в дефолтный allowed_methods urllib3 не
-        # входит (там только идемпотентные методы), поэтому единичный 429/503 на
-        # `/api/attempts` или `/api/submissions` ронял отправку решения с первой
-        # попытки — при том что докстринг `_post_json` обещал транспортный
-        # повтор. Повторяем ТОЛЬКО статусы из `RETRY_STATUS_FORCELIST`: это
-        # «сервер занят/временно недоступен», где повтор безопасен. Обычная
-        # ошибка POST (4xx кроме 429) как не повторялась, так и не повторяется.
-        allowed_methods=_RETRY_METHODS,
-        # issue #815 (NETA-03): потолок сна по `Retry-After`. Дефолт urllib3 —
-        # 6 часов: один 429 с большим заголовком подвешивал поток-обработчик
-        # web-запроса без возможности отмены, а в CLI — весь процесс. Честная
-        # ошибка «Stepik просит подождать» полезнее зависшего грейдера.
-        retry_after_max=_RETRY_AFTER_MAX_SECONDS,
-    )
-    adapter = HTTPAdapter(max_retries=retry)
+    adapter = HTTPAdapter(max_retries=_retry_adapter_config(retries, backoff_factor))
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
@@ -223,6 +274,37 @@ EXTERNAL_DOWNLOAD_ALLOWED_HOSTS: frozenset[str] = frozenset(
         "codeload.github.com",
     }
 )
+
+
+class StepikResponseFormatError(RuntimeError):
+    """Ответ Stepik API не той формы, которую ожидает грейдер (issue #997, STR-3-03).
+
+    Отдельно от «не найдено»: пропавший ключ коллекции или элементы без
+    ожидаемых полей — это изменение API, а пользователю печаталось «шаг с
+    позицией N не найден в уроке L», и он шёл проверять свой URL, который в
+    порядке. Разные причины требуют разных действий, поэтому и типы разные.
+    """
+
+
+def _api_items(data: Any, key: str, *, url: str) -> list[dict[str, Any]]:
+    """Достать коллекцию ``key`` из ответа API, отличая пустоту от смены формы.
+
+    Пустой список — законный ответ («ничего не нашлось»). Отсутствующий ключ
+    или не-список на его месте — сменившийся контракт API, и об этом надо
+    сказать прямо.
+    """
+    if not isinstance(data, dict) or key not in data:
+        raise StepikResponseFormatError(
+            f"Ответ {url} без ключа {key!r} — формат Stepik API изменился. "
+            f"Обновите грейдер; если не помогло — заведите issue."
+        )
+    items = data[key]
+    if not isinstance(items, list):
+        raise StepikResponseFormatError(
+            f"Ключ {key!r} в ответе {url} — {type(items).__name__}, ожидался список: "
+            f"формат Stepik API изменился."
+        )
+    return [item for item in items if isinstance(item, dict)]
 
 
 class ExternalUrlRejected(ValueError):
@@ -444,11 +526,10 @@ def refresh_access_token(
     register_secret(client_secret)
     register_secret(refresh_token)
     _log.info("обновляю access_token через %s/oauth2/token/ (grant=refresh_token)", API_HOST)
-    response = requests.post(
+    response = _token_session().post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),
         data={"grant_type": "refresh_token", "refresh_token": refresh_token},
-        headers={"User-Agent": HEADERS["User-Agent"]},
         timeout=30,
     )
     response.raise_for_status()
@@ -661,7 +742,7 @@ def authorize_via_browser(
     register_secret(client_secret)
     register_secret(code)
     _log.info("обмениваю authorization_code на токены через %s/oauth2/token/", API_HOST)
-    response = requests.post(
+    response = _token_session().post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),
         data={
@@ -669,7 +750,6 @@ def authorize_via_browser(
             "code": code,
             "redirect_uri": redirect_uri,
         },
-        headers={"User-Agent": HEADERS["User-Agent"]},
         timeout=30,
     )
     response.raise_for_status()
@@ -884,12 +964,23 @@ def fetch_step_data(
             f"{API_HOST}/api/steps",
             params={"lesson": lesson_id, "page": page},
         )
-        data = response.json()
-        steps: list[dict[str, Any]] = data.get("steps", [])
+        url = f"{API_HOST}/api/steps"
+        steps = _api_items(response.json(), "steps", url=url)
         for step in steps:
             if step.get("position") == step_position:
                 return step
-        meta = data.get("meta", {})
+        # Шаги пришли, но ни у одного нет позиции — поле переименовали или
+        # убрали. Раньше это молча превращалось в «шаг не найден».
+        if steps and all("position" not in step for step in steps):
+            raise StepikResponseFormatError(
+                f"Шаги урока {lesson_id} пришли без поля 'position' — формат Stepik API изменился."
+            )
+        meta = response.json().get("meta") or {}
+        if not isinstance(meta, dict):
+            raise StepikResponseFormatError(
+                f"Ключ 'meta' в ответе {url} — {type(meta).__name__}, ожидался объект: "
+                f"формат Stepik API изменился."
+            )
         if not meta.get("has_next"):
             break
         page += 1
@@ -898,8 +989,8 @@ def fetch_step_data(
 
 def fetch_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]:
     """Возвращает объект урока по lesson_id."""
-    data = _cached_api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
-    lessons: list[dict[str, Any]] = data.get("lessons", [])
+    url = f"{API_HOST}/api/lessons/{lesson_id}"
+    lessons = _api_items(_cached_api_get(session, url), "lessons", url=url)
     if not lessons:
         raise ValueError(f"Урок {lesson_id} не найден")
     return lessons[0]
