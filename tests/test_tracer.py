@@ -12,8 +12,9 @@ import io
 import json
 import sys
 
+from stepik_grader.config import get_config
 from stepik_grader.core import tracer as t
-from stepik_grader.core.tracer import DEFAULT_MAX_STEPS, trace_code
+from stepik_grader.core.tracer import DEFAULT_MAX_STEPS, DEFAULT_MAX_TRACE_BYTES, trace_code
 
 
 def _globals(step: dict) -> dict:
@@ -98,6 +99,88 @@ def test_trace_is_valid_json_with_non_finite_floats() -> None:
 
 def test_default_max_steps_is_positive() -> None:
     assert DEFAULT_MAX_STEPS > 0
+
+
+# ── бюджет объёма трейса (issue #946) ──────────────────────────────────────
+
+# Код из воспроизведения issue: сто строк по 300 символов в живом состоянии.
+# ``max_steps`` тут ни при чём — шагов меньше тысячи, а JSON до фикса весил
+# 17 068 665 байт при внешнем лимите 10 485 760.
+_HEAVY_STATE_CODE = 'xs = ["a" * 300 for _ in range(100)]\nfor i in range(400):\n    xs[i % 100]\n'
+
+
+def _trace_bytes(trace: dict) -> int:
+    """Вес трейса в том же виде, в каком он уходит из дочернего процесса."""
+    return len(json.dumps(trace, ensure_ascii=False, allow_nan=False).encode("utf-8"))
+
+
+def test_heavy_state_trace_fits_external_limit() -> None:
+    """Трейс тяжёлого состояния пролезает во внешний лимит stdout (issue #946).
+
+    Раньше JSON перерастал ``CONFIG.max_output_bytes``, stdout дочернего процесса
+    резался посередине, ``json.loads`` падал — и вместо трейса пользователь
+    получал ``TraceError`` ровно на «тяжёлом» цикле, ради которого трейс и
+    открывают.
+    """
+    trace = trace_code(_HEAVY_STATE_CODE)
+
+    assert trace["error"] is None, trace["error"]
+    assert trace["steps"], "трейс пуст — это неотличимо от сбоя трассировщика"
+    assert _trace_bytes(trace) < get_config().max_output_bytes
+
+
+def test_heavy_state_trace_is_marked_truncated() -> None:
+    """Усечение по объёму помечено тем же ``truncated``, что и лимит шагов."""
+    trace = trace_code(_HEAVY_STATE_CODE)
+    assert trace["truncated"] is True
+
+
+def test_light_code_is_not_truncated() -> None:
+    """Guard: обычный короткий код бюджет не задевает и остаётся полным."""
+    trace = trace_code("x = 1\ny = x + 1\nprint(y)\n")
+    assert trace["truncated"] is False
+    assert trace["stdout"] == "2\n"
+
+
+def test_budget_is_measured_in_bytes_not_characters() -> None:
+    """Вес шага считается в байтах UTF-8, а не в символах (issue #946).
+
+    Кириллица в переменных даёт до двух байт на символ: со счётом по длине
+    строки трейс с русскими данными весил бы вдвое больше бюджета — то есть
+    промахивался бы мимо внешнего лимита ровно на тех данных, которые у наших
+    пользователей и лежат в переменных.
+    """
+    cyrillic = 'xs = ["привет" * 50 for _ in range(100)]\nfor i in range(400):\n    xs[i % 100]\n'
+    trace = trace_code(cyrillic)
+
+    assert trace["error"] is None, trace["error"]
+    assert _trace_bytes(trace) < get_config().max_output_bytes
+
+
+def test_first_step_survives_even_when_over_budget() -> None:
+    """При нулевом бюджете остаётся хотя бы один шаг, а не пустой трейс.
+
+    Пустой ``steps`` неотличим от сбоя трассировщика, а усечённый трейс —
+    рабочий, просто короткий.
+    """
+    result = t.run_trace("x = 1\ny = 2\nz = 3\n", "solution.py", 1000, 1_000_000, 1)
+
+    assert len(result["steps"]) == 1
+    assert result["truncated"] is True
+
+
+def test_no_budget_keeps_every_step() -> None:
+    """``None`` снимает ограничение — для in-process вызовов без внешнего лимита."""
+    unlimited = t.run_trace(_HEAVY_STATE_CODE, "solution.py", 1000, 1_000_000, None)
+    limited = t.run_trace(_HEAVY_STATE_CODE, "solution.py", 1000, 1_000_000, 4 * 1024 * 1024)
+
+    assert len(unlimited["steps"]) > len(limited["steps"])
+    assert unlimited["truncated"] is False
+
+
+def test_default_max_trace_bytes_is_below_output_limit() -> None:
+    """Бюджет трейса заведомо меньше внешнего лимита — иначе он бесполезен."""
+    assert 0 < DEFAULT_MAX_TRACE_BYTES < get_config().max_output_bytes
 
 
 # ---------------------------------------------------------------------------
