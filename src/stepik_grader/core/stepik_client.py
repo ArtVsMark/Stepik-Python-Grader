@@ -51,6 +51,8 @@ __all__ = [
     "RETRY_STATUS_FORCELIST",
     "STEPIK_HOST",
     "ExternalUrlRejected",
+    "OAuthCallbackPortBusy",
+    "StepikNetworkError",
     "SubmissionResult",
     "authorize_via_browser",
     "clear_cache",
@@ -225,6 +227,27 @@ EXTERNAL_DOWNLOAD_ALLOWED_HOSTS: frozenset[str] = frozenset(
 
 class ExternalUrlRejected(ValueError):
     """URL внешней загрузки не прошёл проверку allowlist/private-address."""
+
+
+class OAuthCallbackPortBusy(RuntimeError):
+    """Порт колбэка OAuth занят другим процессом (issue #997, ``JRN-3A-04``).
+
+    Отдельный тип, а не общий ``OSError``: вызывающая сторона показывает разные
+    подсказки. Занятый порт чинится закрытием чужого процесса или сменой
+    ``redirect_uri``, а прежде он приходил тем же путём, что и отказ сервера, и
+    пользователь читал совет «проверьте client_id / client_secret» — то есть
+    правил ровно то, что было в порядке.
+    """
+
+
+class StepikNetworkError(RuntimeError):
+    """Сеть до Stepik недоступна (issue #997, ``DEV-3-06``).
+
+    Обрыв связи, DNS, таймаут — всё, что не является ответом сервера. Прежде
+    эти случаи доходили до общего обработчика авторизации и объявлялись
+    неверными учётными данными: пользователь шёл перевыпускать OAuth-приложение
+    из-за отключившегося Wi-Fi.
+    """
 
 
 def _is_stepik_host(hostname: str) -> bool:
@@ -556,7 +579,16 @@ def wait_for_auth_code(
     """
     auth_data: dict[str, Any] = {}
     handler_class = _make_oauth_handler(auth_data, path, expected_state)
-    server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
+    try:
+        server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
+    except OSError as exc:
+        # issue #997 (JRN-3A-04): «Address already in use» на 8080 — самая
+        # частая причина, по которой авторизация не начинается вовсе, и она
+        # никак не связана с учётными данными. Называем её прямо.
+        raise OAuthCallbackPortBusy(
+            f"Порт {port} занят другим процессом ({exc}). Закройте занявшую его "
+            f"программу или укажите другой redirect_uri в secrets.json."
+        ) from exc
 
     # issue #943 (DEV-3-04): обслуживаем запросы ДО ДЕДЛАЙНА, а не ровно один.
     # Раньше здесь стоял единственный ``handle_request`` — и любой посторонний
@@ -683,6 +715,17 @@ def create_user_session(
             return make_session(str(secrets["access_token"]))
         except requests.HTTPError:
             print("Refresh token истёк, выполняется повторная авторизация...")
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            # issue #997 (DEV-3-06): обрыв связи, DNS или таймаут — это НЕ
+            # «истёкший токен» и не повод открывать браузер: там пользователя
+            # ждёт та же недоступная сеть. Прежде эти исключения доходили до
+            # общего обработчика авторизации, который советует проверить
+            # client_id/client_secret, — и человек шёл перевыпускать
+            # OAuth-приложение из-за отключившегося Wi-Fi.
+            raise StepikNetworkError(
+                f"Нет связи со Stepik ({exc}). Проверьте интернет-соединение и "
+                f"повторите — учётные данные здесь ни при чём."
+            ) from exc
         except ValueError as exc:
             # issue #943: ответ 200 без пригодных полей. secrets НЕ трогаем —
             # прежний токен остаётся как есть, а не подменяется протухшим с

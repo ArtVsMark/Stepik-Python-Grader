@@ -26,6 +26,8 @@ import requests
 
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.stepik_client import (
+    OAuthCallbackPortBusy,
+    StepikNetworkError,
     authorize_via_browser,
     create_user_session,
     make_session,
@@ -46,6 +48,8 @@ _log = get_logger("oauth_flow")  # issue #149: диагностический л
 _REFRESH_LOCK = threading.Lock()
 
 __all__ = [
+    "OAuthCallbackPortBusy",
+    "StepikNetworkError",
     "authorize_and_get_token",
     "authorize_via_browser",
     "create_user_session",
