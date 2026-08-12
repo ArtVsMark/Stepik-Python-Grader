@@ -614,7 +614,11 @@ def _interactive_menu(ctx: CliContext) -> None:
                 record_history = not record_history
                 settings.record_history = record_history
                 try:
-                    user_settings.save_settings(settings, settings_path)
+                    # issue #997 (CNC-5-04, CNC-5-01): на диск уходит ТОЛЬКО
+                    # тумблер. Прежде писался весь снапшот настроек, снятый при
+                    # запуске меню, и открытое меню откатывало всё, что за это
+                    # время записал веб, — включая отозванное AI-согласие.
+                    user_settings.save_fields(settings_path, record_history=record_history)
                 except OSError as exc:
                     # Best-effort, симметрично load_settings: read-only cwd / полный
                     # диск не должны ронять меню. Переключение действует на сессию.
