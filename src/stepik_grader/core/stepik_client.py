@@ -51,6 +51,8 @@ __all__ = [
     "RETRY_STATUS_FORCELIST",
     "STEPIK_HOST",
     "ExternalUrlRejected",
+    "OAuthCallbackPortBusy",
+    "StepikNetworkError",
     "SubmissionResult",
     "authorize_via_browser",
     "clear_cache",
@@ -114,6 +116,10 @@ _RETRY_AFTER_MAX_SECONDS = 60
 # любого архива тест-кейсов и несопоставимо меньше того, чем можно уронить
 # машину.
 _MAX_EXTERNAL_DOWNLOAD_BYTES = 64 * 1024 * 1024
+# Размер чанка потокового чтения внешней загрузки (issue #997): достаточно
+# крупный, чтобы не дробить мегабайтный ZIP на тысячи итераций, и достаточно
+# мелкий, чтобы превышение лимита ловилось задолго до того, как память кончится.
+_EXTERNAL_DOWNLOAD_CHUNK_BYTES = 256 * 1024
 
 # issue #1055: потолок обхода истории отправок. Страница API — 20 записей, то
 # есть 50 страниц ≈ 1000 попыток по одному шагу: столько не набирает даже
@@ -223,6 +229,27 @@ class ExternalUrlRejected(ValueError):
     """URL внешней загрузки не прошёл проверку allowlist/private-address."""
 
 
+class OAuthCallbackPortBusy(RuntimeError):
+    """Порт колбэка OAuth занят другим процессом (issue #997, ``JRN-3A-04``).
+
+    Отдельный тип, а не общий ``OSError``: вызывающая сторона показывает разные
+    подсказки. Занятый порт чинится закрытием чужого процесса или сменой
+    ``redirect_uri``, а прежде он приходил тем же путём, что и отказ сервера, и
+    пользователь читал совет «проверьте client_id / client_secret» — то есть
+    правил ровно то, что было в порядке.
+    """
+
+
+class StepikNetworkError(RuntimeError):
+    """Сеть до Stepik недоступна (issue #997, ``DEV-3-06``).
+
+    Обрыв связи, DNS, таймаут — всё, что не является ответом сервера. Прежде
+    эти случаи доходили до общего обработчика авторизации и объявлялись
+    неверными учётными данными: пользователь шёл перевыпускать OAuth-приложение
+    из-за отключившегося Wi-Fi.
+    """
+
+
 def _is_stepik_host(hostname: str) -> bool:
     """True если hostname — сам Stepik (stepik.org или его поддомен)."""
     return hostname == STEPIK_HOST or hostname.endswith(f".{STEPIK_HOST}")
@@ -275,13 +302,20 @@ _MAX_EXTERNAL_REDIRECT_HOPS = 5
 def _guard_response_size(response: requests.Response, url: str) -> None:
     """Отклонить слишком большой ответ внешней загрузки (issue #815, ``NETA-04``).
 
-    ``requests`` без ``stream=True`` читает тело в память целиком, а адрес
-    приходит из HTML задачи — то есть из недоверенного источника: ссылка на
-    многогигабайтный файл выжирала RAM до OOM ещё до того, как кто-либо
+    Адрес приходит из HTML задачи — то есть из недоверенного источника: ссылка
+    на многогигабайтный файл выжирала бы RAM до OOM ещё до того, как кто-либо
     посмотрит на содержимое.
 
     Сначала смотрим ``Content-Length`` (дёшево и отсекает честный большой
-    файл), затем фактический размер: заголовок необязателен и может врать.
+    файл), затем читаем тело **потоково**, обрывая чтение на первом же чанке за
+    лимитом: заголовок необязателен и может врать (issue #997, ``DEV-3-05`` и
+    ``REV-3-03``). Прежде здесь стоял ``len(response.content)`` — то есть
+    проверка срабатывала уже после того, как весь ответ оказался в памяти, и
+    защищала ровно от того случая, который и так объявлен честным заголовком.
+
+    Прочитанные байты кладутся обратно в ``response``, поэтому вызывающая
+    сторона по-прежнему читает ``response.content`` и о потоковом чтении не
+    знает.
     """
     # ВНИМАНИЕ: `ExternalUrlRejected` — подкласс `ValueError`, поэтому парсинг
     # заголовка отделён от проверки: `suppress(ValueError)` вокруг `raise`
@@ -295,11 +329,24 @@ def _guard_response_size(response: requests.Response, url: str) -> None:
         raise ExternalUrlRejected(
             f"Ответ слишком велик ({declared} Б > {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
         )
-    actual = len(response.content)
-    if actual > _MAX_EXTERNAL_DOWNLOAD_BYTES:
-        raise ExternalUrlRejected(
-            f"Ответ слишком велик ({actual} Б > {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
-        )
+
+    chunks: list[bytes] = []
+    read = 0
+    for chunk in response.iter_content(chunk_size=_EXTERNAL_DOWNLOAD_CHUNK_BYTES):
+        if not chunk:
+            continue
+        read += len(chunk)
+        if read > _MAX_EXTERNAL_DOWNLOAD_BYTES:
+            response.close()
+            raise ExternalUrlRejected(
+                f"Ответ слишком велик (> {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
+            )
+        chunks.append(chunk)
+    # requests не даёт публичного способа отдать уже прочитанное тело обратно,
+    # а менять контракт функции (Response → bytes) ради этого дороже: тело
+    # читают четыре места в test_source_fetcher, и все ждут Response.
+    response._content = b"".join(chunks)
+    response._content_consumed = True
 
 
 def external_download_get(
@@ -329,7 +376,9 @@ def external_download_get(
 
     current = url
     for _hop in range(_MAX_EXTERNAL_REDIRECT_HOPS + 1):
-        response = session.get(current, timeout=timeout, allow_redirects=False)
+        # stream=True — иначе requests прочитает тело в память ДО проверки
+        # размера, и охранник ниже будет защищать уже израсходованную RAM.
+        response = session.get(current, timeout=timeout, allow_redirects=False, stream=True)
         if not response.is_redirect:
             _guard_response_size(response, current)
             return response
@@ -530,7 +579,16 @@ def wait_for_auth_code(
     """
     auth_data: dict[str, Any] = {}
     handler_class = _make_oauth_handler(auth_data, path, expected_state)
-    server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
+    try:
+        server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
+    except OSError as exc:
+        # issue #997 (JRN-3A-04): «Address already in use» на 8080 — самая
+        # частая причина, по которой авторизация не начинается вовсе, и она
+        # никак не связана с учётными данными. Называем её прямо.
+        raise OAuthCallbackPortBusy(
+            f"Порт {port} занят другим процессом ({exc}). Закройте занявшую его "
+            f"программу или укажите другой redirect_uri в secrets.json."
+        ) from exc
 
     # issue #943 (DEV-3-04): обслуживаем запросы ДО ДЕДЛАЙНА, а не ровно один.
     # Раньше здесь стоял единственный ``handle_request`` — и любой посторонний
@@ -657,6 +715,17 @@ def create_user_session(
             return make_session(str(secrets["access_token"]))
         except requests.HTTPError:
             print("Refresh token истёк, выполняется повторная авторизация...")
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            # issue #997 (DEV-3-06): обрыв связи, DNS или таймаут — это НЕ
+            # «истёкший токен» и не повод открывать браузер: там пользователя
+            # ждёт та же недоступная сеть. Прежде эти исключения доходили до
+            # общего обработчика авторизации, который советует проверить
+            # client_id/client_secret, — и человек шёл перевыпускать
+            # OAuth-приложение из-за отключившегося Wi-Fi.
+            raise StepikNetworkError(
+                f"Нет связи со Stepik ({exc}). Проверьте интернет-соединение и "
+                f"повторите — учётные данные здесь ни при чём."
+            ) from exc
         except ValueError as exc:
             # issue #943: ответ 200 без пригодных полей. secrets НЕ трогаем —
             # прежний токен остаётся как есть, а не подменяется протухшим с
