@@ -7,12 +7,11 @@
 
 from __future__ import annotations
 
+import http.client
 import pathlib
 import socket
 import threading
 import time
-import urllib.error
-import urllib.request
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -369,13 +368,37 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def _get(url: str) -> int:
-    """Код ответа локального колбэк-сервера (HTTPError — тоже ответ, не сбой)."""
+def _get(port: int, target: str) -> int:
+    """Код ответа локального колбэк-сервера.
+
+    Через ``http.client``, а не ``urllib``: ``urlopen`` уважает переменные
+    окружения ``HTTP_PROXY``/``http_proxy`` и на раннере, где они выставлены,
+    уводит запрос к loopback через прокси — оттуда ответа нет вовсе, и тест
+    падает ``URLError: timed out`` вместо кода ответа (поймано матрицей CI на
+    macOS). ``HTTPConnection`` идёт прямо на адрес и от окружения не зависит.
+    """
+    conn = http.client.HTTPConnection(_LOOPBACK, port, timeout=10)
     try:
-        with urllib.request.urlopen(url, timeout=5) as resp:
-            return int(resp.status)
-    except urllib.error.HTTPError as exc:
-        return int(exc.code)
+        conn.request("GET", target)
+        return int(conn.getresponse().status)
+    finally:
+        conn.close()
+
+
+def _wait_until_listening(port: int, timeout: float = 5.0) -> None:
+    """Дождаться, пока колбэк-сервер реально слушает порт.
+
+    Фиксированный ``sleep`` — источник флака: поток мог не успеть поднять
+    сервер на загруженном раннере, и первый же запрос уходил в никуда.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with socket.socket() as probe:
+            probe.settimeout(0.5)
+            if probe.connect_ex((_LOOPBACK, port)) == 0:
+                return
+        time.sleep(0.05)
+    raise AssertionError(f"колбэк-сервер не поднялся на порту {port} за {timeout}s")
 
 
 class TestOAuthCallbackSurvivesStrayRequests:
@@ -410,14 +433,14 @@ class TestOAuthCallbackSurvivesStrayRequests:
         port = _free_port()
         outcome = self._await_code(port, "STATE123", timeout=20)
         thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
-        time.sleep(0.8)
+        _wait_until_listening(port)
 
-        assert _get(f"http://{_LOOPBACK}:{port}/favicon.ico") == 404
-        assert _get(f"http://{_LOOPBACK}:{port}/") == 400  # корень без параметров
-        assert _get(f"http://{_LOOPBACK}:{port}/robots.txt") == 404
+        assert _get(port, "/favicon.ico") == 404
+        assert _get(port, "/") == 400  # корень без параметров
+        assert _get(port, "/robots.txt") == 404
 
         # После трёх посторонних запросов сервер ЖИВ и принимает настоящий колбэк.
-        assert _get(f"http://{_LOOPBACK}:{port}/?code=REALCODE&state=STATE123") == 200
+        assert _get(port, "/?code=REALCODE&state=STATE123") == 200
         thread.join(timeout=15)
         assert outcome.get("code") == "REALCODE", outcome
 
@@ -431,9 +454,9 @@ class TestOAuthCallbackSurvivesStrayRequests:
         port = _free_port()
         outcome = self._await_code(port, "STATE123", timeout=20)
         thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
-        time.sleep(0.8)
+        _wait_until_listening(port)
 
-        assert _get(f"http://{_LOOPBACK}:{port}/?code=EVIL&state=ATTACKER") == 400
+        assert _get(port, "/?code=EVIL&state=ATTACKER") == 400
         thread.join(timeout=15)
         assert "state_mismatch" in outcome.get("error", ""), outcome
 
