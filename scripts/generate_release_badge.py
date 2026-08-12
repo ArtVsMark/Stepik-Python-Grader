@@ -32,18 +32,19 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import pathlib
-import re
-import subprocess
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 
 __all__ = [
     "PYPI_PROJECT_URL",
     "build_badge_payload",
     "fetch_pypi_version",
     "latest_release_tag",
+    "load_latest_release_tag_fn",
     "main",
     "short_version",
 ]
@@ -52,35 +53,38 @@ PYPI_PROJECT_URL = "https://pypi.org/pypi/stepik-python-grader/json"
 
 _REQUEST_TIMEOUT_SECONDS = 10
 
-# Релизный тег — строго `vX.Y.Z`. Маска нужна не для красоты: в репозитории
-# живут и служебные теги вида `v-checkpoint-2026-06-24`, которые подходят под
-# наивное `v*`. Взяв такой тег за релизный, бейдж показал бы «расхождение с
-# PyPI» на ровном месте — то есть соврал бы ровно тем сигналом, ради которого
-# заведён.
-_RELEASE_TAG_GLOB = "v[0-9]*.[0-9]*.[0-9]*"
-_RELEASE_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+_VERSION_SCRIPT = pathlib.Path(__file__).resolve().parent / "version.py"
+
+
+def load_latest_release_tag_fn() -> Callable[[], str | None]:
+    """Загрузить ``latest_release_tag()`` из ``scripts/version.py`` по пути.
+
+    ``scripts/`` — не пакет (нет ``__init__.py``), поэтому обычный import не
+    сработает; тот же приём, которым `generate_version_badge.py` берёт оттуда
+    ``project_version``.
+
+    Определение «релизного тега» живёт в одном месте намеренно. Оно неочевидно
+    (рядом с релизными в репозитории есть служебные теги вроде
+    ``v-checkpoint-2026-06-24``, подходящие под наивное ``v*``), и вторая копия
+    маски разъехалась бы с первой при первом же изменении схемы — а разъехавшись,
+    бейдж показал бы «расхождение с PyPI» на ровном месте, то есть соврал бы
+    ровно тем сигналом, ради которого заведён.
+    """
+    spec = importlib.util.spec_from_file_location("_project_version_module", _VERSION_SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.latest_release_tag  # type: ignore[no-any-return]
 
 
 def latest_release_tag() -> str | None:
-    """Последний git-тег релиза (``v1.10.0``) или ``None``, если такого нет.
+    """Последний релизный тег (``v1.10.0``) или ``None``, если такого нет.
 
     ``None`` — нормальное состояние клона без тегов: так клонирует облачная
     сессия и так ведёт себя ``actions/checkout`` без ``fetch-depth: 0``.
     Вызывающая сторона обязана отличать это от «тег есть, но не совпал».
-    Служебные теги отсеиваются: релизным считается только ``vX.Y.Z``.
     """
-    try:
-        out = subprocess.check_output(
-            ["git", "describe", "--tags", "--abbrev=0", "--match", _RELEASE_TAG_GLOB],
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stderr=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return None
-    tag = out.strip()
-    return tag if _RELEASE_TAG_RE.match(tag) else None
+    return load_latest_release_tag_fn()()
 
 
 def fetch_pypi_version(url: str = PYPI_PROJECT_URL) -> str | None:

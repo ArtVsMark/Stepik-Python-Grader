@@ -380,3 +380,65 @@ def test_badge_bot_and_sync_merges_not_counted(tmp_path: Path) -> None:
 
     # Два номера (#105, #106); badge-коммит и склейка — не изменения.
     assert _patch_of(repo) == 2
+
+
+# ── служебные теги рядом с релизными (issue #1065) ──────────────────────────
+
+
+def _version_of(repo: Path) -> str:
+    """Полная версия, напечатанная скриптом в этом репозитории."""
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], cwd=repo, env=_git_env(), capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+def test_service_tag_does_not_break_version(tmp_path: Path) -> None:
+    """Служебный тег ближе релизного — версия считается от РЕЛИЗНОГО.
+
+    В репозитории живёт `v-checkpoint-2026-06-24`, и он подходит под наивную
+    маску `v*`. `git describe --tags` без ограничения выбирал его, а разбор
+    `tag.lstrip("v").split(".")` падал `ValueError: not enough values to
+    unpack` — счётчик версии и обновление бейджей в CI ложились целиком.
+    """
+    repo = _build_repo(tmp_path)
+    _commit(repo, "work", "fix(a): изменение (#201)")
+    _run(repo, "tag", "v-checkpoint-2026-06-24")
+
+    assert _version_of(repo) == "1.10.1"
+
+
+def test_service_tag_alone_falls_back_instead_of_crashing(tmp_path: Path) -> None:
+    """Только служебные теги — это «релизных тегов нет», а не поломка.
+
+    Такой репозиторий уходит в тот же fallback, что и клон без тегов вообще:
+    предупреждение в stderr и неполная версия, но рабочий скрипт.
+    """
+    repo = tmp_path / "service-only"
+    repo.mkdir()
+    _run(repo, "init", "-q", "-b", "main")
+    _commit(repo, "base", "init")
+    _run(repo, "tag", "v-checkpoint-2026-06-24")
+
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], cwd=repo, env=_git_env(), capture_output=True, text=True
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().count(".") == 2  # версия, а не трейсбек
+
+
+def test_release_tag_shape_is_enforced(tmp_path: Path) -> None:
+    """Тег `v1.10` (без PATCH) релизным не считается — распаковка ждёт три части."""
+    repo = tmp_path / "short-tag"
+    repo.mkdir()
+    _run(repo, "init", "-q", "-b", "main")
+    _commit(repo, "base", "init")
+    _run(repo, "tag", "v1.10")
+
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], cwd=repo, env=_git_env(), capture_output=True, text=True
+    )
+
+    assert result.returncode == 0, result.stderr

@@ -42,7 +42,7 @@ import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _dist_version
 
-__all__ = ["project_version"]
+__all__ = ["latest_release_tag", "project_version"]
 
 # Имя дистрибутива (pyproject [project].name) — для чтения версии установленного
 # пакета из метаданных (setuptools-scm; статической версии нет, issue #162/#183).
@@ -54,6 +54,12 @@ _BOT_COMMIT_GREP = "chore(ci): update badges"
 # issue #1042: номер PR в теме коммита. Две формы — squash-мерж GitHub дописывает
 # `(#NNNN)` в конец темы, merge-мерж даёт `Merge pull request #NNNN from ...`.
 # Обе ведут к одному PR, поэтому попадают в одно множество номеров.
+# issue #1065: релизный тег — строго `vX.Y.Z`. Служебные теги вроде
+# `v-checkpoint-2026-06-24` подходят под `v*` и, оказавшись ближе релизного,
+# роняли разбор версии.
+_RELEASE_TAG_GLOB = "v[0-9]*.[0-9]*.[0-9]*"
+_RELEASE_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
 _PR_NUMBER_RE = re.compile(r"\(#(\d+)\)")
 _MERGE_PR_RE = re.compile(r"^Merge pull request #(\d+)\b")
 
@@ -178,9 +184,26 @@ def _commits_since(rev_range: str) -> str:
     return str(len(numbered) + len(unnumbered))
 
 
+def latest_release_tag() -> str | None:
+    """Ближайший РЕЛИЗНЫЙ тег (``vX.Y.Z``) или ``None``, если такого нет.
+
+    issue #1065: рядом с релизными живут служебные теги (``v-checkpoint-…``), и
+    они подходят под наивную маску ``v*``. ``git describe --tags`` без
+    ограничения выбирал такой тег наравне с релизным, а разбор
+    ``tag.lstrip("v").split(".")`` падал ``ValueError`` — вместе со счётчиком
+    версии ложилось и обновление бейджей в CI. Форма проверяется дважды: маской
+    в git (чтобы describe сразу искал нужный тег) и регуляркой здесь (glob не
+    отличает ``v1.10.0`` от ``v1.10.0-rc``).
+    """
+    tag = _git("describe", "--tags", "--abbrev=0", "--match", _RELEASE_TAG_GLOB)
+    if tag is None or not _RELEASE_TAG_RE.match(tag):
+        return None
+    return tag
+
+
 def project_version() -> str:
     """Вернуть версию вида '1.2.17' по схеме проекта (см. модульный докстринг)."""
-    tag = _git("describe", "--tags", "--abbrev=0")
+    tag = latest_release_tag()
     if tag is not None:
         major, minor, _patch = tag.lstrip("v").split(".")
         commits = _commits_since(f"{tag}..HEAD")
