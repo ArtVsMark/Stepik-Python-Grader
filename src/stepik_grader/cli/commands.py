@@ -258,7 +258,11 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
     settings.ai_hint_consent = True
     settings.ai_hint_consent_endpoint = endpoint
     with contextlib.suppress(OSError):
-        user_settings.save_settings(settings, settings_path)
+        user_settings.save_fields(
+            settings_path,
+            ai_hint_consent=True,
+            ai_hint_consent_endpoint=endpoint,
+        )
     return True
 
 
@@ -274,7 +278,13 @@ def revoke_ai_consent() -> bool:
     settings.ai_hint_consent = None
     settings.ai_hint_consent_endpoint = None
     with contextlib.suppress(OSError):
-        user_settings.save_settings(settings, settings_path)
+        # None здесь — «стереть ключ»: save_settings не-None поля не писал бы
+        # вовсе, и отзыв согласия молча не доезжал до диска.
+        user_settings.save_fields(
+            settings_path,
+            ai_hint_consent=None,
+            ai_hint_consent_endpoint=None,
+        )
     return had
 
 
