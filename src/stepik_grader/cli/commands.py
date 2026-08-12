@@ -60,6 +60,7 @@ from stepik_grader.core.reporter import (
     safe_rel,
 )
 from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult
+from stepik_grader.core.runprofile import current_profile
 
 
 def _t(key: str, /, **kwargs: object) -> str:
@@ -401,10 +402,12 @@ def _run_tests_maybe_cached(
     """Прогнать тесты, при активном кэше — переиспользуя актуальную запись.
 
     Возвращает пару (result, from_cache). Ключ кэша — sha256 содержимого
-    решения и sha256 всех файлов тест-директории (issue #56). При промахе
-    результат кладётся в кэш (в память; ``cache.save()`` — забота вызывающей
-    стороны, чтобы для пачки решений писать файл один раз). На попадании
-    per-case verbose-вывод не печатается — тесты не запускались.
+    решения, sha256 всех файлов тест-директории (issue #56) и отпечаток условий
+    прогона (issue #984): таймаут, изоляция и лимиты меняют вердикт наравне с
+    кодом, поэтому запись, снятая при других условиях, считается промахом. При
+    промахе результат кладётся в кэш (в память; ``cache.save()`` — забота
+    вызывающей стороны, чтобы для пачки решений писать файл один раз). На
+    попадании per-case verbose-вывод не печатается — тесты не запускались.
     """
     callback = print_case_verbose if (verbose and output == "text") else None
     if cache is None:
@@ -413,15 +416,44 @@ def _run_tests_maybe_cached(
 
     solution_sha = hash_solution(solution)
     tests_sha = hash_tests(test_dir)
-    cached = cache.get(solution, solution_sha, tests_sha)
+    env = current_profile().fingerprint
+    cached = cache.get(solution, solution_sha, tests_sha, env=env)
     if cached is not None:
         # Форма читается из results.json — статически её никто не гарантирует,
         # поэтому cast, а не «типизированный» кэш с ложной уверенностью.
         return cast("SolutionResult", cached), True
 
     result = ctx.run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
-    cache.put(solution, solution_sha, tests_sha, result)
+    cache.put(solution, solution_sha, tests_sha, result, env=env)
     return result, False
+
+
+def _print_run_profile(output: str) -> None:
+    """Шапка прогона: чем именно проверяли (issue #984).
+
+    Условия, определяющие вердикт, были не видны нигде — пользователь не знал
+    ни какой ``pyproject.toml`` применён, ни идёт ли исполнение в песочнице,
+    поэтому расхождение вердиктов между двумя запусками объяснить было нечем.
+    Печатается только в текстовом выводе: машинные форматы (json/csv/markdown)
+    — это данные для пайплайна, лишняя строка их ломает.
+    """
+    if output != "text":
+        return
+    profile = current_profile()
+    config_label = (
+        str(profile.config_path)
+        if profile.config_path is not None
+        else _t("run_profile_config_default")
+    )
+    print(
+        _t(
+            "run_profile",
+            runner=profile.describe(),
+            timeout=profile.timeout_seconds,
+            python=profile.python,
+            config=config_label,
+        )
+    )
 
 
 def _resolve_individual_test_dir(
@@ -476,6 +508,7 @@ def _run_mode_1(
         )
         return False
 
+    _print_run_profile(output)
     cache = GraderCache() if use_cache else None
     result, from_cache = _run_tests_maybe_cached(
         ctx, solution, test_dir, verbose=verbose, output=output, cache=cache
@@ -564,6 +597,7 @@ def _run_mode_2(
 
     col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
 
+    _print_run_profile(output)
     rows: list[tuple[pathlib.Path, SolutionResult]] = []
     machine_output = output != "text"
     cache = GraderCache() if use_cache else None
@@ -656,6 +690,7 @@ def _run_mode_3(
         print(ctx.t("no_solutions_found"))
         return
 
+    _print_run_profile(output)
     results: dict[pathlib.Path, BenchResult] = {}
     machine_output = output != "text"
     track = (
@@ -766,6 +801,7 @@ def _run_mode_4(
         print(ctx.t("no_solutions_found"))
         return
 
+    _print_run_profile(output)
     machine_output = output != "text"
     json_results: dict[str, dict[str, Any]] = {}
     table_rows: list[dict[str, Any]] = []

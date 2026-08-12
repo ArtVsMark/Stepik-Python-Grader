@@ -125,7 +125,7 @@ def test_cache_get_survives_non_dict_entry(tmp_path: pathlib.Path) -> None:
     cache = GraderCache(cache_dir=cache_dir)
     cache._data["entries"] = {cache._key(solution): "не словарь"}
 
-    assert cache.get(solution, "sha-solution", "sha-tests") is None
+    assert cache.get(solution, "sha-solution", "sha-tests", env="sha-env") is None
 
 
 # ---------------------------------------------------------------------------

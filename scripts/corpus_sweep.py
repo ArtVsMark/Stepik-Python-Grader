@@ -61,6 +61,7 @@ from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import run_tests
 from stepik_grader.core.microbench_runner import run_microbench
 from stepik_grader.core.progress_export import build_progress_report, render_markdown
+from stepik_grader.core.runprofile import current_profile
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
 from stepik_grader.core.tracer import trace_code
@@ -533,8 +534,17 @@ def sweep_extras(
         cache = GraderCache(work_dir)
         solution_sha = hash_solution(reference)
         tests_sha = hash_tests(task.test_dir)
-        cache.get(reference, solution_sha, tests_sha)
-        cache.put(reference, solution_sha, tests_sha, {"total": len(cases), "passed": len(cases)})
+        # issue #984: отпечаток условий прогона — третий ключ кэша наравне с
+        # хешами решения и тестов; стенд снимает его так же, как это делает CLI.
+        env = current_profile().fingerprint
+        cache.get(reference, solution_sha, tests_sha, env=env)
+        cache.put(
+            reference,
+            solution_sha,
+            tests_sha,
+            {"total": len(cases), "passed": len(cases)},
+            env=env,
+        )
         cache.save()
     except Exception as exc:
         findings.append(Finding(task.slug, "extras", "error", f"кэш: {type(exc).__name__}: {exc}"))
