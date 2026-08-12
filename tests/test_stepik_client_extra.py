@@ -354,10 +354,18 @@ class TestFetchSubmissionData:
 # ── OAuth-колбэк и валидация токен-ответа (issue #943) ─────────────────────
 
 
+# Тесты ходят по 127.0.0.1, а не по "localhost", намеренно: ``HTTPServer``
+# всегда IPv4 (``address_family = AF_INET``), а на macOS "localhost"
+# резолвится сначала в IPv6 ``::1`` — ``urlopen`` честно ждёт там таймаут
+# вместо мгновенного отказа (браузер в этой ситуации переключается на IPv4 сам,
+# библиотека — нет). Прибитый литерал убирает эту неоднозначность из теста.
+_LOOPBACK = "127.0.0.1"
+
+
 def _free_port() -> int:
     """Свободный порт: два теста подряд не должны драться за один номер."""
     with socket.socket() as sock:
-        sock.bind(("localhost", 0))
+        sock.bind((_LOOPBACK, 0))
         return int(sock.getsockname()[1])
 
 
@@ -387,7 +395,7 @@ class TestOAuthCallbackSurvivesStrayRequests:
         def waiter() -> None:
             try:
                 outcome["code"] = stepik_client.wait_for_auth_code(
-                    host="localhost", port=port, path="/", expected_state=state, timeout=timeout
+                    host=_LOOPBACK, port=port, path="/", expected_state=state, timeout=timeout
                 )
             except Exception as exc:  # исход теста, а не глушение ошибки
                 outcome["error"] = f"{type(exc).__name__}: {exc}"
@@ -404,12 +412,12 @@ class TestOAuthCallbackSurvivesStrayRequests:
         thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
         time.sleep(0.8)
 
-        assert _get(f"http://localhost:{port}/favicon.ico") == 404
-        assert _get(f"http://localhost:{port}/") == 400  # корень без параметров
-        assert _get(f"http://localhost:{port}/robots.txt") == 404
+        assert _get(f"http://{_LOOPBACK}:{port}/favicon.ico") == 404
+        assert _get(f"http://{_LOOPBACK}:{port}/") == 400  # корень без параметров
+        assert _get(f"http://{_LOOPBACK}:{port}/robots.txt") == 404
 
         # После трёх посторонних запросов сервер ЖИВ и принимает настоящий колбэк.
-        assert _get(f"http://localhost:{port}/?code=REALCODE&state=STATE123") == 200
+        assert _get(f"http://{_LOOPBACK}:{port}/?code=REALCODE&state=STATE123") == 200
         thread.join(timeout=15)
         assert outcome.get("code") == "REALCODE", outcome
 
@@ -425,7 +433,7 @@ class TestOAuthCallbackSurvivesStrayRequests:
         thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
         time.sleep(0.8)
 
-        assert _get(f"http://localhost:{port}/?code=EVIL&state=ATTACKER") == 400
+        assert _get(f"http://{_LOOPBACK}:{port}/?code=EVIL&state=ATTACKER") == 400
         thread.join(timeout=15)
         assert "state_mismatch" in outcome.get("error", ""), outcome
 
@@ -439,7 +447,7 @@ class TestOAuthCallbackSurvivesStrayRequests:
         started = time.monotonic()
         with pytest.raises(TimeoutError):
             stepik_client.wait_for_auth_code(
-                host="localhost", port=port, path="/", expected_state="S", timeout=2
+                host=_LOOPBACK, port=port, path="/", expected_state="S", timeout=2
             )
         assert time.monotonic() - started >= 1.5
 
