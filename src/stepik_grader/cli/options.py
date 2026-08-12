@@ -18,7 +18,9 @@ import argparse
 import pathlib
 import sys
 
+from stepik_grader import config
 from stepik_grader.config import CONFIG, CONFIG_FLAG
+from stepik_grader.core import user_settings
 
 __all__ = [
     "_build_arg_parser",
@@ -378,16 +380,50 @@ def _resolve_record_stats(args: argparse.Namespace) -> bool:
     return CONFIG.record_stats
 
 
-def _resolve_record_history(args: argparse.Namespace) -> bool:
+def _resolve_record_history(args: argparse.Namespace, *, default: bool | None = None) -> bool:
     """Разрешить --history/--no-history в конкретное bool-значение (issue #344).
 
-    Приоритет: явный --history/--no-history (``args.history is not None``)
-    выигрывает; иначе — дефолт из pyproject (``[tool.stepik-grader]
-    record_history``). Симметрично ``_resolve_record_stats``.
+    Единая лестница приоритета (issue #997: LNCH-3-02, FZZ-5-04, LNCH-2-03,
+    LNCH-3-01, LNCH-5-01, SET-2-03):
+
+    1. явный ``--history``/``--no-history`` — разовое решение этого запуска;
+    2. персистентный тумблер из ``.grader_settings.json`` — то, что пользователь
+       переключил в меню (пункт 7) или в вебе, и ждёт, что это запомнено;
+    3. ``[tool.stepik-grader] record_history`` из ``pyproject.toml``;
+    4. ``default`` — дефолт поверхности (``--serve`` включает историю, ADR-0002
+       оставляет CLI opt-in).
+
+    Прежде лестниц было три, и они не сходились: режимы 1–4 читали только флаг и
+    ``CONFIG``, ``--serve`` — только флаг, а тумблер в ``.grader_settings.json``
+    не читал никто. Пользователь выключал историю в меню, запускал `--serve` и
+    получал запись, которую явно отключил, — четыре независимых среза аудита
+    пришли к одному и тому же месту.
+
+    Ограничение, которое честнее назвать: ``record_history = false`` в
+    ``pyproject.toml`` неотличимо от «не задано» (``bool`` с дефолтом ``False``),
+    поэтому выключить им историю в ``--serve`` нельзя — для этого есть
+    ``--no-history`` и тумблер меню.
     """
     if args.history is not None:
         return bool(args.history)
-    return CONFIG.record_history
+    toggle = _persistent_history_toggle()
+    if toggle is not None:
+        return toggle
+    if CONFIG.record_history:
+        return True
+    return CONFIG.record_history if default is None else default
+
+
+def _persistent_history_toggle() -> bool | None:
+    """Сохранённый выбор пользователя из ``.grader_settings.json``; ``None`` — не задан.
+
+    Best-effort, как и всё чтение настроек: битый или недоступный файл — это
+    «пользователь не переопределял», а не повод отказать в запуске.
+    """
+    settings = user_settings.load_settings(
+        user_settings.default_settings_path(config.workspace_root())
+    )
+    return settings.record_history
 
 
 def _force_utf8_stdio() -> None:
