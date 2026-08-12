@@ -162,6 +162,15 @@ def try_create_session_without_browser(
         except requests.HTTPError as exc:
             _log.warning("обновление по refresh_token не удалось: %s", exc)
             return None
+        except ValueError as exc:
+            # issue #943 (ADD-2-02): ответ 200 с валидным JSON, но без
+            # access_token. Раньше он уходил в secrets как есть: прежний
+            # протухший токен оставался, а expires_at сдвигался в будущее — и
+            # token_is_valid() целый час отвечал True, пока каждый запрос
+            # получал 401 без внятной причины. secrets НЕ трогаем и честно
+            # отдаём None: вызывающая сторона уйдёт на браузерную авторизацию.
+            _log.warning("ответ токен-эндпоинта непригоден: %s", exc)
+            return None
         token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
         secrets.update(token_data)
         save_secrets(secrets_path, secrets)

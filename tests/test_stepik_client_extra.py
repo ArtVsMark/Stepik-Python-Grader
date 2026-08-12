@@ -8,7 +8,11 @@
 from __future__ import annotations
 
 import pathlib
+import socket
+import threading
 import time
+import urllib.error
+import urllib.request
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -345,3 +349,134 @@ class TestFetchSubmissionData:
         resp.json.return_value = {"submissions": []}
         with patch("stepik_grader.core.stepik_client._get_with_retry", return_value=resp):
             assert fetch_submission_data(MagicMock(), 100) is None
+
+
+# ── OAuth-колбэк и валидация токен-ответа (issue #943) ─────────────────────
+
+
+def _free_port() -> int:
+    """Свободный порт: два теста подряд не должны драться за один номер."""
+    with socket.socket() as sock:
+        sock.bind(("localhost", 0))
+        return int(sock.getsockname()[1])
+
+
+def _get(url: str) -> int:
+    """Код ответа локального колбэк-сервера (HTTPError — тоже ответ, не сбой)."""
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            return int(resp.status)
+    except urllib.error.HTTPError as exc:
+        return int(exc.code)
+
+
+class TestOAuthCallbackSurvivesStrayRequests:
+    """Колбэк-сервер обслуживает запросы до дедлайна, а не ровно один (#943).
+
+    Раньше стоял единственный ``handle_request``, и посторонний GET съедал его
+    целиком: браузер сам префетчит ``/favicon.ico``, а ветки 404 и
+    ``state_mismatch`` тоже отвечают и возвращают управление. Сервер
+    закрывался, настоящий редирект Stepik упирался в ECONNREFUSED, и
+    пользователь мгновенно получал «код не получен за 120с».
+    """
+
+    def _await_code(self, port: int, state: str, timeout: int) -> dict[str, str]:
+        """Запустить ожидание колбэка в фоне; вернуть словарь с исходом."""
+        outcome: dict[str, str] = {}
+
+        def waiter() -> None:
+            try:
+                outcome["code"] = stepik_client.wait_for_auth_code(
+                    host="localhost", port=port, path="/", expected_state=state, timeout=timeout
+                )
+            except Exception as exc:  # исход теста, а не глушение ошибки
+                outcome["error"] = f"{type(exc).__name__}: {exc}"
+
+        thread = threading.Thread(target=waiter, daemon=True)
+        thread.start()
+        outcome["_thread"] = thread  # type: ignore[assignment]
+        return outcome
+
+    def test_stray_requests_do_not_end_the_wait(self) -> None:
+        """Префетч favicon и открытый вручную корень не срывают ожидание."""
+        port = _free_port()
+        outcome = self._await_code(port, "STATE123", timeout=20)
+        thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
+        time.sleep(0.8)
+
+        assert _get(f"http://localhost:{port}/favicon.ico") == 404
+        assert _get(f"http://localhost:{port}/") == 400  # корень без параметров
+        assert _get(f"http://localhost:{port}/robots.txt") == 404
+
+        # После трёх посторонних запросов сервер ЖИВ и принимает настоящий колбэк.
+        assert _get(f"http://localhost:{port}/?code=REALCODE&state=STATE123") == 200
+        thread.join(timeout=15)
+        assert outcome.get("code") == "REALCODE", outcome
+
+    def test_csrf_callback_still_rejected(self) -> None:
+        """Guard: ``code`` с чужим ``state`` по-прежнему отклоняется (issue #241).
+
+        Терпимость к посторонним запросам не должна ослабить защиту от
+        Login-CSRF: решение принимается только там, где есть ``code``/``error``,
+        и там ``state`` сверяется строго.
+        """
+        port = _free_port()
+        outcome = self._await_code(port, "STATE123", timeout=20)
+        thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
+        time.sleep(0.8)
+
+        assert _get(f"http://localhost:{port}/?code=EVIL&state=ATTACKER") == 400
+        thread.join(timeout=15)
+        assert "state_mismatch" in outcome.get("error", ""), outcome
+
+    def test_timeout_actually_waits(self) -> None:
+        """Таймаут отсчитывается по монотонным часам, а не срабатывает мгновенно.
+
+        До фикса сообщение «код не получен за 120с» печаталось за 0.0 секунды —
+        оно описывало ожидание, которого не было.
+        """
+        port = _free_port()
+        started = time.monotonic()
+        with pytest.raises(TimeoutError):
+            stepik_client.wait_for_auth_code(
+                host="localhost", port=port, path="/", expected_state="S", timeout=2
+            )
+        assert time.monotonic() - started >= 1.5
+
+
+class TestTokenPayloadValidation:
+    """Ответ 200 без пригодных полей не сохраняется в secrets (#943, ADD-2-02)."""
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"expires_in": 3600},  # нет access_token вовсе
+            {"access_token": "", "expires_in": 3600},  # пустой
+            {"access_token": "   ", "expires_in": 3600},  # из одних пробелов
+            {"access_token": 42, "expires_in": 3600},  # не строка
+            {"access_token": "AT"},  # нет expires_in → float(None) ниже по пути
+            {"access_token": "AT", "expires_in": None},
+            {"access_token": "AT", "expires_in": "скоро"},
+            {"access_token": "AT", "expires_in": True},  # bool — не срок жизни
+        ],
+    )
+    def test_unusable_payload_rejected(self, payload: dict) -> None:
+        with pytest.raises(ValueError):
+            stepik_client._validate_token_payload(payload)
+
+    def test_valid_payload_accepted(self) -> None:
+        stepik_client._validate_token_payload({"access_token": "AT", "expires_in": 3600})
+        stepik_client._validate_token_payload({"access_token": "AT", "expires_in": 3600.5})
+
+    def test_refresh_rejects_200_without_access_token(self) -> None:
+        """``refresh_access_token`` не отдаёт наружу ответ без токена.
+
+        ``raise_for_status`` пропускает любой ``200``, поэтому проверка полей —
+        единственное, что отделяет мусорный ответ от рабочего.
+        """
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = {"expires_in": 3600}
+        with patch("stepik_grader.core.stepik_client.requests.post", return_value=response):
+            with pytest.raises(ValueError, match="access_token"):
+                stepik_client.refresh_access_token("cid", "csecret", "RT")
