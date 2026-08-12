@@ -77,6 +77,7 @@ __all__ = [
 from stepik_grader.core.microbench_runner import apply_relative_ranking, run_microbench
 from stepik_grader.core.mode_detector import (
     _ast_function_name,
+    _ast_function_names,
     _block_invokes_solution,
     _detect_run_mode,  # noqa: F401  (реэкспорт для grader.py, не вызывается здесь напрямую)
     _is_python_code_block,
@@ -84,8 +85,12 @@ from stepik_grader.core.mode_detector import (
     _read_meta_function_name,
     is_function_only_solution,
 )
-from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
-from stepik_grader.core.normalizers import split_output_lines
+from stepik_grader.core.normalizers import floats_equal_with_precision, split_output_lines
+
+# issue #940: сравнение перешло на floats_equal_with_precision, но сам
+# `_normalize_output_line` остаётся реэкспортом для фасада grader.py (см. его
+# __all__) — удалять его отсюда нельзя, это публичное имя.
+from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line  # noqa: F401
 from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult, Verdict
 from stepik_grader.core.runner import (
     RunOutcome,
@@ -311,7 +316,12 @@ def _prepare_run_spec(
     # а не по «похоже ли на Python-код»: присваивание `a = 5` — это данные
     # legacy-теста, а не драйвер (issue #622).
     func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
-    if _block_invokes_solution(input_data, func_name):
+    # issue #938: драйвером блок считается, если вызывает ЛЮБУЮ функцию решения,
+    # а не ту одну, что выбрана для legacy-обёртки. Иначе вердикт зависел от
+    # порядка объявлений: `def _helper` выше целевой функции уводил блок
+    # `show(5)` в legacy-обёртку и давал NameError на верном решении.
+    known_names = {*_ast_function_names(solution_path), *([func_name] if func_name else [])}
+    if _block_invokes_solution(input_data, known_names):
         # python-generation function-call: блок уже содержит print(func(...))
         wrapper_src = _build_call_wrapper(solution_path, input_data)
     else:
@@ -440,8 +450,11 @@ def _map_outcome_to_result(
     actual_lines = split_output_lines(stdout)
     passed = actual_lines == case.expected_lines
     if not passed and len(actual_lines) == len(case.expected_lines):
+        # issue #940: толерантность к записи float сохранена, но она больше не
+        # стирает незначащие нули ожидания: `12.30` против `12.3` — не «та же
+        # величина», а невыполненное требование «до сотых».
         passed = all(
-            _normalize_output_line(a) == _normalize_output_line(e)
+            floats_equal_with_precision(a, e)
             for a, e in zip(actual_lines, case.expected_lines, strict=True)
         )
     diff_str = ""

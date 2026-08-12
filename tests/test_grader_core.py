@@ -249,6 +249,60 @@ def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     assert grader.load_test_cases(tmp_path) == []
 
 
+def test_load_test_cases_cp1251_does_not_raise(tmp_path: pathlib.Path) -> None:
+    """Файлы тестов не в UTF-8 не роняют прогон трейсбеком (issue #939).
+
+    До фикса `UnicodeDecodeError` уходил наружу, а в режиме 2 обрывал пачку,
+    унося результаты остальных решений.
+    """
+    (tmp_path / "input.txt").write_bytes("# TEST_1:\nМир\n".encode("cp1251"))
+    (tmp_path / "output.txt").write_bytes("# TEST_1:\nОК\n".encode("cp1251"))
+
+    with pytest.warns(UserWarning, match="не в utf-8"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format3_with_bom(tmp_path: pathlib.Path) -> None:
+    """BOM в начале файла не обнуляет набор кейсов (issue #939).
+
+    До фикса `U+FEFF` оставался в строке маркера, `# TEST_1:` не матчился,
+    и прогон печатал «NO TESTS» с кодом возврата 0.
+    """
+    (tmp_path / "input.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n5\n")
+    (tmp_path / "output.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n10\n")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["10"]
+
+
+def test_load_test_cases_format3_without_markers_warns(tmp_path: pathlib.Path) -> None:
+    """Файлы формата 3 без маркеров дают подсказку, а не молчаливый пустой набор."""
+    (tmp_path / "input.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("10\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"TEST_1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert cases == []
+
+
+def test_load_test_cases_format3_clean_files_do_not_warn(tmp_path: pathlib.Path) -> None:
+    """Ровный UTF-8 без BOM и с маркерами не поднимает предупреждений (issue #939)."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
 def test_load_test_cases_format1_missing_clue_warns(tmp_path: pathlib.Path) -> None:
     """Формат 1: файл N без N.clue пропускается с предупреждением (issue #932).
 
@@ -579,6 +633,113 @@ def test_format3_print_block_still_uses_call_wrapper(tmp_path: pathlib.Path) -> 
 def test_block_invokes_solution_predicate(block: str, func: str, expected: bool) -> None:
     """Предикат маршрутизации различает «блок печатает сам» и «блок — это данные»."""
     assert mode_detector._block_invokes_solution(block, func) is expected
+
+
+def test_block_invokes_solution_accepts_any_of_several_names() -> None:
+    """Вызов ЛЮБОЙ функции решения означает драйвер, а не только первой (issue #938)."""
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper", "show"}) is True
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper"}) is False
+
+
+def test_ast_function_name_prefers_public_over_helper(tmp_path: pathlib.Path) -> None:
+    """Целевой считается первая ПУБЛИЧНАЯ функция, а не первая по порядку (issue #938).
+
+    Раньше `_helper`, объявленный выше целевой функции, попадал в обёртку — и
+    вердикт зависел от порядка объявлений в файле пользователя.
+    """
+    solution = tmp_path / "task.py"
+    solution.write_text("def _helper(x):\n    return x\n\n\ndef show(n):\n    print(n)\n")
+
+    assert mode_detector._ast_function_name(solution) == "show"
+    assert mode_detector._ast_function_names(solution) == ["_helper", "show"]
+
+
+def test_helper_declared_first_does_not_break_verdict(tmp_path: pathlib.Path) -> None:
+    """Верное решение с вспомогательной функцией первой даёт AC (issue #938, RUN-2-02).
+
+    До фикса — `RE NameError: name 'show' is not defined`; перестановка функций
+    местами давала AC, то есть вердикт зависел от порядка объявлений.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "def _helper(x):\n    return x * 10\n\n\ndef show(n):\n    print(n + 1)\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nshow(5)\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n6\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_stdin_block_with_assignments_stays_stdin(tmp_path: pathlib.Path) -> None:
+    """Блок `x = 5` не уводит stdin-решение в function-режим (issue #938, RUN-2-01).
+
+    Присваивание похоже на Python-код, но вызывать в решении нечего — там нет
+    ни одного `def`. До фикса верное решение получало
+    `RE function_name not found`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'import sys\nprint(sum(int(line.split(" = ")[1]) for line in sys.stdin if line.strip()))\n',
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nx = 5\ny = 7\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n12\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_class_only_solution_keeps_function_route(tmp_path: pathlib.Path) -> None:
+    """Решение из одного класса остаётся на function-маршруте (issue #938).
+
+    Граница отката «function → stdin»: первая версия проверки смотрела только на
+    `def`, и задача ООП-курса — один `class Vector` плюс блок
+    `vector = Vector()` / `print(vector.abs())` — падала в stdin-маршрут.
+    Поймано интеграционными тестами на реальных задачах, поэтому закреплено
+    отдельно.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "class Counter:\n    def __init__(self, n):\n        self.n = n\n\n"
+        "    def double(self):\n        return self.n * 2\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text(
+        "# TEST_1:\nc = Counter(21)\nprint(c.double())\n", encoding="utf-8"
+    )
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n42\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_param_named_like_stdlib_gets_test_value(tmp_path: pathlib.Path) -> None:
+    """Параметр с именем `date` получает значение теста, а не класс stdlib (issue #938).
+
+    До фикса `all(_n in _local_vars ...)` находил `date` среди импортов самой
+    обёртки, связывал параметр с `datetime.date` и не давал сработать
+    позиционному fallback — верное решение печатало `+5` вместо `2020-01-01+5`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'def days_between(date, delta):\n    print(f"{date}+{delta}")\n', encoding="utf-8"
+    )
+    (task_dir / "tests" / "1").write_text('d = "2020-01-01"\ndelta = 5\n', encoding="utf-8")
+    (task_dir / "tests" / "1.clue").write_text("2020-01-01+5\n", encoding="utf-8")
+    (task_dir / "tests" / "1.type").write_text("function\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
 
 
 def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(

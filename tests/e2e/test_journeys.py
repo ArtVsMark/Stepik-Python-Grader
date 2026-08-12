@@ -83,6 +83,34 @@ def test_mode2_result_announced_and_focused_for_a11y(
     assert focused_id == "restab-table"
 
 
+def test_folder_without_test_cases_is_not_counted_as_failure(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #1020): «проверка не состоялась» — отдельное состояние, не провал.
+
+    Папка с решением и без ``tests/`` — обычный итог скачивания шага, у которого
+    публичных тестов нет. Раньше сводка считала только ``status === "OK"``, а всё
+    остальное падало в ``FAIL``, и верное решение получало «FAIL ×1» и «0%» —
+    приговор там, где его никто не запускал.
+    """
+    (tmp_path / "task.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+
+    page.goto(e2e_server + "/")
+    page.click('.mode-btn[data-mode="tests"]')
+    page.fill("#path", str(tmp_path))
+    page.click("#run")
+
+    page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
+
+    badges = page.locator("#result-summary-badges")
+    expect(badges).to_contain_text("NO TESTS", timeout=_TIMEOUT_MS)
+    assert "FAIL ×1" not in badges.text_content()
+
+    summary = page.locator("#out").text_content()
+    assert "Не проверено" in summary  # отдельный KPI, а не строка провалов
+    assert "0%" not in summary  # процент от нуля проверенных — ложь, а не ноль
+
+
 def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J (issue #298): прогресс-бар долгого прогона имеет role="progressbar"
     и корректные aria-value* (min/max), видимые assistive tech."""

@@ -22,7 +22,14 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.mode_detector import _detect_run_mode, _is_python_code_block
+from stepik_grader.core.mode_detector import (
+    _ast_class_names,
+    _ast_function_names,
+    _block_invokes_solution,
+    _detect_run_mode,
+    _is_python_code_block,
+    _read_meta_function_name,
+)
 from stepik_grader.core.normalizers import split_output_lines
 from stepik_grader.core.parsers import parse_testblock_file as _parse_testblock_file
 
@@ -33,6 +40,7 @@ __all__ = [
     "is_solution_file",
     "load_test_cases",
     "load_text_lines",
+    "read_test_text",
     "resolve_test_dir",
 ]
 
@@ -105,6 +113,37 @@ def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Pat
     return dict(grouped)
 
 
+def read_test_text(file_path: pathlib.Path) -> str:
+    """Прочитать файл тест-кейсов терпимо к тому, чем его сохранил редактор.
+
+    issue #939: файлы тестов приходят от аудитории курса, то есть из «Блокнота»
+    и его родни. Два отклонения от «чистый UTF-8 без BOM» обрабатывались плохо:
+
+    * кодировка не UTF-8 (cp1251) роняла прогон голым ``UnicodeDecodeError``, а
+      в режиме 2 обрывала пачку и уносила результаты остальных решений;
+    * BOM оставался первым символом строки, ``strip()`` его не срезает, поэтому
+      маркер ``# TEST_1:`` переставал матчиться и набор молча становился пустым.
+
+    Теперь непригодная кодировка не прерывает прогон: текст декодируется с
+    заменой и сопровождается предупреждением с путём — вердикт по остальным
+    задачам сохраняется, а причина названа. BOM срезается независимо от
+    кодировки (``utf-8-sig`` помог бы только UTF-8, а ``encoding`` настраивается).
+    """
+    raw = file_path.read_bytes()
+    try:
+        text = raw.decode(ENCODING)
+    except UnicodeDecodeError as exc:
+        text = raw.decode(ENCODING, errors="replace")
+        warnings.warn(
+            f"{file_path}: файл тестов не в {ENCODING} ({exc.reason}, байт "
+            f"{exc.object[exc.start : exc.start + 1]!r} в позиции {exc.start}) — "
+            "нечитаемые символы заменены на «�», ожидаемый вывод может не "
+            f"совпасть с фактическим. Пересохраните файл в {ENCODING}.",
+            stacklevel=2,
+        )
+    return text.lstrip("﻿")
+
+
 def load_text_lines(file_path: pathlib.Path) -> list[str]:
     """Загрузить текстовый файл и вернуть список строк без завершающих переносов.
 
@@ -113,7 +152,7 @@ def load_text_lines(file_path: pathlib.Path) -> list[str]:
     восьми управляющим символам, и стороны сравнения расходились в трактовке
     одних и тех же байт.
     """
-    return split_output_lines(file_path.read_text(encoding=ENCODING))
+    return split_output_lines(read_test_text(file_path))
 
 
 def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
@@ -146,10 +185,26 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
     input_file = dir_path / "input.txt"
     output_file = dir_path / "output.txt"
     if input_file.exists() and output_file.exists():
-        input_text = input_file.read_text(encoding=ENCODING)
-        output_text = output_file.read_text(encoding=ENCODING)
+        input_text = read_test_text(input_file)
+        output_text = read_test_text(output_file)
         input_blocks = _parse_testblock_file(input_text)
         output_blocks = _parse_testblock_file(output_text)
+        if not input_blocks or not output_blocks:
+            # issue #939: файлы формата 3 на месте, а блоков ноль — дальше
+            # загрузчик молча уйдёт к форматам 1/2 и вернёт пустой набор,
+            # то есть «NO TESTS» с кодом возврата 0 и без единой подсказки.
+            # Единственная зацепка для пользователя — сказать, чего не хватило.
+            empty = " и ".join(
+                name
+                for name, blocks in (("input.txt", input_blocks), ("output.txt", output_blocks))
+                if not blocks
+            )
+            warnings.warn(
+                f"{test_dir}: {empty} — маркеры вида `# TEST_1:` не найдены, "
+                "ни одного блока не разобрано. Проверьте маркеры (и что файл "
+                "сохранён без лишних символов в начале строки).",
+                stacklevel=2,
+            )
         if input_blocks and output_blocks:
             # issue #48 R-03: Format 1/2 files sitting next to input.txt/output.txt
             # are silently ignored below (Format 3 wins and returns early) -- warn
@@ -351,4 +406,34 @@ def _apply_run_mode_override(
         for case in cases:
             if case.test_type == "stdin":
                 case.test_type = "function"
+        return cases
+
+    # issue #938 (RUN-2-01): синхронизация работала только в одну сторону, и
+    # блок формата 3 вида `x = 5` / `y = 7` оставался «function» просто потому,
+    # что похож на Python-код (`_is_python_code_block` считает присваивание
+    # кодом). Вызывать при этом нечего: решение — обычный stdin-скрипт без
+    # единого `def`, и верное решение получало `RE function_name not found`,
+    # а при наличии вспомогательной функции — трейсбек внутрь неё.
+    #
+    # Понижаем осторожно, по двум условиям сразу, иначе лечение хуже болезни:
+    #
+    # * блок НЕ является драйвером — не печатает сам и не вызывает ничего из
+    #   решения. Блок с `print(...)` исполним как есть, каким бы ни было
+    #   решение, и трогать его нельзя;
+    # * в решении нет ни одного вызываемого имени верхнего уровня. Классы тут
+    #   так же важны, как функции: решение с одним лишь `class Vector` и
+    #   блоком `vector = Vector()` / `print(vector.abs())` — обычная задача
+    #   ООП-курса, и первый вариант этой проверки, смотревший только на `def`,
+    #   ронял такие кейсы в stdin-маршрут (поймано интеграционными тестами на
+    #   реальных задачах трёх репозиториев).
+    if _read_meta_function_name(solution_path) is not None:
+        return cases
+    callables = {*_ast_function_names(solution_path), *_ast_class_names(solution_path)}
+    if callables:
+        return cases
+    for case in cases:
+        if case.test_type == "function" and not _block_invokes_solution(
+            "\n".join(case.input_lines).strip(), callables
+        ):
+            case.test_type = "stdin"
     return cases
