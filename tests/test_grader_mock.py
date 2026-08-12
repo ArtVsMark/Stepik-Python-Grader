@@ -474,8 +474,14 @@ class TestRunTestsProgressAndCancel:
             "avg_time",
             "peak_memory_mb",
             "first_fail",
+            # issue #935: предупреждения загрузки набора — часть результата.
+            # Ключ присутствует всегда, на чистом наборе это пустой список:
+            # потребителю не нужно гадать, «нет предупреждений» это или «поле
+            # забыли положить».
+            "warnings",
             "cases",
         }
+        assert result["warnings"] == []
 
     def test_cancel_event_stops_before_all_cases_run(self, tmp_path: pathlib.Path) -> None:
         """Real subprocess (not mocked) -- pre-set cancel_event must stop the

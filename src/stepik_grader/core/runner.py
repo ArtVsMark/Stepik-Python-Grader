@@ -50,6 +50,7 @@ except ImportError:
 from stepik_grader.config import CONFIG
 
 __all__ = [
+    "TRUNCATION_MARKER",
     "LocalRunner",
     "RunOutcome",
     "RunSpec",
@@ -414,9 +415,15 @@ class _OutputBudget:
             return chunk[:room]
 
 
+# issue #935: маркер выделен в константу, потому что по нему теперь опознают
+# факт обрезки выше по стеку (grader_core). Поиск по вольной подстроке
+# развалился бы от любой правки текста; общая константа делает связь явной.
+TRUNCATION_MARKER = "[stepik-grader] вывод обрезан"
+
+
 def _truncation_note(limit: int | None) -> bytes:
     """Пометка в stderr о том, что вывод обрезан (issue #629)."""
-    return f"\n[stepik-grader] вывод обрезан: превышен лимит {limit} байт\n".encode()
+    return f"\n{TRUNCATION_MARKER}: превышен лимит {limit} байт\n".encode()
 
 
 def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
