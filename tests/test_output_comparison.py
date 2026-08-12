@@ -498,14 +498,18 @@ def test_truncated_output_says_so(tmp_path: pathlib.Path, monkeypatch) -> None:
     from stepik_grader import config as config_mod
 
     # CONFIG — frozen dataclass, поэтому лимит задаётся так же, как у
-    # пользователя: настоящим файлом конфигурации.
+    # пользователя: настоящим файлом конфигурации. Через переменную окружения,
+    # а не через set_config_path: monkeypatch откатит её сам, и тест перестаёт
+    # зависеть от порядка — глобальный путь конфига общий на весь прогон, и
+    # его ручной сброс в None затирал состояние соседних тестов.
     cfg = tmp_path / "tiny.toml"
     cfg.write_text("[tool.stepik-grader]\nmax_output_bytes = 3\n", encoding="utf-8")
-    config_mod.set_config_path(cfg)
+    monkeypatch.setenv("STEPIK_GRADER_CONFIG", str(cfg))
+    config_mod.reset_config_cache()
     try:
         result = _named(tmp_path, 'print("y")\nprint("y")\nprint("y")', expected=b"y\ny\ny\n")
     finally:
-        config_mod.set_config_path(None)
+        config_mod.reset_config_cache()
 
     assert result["verdict"] == "WA"
     assert "обрезан" in result["error"], result["error"]
