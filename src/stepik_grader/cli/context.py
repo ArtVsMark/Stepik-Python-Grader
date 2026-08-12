@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from stepik_grader.cli.exit_codes import ExitCode
 from stepik_grader.core.result import BenchResult, SolutionResult
 
 __all__ = ["CliContext"]
@@ -53,8 +54,10 @@ class CliContext:
     ask_micro_profile: Callable[[], int]
     # Режимы 1/2 возвращают had_failures (issue #430 — меню решает про nudge);
     # режимы 3/4 (бенчмарки) — None.
-    run_mode_1: Callable[..., bool]
-    run_mode_2: Callable[..., bool]
+    # issue #936: режимы 1 и 2 возвращают код исхода (OK/FAILURES/NO_TESTS),
+    # а не «были ли падения» — «нечего проверять» иначе неотличимо от успеха.
+    run_mode_1: Callable[..., ExitCode]
+    run_mode_2: Callable[..., ExitCode]
     run_mode_3: Callable[..., None]
     run_mode_4: Callable[..., None]
     # issue #753: активная локаль (`cli._LANG`) — попадает в блок «Окружение»

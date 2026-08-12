@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from stepik_grader.core import reporter
 from stepik_grader.grader import (
     TestCase,
@@ -329,3 +331,68 @@ class TestPlainTableAlignment:
             header, row, [("Memory, MB", "12.34 MB"), ("Status", "OK")]
         ):
             assert head_end == value_end, f"колонка {label!r} съехала на {value_end - head_end}"
+
+
+# ---------------------------------------------------------------------------
+# Экранирование управляющих символов (issue #981): отчёт не подчиняется решению
+# ---------------------------------------------------------------------------
+
+
+class TestEscapeControlChars:
+    """Вывод проверяемого решения не должен управлять терминалом грейдера."""
+
+    @pytest.mark.parametrize(
+        ("raw", "expected", "why"),
+        [
+            ("обычный текст", "обычный текст", "печатный текст не трогаем"),
+            ("эмодзи 🎉 кириллица", "эмодзи 🎉 кириллица", "не-ASCII — обычные данные"),
+            ("таб\tмежду", "таб\tмежду", "табуляция значима в выводе"),
+            ("две\nстроки", "две\nстроки", "перевод строки значим"),
+            ("\x1b[2J", "\\x1b[2J", "очистка экрана обезврежена"),
+            ("\x1b[32mAC\x1b[0m", "\\x1b[32mAC\\x1b[0m", "подкраска вердикта обезврежена"),
+            ("хвост\rзатирание", "хвост\\x0dзатирание", "возврат каретки затирает строку"),
+            ("звонок\a", "звонок\\x07", "BEL"),
+            ("\x08backspace", "\\x08backspace", "забой"),
+            ("\x7f", "\\x7f", "DEL"),
+        ],
+    )
+    def test_escaping(self, raw: str, expected: str, why: str) -> None:
+        """Опасное экранируется, обычные данные остаются как есть."""
+        assert reporter.escape_control_chars(raw) == expected, why
+
+    def test_verbose_output_has_no_raw_escape(self, capsys, monkeypatch) -> None:
+        """В verbose-отчёте не остаётся сырых ESC (issue #981).
+
+        Решение, печатающее `\\x1b[2J\\x1b[H`, стирало уже напечатанный отчёт и
+        рисовало на его месте зелёный «AC», которого грейдер не выносил.
+        """
+        monkeypatch.setattr(reporter, "_RICH", False)
+        case = TestCase(index=1, input_lines=["1"], expected_lines=["ok"])
+        print_case_verbose(
+            case,
+            {
+                "passed": False,
+                "error": "",
+                "output": ["\x1b[2J\x1b[H", "\x1b[32m  task1.py  1/1  OK\x1b[0m"],
+                "expected": ["ok"],
+                "diff": "-ok\n+\x1b[32mOK\x1b[0m",
+            },
+        )
+
+        out = capsys.readouterr().out
+        assert "\x1b" not in out, "сырая ESC-последовательность дошла до терминала"
+        assert "\\x1b[2J" in out, "последовательность должна быть видна как текст"
+
+    def test_clip_counts_escaped_length(self, monkeypatch) -> None:
+        """Обрезка считает уже экранированную строку (issue #981).
+
+        Иначе рез приходился на середину управляющей последовательности, и её
+        незакрытый остаток съедал само уведомление об обрезке.
+        """
+        monkeypatch.setattr(reporter, "_VERBOSE_MAX_VALUE_CHARS", 10)
+
+        clipped = reporter._clip_value("\x1b[2J" + "x" * 100)
+
+        assert "\x1b" not in clipped
+        assert clipped.startswith("\\x1b[2J")
+        assert "… ещё" in clipped
