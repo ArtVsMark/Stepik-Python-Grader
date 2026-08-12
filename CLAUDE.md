@@ -517,8 +517,9 @@ issue на билд нет — направление держит только 
 [ ] Новые функции: type hints + docstring; новые модули: __all__
 [ ] from __future__ import annotations в начале нового файла
 [ ] Коммит в формате Conventional Commits
-[ ] CHANGELOG.md: добавлена запись под ## [Unreleased] — в КАЖДОМ PR, без
-    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/archive/history.md).
+[ ] CHANGELOG.md: запись в ## Буфер (разобрать при релизе) строкой
+    `- Fixed: что изменилось (#PR)` — в КАЖДОМ PR, без исключений для
+    рефакторингов (см. § Обновление CHANGELOG.md/docs/archive/history.md).
     CI это не проверяет — правило держится на этом чек-листе и ревью
 [ ] docs/archive/history.md — НЕ на каждый PR, только на релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
