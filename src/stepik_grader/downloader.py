@@ -25,7 +25,9 @@
 
 from __future__ import annotations
 
+import argparse
 import pathlib
+from collections.abc import Iterator
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -91,6 +93,7 @@ __all__ = [
     "build_task_directory",
     "main",
     "process_step_url",
+    "run_cli",
     "save_task_files",
     "set_lang",
 ]
@@ -399,6 +402,86 @@ def process_step_url(
 # ---------------------------------------------------------------------------
 
 
+def _download(lang: str, urls: list[str] | None) -> tuple[list[pathlib.Path], int]:
+    """Скачать задачи и вернуть пару «каталоги, код возврата» (issue #997).
+
+    Код исхода нужен точке входа CLI: ``0`` — работа состоялась, ``1`` —
+    загрузчик не дошёл до скачивания (конфиг или авторизация). Прежде обе
+    ситуации давали пустой список и код ``0``, поэтому скрипт не отличал «шагов
+    не заказывали» от «сломана авторизация» (INS-3-03, RUN-5-05).
+
+    ``urls`` — список URL для неинтерактивного режима; ``None`` — спрашивать в
+    цикле, как раньше.
+    """
+    set_lang(lang)
+    downloader_config.set_lang(lang)
+    configure_diagnostics()  # issue #146: opt-in по STEPIK_GRADER_LOG (по умолч. тихо)
+    config_path = pathlib.Path(CONFIG_FILE)
+
+    try:
+        config = load_or_create_config(config_path)
+        config = normalize_config_paths(config, config_path)
+    except Exception as error:
+        # issue #831 (DEV-12): стек — в диагностический лог (opt-in, с редакцией
+        # секретов). Пользователю остаётся короткое сообщение, но баг-репорт
+        # приходит с местом падения, а не с одной строкой текста.
+        _log.exception("сбой чтения конфигурации загрузчика: %s", config_path)
+        # issue #997 (JRN-3A-01): раньше сообщение не называло файл, а мастер к
+        # тому моменту уже был недоступен — пользователь оставался с «ошибка
+        # работы с конфигом» и без единого следующего шага.
+        _print(_t("dl_config_error_at", path=config_path.resolve(), error=error))
+        return [], 1
+
+    root_dir = pathlib.Path(str(config["root_dir"]))
+    secrets_path = pathlib.Path(str(config["secrets_path"]))
+
+    try:
+        secrets = load_secrets_dict(secrets_path)
+        session = create_user_session(secrets, secrets_path)
+    except Exception as error:
+        _log.exception("сбой авторизации Stepik (secrets=%s)", secrets_path)
+        # issue #433: дружелюбная ошибка со следующим шагом, а не голый текст.
+        _print(_t("dl_auth_failed", error=error))
+        _print(_t("dl_auth_check_fields", url=STEPIK_OAUTH_APPS_URL))
+        _print(_t("dl_auth_diagnostics"))
+        _print(_t("dl_auth_docs"))
+        return [], 1
+
+    downloaded: list[pathlib.Path] = []
+    failed = 0
+    for step_url in urls if urls is not None else _iter_urls_interactively():
+        try:
+            task_dir, _, _ = process_step_url(step_url, session, root_dir)
+        except Exception as error:
+            _log.exception("сбой обработки шага: %s", step_url)
+            _print(_t("dl_step_error", error=error))
+            failed += 1
+        else:
+            downloaded.append(task_dir)
+    # Отказ по конкретному шагу — тоже исход, а не «просто сообщение»: скрипт,
+    # заказавший пять URL и получивший три, должен об этом узнать.
+    return downloaded, 1 if failed else 0
+
+
+def _iter_urls_interactively() -> Iterator[str]:
+    """Спрашивать URL шагов до пустой строки; на EOF — штатное завершение.
+
+    issue #997 (RUN-5-04): закрытый stdin ронял цикл трейсбеком ``EOFError``,
+    хотя «ввода больше нет» — это ровно то же, что пустая строка. ``OSError``
+    ловится наравне: подменённый поток даёт то одно, то другое.
+    """
+    _print(f"\n{_t('dl_enter_urls')}")
+    while True:
+        try:
+            step_url = input(f"{_t('dl_step_url_prompt')}: ").strip()
+        except (EOFError, KeyboardInterrupt, OSError):
+            print()
+            return
+        if not step_url:
+            return
+        yield step_url
+
+
 def main(lang: str = "ru") -> list[pathlib.Path]:
     """Главная функция: конфиг → авторизация → цикл обработки URL шагов.
 
@@ -414,53 +497,42 @@ def main(lang: str = "ru") -> list[pathlib.Path]:
         момент активации, «задача скачана → первый зелёный прогон». Сбой
         конфига/авторизации и отказ по одному URL дают пустой список, а не
         исключение: цикл ввода URL остаётся best-effort, как и был.
+
+    Контракт сохранён намеренно: функцию зовёт пункт 8 интерактивного меню и
+    ждёт именно список каталогов. Код возврата нужен другой аудитории —
+    процессу, — и живёт в ``run_cli`` (issue #997).
     """
-    set_lang(lang)
-    downloader_config.set_lang(lang)
-    configure_diagnostics()  # issue #146: opt-in по STEPIK_GRADER_LOG (по умолч. тихо)
-    config_path = pathlib.Path(CONFIG_FILE)
-
-    try:
-        config = load_or_create_config(config_path)
-        config = normalize_config_paths(config, config_path)
-    except Exception as error:
-        # issue #831 (DEV-12): стек — в диагностический лог (opt-in, с редакцией
-        # секретов). Пользователю остаётся короткое сообщение, но баг-репорт
-        # приходит с местом падения, а не с одной строкой текста.
-        _log.exception("сбой чтения конфигурации загрузчика: %s", config_path)
-        _print(_t("dl_config_error", error=error))
-        return []
-
-    root_dir = pathlib.Path(str(config["root_dir"]))
-    secrets_path = pathlib.Path(str(config["secrets_path"]))
-
-    try:
-        secrets = load_secrets_dict(secrets_path)
-        session = create_user_session(secrets, secrets_path)
-    except Exception as error:
-        _log.exception("сбой авторизации Stepik (secrets=%s)", secrets_path)
-        # issue #433: дружелюбная ошибка со следующим шагом, а не голый текст.
-        _print(_t("dl_auth_failed", error=error))
-        _print(_t("dl_auth_check_fields", url=STEPIK_OAUTH_APPS_URL))
-        _print(_t("dl_auth_diagnostics"))
-        _print(_t("dl_auth_docs"))
-        return []
-
-    downloaded: list[pathlib.Path] = []
-    _print(f"\n{_t('dl_enter_urls')}")
-    while True:
-        step_url = input(f"{_t('dl_step_url_prompt')}: ").strip()
-        if not step_url:
-            break
-        try:
-            task_dir, _, _ = process_step_url(step_url, session, root_dir)
-        except Exception as error:
-            _log.exception("сбой обработки шага: %s", step_url)
-            _print(_t("dl_step_error", error=error))
-        else:
-            downloaded.append(task_dir)
+    downloaded, _ = _download(lang, urls=None)
     return downloaded
 
 
+def _build_parser() -> argparse.ArgumentParser:
+    """Парсер аргументов загрузчика (issue #997: INS-5-01, RUN-4-06, TW-3-04).
+
+    Модуль сразу уходил в мастер конфигурации, поэтому ``--help`` не печатал
+    справку, а создавал ``stepik_config.json`` в текущем каталоге и падал на
+    EOF — документированная команда не разбирала собственных флагов.
+    """
+    parser = argparse.ArgumentParser(
+        prog="python -m stepik_grader.downloader",
+        description=_t("dl_description"),
+    )
+    parser.add_argument("url", nargs="*", help=_t("dl_arg_url"))
+    parser.add_argument("--lang", choices=["ru", "en"], default="ru", help=_t("dl_arg_lang"))
+    return parser
+
+
+def run_cli(argv: list[str] | None = None) -> int:
+    """Точка входа CLI загрузчика: код возврата вместо списка каталогов.
+
+    ``0`` — все заказанные шаги скачаны (или пользователь завершил ввод),
+    ``1`` — не удалось прочитать конфиг, авторизоваться или обработать шаг.
+    """
+    args = _build_parser().parse_args(argv)
+    _, code = _download(args.lang, urls=args.url or None)
+    return code
+
+
 if __name__ == "__main__":
-    main()
+    # issue #997 (INS-3-03, RUN-5-05): исход виден процессу, а не только глазам.
+    raise SystemExit(run_cli())

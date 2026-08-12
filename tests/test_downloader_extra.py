@@ -12,6 +12,8 @@ from __future__ import annotations
 import pathlib
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from stepik_grader import downloader
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.downloader import build_task_directory, save_task_files
@@ -273,6 +275,98 @@ class TestMain:
             patch("stepik_grader.downloader.process_step_url", side_effect=ValueError("bad url")),
         ):
             downloader.main()  # не должно бросить
+
+
+class TestDownloaderCli:
+    """issue #997: точка входа разбирает аргументы и сообщает исход процессу."""
+
+    def test_help_prints_usage_instead_of_running_wizard(self, tmp_path, monkeypatch, capsys):
+        """`--help` печатает справку и не создаёт stepik_config.json (INS-5-01).
+
+        Модуль сразу уходил в мастер конфигурации, поэтому документированная
+        команда не разбирала собственных флагов: `--help` съедался первым
+        вопросом, в текущем каталоге появлялся конфиг, а на закрытом stdin
+        прогон падал с кодом 0.
+        """
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(SystemExit) as exc:
+            downloader.run_cli(["--help"])
+
+        assert exc.value.code == 0
+        assert "--lang" in capsys.readouterr().out
+        assert not (tmp_path / "stepik_config.json").exists()
+
+    def test_config_failure_returns_nonzero_and_names_the_file(self, tmp_path, monkeypatch, capsys):
+        """Сбой конфига → код 1 и путь к файлу (INS-3-03, RUN-5-05, JRN-3A-01)."""
+        monkeypatch.chdir(tmp_path)
+        with patch(
+            "stepik_grader.downloader.load_or_create_config", side_effect=RuntimeError("битый json")
+        ):
+            code = downloader.run_cli([])
+
+        out = capsys.readouterr().out.replace("\n", "")
+        assert code == 1
+        assert "битый json" in out
+        assert "stepik_config.json" in out  # файл назван, а не «ошибка конфига»
+
+    def test_urls_from_arguments_skip_the_prompt(self, tmp_path, monkeypatch):
+        """URL из аргументов скачиваются без единого вопроса — режим для скриптов."""
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
+            patch("builtins.input") as mock_input,
+            patch(
+                "stepik_grader.downloader.process_step_url",
+                return_value=(tmp_path / "task", None, None),
+            ) as mock_proc,
+        ):
+            code = downloader.run_cli(["https://stepik.org/lesson/1/step/1"])
+
+        mock_input.assert_not_called()
+        assert mock_proc.call_count == 1
+        assert code == 0
+
+    def test_failed_step_gives_nonzero_code(self, tmp_path, monkeypatch):
+        """Отказ по шагу — тоже исход: скрипт, заказавший URL, должен узнать."""
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
+            patch(
+                "stepik_grader.downloader.process_step_url",
+                side_effect=ValueError("нет такого шага"),
+            ),
+        ):
+            code = downloader.run_cli(["https://stepik.org/lesson/1/step/1"])
+
+        assert code == 1
+
+    def test_eof_in_url_loop_finishes_normally(self, tmp_path, monkeypatch):
+        """Закрытый stdin завершает ввод, а не роняет трейсбек (RUN-5-04).
+
+        «Ввода больше нет» — то же самое, что пустая строка, и обрабатываться
+        должно так же.
+        """
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
+            patch("builtins.input", side_effect=EOFError),
+        ):
+            code = downloader.run_cli([])
+
+        assert code == 0
 
 
 class TestMainReturnsDownloadedPaths:
