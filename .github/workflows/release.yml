@@ -5,6 +5,13 @@ on:
     tags:
       - "v*"
 
+# issue #988 (REV-3-05): по умолчанию токен job'а получает широкие права записи.
+# `verify` и `build` только читают репозиторий и исполняют тесты — при этом до
+# сих пор шли с дефолтным токеном. Права поднимаются точечно там, где нужны:
+# `contents: write` для публикации релиза, `id-token: write` для OIDC PyPI.
+permissions:
+  contents: read
+
 jobs:
   # issue #809: гейт публикации. Триггер — любой тег `v*`, в том числе с ветки,
   # которая никогда не проходила CI: раньше `build` → `publish` шли без единой
@@ -83,6 +90,20 @@ jobs:
           python -m pip install --upgrade build
           python -m build
 
+      # issue #988 (REL-3-06): раньше публиковался артефакт, который никто не
+      # открывал. `twine check` читает метаданные собранных файлов и ловит то,
+      # что PyPI отвергнет уже на загрузке (битый README/описание), — а версия в
+      # PyPI неперезаписываема, откатить публикацию нечем. Заодно проверяем, что
+      # сборка вообще что-то произвела: пустой `dist/` дальше пойти не должен.
+      - name: Check built artifacts
+        run: |
+          python -m pip install --upgrade twine
+          if [ -z "$(ls -A dist 2>/dev/null)" ]; then
+            echo "::error::dist/ пуст — сборка ничего не произвела, публикация остановлена"
+            exit 1
+          fi
+          twine check dist/*
+
       - name: Upload dist artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -96,6 +117,17 @@ jobs:
     permissions:
       contents: write
     steps:
+      # issue #988 (REL-1-01): checkout идёт ПЕРВЫМ и только потом скачивается
+      # артефакт. Обратный порядок — тот, что был здесь, — публиковал релиз без
+      # единого файла: `actions/checkout` очищает рабочую директорию перед
+      # выкладкой репозитория и уносил вместе с ней уже скачанный `dist/`.
+      # Симптом наблюдался как «релиз опубликован, ассетов нет».
+      #
+      # issue #834: checkout нужен ради тела релиза — это рукописная секция
+      # CHANGELOG, а не автосписок заголовков PR (раньше страница релиза
+      # читалась как внутренний git log и цитировать было нечего).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       # issue #559: артефакт из job `build` — без повторной сборки.
       - name: Download dist artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -103,11 +135,17 @@ jobs:
           name: dist
           path: dist
 
-      # issue #834: тело релиза — рукописная секция CHANGELOG, а не автосписок
-      # заголовков PR. Раньше страница релиза читалась как внутренний git log
-      # («chore(ci): update badges [skip ci] by @…»), и цитировать было нечего.
-      # Отсюда и checkout: до этого job обходился API по тегу.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # issue #988: последний рубеж перед публикацией. Пустой `dist/` здесь
+      # означает, что артефакт не доехал, — и релиз без ассетов лучше не
+      # выпускать вовсе, чем выпустить пустым: тег уже проставлен, а страницу
+      # релиза увидят раньше, чем кто-то заметит отсутствие файлов.
+      - name: Fail if dist is empty (issue #988)
+        run: |
+          if [ -z "$(ls -A dist 2>/dev/null)" ]; then
+            echo "::error::dist/ пуст — артефакт сборки не доехал, релиз без ассетов не публикуем"
+            exit 1
+          fi
+          ls -la dist
 
       - name: Extract release notes from CHANGELOG (issue #834)
         run: |

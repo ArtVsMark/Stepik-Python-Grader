@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # issue #988: без списка типов GitHub берёт дефолт `opened, synchronize,
+    # reopened` — `ready_for_review` в него НЕ входит. PR, созданный черновиком,
+    # оставался вовсе без проверок: ни при создании, ни после снятия черновика,
+    # пока в ветку не запушат новый коммит. Проверено на живых PR этого
+    # репозитория — прогон стартовал только после `git push`, а снятие черновика
+    # и переоткрытие PR не давали ничего.
+    types: [opened, synchronize, reopened, ready_for_review]
 
 # issue #1036 (находки REL-1-02/STR-2-01 аудита 2026-08-10): один прогон на
 # ветку. Без группы каждый пуш и каждое обновление PR запускали ПОЛНУЮ матрицу
@@ -50,6 +57,11 @@ jobs:
       # Тоже чистый stdlib, поэтому живёт в этом же быстром job'е.
       - name: Web module import guardrails (issue #855)
         run: python scripts/check_web_imports.py
+      # issue #988: ошибка в workflow не видна ни линтеру, ни тестам — она
+      # проявляется один раз, в момент релиза, и стоит невозвратно (версия в
+      # PyPI неперезаписываема). Проверка на чистом stdlib, поэтому живёт здесь.
+      - name: Workflow guardrails (issue #988)
+        run: python scripts/check_workflow_guardrails.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
