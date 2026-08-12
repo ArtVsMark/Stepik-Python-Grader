@@ -30,6 +30,23 @@ _ALLOWED_VERDICTS = {"AC", "WA", "TLE", "RE"}
 # и буквами — так к нему применимы все мутации каталога сразу.
 _SAMPLE_SOLUTION = 'print("Ответ 3.14")\nprint("готово")\n'
 
+# Эталон для семейства `algorithmic` (issue #1057): в нём есть всё, что правят
+# AST-мутации, — диапазон, целочисленное деление, граничное сравнение,
+# сортировка и накапливаемое между итерациями состояние. Печатает
+# «6 / 3 / мало / a b» при вводе «4».
+_ALGORITHMIC_SOLUTION = """n = int(input())
+total = 0
+for i in range(n):
+    total = total + i
+print(total)
+print(total // 2)
+if total >= 10:
+    print("много")
+else:
+    print("мало")
+print(" ".join(sorted(["b", "a"])))
+"""
+
 
 def _load_module() -> ModuleType:
     spec = importlib.util.spec_from_file_location("_corpus_mutations", _SCRIPT)
@@ -104,8 +121,16 @@ def test_mutation_by_key_finds_and_misses() -> None:
 
 
 def test_every_mutation_changes_the_source() -> None:
+    """Применимая мутация обязана менять исходник — иначе она пустышка.
+
+    Проверяется на исходнике, к которому применимы обе половины каталога:
+    алгоритмические мутации правят код (`range`, `//`, сравнение, `sorted`,
+    накопитель), и на выводе-эталоне из ``_SAMPLE_SOLUTION`` им нечего было бы
+    менять.
+    """
     for mutation in _MODULE.MUTATIONS:
-        assert mutation.apply(_SAMPLE_SOLUTION) != _SAMPLE_SOLUTION, mutation.key
+        source = _ALGORITHMIC_SOLUTION if mutation.family == "algorithmic" else _SAMPLE_SOLUTION
+        assert mutation.apply(source) != source, mutation.key
 
 
 @pytest.mark.parametrize(
@@ -120,7 +145,8 @@ def test_mutants_stay_compilable(key: str) -> None:
     """
     mutation = _MODULE.mutation_by_key(key)
     assert mutation is not None
-    compile(mutation.apply(_SAMPLE_SOLUTION), f"<{key}>", "exec")
+    source = _ALGORITHMIC_SOLUTION if mutation.family == "algorithmic" else _SAMPLE_SOLUTION
+    compile(mutation.apply(source), f"<{key}>", "exec")
 
 
 def test_syntax_error_mutation_really_breaks_syntax() -> None:
@@ -228,6 +254,171 @@ def test_applicability_predicates_filter_catalog() -> None:
     with_text_and_float = _MODULE.applicable_mutations(["Ответ 3.14"])
     rich_keys = {mutation.key for mutation in with_text_and_float}
     assert {"upper_case", "float_noise"} <= rich_keys
+
+
+# ── Семейство `algorithmic`: ошибка в решении, а не порча вывода (issue #1057) ──
+
+
+_ALGORITHMIC_KEYS = (
+    "off_by_one_range",
+    "int_division_swap",
+    "boundary_flip",
+    "reversed_order",
+    "accumulator_reset",
+)
+
+
+def _run_with_input(source: str, stdin: str, tmp_path: pathlib.Path) -> str:
+    """Выполнить исходник, подав ``stdin``, и вернуть его вывод текстом."""
+    script = tmp_path / "mutant.py"
+    script.write_text(source, encoding="utf-8")
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        input=stdin.encode("utf-8"),
+        capture_output=True,
+        timeout=30,
+        check=False,
+        env=env,
+    )
+    return _lf(result.stdout).decode("utf-8")
+
+
+def test_algorithmic_family_is_present() -> None:
+    """В каталоге есть обе половины: порча вывода и ошибка в алгоритме."""
+    families = {mutation.family for mutation in _MODULE.MUTATIONS}
+    assert families == {"output", "algorithmic"}
+
+
+@pytest.mark.parametrize("key", _ALGORITHMIC_KEYS)
+def test_algorithmic_mutations_are_applicable_to_matching_source(key: str) -> None:
+    """Предикат по исходнику пропускает решение, в котором есть что менять."""
+    mutation = _MODULE.mutation_by_key(key)
+    assert mutation is not None
+    assert mutation.applies_to(["6"], _ALGORITHMIC_SOLUTION)
+
+
+@pytest.mark.parametrize("key", _ALGORITHMIC_KEYS)
+def test_algorithmic_mutations_skip_source_without_target(key: str) -> None:
+    """Нечего менять — мутация неприменима, а не применяется вхолостую.
+
+    Это и есть защита от пустышки: без предиката по исходнику каталог записал бы
+    ожидание WA для задачи, где мутант равен эталону, и корпус показал бы
+    расхождение вместо честного пропуска.
+    """
+    mutation = _MODULE.mutation_by_key(key)
+    assert mutation is not None
+    assert not mutation.applies_to(["готово"], _SAMPLE_SOLUTION)
+
+
+def test_applicable_mutations_respect_source() -> None:
+    """`applicable_mutations` фильтрует и по выводу, и по исходнику."""
+    keys = {m.key for m in _MODULE.applicable_mutations(["6"], _SAMPLE_SOLUTION)}
+    assert not keys & set(_ALGORITHMIC_KEYS)
+
+    keys = {m.key for m in _MODULE.applicable_mutations(["6"], _ALGORITHMIC_SOLUTION)}
+    assert set(_ALGORITHMIC_KEYS) <= keys
+
+
+def test_source_is_required_for_algorithmic_mutations() -> None:
+    """Без исходника алгоритмическая мутация отсеивается, а не применяется вслепую."""
+    keys = {mutation.key for mutation in _MODULE.applicable_mutations(["6"])}
+    assert not keys & set(_ALGORITHMIC_KEYS)
+
+
+@pytest.mark.parametrize(
+    ("key", "expected_output"),
+    [
+        # Эталон при вводе «4»: сумма 0+1+2+3 = 6, половина 3, ветка «мало», «a b».
+        ("off_by_one_range", "3\n1\nмало\na b\n"),  # диапазон короче: 0+1+2 = 3
+        ("int_division_swap", "6\n3.0\nмало\na b\n"),  # 6 / 2 печатается как 3.0
+        ("boundary_flip", "6\n3\nмало\na b\n"),  # граница сдвинута, ветка та же
+        ("reversed_order", "6\n3\nмало\nb a\n"),  # порядок сортировки обратный
+        ("accumulator_reset", "3\n1\nмало\na b\n"),  # накопитель обнулён в цикле
+    ],
+)
+def test_algorithmic_mutants_change_behaviour(
+    key: str, expected_output: str, tmp_path: pathlib.Path
+) -> None:
+    """Мутант считает иначе, чем эталон, — и ровно так, как обещает каталог.
+
+    Проверяется поведение, а не текст трансформации: `ast.unparse` может
+    переписать код как угодно, значение имеет только результат прогона.
+    """
+    mutation = _MODULE.mutation_by_key(key)
+    assert mutation is not None
+
+    baseline = _run_with_input(_ALGORITHMIC_SOLUTION, "4\n", tmp_path)
+    assert baseline == "6\n3\nмало\na b\n"
+
+    mutated = _run_with_input(mutation.apply(_ALGORITHMIC_SOLUTION), "4\n", tmp_path)
+    assert mutated == expected_output
+
+
+def test_boundary_flip_can_be_neutral(tmp_path: pathlib.Path) -> None:
+    """Сдвиг границы может не проявиться — за это отвечает `may_be_neutral`.
+
+    Здесь мутация применима (сравнение есть) и код меняется, но на этих данных
+    ответ тот же. Раннер обязан считать такой исход нейтральным, а не дефектом
+    ядра, — иначе корпус краснеет на ровном месте.
+    """
+    source = "values = [3, 25]\nprint(len([v for v in values if v >= 10]))\n"
+    mutation = _MODULE.mutation_by_key("boundary_flip")
+    assert mutation is not None
+    assert mutation.may_be_neutral
+
+    assert _run_with_input(mutation.apply(source), "", tmp_path) == _run_with_input(
+        source, "", tmp_path
+    )
+
+
+def test_output_family_is_never_neutral() -> None:
+    """Порча вывода видна всегда — послабление про нейтральность к ней не относится."""
+    for mutation in _MODULE.MUTATIONS:
+        if mutation.family == "output":
+            assert not mutation.may_be_neutral, mutation.key
+
+
+@pytest.mark.parametrize("key", _ALGORITHMIC_KEYS)
+def test_algorithmic_expectations_are_not_ac(key: str) -> None:
+    """Алгоритмическая мутация ломает решение — AC не может быть приемлемым исходом.
+
+    Иначе нейтральный исход был бы неотличим от совпадения, и ложный AC ядра
+    прошёл бы как успешная проверка.
+    """
+    mutation = _MODULE.mutation_by_key(key)
+    assert mutation is not None
+    assert "AC" not in mutation.accepted
+
+
+def test_accepted_includes_alternatives() -> None:
+    """`accepted` — это ожидание плюс альтернативы, а не одно значение."""
+    mutation = _MODULE.mutation_by_key("off_by_one_range")
+    assert mutation is not None
+    assert mutation.accepted == ("WA", "RE")
+
+
+def test_ast_mutations_do_not_touch_string_literals(tmp_path: pathlib.Path) -> None:
+    """Правится дерево, а не текст: `//` внутри строки — не оператор деления.
+
+    Текстовая замена испортила бы литерал (и вердикт стал бы про сломанный
+    вывод, а не про подменённое деление).
+    """
+    source = 'print("путь//к//файлу")\nprint(7 // 2)\n'
+    mutation = _MODULE.mutation_by_key("int_division_swap")
+    assert mutation is not None
+
+    assert _run_with_input(mutation.apply(source), "", tmp_path) == "путь//к//файлу\n3.5\n"
+
+
+def test_unparseable_source_is_left_alone() -> None:
+    """Неразбираемый исходник не портится вслепую и объявляется неприменимым."""
+    broken = "def (\n"
+    for key in _ALGORITHMIC_KEYS:
+        mutation = _MODULE.mutation_by_key(key)
+        assert mutation is not None
+        assert not mutation.applies_to(["x"], broken), key
+        assert mutation.apply(broken) == broken, key
 
 
 def test_empty_expectation_drops_output_mutations() -> None:
