@@ -48,10 +48,12 @@ from stepik_grader.core.stepik_client import (
     fetch_lesson_data,
     fetch_section_data,
     fetch_step_data,
-    fetch_submission_data,
+    fetch_submission_data,  # noqa: F401 — back-compat реэкспорт
+    fetch_submission_history,
     fetch_unit_data,
 )
 from stepik_grader.core.storage import save_json_file
+from stepik_grader.core.submission_archive import archive_dir_for, save_submission_history
 
 # issue #302 (SRP): downloader.py стал координатором. Вынесены — чистый разбор
 # HTML текста задачи (core/task_page_parser), запись форматов тестов
@@ -220,6 +222,8 @@ def save_task_files(
     section: dict[str, Any],
     course: dict[str, Any],
     session: requests.Session,
+    *,
+    submissions: list[dict[str, Any]] | None = None,
 ) -> tuple[int, str]:
     """Сохраняет рабочие файлы, solution.py, meta.json, task.md и tests/ в task_dir.
 
@@ -228,6 +232,12 @@ def save_task_files(
                         повторное скачивание НЕ перезаписывает непустой файл
                         (issue #554)
       task{pos}_2.py  — заглушка для альтернативного решения 1 (всегда создаётся)
+
+    Args:
+        submissions: вся история отправок по шагу (issue #1055). Раскладывается
+            в ``submissions/`` рядом с задачей и ничего не затирает, в отличие
+            от ``solution.py``, который держит только последнюю отправку.
+            ``None`` — истории нет, каталог не создаётся.
 
     Порядок поиска тестов:
       1. ZIP-ссылка в HTML (скачать и сконвертировать в Format 3);
@@ -265,6 +275,20 @@ def save_task_files(
     if submitted_code:
         (task_dir / "solution.py").write_text(submitted_code, encoding="utf-8")
 
+    # issue #1055: solution.py держит ТОЛЬКО последнюю отправку и переписывается
+    # при каждой перекачке шага — прошлые попытки, включая неверные, исчезали.
+    # История уезжает в submissions/ и не затирается; имена там намеренно вне
+    # маски решений, поэтому режимы 2-4 не примут старые попытки за конкурентов.
+    archived = save_submission_history(task_dir, submissions or [])
+    if archived:
+        _print(
+            _t(
+                "dl_submissions_saved",
+                count=len(archived),
+                path=archive_dir_for(task_dir),
+            )
+        )
+
     # Определяем имя функции из template_code для function-mode runner
     function_name: str | None = None
     if template_code:
@@ -282,6 +306,9 @@ def save_task_files(
         "course_title": course.get("title", ""),
         "submission_id": submission.get("id") if submission else None,
         "submission_status": submission.get("status") if submission else None,
+        # Сколько попыток по шагу сохранено в submissions/ (issue #1055): по
+        # этому числу видно, есть ли у задачи история, не открывая каталог.
+        "submissions_archived": len(archived),
         # Имя функции для function-mode runner в grader.py.
         # None если задача не является функциональной (stdin-режим).
         "function_name": function_name,
@@ -379,7 +406,11 @@ def process_step_url(
     step_title = str(step.get("title") or "").strip()
 
     _print(_t("dl_fetch_submission", id=step_id))
-    submission = fetch_submission_data(session, step_id)
+    # issue #1055: берём всю историю отправок, а не только последнюю. Стоимость
+    # та же — страница API вмещает 20 записей, и у большинства шагов история в
+    # неё укладывается, то есть остаётся один запрос.
+    submissions = fetch_submission_history(session, step_id)
+    submission = submissions[0] if submissions else None
 
     task_dir = build_task_directory(
         root_dir,
@@ -391,7 +422,16 @@ def process_step_url(
     )
 
     _print(_t("dl_saving_files", path=task_dir))
-    count, source = save_task_files(task_dir, step, submission, lesson, section, course, session)
+    count, source = save_task_files(
+        task_dir,
+        step,
+        submission,
+        lesson,
+        section,
+        course,
+        session,
+        submissions=submissions,
+    )
     _log.info("тест-кейсы: %d шт., источник=%s (task_dir=%s)", count, source, task_dir)
     _print(_t("dl_step_saved", path=task_dir))
     return task_dir, count, source

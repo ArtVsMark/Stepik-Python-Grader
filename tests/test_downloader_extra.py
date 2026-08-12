@@ -69,6 +69,105 @@ class TestSaveTaskFiles:
         assert meta["function_name"] == "f"
         assert meta["submission_id"] == 9
 
+    def test_history_lands_next_to_task_without_erasing(self, tmp_path: pathlib.Path):
+        """История отправок раскладывается рядом и переживает перекачку шага.
+
+        issue #1055: `solution.py` хранит только последнюю отправку и
+        переписывается при каждом скачивании — прошлые попытки, включая
+        неверные, исчезали вместе с вердиктами платформы.
+        """
+        step = self._step(text="")
+        history = [
+            {
+                "id": 3,
+                "status": "correct",
+                "time": "2024-03-01T12:05:11Z",
+                "reply": {"code": "print(3)"},
+            },
+            {
+                "id": 1,
+                "status": "wrong",
+                "time": "2024-03-01T12:00:05Z",
+                "reply": {"code": "print(1)"},
+            },
+        ]
+
+        save_task_files(
+            tmp_path,
+            step,
+            history[0],
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+            submissions=history,
+        )
+        # Перекачка: API отдал только свежую отправку.
+        save_task_files(
+            tmp_path,
+            step,
+            history[0],
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+            submissions=[history[0]],
+        )
+
+        archive = tmp_path / "submissions"
+        assert sorted(p.name for p in archive.glob("*.py")) == [
+            "2024-03-01T12-00-05_wrong_1.py",
+            "2024-03-01T12-05-11_correct_3.py",
+        ]
+        assert (tmp_path / "solution.py").read_text(encoding="utf-8") == "print(3)"
+        assert load_json_file(tmp_path / "meta.json")["submissions_archived"] == 2
+
+    def test_archived_history_is_invisible_to_solution_search(self, tmp_path: pathlib.Path):
+        """Старые попытки не должны стать конкурентами в режимах 2–4.
+
+        Поиск решений рекурсивен, поэтому файл истории с именем вида
+        `task3_7.py` пришёл бы в сравнение как ещё одно решение.
+        """
+        from stepik_grader.core.test_loader import find_all_solution_files
+
+        save_task_files(
+            tmp_path,
+            self._step(text=""),
+            None,
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+            submissions=[
+                {
+                    "id": 1,
+                    "status": "wrong",
+                    "time": "2024-03-01T12:00:05Z",
+                    "reply": {"code": "print(1)"},
+                }
+            ],
+        )
+
+        assert [p.name for p in find_all_solution_files(tmp_path)] == [
+            "task3_1.py",
+            "task3_2.py",
+        ]
+
+    def test_without_history_no_archive_directory(self, tmp_path: pathlib.Path):
+        """Нет отправок — нет и пустого каталога в каждой скачанной задаче."""
+        save_task_files(
+            tmp_path,
+            self._step(text=""),
+            None,
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+        )
+
+        assert not (tmp_path / "submissions").exists()
+        assert load_json_file(tmp_path / "meta.json")["submissions_archived"] == 0
+
     def test_no_text_returns_early(self, tmp_path: pathlib.Path):
         """Пустой block.text → task.md не создаётся, ранний выход."""
         step = self._step(text="")
@@ -202,7 +301,7 @@ class TestProcessStepUrl:
                 "stepik_grader.downloader.fetch_step_data",
                 return_value={"id": 4, "position": 5, "title": "Step"},
             ),
-            patch("stepik_grader.downloader.fetch_submission_data", return_value=None),
+            patch("stepik_grader.downloader.fetch_submission_history", return_value=[]),
             patch(
                 "stepik_grader.downloader.save_task_files", return_value=(3, "html_table")
             ) as mock_save,
@@ -215,6 +314,48 @@ class TestProcessStepUrl:
         assert task_dir == downloader.build_task_directory(tmp_path, "C", "S", "L", 5, "Step")
         assert count == 3
         assert source == "html_table"
+
+    def test_history_is_fetched_and_latest_goes_to_solution(self, tmp_path: pathlib.Path):
+        """Скачивание берёт ВСЮ историю, а `solution.py` получает свежую отправку.
+
+        issue #1055: раньше запрашивалась одна запись (`submissions[0]`), и
+        остальные попытки — с вердиктами платформы — терялись безвозвратно.
+        """
+        history = [
+            {"id": 3, "status": "correct", "time": "2024-03-01T12:05:11Z"},
+            {"id": 2, "status": "wrong", "time": "2024-03-01T12:02:00Z"},
+        ]
+        with (
+            patch(
+                "stepik_grader.downloader.fetch_lesson_data", return_value={"id": 1, "title": "L"}
+            ),
+            patch("stepik_grader.downloader.fetch_unit_data", return_value={"section": 2}),
+            patch(
+                "stepik_grader.downloader.fetch_section_data",
+                return_value={"id": 2, "course": 3, "title": "S"},
+            ),
+            patch(
+                "stepik_grader.downloader.fetch_course_data", return_value={"id": 3, "title": "C"}
+            ),
+            patch(
+                "stepik_grader.downloader.fetch_step_data",
+                return_value={"id": 4, "position": 5, "title": "Step"},
+            ),
+            patch(
+                "stepik_grader.downloader.fetch_submission_history", return_value=history
+            ) as mock_history,
+            patch(
+                "stepik_grader.downloader.save_task_files", return_value=(0, "none")
+            ) as mock_save,
+        ):
+            downloader.process_step_url(
+                "https://stepik.org/lesson/1/step/5?unit=2", MagicMock(), tmp_path
+            )
+
+        mock_history.assert_called_once()
+        assert mock_history.call_args.args[1] == 4  # step_id
+        assert mock_save.call_args.args[2] == history[0]  # solution.py — последняя
+        assert mock_save.call_args.kwargs["submissions"] == history
 
 
 class TestMain:
