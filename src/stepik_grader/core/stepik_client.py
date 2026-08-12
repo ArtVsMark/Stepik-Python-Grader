@@ -24,6 +24,7 @@ import ipaddress
 import json as _json_mod
 import pathlib
 import secrets as secrets_module
+import socketserver
 import threading
 import time
 import webbrowser
@@ -408,6 +409,27 @@ def refresh_access_token(
 # ---------------------------------------------------------------------------
 
 
+class _OAuthHTTPServer(HTTPServer):
+    """Колбэк-сервер без обратного DNS при старте (issue #943).
+
+    ``HTTPServer.server_bind`` зовёт ``socket.getfqdn(host)`` ради поля
+    ``server_name``. Это обратный DNS-запрос, и на машине, где резолвер не
+    отвечает быстро (macOS без записи для loopback — воспроизведено на
+    CI-раннере), он висит секундами: сокет уже забинден, но ``listen`` ещё не
+    вызван, поэтому браузер, уже получивший редирект, стучится в закрытый порт.
+
+    Само ``server_name`` нужно только заголовку ``Server`` и CGI, которых здесь
+    нет, поэтому подставляем адрес как есть и стартуем мгновенно.
+    """
+
+    def server_bind(self) -> None:
+        """Забиндить сокет, не спрашивая DNS об имени хоста."""
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = int(port)
+
+
 def _make_oauth_handler(
     auth_data: dict[str, Any],
     path: str,
@@ -501,7 +523,7 @@ def wait_for_auth_code(
     """
     auth_data: dict[str, Any] = {}
     handler_class = _make_oauth_handler(auth_data, path, expected_state)
-    server = HTTPServer((host, port), handler_class)  # type: ignore[arg-type]
+    server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
 
     # issue #943 (DEV-3-04): обслуживаем запросы ДО ДЕДЛАЙНА, а не ровно один.
     # Раньше здесь стоял единственный ``handle_request`` — и любой посторонний

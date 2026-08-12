@@ -385,11 +385,22 @@ def _get(port: int, target: str) -> int:
         conn.close()
 
 
-def _wait_until_listening(port: int, timeout: float = 5.0) -> None:
+def _wait_until_listening(
+    port: int,
+    thread: threading.Thread,
+    outcome: dict[str, str],
+    timeout: float = 20.0,
+) -> None:
     """Дождаться, пока колбэк-сервер реально слушает порт.
 
     Фиксированный ``sleep`` — источник флака: поток мог не успеть поднять
-    сервер на загруженном раннере, и первый же запрос уходил в никуда.
+    сервер на загруженном раннере, и первый же запрос уходил в никуда. Запас
+    щедрый намеренно: старт упирается не в наш код, а в то, как быстро ОС
+    отдаёт сокет.
+
+    В сообщение об ошибке кладётся состояние потока и его исход — без этого
+    падение на чужой ОС говорит лишь «не поднялся», и причину приходится
+    угадывать по кругу через CI.
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -397,8 +408,15 @@ def _wait_until_listening(port: int, timeout: float = 5.0) -> None:
             probe.settimeout(0.5)
             if probe.connect_ex((_LOOPBACK, port)) == 0:
                 return
+        if not thread.is_alive():
+            raise AssertionError(
+                f"поток ожидания колбэка завершился, не подняв сервер на {port}: {outcome}"
+            )
         time.sleep(0.05)
-    raise AssertionError(f"колбэк-сервер не поднялся на порту {port} за {timeout}s")
+    raise AssertionError(
+        f"колбэк-сервер не поднялся на порту {port} за {timeout}s "
+        f"(поток жив: {thread.is_alive()}, исход: {outcome})"
+    )
 
 
 class TestOAuthCallbackSurvivesStrayRequests:
@@ -433,7 +451,7 @@ class TestOAuthCallbackSurvivesStrayRequests:
         port = _free_port()
         outcome = self._await_code(port, "STATE123", timeout=20)
         thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
-        _wait_until_listening(port)
+        _wait_until_listening(port, thread, outcome)
 
         assert _get(port, "/favicon.ico") == 404
         assert _get(port, "/") == 400  # корень без параметров
@@ -454,7 +472,7 @@ class TestOAuthCallbackSurvivesStrayRequests:
         port = _free_port()
         outcome = self._await_code(port, "STATE123", timeout=20)
         thread: threading.Thread = outcome.pop("_thread")  # type: ignore[assignment]
-        _wait_until_listening(port)
+        _wait_until_listening(port, thread, outcome)
 
         assert _get(port, "/?code=EVIL&state=ATTACKER") == 400
         thread.join(timeout=15)
