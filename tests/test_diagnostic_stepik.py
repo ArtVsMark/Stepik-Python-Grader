@@ -56,6 +56,76 @@ def test_valid_token_does_not_open_browser(
     assert session.headers["Authorization"] == "Bearer live-token"
 
 
+def test_help_prints_usage_instead_of_asking(capsys: pytest.CaptureFixture[str]) -> None:
+    """issue #997 (RUN-4-03): ``--help`` печатает справку, а не падает EOFError.
+
+    Модуль начинался с трёх голых ``input()``, поэтому флаг съедался первым
+    приглашением, а на закрытом stdin прогон обрывался трейсбеком — в скрипте и
+    в CI инструмент был неработоспособен.
+    """
+    with pytest.raises(SystemExit) as exc:
+        diagnostic_stepik.main(["--help"])
+
+    assert exc.value.code == 0
+    assert "--url" in capsys.readouterr().out
+
+
+def test_missing_url_returns_nonzero_without_traceback(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Нет URL и нет интерактива — понятный отказ и ненулевой код (JRN-3A-03)."""
+    code = diagnostic_stepik.main(["--url", ""])
+
+    assert code == 1
+    assert "URL" in capsys.readouterr().out
+
+
+def test_failure_returns_nonzero_and_names_the_log(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Сбой диагностики виден процессу и называет файл с подробностями.
+
+    issue #997: JRN-3A-03 (код возврата всегда 0 — триаж-инструмент непригоден
+    как проверка) и OPS-1-03 (стек пишется в лог, но пользователю о нём не
+    сообщают).
+    """
+    monkeypatch.setattr(
+        diagnostic_stepik,
+        "load_secrets_dict",
+        lambda _path: (_ for _ in ()).throw(ValueError("нет secrets.json")),
+    )
+
+    code = diagnostic_stepik.main(
+        ["--url", "https://stepik.org/lesson/1/step/1", "--out", str(tmp_path)]
+    )
+
+    # Переводы строк схлопываются: rich переносит длинный путь по ширине
+    # терминала, и посимвольное сравнение иначе ловило бы вёрстку, а не факт.
+    out = capsys.readouterr().out.replace("\n", "")
+    assert code == 1
+    assert "нет secrets.json" in out
+    assert str((tmp_path / "grader.log").resolve()) in out
+
+
+def test_saved_report_has_secrets_redacted(tmp_path: pathlib.Path) -> None:
+    """issue #950 (OPS-1-02): дамп ответа API не выносит токены на диск.
+
+    Файлы ``stepik_diagnostics/*.json`` создаются, чтобы приложить их к issue,
+    поэтому попадание туда токена — не гипотетический риск, а обычный сценарий
+    использования.
+    """
+    from stepik_grader.core.diag_log import register_secret
+
+    token = "super-secret-access-token"
+    register_secret(token)
+
+    path = diagnostic_stepik.save_json(tmp_path, "step_debug.json", {"access_token": token})
+
+    saved = path.read_text(encoding="utf-8")
+    assert token not in saved
+    assert "redacted" in saved
+
+
 def test_expired_token_is_refreshed_without_browser(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
