@@ -523,5 +523,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install . pip-audit
+      # issue #988 (REV-4-06): «краснеет в логах» — слишком слабый сигнал. Job
+      # объявлен continue-on-error, поэтому его провал не виден ни в статусе PR,
+      # ни в списке проверок: чтобы узнать про найденную CVE, надо было открыть
+      # лог именно этого job'а и дочитать его. Аннотация ::warning:: всплывает в
+      # сводке прогона и в интерфейсе PR — тот же не-блокирующий сигнал, но
+      # замеченный. Блокировать по-прежнему не блокируем осознанно: новая CVE в
+      # транзитивной зависимости не должна валить несвязанный чужой PR.
       - name: pip-audit (informational, non-blocking)
-        run: pip-audit --skip-editable
+        # Без пайпа намеренно: за `|` код возврата берётся от последней команды
+        # конвейера, и `pip-audit | tee` вернул бы успех даже на находке.
+        run: |
+          if ! pip-audit --skip-editable --progress-spinner=off; then
+            echo "::warning title=pip-audit::Найдена уязвимость в runtime-замыкании — см. лог job'а supply-chain и docs/dev/supply-chain.md"
+            exit 1
+          fi
