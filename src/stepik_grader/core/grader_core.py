@@ -85,9 +85,12 @@ from stepik_grader.core.mode_detector import (
     _read_meta_function_name,
     is_function_only_solution,
 )
-from stepik_grader.core.normalizers import floats_equal_with_precision
-from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
-from stepik_grader.core.normalizers import split_output_lines
+from stepik_grader.core.normalizers import floats_equal_with_precision, split_output_lines
+
+# issue #940: сравнение перешло на floats_equal_with_precision, но сам
+# `_normalize_output_line` остаётся реэкспортом для фасада grader.py (см. его
+# __all__) — удалять его отсюда нельзя, это публичное имя.
+from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line  # noqa: F401
 from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult, Verdict
 from stepik_grader.core.runner import (
     RunOutcome,
