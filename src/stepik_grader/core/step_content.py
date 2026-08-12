@@ -64,7 +64,11 @@ def pick_solutions_thread(threads: list[dict[str, Any]]) -> dict[str, Any] | Non
     (закреплённые/пользовательские решения, открывается после сдачи, issue #55).
     """
     for thread in threads:
-        if thread.get("thread") == "solutions":
+        # issue #944: элемент может оказаться не словарём, если Stepik сменит
+        # формат ответа (или в кэш попадёт испорченное тело). Прежний прямой
+        # `.get` давал `AttributeError: 'str' object has no attribute 'get'` —
+        # голый трейсбек вместо понятного сообщения.
+        if isinstance(thread, dict) and thread.get("thread") == "solutions":
             return thread
     return None
 
