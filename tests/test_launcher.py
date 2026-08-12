@@ -549,22 +549,58 @@ class TestCountTasks:
         for name in ("01-a", "02-b"):
             (tmp_path / name / "tests").mkdir(parents=True)
         (tmp_path / "not-a-task").mkdir()
-        assert launcher.count_tasks(tmp_path) == 2
+        assert launcher.count_tasks(tmp_path) == (2, 2)
 
     def test_counts_workdir_itself(self, tmp_path: Path) -> None:
         (tmp_path / "tests").mkdir()
-        assert launcher.count_tasks(tmp_path) == 1
+        assert launcher.count_tasks(tmp_path) == (1, 1)
 
     def test_zero_for_empty_folder(self, tmp_path: Path) -> None:
-        assert launcher.count_tasks(tmp_path) == 0
+        assert launcher.count_tasks(tmp_path) == (0, 0)
 
     def test_zero_for_missing_folder(self, tmp_path: Path) -> None:
-        assert launcher.count_tasks(tmp_path / "нет-такой") == 0
+        assert launcher.count_tasks(tmp_path / "нет-такой") == (0, 0)
 
     def test_respects_depth_limit(self, tmp_path: Path) -> None:
         deep = tmp_path / "a" / "b" / "c" / "d" / "e"
         (deep / "tests").mkdir(parents=True)
-        assert launcher.count_tasks(tmp_path, max_depth=2) == 0
+        assert launcher.count_tasks(tmp_path, max_depth=2) == (0, 0)
+
+    def test_downloaded_task_without_tests_is_counted(self, tmp_path: Path) -> None:
+        """issue #1018: скачанный шаг без публичных тестов — не «ноль задач».
+
+        Загрузчик кладёт ``meta.json``; прежний счётчик видел только папки с
+        ``tests``, поэтому сразу после успешного скачивания лаунчер писал
+        «Найдено задач: 0» — как будто скачивание не сработало.
+        """
+        task = tmp_path / "12"
+        task.mkdir()
+        (task / "meta.json").write_text("{}", encoding="utf-8")
+        (task / "solution.py").write_text("print(1)\n", encoding="utf-8")
+
+        assert launcher.count_tasks(tmp_path) == (1, 0)
+
+    def test_finds_task_at_downloader_depth(self, tmp_path: Path) -> None:
+        """issue #1018: задача видна на глубине, которую создаёт сам загрузчик.
+
+        `<курс>/<секция>/<урок>/<шаг>` — четвёртый уровень от рабочей папки.
+        При прежней глубине обхода 3 счётчик до него не доходил, и полная папка
+        скачанного курса показывалась как «Найдено задач: 0».
+        """
+        step = tmp_path / "курс" / "секция" / "урок" / "12"
+        (step / "tests").mkdir(parents=True)
+        (step / "meta.json").write_text("{}", encoding="utf-8")
+
+        assert launcher.count_tasks(tmp_path) == (1, 1)
+
+    def test_mixed_folder_reports_both_numbers(self, tmp_path: Path) -> None:
+        """Задача с тестами и задача без них считаются раздельно."""
+        (tmp_path / "with-tests" / "tests").mkdir(parents=True)
+        bare = tmp_path / "bare"
+        bare.mkdir()
+        (bare / "meta.json").write_text("{}", encoding="utf-8")
+
+        assert launcher.count_tasks(tmp_path) == (2, 1)
 
 
 def test_stop_during_readiness_leaves_terminal_state(monkeypatch) -> None:

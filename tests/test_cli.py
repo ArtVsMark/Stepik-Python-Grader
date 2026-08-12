@@ -344,6 +344,28 @@ class TestMode1:
         assert "Tests not found for" in out
         assert "python -m stepik_grader.downloader" in out
 
+    def test_downloaded_task_without_tests_is_not_sent_back_to_downloader(
+        self, tmp_path: pathlib.Path, capsys, monkeypatch
+    ) -> None:
+        """issue #1018: скачанному шагу без тестов не советуют скачать его снова.
+
+        Загрузчик уже сказал «Тесты не найдены (нет ZIP, таблицы и
+        GitHub-ссылок)», и повторный запуск ничего не изменит — тестов нет на
+        стороне Stepik. Признак скачанной задачи — ``meta.json`` от загрузчика.
+        """
+        sol = tmp_path / "solution.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "meta.json").write_text("{}", encoding="utf-8")
+
+        inputs = iter(["1", str(sol), "0"])
+        monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+        cli._interactive_menu()
+        out = capsys.readouterr().out
+
+        assert "Tests not found for" in out
+        assert "python -m stepik_grader.downloader" not in out  # круг разорван
+        assert "tests/1.clue" in out  # сказано, что делать вместо этого
+
 
 # ---------------------------------------------------------------------------
 # Режим 2 — Check all solutions in folder
