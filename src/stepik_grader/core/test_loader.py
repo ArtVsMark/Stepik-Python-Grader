@@ -23,7 +23,9 @@ from dataclasses import dataclass, field
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.mode_detector import (
+    _ast_class_names,
     _ast_function_names,
+    _block_invokes_solution,
     _detect_run_mode,
     _is_python_code_block,
     _read_meta_function_name,
@@ -362,12 +364,28 @@ def _apply_run_mode_override(
     # блок формата 3 вида `x = 5` / `y = 7` оставался «function» просто потому,
     # что похож на Python-код (`_is_python_code_block` считает присваивание
     # кодом). Вызывать при этом нечего: решение — обычный stdin-скрипт без
-    # единого `def`, и верное решение получало
-    # `RE function_name not found`, а при наличии вспомогательной функции —
-    # трейсбек внутрь неё. Если функций в решении нет вовсе, «function» —
-    # заведомо неверная классификация, и кейс возвращается на stdin-маршрут.
-    if not _ast_function_names(solution_path) and _read_meta_function_name(solution_path) is None:
-        for case in cases:
-            if case.test_type == "function":
-                case.test_type = "stdin"
+    # единого `def`, и верное решение получало `RE function_name not found`,
+    # а при наличии вспомогательной функции — трейсбек внутрь неё.
+    #
+    # Понижаем осторожно, по двум условиям сразу, иначе лечение хуже болезни:
+    #
+    # * блок НЕ является драйвером — не печатает сам и не вызывает ничего из
+    #   решения. Блок с `print(...)` исполним как есть, каким бы ни было
+    #   решение, и трогать его нельзя;
+    # * в решении нет ни одного вызываемого имени верхнего уровня. Классы тут
+    #   так же важны, как функции: решение с одним лишь `class Vector` и
+    #   блоком `vector = Vector()` / `print(vector.abs())` — обычная задача
+    #   ООП-курса, и первый вариант этой проверки, смотревший только на `def`,
+    #   ронял такие кейсы в stdin-маршрут (поймано интеграционными тестами на
+    #   реальных задачах трёх репозиториев).
+    if _read_meta_function_name(solution_path) is not None:
+        return cases
+    callables = {*_ast_function_names(solution_path), *_ast_class_names(solution_path)}
+    if callables:
+        return cases
+    for case in cases:
+        if case.test_type == "function" and not _block_invokes_solution(
+            "\n".join(case.input_lines).strip(), callables
+        ):
+            case.test_type = "stdin"
     return cases

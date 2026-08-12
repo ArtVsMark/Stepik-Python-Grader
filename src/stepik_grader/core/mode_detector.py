@@ -226,6 +226,22 @@ def _ast_function_names(solution_path: pathlib.Path) -> list[str]:
     ]
 
 
+def _ast_class_names(solution_path: pathlib.Path) -> list[str]:
+    """Вернуть имена классов верхнего уровня решения, в порядке объявления.
+
+    issue #938: «в решении нечего вызывать» — это отсутствие и функций, **и**
+    классов. Задача ООП-курса состоит из одного `class Vector`, а тест-блок
+    создаёт объект и печатает результат; считать такое решение stdin-скриптом
+    нельзя.
+    """
+    try:
+        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        tree = ast.parse(source)
+    except (SyntaxError, OSError):
+        return []
+    return [node.name for node in tree.body if isinstance(node, ast.ClassDef)]
+
+
 def _ast_function_name(solution_path: pathlib.Path) -> str | None:
     """Парсит файл решения через ast и возвращает имя целевой функции (эвристика).
 

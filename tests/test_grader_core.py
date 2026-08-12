@@ -641,6 +641,32 @@ def test_stdin_block_with_assignments_stays_stdin(tmp_path: pathlib.Path) -> Non
     assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
 
 
+def test_class_only_solution_keeps_function_route(tmp_path: pathlib.Path) -> None:
+    """Решение из одного класса остаётся на function-маршруте (issue #938).
+
+    Граница отката «function → stdin»: первая версия проверки смотрела только на
+    `def`, и задача ООП-курса — один `class Vector` плюс блок
+    `vector = Vector()` / `print(vector.abs())` — падала в stdin-маршрут.
+    Поймано интеграционными тестами на реальных задачах, поэтому закреплено
+    отдельно.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "class Counter:\n    def __init__(self, n):\n        self.n = n\n\n"
+        "    def double(self):\n        return self.n * 2\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text(
+        "# TEST_1:\nc = Counter(21)\nprint(c.double())\n", encoding="utf-8"
+    )
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n42\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
 def test_param_named_like_stdlib_gets_test_value(tmp_path: pathlib.Path) -> None:
     """Параметр с именем `date` получает значение теста, а не класс stdlib (issue #938).
 
