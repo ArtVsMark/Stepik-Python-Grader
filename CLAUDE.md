@@ -464,6 +464,9 @@ issue на билд нет — направление держит только 
 [ ] ruff check .                      → 0 ошибок
 [ ] ruff format --check .             → 0 ошибок
 [ ] mypy src/stepik_grader scripts            → 0 ошибок (строгость в [tool.mypy])
+[ ] Дефект закрыт ПРОГОНОМ той поверхности, где найден (браузер — браузером,
+    CLI — командой), покрыты ВСЕ вызовы класса (grep), есть тест, красный
+    до фикса. Канон — CONTRIBUTING.md § Когда дефект считается исправленным
 [ ] Новые функции: type hints + docstring; новые модули: __all__
 [ ] from __future__ import annotations в начале нового файла
 [ ] Коммит в формате Conventional Commits
