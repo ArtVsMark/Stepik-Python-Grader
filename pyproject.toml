@@ -128,7 +128,7 @@ lint = [
 ]
 
 [project.scripts]
-stepik-grader = "stepik_grader.cli:main"
+stepik-grader = "stepik_grader.cli:run_cli"
 
 # issue #661: GUI-лаунчер веб-интерфейса без командной строки. gui-scripts (не
 # обычный scripts) — на Windows создаёт pythonw-exe БЕЗ консольного окна: двойной
