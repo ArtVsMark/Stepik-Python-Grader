@@ -39,6 +39,7 @@ import argparse
 import importlib.metadata
 import os
 import pathlib
+import sys
 from collections.abc import Callable
 
 from stepik_grader import config
@@ -71,6 +72,7 @@ from stepik_grader.cli.options import (
     _resolve_use_cache,
     _resolve_verbosity,
 )
+from stepik_grader.cli.prompts import EXPLICIT_YES
 
 # issue #121 Phase 1: pure rendering helpers — вынесены в leaf-модуль
 # cli/rendering.py, реэкспортированы здесь для backward compatibility фасада.
@@ -94,6 +96,7 @@ from stepik_grader.core.grader_core import (
     run_tests,
     set_runner,
 )
+from stepik_grader.core.history import PurgePreview
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.reporter import (
     print_insights_summary,
@@ -454,6 +457,45 @@ def _dispatch_with_watch(
     return run()
 
 
+def _confirm_purge(preview: PurgePreview, task_key: str | None) -> bool:
+    """Показать объём удаления истории и спросить подтверждение (issue #990).
+
+    ``True`` — можно удалять. Удалять нечего (пустая или отсутствующая база) —
+    тоже ``True``: спрашивать не о чем, а сообщение о нуле удалённых напечатает
+    сам вызывающий.
+
+    Подтверждение спрашивается только в интерактивной сессии. Без TTY (CI,
+    пайп) вопрос не задаётся: зависший на вводе скрипт хуже, чем отсутствие
+    подтверждения, — но объём всё равно печатается, чтобы он остался в логе.
+    """
+    runs = preview["runs"]
+    if runs == 0:
+        return True
+    tasks = preview["tasks"]
+    solutions = preview["solutions"]
+    print(
+        _t(
+            "history_purge_preview",
+            runs=runs,
+            tasks=", ".join(tasks) or "—",
+            solutions=", ".join(solutions) or "—",
+        )
+    )
+    # Совпадение ключей — не гипотеза, а текущее поведение: ключ задачи равен
+    # имени папки, поэтому точечное удаление может задеть одноимённую задачу
+    # другого курса. Пользователь должен узнать об этом до, а не после.
+    if task_key is not None and len(tasks) > 1:
+        print(_t("history_purge_shared_key", task=task_key))
+    if not sys.stdin.isatty():
+        return True
+    try:
+        answer = input(_t("history_purge_confirm")).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return answer in EXPLICIT_YES
+
+
 def main(argv: list[str] | None = None) -> ExitCode:
     """Точка входа CLI: argparse для non-interactive режимов, иначе меню.
 
@@ -527,11 +569,21 @@ def main(argv: list[str] | None = None) -> ExitCode:
         # (плюс -wal/-shm) — то есть зная о файлах, которых пользователь не
         # создавал. Без аргумента чистим и статистику: это те же личные данные.
         from stepik_grader.core import stats as stats_mod
-        from stepik_grader.core.history import purge_history
+        from stepik_grader.core.history import preview_purge, purge_history
         from stepik_grader.core.history_recording import default_history_db_path
 
         task_key = args.purge_history or None
-        runs_removed = purge_history(default_history_db_path(), task_key=task_key)
+        db_path = default_history_db_path()
+        # issue #990: удаление необратимо, а ключ задачи сейчас совпадает у
+        # одноимённых папок разных курсов — «своя» задача утаскивает чужую.
+        # Поэтому объём показывается ДО удаления, а в интерактивной сессии
+        # спрашивается подтверждение. Без TTY (CI, скрипт) вопрос не задаётся:
+        # зависший на вводе пайплайн хуже, чем отсутствие подтверждения.
+        if not _confirm_purge(preview_purge(db_path, task_key=task_key), task_key):
+            print(_t("history_purge_cancelled"))
+            # Отказ пользователя — не сбой команды: данные целы, как он и просил.
+            return ExitCode.OK
+        runs_removed = purge_history(db_path, task_key=task_key)
         if task_key is None:
             stats_removed = stats_mod.purge_stats()
             print(_t("history_purged", runs=runs_removed, stats=stats_removed))
