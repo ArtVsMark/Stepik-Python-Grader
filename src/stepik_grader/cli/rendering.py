@@ -35,13 +35,30 @@ def _rows_to_csv(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:
     return buf.getvalue()
 
 
+def _md_cell(value: object) -> str:
+    """Значение как содержимое ячейки Markdown-таблицы (issue #997, DES-2-03).
+
+    Экранируется ровно то, что ломает саму таблицу: вертикальная черта (иначе
+    одна ячейка распадается на несколько и строка съезжает относительно шапки) и
+    переводы строк (Markdown-таблица однострочна по определению — реальный текст
+    после первого ``\\n`` просто исчезал из отчёта). Символ ``\\r`` схлопывается
+    вместе с ``\\n``, чтобы вывод решения из Windows не оставлял хвостов.
+
+    Это чинит `--output markdown` на самых обычных данных: сообщение об ошибке
+    из трейсбека занимает несколько строк, а вывод решения с таблицей содержит
+    ``|`` — оба случая разваливали отчёт, ради которого формат и существует.
+    """
+    text = str(value)
+    return text.replace("\r\n", "\n").replace("\r", "\n").replace("|", "\\|").replace("\n", "<br>")
+
+
 def _rows_to_markdown(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:
     """Отрендерить список flat-словарей в Markdown-таблицу."""
-    header = "| " + " | ".join(fieldnames) + " |"
+    header = "| " + " | ".join(_md_cell(f) for f in fieldnames) + " |"
     separator = "| " + " | ".join("---" for _ in fieldnames) + " |"
     lines = [header, separator]
     for row in rows:
-        lines.append("| " + " | ".join(str(row.get(f, "")) for f in fieldnames) + " |")
+        lines.append("| " + " | ".join(_md_cell(row.get(f, "")) for f in fieldnames) + " |")
     return "\n".join(lines)
 
 
