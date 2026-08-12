@@ -219,6 +219,37 @@ def test_pr_numbers_from_both_merge_forms() -> None:
     assert numbers == {"101", "102"}
 
 
+def test_git_output_read_as_utf8(monkeypatch) -> None:
+    """Вывод git читается явным UTF-8, а не локальной кодовой страницей (#1042).
+
+    Темы коммитов проекта по-русски. ``text=True`` без ``encoding`` берёт
+    локаль процесса, и под Windows (cp1252) чтение падало
+    ``UnicodeDecodeError`` на первом же заголовке — поймано матрицей CI, в
+    Linux-окне не воспроизводится вовсе. Поэтому проверяются именно аргументы
+    вызова: единственный способ закрепить это там, где падения нет.
+    """
+    module = _load_module()
+    captured: dict[str, object] = {}
+
+    def fake_check_output(*args, **kwargs):
+        captured.update(kwargs)
+        return "fix(a): кириллица в теме (#11)\n"
+
+    monkeypatch.setattr(module.subprocess, "check_output", fake_check_output)
+    assert module._git("log", "--pretty=%s") == "fix(a): кириллица в теме (#11)"
+    assert captured.get("encoding") == "utf-8"
+    assert captured.get("errors") == "replace"
+
+
+def test_cyrillic_commit_subjects_are_counted(tmp_path: Path) -> None:
+    """Кириллические темы коммитов считаются, а не роняют скрипт (#1042)."""
+    repo = _build_repo(tmp_path)
+    _commit(repo, "a", "fix(x): перевод строки в вёрстке (#101)")
+    _commit(repo, "b", "fix(y): ещё одно изменение (#102)")
+
+    assert _patch_of(repo) == 2
+
+
 def test_no_tags_warns_instead_of_silent_zero_zero(monkeypatch, capsys) -> None:
     """Клон без тегов не выдаёт правдоподобное ``0.0.N`` молча (issue #1042).
 

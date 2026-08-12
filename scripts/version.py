@@ -73,9 +73,24 @@ def _git(*args: str) -> str | None:
 
     None при любой ошибке (git недоступен, не git-репозиторий, нет тегов) —
     вызывающая сторона трактует None как «данных нет» и уходит в fallback.
+
+    Кодировка задана явно (issue #1042). ``text=True`` без неё берёт локальную
+    кодовую страницу, а под Windows это cp1252 — темы коммитов проекта
+    по-русски (см. CLAUDE.md § Язык артефактов), и чтение падало
+    ``UnicodeDecodeError`` прямо на первом же заголовке. Раньше не всплывало,
+    потому что читались только цифры ``rev-list --count``; с переходом на темы
+    коммитов кодировка стала значимой. ``errors="replace"`` — потому что
+    отдельный коммит с иной кодировкой не должен ронять подсчёт версии: битый
+    символ в теме максимум мешает распознать номер PR.
     """
     try:
-        out = subprocess.check_output(["git", *args], text=True, stderr=subprocess.DEVNULL)
+        out = subprocess.check_output(
+            ["git", *args],
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stderr=subprocess.DEVNULL,
+        )
     except (OSError, subprocess.CalledProcessError):
         return None
     return out.strip()
