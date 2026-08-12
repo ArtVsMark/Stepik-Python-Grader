@@ -64,6 +64,7 @@ from stepik_grader.cli import (
     _print_menu,
     _resolve_test_dir_from_input,
     main,
+    run_cli,
 )
 
 __all__ = [
@@ -95,4 +96,5 @@ __all__ = [
 ]
 
 if __name__ == "__main__":
-    main()
+    # issue #936: код исхода прогона становится статусом процесса.
+    run_cli()

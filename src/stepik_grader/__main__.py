@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from stepik_grader.cli import main
+from stepik_grader.cli import run_cli
 
 if __name__ == "__main__":
-    main()
+    # issue #936: код исхода прогона становится статусом процесса.
+    run_cli()

@@ -760,17 +760,18 @@ function summaryFromResult(data) {
     const label = t(data.mode === "bench" ? "check.mode_bench" : "check.mode_microbench");
     return t("grade.bench_done", { label, summary: tp(data.rows.length, "grade.n_solutions") });
   }
-  const ok = data.rows.filter(r => r.status === "OK").length;
+  const { ok, failed } = tallyStatuses(data.rows);
   if (data.rows.length === 1) {
     const r = data.rows[0];
     return t("grade.check_done_single", { file: r.file, status: r.status, passed: r.passed, total: r.total });
   }
   // issue #546: плюрализация «решений» вынесена в core.tp (locale-aware: ru
   // one/few/many, en one/many) — прежняя русская _plur удалена.
+  // issue #1020: непроверенные решения не приплюсовываются к провалам.
   return t("grade.check_done_multi", {
     summary: tp(data.rows.length, "grade.n_solutions"),
     ok,
-    fail: data.rows.length - ok,
+    fail: failed,
   });
 }
 
@@ -960,22 +961,40 @@ function renderResultSummaryBadges() {
       .map(([v, n]) => renderVerdict(v).replace("</span>", " ×" + n + "</span>"))
       .join(" ");
   } else {
-    const ok = data.rows.filter(r => r.status === "OK").length;
+    const { ok, failed, notChecked } = tallyStatuses(data.rows);
     el.innerHTML =
       renderVerdict("OK").replace("</span>", " ×" + ok + "</span>") +
       " " +
-      renderVerdict("FAIL").replace("</span>", " ×" + (data.rows.length - ok) + "</span>");
+      renderVerdict("FAIL").replace("</span>", " ×" + failed + "</span>") +
+      (notChecked
+        ? " " + renderVerdict("NO TESTS").replace("</span>", " ×" + notChecked + "</span>")
+        : "");
   }
 }
 
-function renderTests(rows) {
+// issue #1020: «проверка не состоялась» — не провал. Раньше считался только
+// status === "OK", а всё остальное автоматически падало в FAIL, поэтому папка
+// без тест-кейсов давала верному решению «FAIL 1» и «0%»: пользователь видел
+// приговор там, где его решение никто не запускал.
+const NOT_CHECKED_STATUSES = new Set(["NO TESTS"]);
+
+function tallyStatuses(rows) {
   const ok = rows.filter(r => r.status === "OK").length;
+  const notChecked = rows.filter(r => NOT_CHECKED_STATUSES.has(r.status)).length;
+  return { ok, failed: rows.length - ok - notChecked, notChecked, checked: rows.length - notChecked };
+}
+
+function renderTests(rows) {
+  const { ok, failed, notChecked, checked } = tallyStatuses(rows);
   $("#bar").textContent = "";
-  let h = kpiGrid([
+  const kpis = [
     { label: t("grade.kpi_solutions"), value: rows.length },
-    { label: "OK", value: ok, delta: rows.length ? Math.round((ok / rows.length) * 100) + "%" : "", variant: "up" },
-    { label: "FAIL", value: rows.length - ok, variant: (rows.length - ok) ? "down" : "neutral" },
-  ]);
+    // Процент считается от ПРОВЕРЕННЫХ: «0%» при нуле проверок — ложь, а не ноль.
+    { label: "OK", value: ok, delta: checked ? Math.round((ok / checked) * 100) + "%" : "", variant: "up" },
+    { label: "FAIL", value: failed, variant: failed ? "down" : "neutral" },
+  ];
+  if (notChecked) kpis.push({ label: t("grade.kpi_not_checked"), value: notChecked, variant: "neutral" });
+  let h = kpiGrid(kpis);
   h += '<div class="data-table-wrap">' +
     '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">' + esc(t("grade.col_passed")) + '</th>' +
     '<th scope="col">' + esc(t("grade.col_status")) + '</th><th scope="col">' + esc(t("grade.col_total_time")) + '</th>' +
