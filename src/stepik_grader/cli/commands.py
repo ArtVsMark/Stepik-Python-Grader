@@ -458,6 +458,25 @@ def _missing_tests_hint(ctx: CliContext, solution: pathlib.Path) -> str:
     return ctx.t(key, name=solution.name, expected=str(folder / "tests"))
 
 
+def _report_no_data(ctx: CliContext, output: str, message: str, *, reason: str) -> None:
+    """Сообщить о раннем выходе так, чтобы потребитель вывода это разобрал.
+
+    issue #997 (MTX-10-04): под ``--output json`` ранние выходы («файл не
+    найден», «решений нет») печатали человеческий русский текст, и парсер на том
+    же входе получал не JSON, а прозу — при том что веб-слой на ту же ситуацию
+    отдаёт JSON. Теперь json-режим получает объект с машинным ``reason`` и тем
+    же текстом в ``error``, а текстовый вывод не меняется.
+
+    ``csv``/``markdown`` намеренно оставлены строкой: это плоские табличные
+    форматы для чтения и вставки в отчёт, схемы ошибки у них нет — навязывать
+    им JSON значило бы ломать таблицу ради единообразия.
+    """
+    if output == "json":
+        print(json.dumps({"error": message, "reason": reason}, ensure_ascii=False))
+        return
+    print(message)
+
+
 def _print_run_profile(
     output: str,
     *,
@@ -546,14 +565,16 @@ def _run_mode_1(
     подсказку «Подучить»: она уместна только при ``FAILURES``.
     """
     if not solution.is_file():
-        print(ctx.t("file_not_found", path=solution))
+        _report_no_data(
+            ctx, output, ctx.t("file_not_found", path=solution), reason="file_not_found"
+        )
         return ExitCode.NO_TESTS
 
     test_dir = resolve_test_dir(solution)
     if test_dir is None or not test_dir.is_dir():
         # issue #1018 + #936: подсказка разная для скачанной задачи и чужой
         # папки, а код возврата в обоих случаях один — проверять было нечем.
-        print(_missing_tests_hint(ctx, solution))
+        _report_no_data(ctx, output, _missing_tests_hint(ctx, solution), reason="tests_not_found")
         return ExitCode.NO_TESTS
 
     _print_run_profile(output, solution=solution, test_dir=test_dir)
@@ -634,12 +655,14 @@ def _run_mode_2(
     непройденные кейсы среди решений, ``NO_TESTS`` — папки или решений нет.
     """
     if not directory.is_dir():
-        print(ctx.t("dir_not_found", path=directory))
+        _report_no_data(ctx, output, ctx.t("dir_not_found", path=directory), reason="dir_not_found")
         return ExitCode.NO_TESTS
 
     scripts = find_all_solution_files(directory)
     if not scripts:
-        print(ctx.t("no_solutions_found"))
+        _report_no_data(
+            ctx, output, ctx.t("no_solutions_found", path=directory), reason="no_solutions"
+        )
         return ExitCode.NO_TESTS
 
     col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
@@ -729,12 +752,14 @@ def _run_mode_3(
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Общий код для меню и --mode 3."""
     if not directory.is_dir():
-        print(ctx.t("dir_not_found", path=directory))
+        _report_no_data(ctx, output, ctx.t("dir_not_found", path=directory), reason="dir_not_found")
         return
 
     scripts = find_all_solution_files(directory)
     if not scripts:
-        print(ctx.t("no_solutions_found"))
+        _report_no_data(
+            ctx, output, ctx.t("no_solutions_found", path=directory), reason="no_solutions"
+        )
         return
 
     _print_run_profile(output)
@@ -840,12 +865,14 @@ def _run_mode_4(
 ) -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
     if not directory.is_dir():
-        print(ctx.t("dir_not_found", path=directory))
+        _report_no_data(ctx, output, ctx.t("dir_not_found", path=directory), reason="dir_not_found")
         return
 
     grouped = collect_grouped_files(directory)
     if not grouped:
-        print(ctx.t("no_solutions_found"))
+        _report_no_data(
+            ctx, output, ctx.t("no_solutions_found", path=directory), reason="no_solutions"
+        )
         return
 
     _print_run_profile(output)

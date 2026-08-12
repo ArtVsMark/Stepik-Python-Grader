@@ -1691,3 +1691,59 @@ class TestSandboxAndHistoryToggle:
         cli.main(["--serve"])
 
         assert captured and captured[0]["record_history"] is True
+
+
+class TestMachineOutputAndMessages:
+    """issue #997: вывод для машин остаётся машинным, а сообщения — полными."""
+
+    def test_json_output_stays_json_on_early_exit(self, tmp_path, monkeypatch, capsys) -> None:
+        """`--output json` отдаёт объект, а не русскую прозу (MTX-10-04).
+
+        Ранние выходы печатали человеческий текст независимо от формата, и
+        парсер на том же входе получал не JSON — при том что веб-слой на ту же
+        ситуацию отвечает JSON.
+        """
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(tmp_path / "нет-такого.py"), "--output", "json"])
+
+        payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+        assert payload["reason"] == "file_not_found"
+        assert payload["error"]
+
+    def test_missing_solutions_message_names_the_folder(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
+        """Сообщение подставляет путь, а не печатает «{path}» буквально.
+
+        Находки RUN-4-04 и SBX-1-04: шаблон звался без аргумента, поэтому
+        пользователь видел плейсхолдер вместо каталога, в котором искали.
+        """
+        monkeypatch.chdir(tmp_path)
+        empty = tmp_path / "пусто"
+        empty.mkdir()
+
+        cli.main(["--mode", "2", "--dir", str(empty)])
+
+        out = capsys.readouterr().out
+        assert "{path}" not in out
+        assert str(empty) in out.replace("\n", "")
+
+    def test_markdown_table_survives_pipes_and_newlines(self) -> None:
+        """`--output markdown` не разваливается на реальных данных (DES-2-03).
+
+        Вертикальная черта в выводе решения дробила ячейку на несколько, а
+        многострочная ошибка обрывала строку таблицы — формат существует ради
+        отчёта, который после этого нельзя было прочитать.
+        """
+        rows = [{"file": "a|b.py", "error": "Traceback:\nValueError"}]
+
+        table = cli._rows_to_markdown(rows, ["file", "error"])
+
+        body = table.splitlines()[-1]
+        # Границы ячеек — только « | »; экранированная «\|» внутри значения
+        # разделителем не считается, поэтому ячеек ровно две.
+        assert len(body.split(" | ")) == 2
+        assert r"\|" in body  # черта экранирована, а не потеряна
+        assert "<br>" in body  # перевод строки сохранён видимым
+        assert len(table.splitlines()) == 3  # шапка, разделитель, одна строка
