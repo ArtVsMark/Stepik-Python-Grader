@@ -61,6 +61,22 @@ DEFAULT_MAX_STEPS = 1000
 # обрезанный, а значит невалидный JSON. 1 млн символов — максимум 4 МБ в UTF-8
 # даже на 4-байтовых символах, с запасом под остальной трейс.
 DEFAULT_MAX_STDOUT_CHARS = 1_000_000
+
+# issue #946: потолок ОБЪЁМА самого трейса в байтах готового JSON. ``max_steps``
+# режет ЧИСЛО шагов, но каждый шаг несёт снимок всего живого состояния всех
+# кадров, поэтому JSON растёт как O(шаги × состояние) — а не линейно по шагам.
+# Замерено до фикса: код с сотней строк по 300 символов давал 904 шага и
+# 17 068 665 байт при внешнем лимите 10 485 760, то есть stdout дочернего
+# процесса резался посередине, ``json.loads`` падал, и вместо трейса
+# пользователь получал ``TraceError``. Отказ приходился ровно на «тяжёлый»
+# цикл — то место, ради которого пошаговый трейс и открывают.
+#
+# 4 МБ — доля внешнего ``CONFIG.max_output_bytes`` (10 МБ) с местом под остальное
+# содержимое ответа: сам вывод программы (до ``DEFAULT_MAX_STDOUT_CHARS``, в
+# худшем случае ~4 МБ в UTF-8) плюс служебные поля. ``trace_code`` пересчитывает
+# бюджет от фактического лимита, чтобы уменьшение ``max_output_bytes`` ужимало и
+# трейс, а не возвращало прежнюю поломку.
+DEFAULT_MAX_TRACE_BYTES = 4 * 1024 * 1024
 _MAX_STR = 200  # обрезка длинных строк в трейсе
 _MAX_ELEMS = 100  # макс. элементов контейнера в снимке
 _MAX_DEPTH = 8  # глубина рекурсии кодирования вложенных структур
@@ -197,10 +213,18 @@ class _BoundedStdout(io.StringIO):
 class _Tracer:
     """Собирает шаги трейса под ``sys.settrace`` для одного целевого файла."""
 
-    def __init__(self, target_file: str, max_steps: int, stdout_buf: io.StringIO) -> None:
+    def __init__(
+        self,
+        target_file: str,
+        max_steps: int,
+        stdout_buf: io.StringIO,
+        max_trace_bytes: int | None = DEFAULT_MAX_TRACE_BYTES,
+    ) -> None:
         self.target = target_file
         self.max_steps = max_steps
         self.stdout_buf = stdout_buf
+        self.max_trace_bytes = max_trace_bytes
+        self.used_bytes = 0
         self.steps: list[dict[str, Any]] = []
         self.truncated = False
 
@@ -208,11 +232,15 @@ class _Tracer:
         if frame.f_code.co_filename != self.target:
             return None  # не трейсим библиотечный код — только код пользователя
         if event in _TRACE_EVENTS:
-            if len(self.steps) >= self.max_steps:
+            if len(self.steps) >= self.max_steps or self._budget_exhausted():
                 self.truncated = True
                 return None  # достигнут лимит — прекращаем трейсить этот кадр
             self._record(frame, event)
         return self
+
+    def _budget_exhausted(self) -> bool:
+        """Исчерпан ли бюджет объёма (issue #946); ``None`` — без ограничения."""
+        return self.max_trace_bytes is not None and self.used_bytes >= self.max_trace_bytes
 
     def _record(self, frame: types.FrameType, event: str) -> None:
         heap: dict[str, Any] = {}
@@ -234,17 +262,33 @@ class _Tracer:
                     "locals": _encode_scope(fr.f_locals, heap, is_global=is_global),
                 }
             )
-        self.steps.append(
-            {
-                "step": len(self.steps),
-                "event": event,
-                "line": frame.f_lineno,
-                "func": frame.f_code.co_name,
-                "stack": stack,
-                "heap": heap,
-                "stdout_len": self.stdout_buf.tell(),
-            }
-        )
+        step = {
+            "step": len(self.steps),
+            "event": event,
+            "line": frame.f_lineno,
+            "func": frame.f_code.co_name,
+            "stack": stack,
+            "heap": heap,
+            "stdout_len": self.stdout_buf.tell(),
+        }
+
+        # issue #946: шаг взвешивается ПЕРЕД добавлением — переполнить бюджет и
+        # обрезать потом было бы поздно, JSON уже не пролез бы во внешний лимит.
+        # Меряется ровно в той форме, в какой шаг уедет наружу (те же
+        # ``ensure_ascii``/``allow_nan``, что в ``main``/bootstrap), и в БАЙТАХ:
+        # кириллица в переменных даёт до двух байт на символ, и счёт по длине
+        # строки занижал бы вес трейса вдвое — то есть промахивался бы мимо
+        # лимита ровно на русских данных.
+        if self.max_trace_bytes is not None:
+            weight = len(json.dumps(step, ensure_ascii=False, allow_nan=False).encode("utf-8"))
+            if self.steps and self.used_bytes + weight > self.max_trace_bytes:
+                # Первый шаг кладём всегда: трейс из нуля шагов неотличим от
+                # сбоя трассировщика, а усечённый — рабочий, просто короткий.
+                self.truncated = True
+                return
+            self.used_bytes += weight
+
+        self.steps.append(step)
 
 
 def run_trace(
@@ -252,6 +296,7 @@ def run_trace(
     target_file: str,
     max_steps: int = DEFAULT_MAX_STEPS,
     max_stdout_chars: int | None = DEFAULT_MAX_STDOUT_CHARS,
+    max_trace_bytes: int | None = DEFAULT_MAX_TRACE_BYTES,
 ) -> dict[str, Any]:
     """Исполнить ``code`` под трассировкой; вернуть ``{steps, stdout, truncated,
     stdout_truncated, error}``.
@@ -268,9 +313,16 @@ def run_trace(
     исполняться и печатать, и без потолка буфер рос бы в памяти дочернего
     процесса без границы. Обрезка помечается в stderr (как на грейд-пути) и
     полем ``stdout_truncated``; исполнение при этом не прерывается.
+
+    ``max_trace_bytes`` (issue #946) ограничивает объём САМОГО трейса: каждый шаг
+    несёт снимок всего живого состояния, поэтому число шагов веса не задаёт.
+    Исчерпание бюджета помечается тем же полем ``truncated``, что и лимит шагов
+    — для читателя это один и тот же исход «показаны первые N шагов», а разница
+    в причине ему ничего не даёт. ``None`` снимает ограничение (in-process
+    вызовы, где внешнего лимита stdout нет).
     """
     stdout_buf = _BoundedStdout(max_stdout_chars)
-    tracer = _Tracer(target_file, max_steps, stdout_buf)
+    tracer = _Tracer(target_file, max_steps, stdout_buf, max_trace_bytes)
     namespace: dict[str, Any] = {"__name__": "__main__", "__file__": target_file}
     error: dict[str, Any] | None = None
 
@@ -339,8 +391,9 @@ def main(argv: list[str] | None = None) -> int:
     target = args[0]
     max_steps = int(args[1]) if len(args) > 1 else DEFAULT_MAX_STEPS
     max_stdout_chars = int(args[2]) if len(args) > 2 else DEFAULT_MAX_STDOUT_CHARS
+    max_trace_bytes = int(args[3]) if len(args) > 3 else DEFAULT_MAX_TRACE_BYTES
     code = pathlib.Path(target).read_text(encoding="utf-8")
-    result = run_trace(code, target, max_steps, max_stdout_chars)
+    result = run_trace(code, target, max_steps, max_stdout_chars, max_trace_bytes)
     # allow_nan=False гарантирует валидный JSON (NaN/Inf уже сведены к строкам).
     sys.stdout.write(json.dumps(result, ensure_ascii=False, allow_nan=False))
     return 0
@@ -402,7 +455,15 @@ def trace_code(
     # Лимит вывода уходит в дочерний процесс аргументом (как max_steps), а не
     # читается им из CONFIG: ограничение приходит из спецификации запуска, а не из
     # чтения диска внутри исполнителя — тот же принцип, что у лимитов RunSpec.
-    trace_args = f"{code!r}, 'solution.py', {max_steps!r}, {max_stdout_chars!r}"
+    # issue #946: бюджет объёма трейса считается от ФАКТИЧЕСКОГО внешнего лимита,
+    # а не берётся константой: если пользователь ужмёт `max_output_bytes`, трейс
+    # обязан ужаться вместе с ним, иначе вернётся ровно та поломка, от которой
+    # уходим — обрезанный посередине JSON и `TraceError` вместо трейса. Доля 2/5
+    # оставляет место выводу самой программы и служебным полям ответа.
+    max_trace_bytes = min(DEFAULT_MAX_TRACE_BYTES, max(1, CONFIG.max_output_bytes * 2 // 5))
+    trace_args = (
+        f"{code!r}, 'solution.py', {max_steps!r}, {max_stdout_chars!r}, {max_trace_bytes!r}"
+    )
     bootstrap = (
         "import json as _json, sys as _sys\n"
         "from stepik_grader.core import tracer as _tracer\n"
