@@ -85,6 +85,7 @@ from stepik_grader.core.mode_detector import (
     _read_meta_function_name,
     is_function_only_solution,
 )
+from stepik_grader.core.normalizers import floats_equal_with_precision
 from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
 from stepik_grader.core.normalizers import split_output_lines
 from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult, Verdict
@@ -446,8 +447,11 @@ def _map_outcome_to_result(
     actual_lines = split_output_lines(stdout)
     passed = actual_lines == case.expected_lines
     if not passed and len(actual_lines) == len(case.expected_lines):
+        # issue #940: толерантность к записи float сохранена, но она больше не
+        # стирает незначащие нули ожидания: `12.30` против `12.3` — не «та же
+        # величина», а невыполненное требование «до сотых».
         passed = all(
-            _normalize_output_line(a) == _normalize_output_line(e)
+            floats_equal_with_precision(a, e)
             for a, e in zip(actual_lines, case.expected_lines, strict=True)
         )
     diff_str = ""
