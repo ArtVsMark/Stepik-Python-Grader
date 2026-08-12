@@ -6,6 +6,19 @@ on:
   pull_request:
     branches: [main]
 
+# issue #1036 (находки REL-1-02/STR-2-01 аудита 2026-08-10): один прогон на
+# ветку. Без группы каждый пуш и каждое обновление PR запускали ПОЛНУЮ матрицу
+# (девять комбинаций ОС × версия плюс гейты — около пятнадцати job'ов), а
+# устаревшие прогоны продолжали занимать слоты до конца. При двух параллельных
+# линиях работ и разводке конфликтов это упирается в лимит одновременных job'ов
+# аккаунта: очередь встаёт, а часть событий вообще не превращается в прогоны.
+#
+# main не отменяем: его прогон коммитит бейджи и питает cross-OS покрытие —
+# отмена на середине оставила бы README врать до следующего пуша.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   # issue #173 / эпик #167: README-витрина не должна разрастаться, а локальные
   # Markdown-ссылки README ↔ docs не должны протухать. Проверка на чистом stdlib
@@ -37,6 +50,55 @@ jobs:
       # Тоже чистый stdlib, поэтому живёт в этом же быстром job'е.
       - name: Web module import guardrails (issue #855)
         run: python scripts/check_web_imports.py
+
+  # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
+  # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
+  # один и тот же вердикт на любой платформе и любой версии Python — платить за
+  # него девятью установками зависимостей незачем, а при забитой очереди Actions
+  # эти повторы и есть то, что вытесняет чужие прогоны.
+  static:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # issue #162: динамическая версия (setuptools-scm) вычисляется из
+        # git-тегов — check_version_consistency.py без полной истории не найдёт
+        # baseline.
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      # issue #791: версию ruff задаёт ровно одно место — `[dev]` в
+      # pyproject.toml. Гард ловит возврат второго пина (`rev:` хука
+      # ruff-pre-commit), спецификатор без верхней границы и устаревшую
+      # dev-установку. Стоит ПЕРЕД самим ruff: если версии разъехались, вердикт
+      # линтера ниже уже не о том, что увидит контрибьютор локально.
+      - name: Ruff pin is single-sourced (issue #791)
+        run: python scripts/check_ruff_pin.py
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Type check
+        # issue #441: строгость задаётся [tool.mypy] в pyproject.toml (источник
+        # истины), --ignore-missing-imports переехал туда — команда упрощена.
+        # issue #558: scripts/ (релиз-логика: version/бейджи/coverage-конфиг) тоже
+        # под тип-гейтом — раньше 2000+ строк CI-скриптов не проверялись.
+        run: mypy src/stepik_grader scripts
+
+      - name: Version consistency (issue #165)
+        run: python scripts/check_version_consistency.py
 
   test:
     runs-on: ${{ matrix.os }}
@@ -96,29 +158,10 @@ jobs:
       # (privileged-контейнер, где userns/netns доступны). Backend-фиксы usrmerge
       # и биндинг /usr (#420) — в _linux.py.
 
-      # issue #791: версию ruff задаёт ровно одно место — `[dev]` в
-      # pyproject.toml. Гард ловит возврат второго пина (`rev:` хука
-      # ruff-pre-commit), спецификатор без верхней границы и устаревшую
-      # dev-установку. Стоит ПЕРЕД самим ruff: если версии разъехались, вердикт
-      # линтера ниже уже не о том, что увидит контрибьютор локально.
-      - name: Ruff pin is single-sourced (issue #791)
-        run: python scripts/check_ruff_pin.py
-
-      - name: Ruff lint
-        run: ruff check .
-
-      - name: Ruff format check
-        run: ruff format --check .
-
-      - name: Type check
-        # issue #441: строгость задаётся [tool.mypy] в pyproject.toml (источник
-        # истины), --ignore-missing-imports переехал туда — команда упрощена.
-        # issue #558: scripts/ (релиз-логика: version/бейджи/coverage-конфиг) тоже
-        # под тип-гейтом — раньше 2000+ строк CI-скриптов не проверялись.
-        run: mypy src/stepik_grader scripts
-
-      - name: Version consistency (issue #165)
-        run: python scripts/check_version_consistency.py
+      # issue #1036 (STR-2-01): ruff/mypy/пин ruff/сверка версии переехали в job
+      # `static` — они не зависят ни от ОС, ни от версии Python, а здесь
+      # гонялись девять раз на каждый прогон. Матрице остаётся то, ради чего
+      # она существует: pytest на каждой платформе.
 
       # issue #294: this job's OWN --cov-fail-under=85 gate (pyproject.toml)
       # otherwise counts the OTHER two platforms' core/sandbox/ backend files
