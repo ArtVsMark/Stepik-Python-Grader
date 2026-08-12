@@ -471,6 +471,38 @@ def test_ui_issue_tail_policy_on_current_repo() -> None:
     assert errors == []
 
 
+def test_ui_guard_fails_when_options_py_moved(tmp_path, monkeypatch) -> None:
+    """Пропавший вход — ошибка, а не тихий пропуск проверки (issue #988).
+
+    Прежде оба источника брались «если найдутся», поэтому переезд `options.py`
+    обнулял гейт: он печатал «0 строк проверено» тем же тоном, что и «всё
+    чисто». Guard, зеленеющий на пустом входе, неотличим от отсутствующего.
+    """
+    module = _load_module()
+    _make_ui_tree(tmp_path, 'parser.add_argument("--lang", help="Язык меню.")\n', {"ok": "Готово"})
+    (tmp_path / "src" / "stepik_grader" / "cli" / "options.py").unlink()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_ui_issue_tail_policy(errors)
+
+    assert any("options.py" in error for error in errors), errors
+
+
+def test_ui_guard_fails_when_locales_are_gone(tmp_path, monkeypatch) -> None:
+    """Каталог локалей опустел — политика по сообщениям не проверена, это ошибка."""
+    module = _load_module()
+    _make_ui_tree(tmp_path, 'parser.add_argument("--lang", help="Язык меню.")\n', {"ok": "Готово"})
+    for locale in (tmp_path / "src" / "stepik_grader" / "core" / "locales").glob("*.json"):
+        locale.unlink()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_ui_issue_tail_policy(errors)
+
+    assert any("locales" in error for error in errors), errors
+
+
 # --- Подписи-пути у ссылок (issue #827) --------------------------------------
 
 
