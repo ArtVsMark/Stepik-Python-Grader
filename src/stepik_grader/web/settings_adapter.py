@@ -20,7 +20,7 @@ from stepik_grader.core.user_settings import (
     SETTINGS_FILE_NAME,
     UserSettings,
     load_settings,
-    save_settings,
+    save_fields,
 )
 
 __all__ = ["read_settings", "set_flag"]
@@ -46,5 +46,7 @@ def set_flag(workspace: pathlib.Path, name: str, value: bool) -> UserSettings:
     if getattr(settings, name) is not value:
         setattr(settings, name, value)
         with contextlib.suppress(OSError):
-            save_settings(settings, _path_for(workspace))
+            # issue #997: пишем один флаг, а не снапшот — иначе веб затирал бы
+            # то, что параллельно переключили в интерактивном меню.
+            save_fields(_path_for(workspace), **{name: value})
     return settings
