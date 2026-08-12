@@ -24,6 +24,7 @@ import ipaddress
 import json as _json_mod
 import pathlib
 import secrets as secrets_module
+import socketserver
 import threading
 import time
 import webbrowser
@@ -83,6 +84,12 @@ __all__ = [
 _log = get_logger("stepik_client")  # issue #148: диагностический лог (opt-in)
 
 API_HOST = "https://stepik.org"
+
+# issue #943: шаг опроса колбэк-сервера. ``handle_request`` блокирует поток до
+# запроса или до своего таймаута, поэтому ждать им весь остаток дедлайна нельзя:
+# цикл не смог бы выйти сразу после получения кода. Полсекунды — незаметно для
+# пользователя и не создаёт заметного холостого хода.
+_OAUTH_POLL_SECONDS = 0.5
 
 # issue #109: статусы, повторяемые транспортным слоем make_session() —
 # 429 (rate limit) и временные 5xx. 4xx помимо 429 не повторяются (не временные).
@@ -338,6 +345,40 @@ def token_is_valid(secrets: dict[str, Any]) -> bool:
     return bool(access_token) and time.time() < expires_at - 60
 
 
+def _validate_token_payload(token_data: dict[str, Any]) -> None:
+    """Проверить, что ответ токен-эндпоинта пригоден к сохранению (issue #943).
+
+    ``raise_for_status`` пропускает ЛЮБОЙ ``200``, поэтому валидный JSON вида
+    ``{"expires_in": 3600}`` без ``access_token`` уходил в ``secrets.json`` как
+    есть: прежний протухший токен оставался на месте, а ``expires_at``
+    сдвигался в будущее — и ``token_is_valid()`` целый час отвечал ``True``,
+    пока каждый запрос получал ``401`` без внятной причины.
+
+    Проверяется ровно то, без чего сохранение бессмысленно: непустой строковый
+    ``access_token`` и числовой ``expires_in``. ``expires_in`` отдельно потому,
+    что дальше по пути стоит ``float(...)``, а ``float(None)`` — ``TypeError``
+    из недр, а не понятная ошибка.
+
+    Raises
+    ------
+    ValueError:
+        Если ответ не несёт пригодных полей — вызывающая сторона обязана НЕ
+        трогать secrets и вернуть управление на браузерную авторизацию.
+    """
+    access_token = token_data.get("access_token")
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise ValueError(
+            "Ответ токен-эндпоинта без access_token — secrets не обновлены. "
+            "Так отвечает подменённый или сломанный эндпоинт; пройдите авторизацию заново."
+        )
+    expires_in = token_data.get("expires_in")
+    if isinstance(expires_in, bool) or not isinstance(expires_in, int | float):
+        raise ValueError(
+            f"Ответ токен-эндпоинта с нечисловым expires_in ({expires_in!r}) — "
+            "secrets не обновлены; пройдите авторизацию заново."
+        )
+
+
 def refresh_access_token(
     client_id: str,
     client_secret: str,
@@ -356,6 +397,7 @@ def refresh_access_token(
     )
     response.raise_for_status()
     token_data = cast(dict[str, Any], response.json())
+    _validate_token_payload(token_data)
     register_secret(str(token_data.get("access_token", "")))
     register_secret(str(token_data.get("refresh_token", "")))
     _log.info("access_token обновлён (expires_in=%s)", token_data.get("expires_in"))
@@ -365,6 +407,27 @@ def refresh_access_token(
 # ---------------------------------------------------------------------------
 # OAuth2 Authorization Code flow
 # ---------------------------------------------------------------------------
+
+
+class _OAuthHTTPServer(HTTPServer):
+    """Колбэк-сервер без обратного DNS при старте (issue #943).
+
+    ``HTTPServer.server_bind`` зовёт ``socket.getfqdn(host)`` ради поля
+    ``server_name``. Это обратный DNS-запрос, и на машине, где резолвер не
+    отвечает быстро (macOS без записи для loopback — воспроизведено на
+    CI-раннере), он висит секундами: сокет уже забинден, но ``listen`` ещё не
+    вызван, поэтому браузер, уже получивший редирект, стучится в закрытый порт.
+
+    Само ``server_name`` нужно только заголовку ``Server`` и CGI, которых здесь
+    нет, поэтому подставляем адрес как есть и стартуем мгновенно.
+    """
+
+    def server_bind(self) -> None:
+        """Забиндить сокет, не спрашивая DNS об имени хоста."""
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = str(host)
+        self.server_port = int(port)
 
 
 def _make_oauth_handler(
@@ -389,6 +452,23 @@ def _make_oauth_handler(
                 self.send_response(404)
                 self.end_headers()
                 self.wfile.write(b"Not found")
+                return
+
+            # issue #943: запрос на тот же path, но БЕЗ ``code``/``error`` — это
+            # вообще не колбэк: так выглядит открытый вручную `localhost:8080/`
+            # или префетч корня браузером. Прежде он проваливался в проверку
+            # ``state`` ниже, писал `state_mismatch` и прекращал ожидание —
+            # настоящий редирект Stepik приходил уже в закрытый сервер.
+            # Решение принимается только там, где есть что решать.
+            if not params.get("code") and not params.get("error"):
+                self.send_response(400)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(
+                    "<h1>Жду колбэк авторизации Stepik…</h1>"
+                    "<p>Эта страница открыта напрямую, без параметров авторизации. "
+                    "Вернитесь на вкладку Stepik и подтвердите доступ.</p>".encode()
+                )
                 return
 
             received_state = params.get("state", [None])[0]
@@ -443,13 +523,34 @@ def wait_for_auth_code(
     """
     auth_data: dict[str, Any] = {}
     handler_class = _make_oauth_handler(auth_data, path, expected_state)
-    server = HTTPServer((host, port), handler_class)  # type: ignore[arg-type]
-    server.timeout = timeout
+    server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
 
-    thread = threading.Thread(target=server.handle_request, daemon=True)
-    thread.start()
-    thread.join(timeout=timeout + 5)
-    server.server_close()
+    # issue #943 (DEV-3-04): обслуживаем запросы ДО ДЕДЛАЙНА, а не ровно один.
+    # Раньше здесь стоял единственный ``handle_request`` — и любой посторонний
+    # GET съедал его целиком: браузер сам префетчит ``/favicon.ico``, ветки «не
+    # тот path» (404) и «state_mismatch» (400) тоже отвечают и возвращают
+    # управление. Сервер закрывался, настоящий колбэк Stepik упирался в
+    # ECONNREFUSED, а пользователь мгновенно получал «код не получен за 120с» —
+    # сообщение про ожидание, которого не было (проверено прогоном: 0.0 секунды).
+    #
+    # Дедлайн считается по МОНОТОННЫМ часам, а не по одному вызову с
+    # ``server.timeout``: перевод системного времени не должен ни обрывать
+    # ожидание раньше срока, ни подвешивать его дольше.
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            # Короткий тик, а не весь остаток: ``handle_request`` блокирует поток
+            # до запроса или до своего таймаута, и без тика отмена/выход из цикла
+            # ждали бы полного дедлайна даже после получения кода.
+            server.timeout = min(_OAUTH_POLL_SECONDS, remaining)
+            server.handle_request()
+            if auth_data.get("code") or auth_data.get("error"):
+                break
+    finally:
+        server.server_close()
 
     code = auth_data.get("code")
     error = auth_data.get("error")
@@ -508,6 +609,10 @@ def authorize_via_browser(
     )
     response.raise_for_status()
     token_data: dict[str, Any] = response.json()
+    # issue #943: второй сайт того же обмена — код-грант. Без проверки сюда
+    # проходил бы ровно тот же ``200`` без ``access_token``, а ниже стоит
+    # ``float(...)``, который на ``None`` даёт ``TypeError`` из недр.
+    _validate_token_payload(token_data)
     register_secret(str(token_data.get("access_token", "")))
     register_secret(str(token_data.get("refresh_token", "")))
     token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
@@ -545,6 +650,11 @@ def create_user_session(
             return make_session(str(secrets["access_token"]))
         except requests.HTTPError:
             print("Refresh token истёк, выполняется повторная авторизация...")
+        except ValueError as exc:
+            # issue #943: ответ 200 без пригодных полей. secrets НЕ трогаем —
+            # прежний токен остаётся как есть, а не подменяется протухшим с
+            # обновлённым expires_at, — и уходим на браузерную авторизацию.
+            print(f"Ответ токен-эндпоинта непригоден ({exc}); нужна повторная авторизация.")
 
     token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
     secrets.update(token_data)
