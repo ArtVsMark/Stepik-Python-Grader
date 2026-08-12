@@ -686,11 +686,38 @@ def main(argv: list[str] | None = None) -> ExitCode:
                 # issue #395: для --serve история включена по умолчанию
                 # (локальная приватная БД наполняет «Подучить»); --no-history
                 # выключает. Отличие от режимов 1-4, где дефолт — opt-in.
-                record_history=args.history is not False,
+                #
+                # issue #997: раньше здесь стояло `args.history is not False` —
+                # своя, третья лестница приоритета, не знавшая ни про
+                # pyproject, ни про сохранённый тумблер меню. Пользователь
+                # выключал историю пунктом 7 и получал её обратно при первом же
+                # `--serve`. Теперь резолвер один на все поверхности, а дефолт
+                # веба передаётся параметром.
+                record_history=_resolve_record_history(args, default=True),
             )
         except SandboxUnavailableError as exc:
             parser.error(_t("sandbox_unavailable", reason=str(exc)))
         return ExitCode.OK
+
+    if args.sandbox:
+        # issue #266: жёсткий отказ, если backend недоступен на этой машине --
+        # никогда не тихий откат на обычный LocalRunner (см. cli/options.py
+        # --sandbox help и SECURITY.md). Ленивый импорт: core/sandbox тянет
+        # ОС-специфичные модули (ctypes на Windows, resource на POSIX) только
+        # когда флаг реально запрошен.
+        #
+        # issue #997 (DEV-1-02, LNCH-2-01, SBX-4-03, SEC-2-01 — четыре
+        # независимых среза): блок стоял НИЖЕ ветки меню, поэтому `--sandbox`
+        # без `--mode` не доходил сюда вовсе. Пользователь просил изоляцию,
+        # получал обычное меню и грейдил через LocalRunner — а решение, пишущее
+        # файлы мимо задачи, спокойно их писало. Молчание тут хуже отказа:
+        # флаг о безопасности либо действует, либо честно падает.
+        from stepik_grader.core.sandbox import SandboxRunner, SandboxUnavailableError
+
+        try:
+            set_runner(SandboxRunner())
+        except SandboxUnavailableError as exc:
+            parser.error(_t("sandbox_unavailable", reason=str(exc)))
 
     if args.mode is None:
         _interactive_menu()
@@ -700,19 +727,6 @@ def main(argv: list[str] | None = None) -> ExitCode:
     record_history = _resolve_record_history(args)
     record_lint = args.lint  # разовый флаг режимов 1/2 (issue #349), без config-дефолта
     ai_hints = args.ai_hints  # разовый флаг AI-подсказок режимов 1–4 (issue #435/#542)
-
-    if args.sandbox:
-        # issue #266: жёсткий отказ, если backend недоступен на этой машине --
-        # никогда не тихий откат на обычный LocalRunner (см. cli/options.py
-        # --sandbox help и SECURITY.md). Ленивый импорт: core/sandbox тянет
-        # ОС-специфичные модули (ctypes на Windows, resource на POSIX) только
-        # когда флаг реально запрошен.
-        from stepik_grader.core.sandbox import SandboxRunner, SandboxUnavailableError
-
-        try:
-            set_runner(SandboxRunner())
-        except SandboxUnavailableError as exc:
-            parser.error(_t("sandbox_unavailable", reason=str(exc)))
 
     if args.mode == 1:
         if not args.file:
