@@ -350,6 +350,65 @@ class TestFetchSubmissionData:
             assert fetch_submission_data(MagicMock(), 100) is None
 
 
+class TestFetchSubmissionHistory:
+    """fetch_submission_history отдаёт ВСЮ историю шага, а не последнюю (issue #1055)."""
+
+    @staticmethod
+    def _page(ids: list[int], *, has_next: bool) -> MagicMock:
+        resp = MagicMock()
+        resp.json.return_value = {
+            "submissions": [{"id": i} for i in ids],
+            "meta": {"has_next": has_next},
+        }
+        return resp
+
+    def test_collects_all_pages(self):
+        """Вся история, а не первая страница: три отправки со второй страницы тоже наши."""
+        pages = [self._page([5, 4], has_next=True), self._page([3, 2, 1], has_next=False)]
+        with patch("stepik_grader.core.stepik_client._get_with_retry", side_effect=pages) as get:
+            history = stepik_client.fetch_submission_history(MagicMock(), 100)
+        assert [s["id"] for s in history] == [5, 4, 3, 2, 1]
+        assert [call.kwargs["params"]["page"] for call in get.call_args_list] == [1, 2]
+
+    def test_single_page_makes_one_request(self):
+        """Когда истории на одну страницу — лишнего запроса нет."""
+        with patch(
+            "stepik_grader.core.stepik_client._get_with_retry",
+            return_value=self._page([1], has_next=False),
+        ) as get:
+            history = stepik_client.fetch_submission_history(MagicMock(), 100)
+        assert [s["id"] for s in history] == [1]
+        assert get.call_count == 1
+
+    def test_empty_history(self):
+        with patch(
+            "stepik_grader.core.stepik_client._get_with_retry",
+            return_value=self._page([], has_next=False),
+        ):
+            assert stepik_client.fetch_submission_history(MagicMock(), 100) == []
+
+    def test_stuck_has_next_stops_at_max_pages(self):
+        """Залипший has_next не превращает обход в бесконечный цикл."""
+        with patch(
+            "stepik_grader.core.stepik_client._get_with_retry",
+            return_value=self._page([7], has_next=True),
+        ) as get:
+            history = stepik_client.fetch_submission_history(MagicMock(), 100, max_pages=3)
+        assert get.call_count == 3
+        assert len(history) == 3
+
+    def test_skips_non_dict_entries(self):
+        """Сменившийся формат ответа не роняет обход — мусор отбрасывается."""
+        resp = MagicMock()
+        resp.json.return_value = {
+            "submissions": [{"id": 1}, "сломанный элемент", None],
+            "meta": {"has_next": False},
+        }
+        with patch("stepik_grader.core.stepik_client._get_with_retry", return_value=resp):
+            history = stepik_client.fetch_submission_history(MagicMock(), 100)
+        assert [s["id"] for s in history] == [1]
+
+
 # ── OAuth-колбэк и валидация токен-ответа (issue #943) ─────────────────────
 
 
