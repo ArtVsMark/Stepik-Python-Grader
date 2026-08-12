@@ -43,6 +43,39 @@ def test_microbench_runner_reports_nonzero_peak_memory() -> None:
     assert result["peak_memory_mb"] > 0.0
 
 
+def test_timing_is_measured_outside_tracemalloc() -> None:
+    """issue #991: замер времени идёт ДО старта профилировщика памяти.
+
+    Накладные расходы ``tracemalloc`` пропорциональны числу аллокаций, поэтому
+    под ним решение, активнее работающее с памятью, выглядит медленнее
+    независимо от реальной скорости — режим 4 ранжировал решения наоборот
+    (расхождение 2175% на паре, где «медленное» решение было быстрее).
+
+    Проверяется порядок в сгенерированном bench-скрипте: это структурный
+    инвариант, а не измеримая величина — сравнение двух решений по времени на
+    CI-раннере было бы флаки-тестом, а не проверкой.
+    """
+    script = microbench_runner._build_bench_script("x = [0] * 100\n", "", 5)
+
+    timing_at = script.index("_timeit.repeat(")
+    tracemalloc_at = script.index("_tm.start()")
+
+    assert timing_at < tracemalloc_at, "замер времени идёт под включённым tracemalloc"
+
+
+def test_memory_pass_runs_the_solution_once_under_tracemalloc() -> None:
+    """Память по-прежнему меряется — отдельным однократным прогоном.
+
+    Пик — максимум по времени жизни, а не сумма, поэтому одного прогона
+    достаточно; цена — один запуск против 5×number в замере времени.
+    """
+    script = microbench_runner._build_bench_script("x = [0] * 100\n", "", 5)
+    after_start = script.split("_tm.start()", 1)[1]
+
+    assert "_timeit.timeit(stmt=_stmt, setup='pass', number=1)" in after_start
+    assert "_tm.get_traced_memory()" in after_start
+
+
 def test_microbench_runner_peak_memory_present_on_error() -> None:
     """peak_memory_mb key is always present, even on a runtime error (0.0)."""
     result = run_microbench("raise ValueError('boom')\n", stdin_data="", number=2)
