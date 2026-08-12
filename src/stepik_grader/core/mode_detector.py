@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import json
 import pathlib
+from collections.abc import Iterable
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.storage import load_json_file
@@ -134,7 +135,7 @@ def _is_python_code_block(block: str) -> bool:
     )
 
 
-def _block_invokes_solution(block: str, function_name: str | None) -> bool:
+def _block_invokes_solution(block: str, function_name: str | Iterable[str] | None) -> bool:
     """Вернуть True, если тест-блок сам вызывает решение и печатает результат.
 
     Это признак формата python-generation (format 3), где блок — полноценный
@@ -156,6 +157,9 @@ def _block_invokes_solution(block: str, function_name: str | None) -> bool:
         ``a = 5``                   → False (только данные)
         ``d1 = date(2020, 1, 1)``   → False (данные, хотя есть вызов date)
         ``5``                       → False (голый литерал)
+
+    ``function_name`` принимает как одно имя, так и набор имён всех функций
+    решения — вызов любой из них означает, что блок является драйвером.
     """
     if not block.strip():
         return False
@@ -164,12 +168,25 @@ def _block_invokes_solution(block: str, function_name: str | None) -> bool:
     except SyntaxError:
         return False
 
+    # issue #938 (RUN-2-02): сверяем со ВСЕМИ функциями решения, а не с одной.
+    # Раньше сюда приходило имя первой функции по ``ast.walk``, поэтому решение
+    # с ``def _helper`` перед ``def show`` при блоке ``show(5)`` не опознавалось
+    # как драйвер: блок уходил в legacy-обёртку и падал ``NameError: name 'show'
+    # is not defined``. Перестановка функций местами давала AC — то есть вердикт
+    # зависел от порядка объявлений в файле пользователя.
+    names = (
+        set()
+        if function_name is None
+        else {function_name}
+        if isinstance(function_name, str)
+        else set(function_name)
+    )
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
             continue
         if node.func.id == "print":
             return True
-        if function_name and node.func.id == function_name:
+        if node.func.id in names:
             return True
     return False
 
@@ -191,10 +208,33 @@ def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
         return None
 
 
+def _ast_function_names(solution_path: pathlib.Path) -> list[str]:
+    """Вернуть имена всех функций верхнего уровня решения, в порядке объявления.
+
+    issue #938 (RUN-2-02): нужно, чтобы «блок вызывает решение» проверялось по
+    всем функциям, а не по первой попавшейся. Вложенные функции сюда не
+    попадают намеренно — снаружи модуля они не вызываемы, поэтому драйвером
+    теста быть не могут.
+    """
+    try:
+        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        tree = ast.parse(source)
+    except (SyntaxError, OSError):
+        return []
+    return [
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+
+
 def _ast_function_name(solution_path: pathlib.Path) -> str | None:
-    """Парсит файл решения через ast и возвращает имя первой функции (эвристика).
+    """Парсит файл решения через ast и возвращает имя целевой функции (эвристика).
 
     Используется как fallback когда meta.json недоступен или function_name = None.
+
+    issue #938: из нескольких функций верхнего уровня предпочитается первая
+    **публичная** — имя с ведущим подчёркиванием по соглашению означает
+    вспомогательную. Прежняя «первая по ``ast.walk``» выбирала ``_helper``,
+    объявленный выше целевой функции, и legacy-обёртка вызывала не то.
     """
     try:
         # issue #792 (PY-03): байты + декодирование с заменой. Решение,
@@ -208,6 +248,17 @@ def _ast_function_name(solution_path: pathlib.Path) -> str | None:
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return None
+    top_level = [
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+    for name in top_level:
+        if not name.startswith("_"):
+            return name
+    if top_level:
+        return top_level[0]
+    # Функций верхнего уровня нет — берём любую вложенную, как раньше: на
+    # обёртку это всё равно не сработает, но поведение для странных решений
+    # остаётся прежним, а не превращается в новый режим отказа.
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             return node.name

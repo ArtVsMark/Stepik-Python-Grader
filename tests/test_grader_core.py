@@ -581,6 +581,87 @@ def test_block_invokes_solution_predicate(block: str, func: str, expected: bool)
     assert mode_detector._block_invokes_solution(block, func) is expected
 
 
+def test_block_invokes_solution_accepts_any_of_several_names() -> None:
+    """Вызов ЛЮБОЙ функции решения означает драйвер, а не только первой (issue #938)."""
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper", "show"}) is True
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper"}) is False
+
+
+def test_ast_function_name_prefers_public_over_helper(tmp_path: pathlib.Path) -> None:
+    """Целевой считается первая ПУБЛИЧНАЯ функция, а не первая по порядку (issue #938).
+
+    Раньше `_helper`, объявленный выше целевой функции, попадал в обёртку — и
+    вердикт зависел от порядка объявлений в файле пользователя.
+    """
+    solution = tmp_path / "task.py"
+    solution.write_text("def _helper(x):\n    return x\n\n\ndef show(n):\n    print(n)\n")
+
+    assert mode_detector._ast_function_name(solution) == "show"
+    assert mode_detector._ast_function_names(solution) == ["_helper", "show"]
+
+
+def test_helper_declared_first_does_not_break_verdict(tmp_path: pathlib.Path) -> None:
+    """Верное решение с вспомогательной функцией первой даёт AC (issue #938, RUN-2-02).
+
+    До фикса — `RE NameError: name 'show' is not defined`; перестановка функций
+    местами давала AC, то есть вердикт зависел от порядка объявлений.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "def _helper(x):\n    return x * 10\n\n\ndef show(n):\n    print(n + 1)\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nshow(5)\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n6\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_stdin_block_with_assignments_stays_stdin(tmp_path: pathlib.Path) -> None:
+    """Блок `x = 5` не уводит stdin-решение в function-режим (issue #938, RUN-2-01).
+
+    Присваивание похоже на Python-код, но вызывать в решении нечего — там нет
+    ни одного `def`. До фикса верное решение получало
+    `RE function_name not found`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'import sys\nprint(sum(int(line.split(" = ")[1]) for line in sys.stdin if line.strip()))\n',
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nx = 5\ny = 7\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n12\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_param_named_like_stdlib_gets_test_value(tmp_path: pathlib.Path) -> None:
+    """Параметр с именем `date` получает значение теста, а не класс stdlib (issue #938).
+
+    До фикса `all(_n in _local_vars ...)` находил `date` среди импортов самой
+    обёртки, связывал параметр с `datetime.date` и не давал сработать
+    позиционному fallback — верное решение печатало `+5` вместо `2020-01-01+5`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'def days_between(date, delta):\n    print(f"{date}+{delta}")\n', encoding="utf-8"
+    )
+    (task_dir / "tests" / "1").write_text('d = "2020-01-01"\ndelta = 5\n', encoding="utf-8")
+    (task_dir / "tests" / "1.clue").write_text("2020-01-01+5\n", encoding="utf-8")
+    (task_dir / "tests" / "1.type").write_text("function\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
 def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(
     tmp_path: pathlib.Path,
 ) -> None:

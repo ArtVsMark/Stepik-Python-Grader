@@ -22,7 +22,12 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.mode_detector import _detect_run_mode, _is_python_code_block
+from stepik_grader.core.mode_detector import (
+    _ast_function_names,
+    _detect_run_mode,
+    _is_python_code_block,
+    _read_meta_function_name,
+)
 from stepik_grader.core.normalizers import split_output_lines
 from stepik_grader.core.parsers import parse_testblock_file as _parse_testblock_file
 
@@ -351,4 +356,18 @@ def _apply_run_mode_override(
         for case in cases:
             if case.test_type == "stdin":
                 case.test_type = "function"
+        return cases
+
+    # issue #938 (RUN-2-01): синхронизация работала только в одну сторону, и
+    # блок формата 3 вида `x = 5` / `y = 7` оставался «function» просто потому,
+    # что похож на Python-код (`_is_python_code_block` считает присваивание
+    # кодом). Вызывать при этом нечего: решение — обычный stdin-скрипт без
+    # единого `def`, и верное решение получало
+    # `RE function_name not found`, а при наличии вспомогательной функции —
+    # трейсбек внутрь неё. Если функций в решении нет вовсе, «function» —
+    # заведомо неверная классификация, и кейс возвращается на stdin-маршрут.
+    if not _ast_function_names(solution_path) and _read_meta_function_name(solution_path) is None:
+        for case in cases:
+            if case.test_type == "function":
+                case.test_type = "stdin"
     return cases
