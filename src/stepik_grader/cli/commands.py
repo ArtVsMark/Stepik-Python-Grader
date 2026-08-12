@@ -442,7 +442,12 @@ def _run_tests_maybe_cached(
     return result, False
 
 
-def _print_run_profile(output: str) -> None:
+def _print_run_profile(
+    output: str,
+    *,
+    solution: pathlib.Path | None = None,
+    test_dir: pathlib.Path | None = None,
+) -> None:
     """Шапка прогона: чем именно проверяли (issue #984).
 
     Условия, определяющие вердикт, были не видны нигде — пользователь не знал
@@ -468,6 +473,21 @@ def _print_run_profile(output: str) -> None:
             config=config_label,
         )
     )
+    # issue #935 (RUN-2-08): подъём к родительской папке за тестами — штатная
+    # стратегия resolve_test_dir, но в отчёте о ней не было ни слова. Решение в
+    # подпапке грейдилось чужими тестами, и «Expected: 10 / Actual: 5» выглядело
+    # ошибкой студента. Говорим об этом ровно тогда, когда тесты взяты НЕ рядом
+    # с решением: в обычном случае строка была бы шумом.
+    if solution is not None and test_dir is not None:
+        solution_dir = solution.resolve().parent
+        if test_dir.resolve().parent != solution_dir:
+            print(
+                _t(
+                    "run_profile_tests_elsewhere",
+                    test_dir=test_dir,
+                    solution_dir=solution_dir,
+                )
+            )
 
 
 def _resolve_individual_test_dir(
@@ -524,7 +544,7 @@ def _run_mode_1(
         )
         return ExitCode.NO_TESTS
 
-    _print_run_profile(output)
+    _print_run_profile(output, solution=solution, test_dir=test_dir)
     cache = GraderCache() if use_cache else None
     result, from_cache = _run_tests_maybe_cached(
         ctx, solution, test_dir, verbose=verbose, output=output, cache=cache

@@ -261,5 +261,6 @@
   "ai_hints_capped": "\n… remaining AI hints skipped: the per-run cap of {limit} was reached ([tool.stepik-grader] ai_max_hints).",
   "ai_hint_case_header": "\n· {solution} · test {index}:",
   "progress_checking_solutions": "Grading solutions...",
-  "progress_benchmarking_solutions": "Benchmarking solutions..."
+  "progress_benchmarking_solutions": "Benchmarking solutions...",
+  "run_profile_tests_elsewhere": "📁 Tests taken from: {test_dir} (solution folder is {solution_dir})"
 }
