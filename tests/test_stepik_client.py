@@ -142,11 +142,18 @@ class TestValidateExternalUrl:
             validate_external_url("file:///etc/passwd")
 
 
-def _mk_resp(*, is_redirect: bool, location: str | None = None) -> MagicMock:
-    """Мок ``requests.Response``: редирект (is_redirect + Location) или финальный."""
+def _mk_resp(*, is_redirect: bool, location: str | None = None, body: bytes = b"") -> MagicMock:
+    """Мок ``requests.Response``: редирект (is_redirect + Location) или финальный.
+
+    issue #997: тело отдаётся через ``iter_content`` — внешняя загрузка читает
+    ответ потоково, чтобы проверить размер ДО того, как он окажется в памяти
+    целиком, и мок обязан вести себя так же, иначе он проверяет несуществующий
+    путь исполнения.
+    """
     resp = MagicMock()
     resp.is_redirect = is_redirect
     resp.headers = {"Location": location} if location is not None else {}
+    resp.iter_content = lambda chunk_size=None: iter([body] if body else [])
     return resp
 
 
@@ -159,7 +166,17 @@ class _SeqSession:
         self._responses = list(responses)
         self.requested_urls: list[str] = []
 
-    def get(self, url: str, timeout: int = 30, allow_redirects: bool = True) -> MagicMock:
+    def get(
+        self,
+        url: str,
+        timeout: int = 30,
+        allow_redirects: bool = True,
+        stream: bool = False,
+    ) -> MagicMock:
+        # issue #997: внешняя загрузка ходит со stream=True — тело читается
+        # потоково, чтобы размер проверялся ДО заполнения памяти. Фейковая
+        # сессия обязана принимать тот же вызов, иначе тест проверяет вызов,
+        # которого в коде нет.
         self.requested_urls.append(url)
         return self._responses.pop(0)
 
@@ -178,9 +195,17 @@ class TestExternalDownloadGet:
                 self.headers: dict[str, str] = {}
                 self.captured_headers: dict[str, str] | None = None
 
-            def get(self, url: str, timeout: int = 30, allow_redirects: bool = True) -> MagicMock:
+            def get(
+                self,
+                url: str,
+                timeout: int = 30,
+                allow_redirects: bool = True,
+                stream: bool = False,
+            ) -> MagicMock:
                 self.captured_headers = dict(self.headers)
-                return MagicMock(is_redirect=False)
+                # issue #997: тело читается потоково — пустой поток достаточен,
+                # тест проверяет заголовки, а не содержимое.
+                return MagicMock(is_redirect=False, iter_content=lambda chunk_size=None: iter([]))
 
         fake_session = _RecordingSession()
         with patch("stepik_grader.core.stepik_client.requests.Session", return_value=fake_session):
