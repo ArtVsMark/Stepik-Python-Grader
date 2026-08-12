@@ -23,6 +23,13 @@ from stepik_grader import grader
 # что публичная поверхность изменилась и это должно быть осознанным решением
 # (см. § Архитектурные инварианты в CLAUDE.md).
 _EXPECTED_PUBLIC = {
+    # issue #997 (VIS-2-03): точка расширения runner'а целиком в фасаде —
+    # set_runner был публичным, а типы для своей реализации жили в core/.
+    "LocalRunner",
+    "active_runner",
+    "RunOutcome",
+    "RunSpec",
+    "Runner",
     "ENCODING",
     "MEASURE_CHILD_MEMORY",
     "MICROBENCH_MAX_CASES",
@@ -92,3 +99,23 @@ def test_star_import_exposes_exactly_the_contract() -> None:
     exec("from stepik_grader.grader import *", namespace)  # noqa: S102 — проверяем сам механизм
     exported = {name for name in namespace if not name.startswith("__")}
     assert exported == _EXPECTED_PUBLIC
+
+
+class TestRunnerExtensionPoint:
+    """Точка расширения runner доступна целиком из фасада (issue #997, VIS-2-03).
+
+    ``set_runner`` был в фасаде, а типы для написания своего runner'а — только
+    в ``core/``: расширять фасад приходилось, импортируя внутренности.
+    """
+
+    def test_runner_types_are_reexported(self) -> None:
+        from stepik_grader.grader import LocalRunner, Runner, RunOutcome, RunSpec
+
+        assert Runner is not None and RunSpec is not None
+        assert RunOutcome is not None and LocalRunner is not None
+
+    def test_extension_point_names_are_public(self) -> None:
+        import stepik_grader.grader as facade
+
+        expected = {"Runner", "RunSpec", "RunOutcome", "LocalRunner", "set_runner", "active_runner"}
+        assert expected <= set(facade.__all__)
