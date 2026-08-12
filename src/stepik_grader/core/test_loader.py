@@ -196,47 +196,109 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
             return cases
 
     _INPUT_RE = re.compile(r"^input_(\d+)\.txt$")
+    _NUM_RE = re.compile(r"^\d+$")
 
-    for inp_file in dir_path.iterdir():
-        m = _INPUT_RE.match(inp_file.name)
-        if m:
-            idx = int(m.group(1))
-            exp_file = dir_path / f"expected_{idx}.txt"
-            if not exp_file.exists():
-                continue
-            input_lines = load_text_lines(inp_file)
-            expected_lines = load_text_lines(exp_file)
-            cases.append(
-                TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines)
+    # issue #932/#959: порядок обхода задаётся явно, а не выдачей файловой
+    # системы. Ключ (число, длина записи, имя) ставит каноничное `input_2.txt`
+    # перед `input_02.txt`, поэтому при коллизии индекс достаётся ему, а не
+    # тому, что первым вернул iterdir().
+    def _order(name: str, digits: str) -> tuple[int, int, str]:
+        return (int(digits), len(digits), name)
+
+    fmt2_files = sorted(
+        ((f, m.group(1)) for f in dir_path.iterdir() if (m := _INPUT_RE.match(f.name))),
+        key=lambda pair: _order(pair[0].name, pair[1]),
+    )
+    fmt1_files = sorted(
+        ((f, f.name) for f in dir_path.iterdir() if _NUM_RE.match(f.name)),
+        key=lambda pair: _order(pair[0].name, pair[1]),
+    )
+
+    used: set[int] = set()
+    unpaired: list[str] = []
+    reindexed: list[str] = []
+
+    def _claim(idx: int, source: str) -> int:
+        """Занять индекс кейса; при коллизии — ближайший свободный.
+
+        Кейс с занятым индексом раньше просто ложился рядом, и в отчёте
+        оказывалось два «Теста 1» с разными ожиданиями (issue #932). Терять
+        кейс нельзя — это ровно тот класс дефекта, от которого мы уходим,
+        поэтому он получает свободный индекс, а пользователь — предупреждение.
+        """
+        if idx not in used:
+            used.add(idx)
+            return idx
+        new_idx = idx
+        while new_idx in used:
+            new_idx += 1
+        used.add(new_idx)
+        reindexed.append(f"{source} → тест {new_idx} (индекс {idx} уже занят)")
+        return new_idx
+
+    for inp_file, digits in fmt2_files:
+        # Пара ищется по той же буквальной записи номера: `input_02.txt` ↔
+        # `expected_02.txt`. Откат на нормализованный номер оставлен ради
+        # каталогов, собранных вручную вперемешку (issue #932, RUN-1-01).
+        exp_file = dir_path / f"expected_{digits}.txt"
+        if not exp_file.exists():
+            exp_file = dir_path / f"expected_{int(digits)}.txt"
+        if not exp_file.exists():
+            unpaired.append(f"{inp_file.name} (нет expected_{digits}.txt)")
+            continue
+        cases.append(
+            TestCase(
+                index=_claim(int(digits), inp_file.name),
+                input_lines=load_text_lines(inp_file),
+                expected_lines=load_text_lines(exp_file),
             )
+        )
+
+    for inp_file, digits in fmt1_files:
+        clue_file = dir_path / f"{inp_file.name}.clue"
+        if not clue_file.exists():
+            unpaired.append(f"{inp_file.name} (нет {inp_file.name}.clue)")
             continue
 
-    _NUM_RE = re.compile(r"^\d+$")
-    for inp_file in dir_path.iterdir():
-        if _NUM_RE.match(inp_file.name):
-            clue_file = dir_path / f"{inp_file.name}.clue"
-            if not clue_file.exists():
-                continue
-            idx = int(inp_file.name)
-            input_lines = load_text_lines(inp_file)
-            expected_lines = load_text_lines(clue_file)
+        # Читаем .type-файл если он существует
+        type_file = dir_path / f"{inp_file.name}.type"
+        test_type = "stdin"
+        if type_file.exists():
+            raw_type = type_file.read_text(encoding=ENCODING).strip()
+            if raw_type == "function":
+                test_type = "function"
 
-            # Читаем .type-файл если он существует
-            type_file = dir_path / f"{inp_file.name}.type"
-            test_type = "stdin"
-            if type_file.exists():
-                raw_type = type_file.read_text(encoding=ENCODING).strip()
-                if raw_type == "function":
-                    test_type = "function"
-
-            cases.append(
-                TestCase(
-                    index=idx,
-                    input_lines=input_lines,
-                    expected_lines=expected_lines,
-                    test_type=test_type,
-                )
+        cases.append(
+            TestCase(
+                index=_claim(int(digits), inp_file.name),
+                input_lines=load_text_lines(inp_file),
+                expected_lines=load_text_lines(clue_file),
+                test_type=test_type,
             )
+        )
+
+    # Молчаливый пропуск непарного файла — главный способ получить «всё
+    # пройдено» на усечённом наборе (issue #932). Для формата 3 такое
+    # предупреждение уже есть (#246), здесь оно доводится до форматов 1 и 2.
+    if unpaired:
+        warnings.warn(
+            f"{test_dir}: файлы без пары пропущены — {', '.join(unpaired)}. "
+            "Набор кейсов неполон: вердикт «все тесты пройдены» относится "
+            "только к загруженным кейсам.",
+            stacklevel=2,
+        )
+    if fmt2_files and fmt1_files:
+        warnings.warn(
+            f"{test_dir}: в одной папке лежат форматы 1 (N/N.clue) и "
+            "2 (input_N.txt/expected_N.txt) — загружены оба, номера тестов в "
+            "отчёте могут не совпадать с именами файлов.",
+            stacklevel=2,
+        )
+    if reindexed:
+        warnings.warn(
+            f"{test_dir}: индексы кейсов пересеклись, номера сдвинуты — {', '.join(reindexed)}.",
+            stacklevel=2,
+        )
 
     return sorted(cases, key=lambda c: c.index)
 
