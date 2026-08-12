@@ -42,7 +42,7 @@ import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _dist_version
 
-__all__ = ["project_version"]
+__all__ = ["latest_release_tag", "project_version"]
 
 # Имя дистрибутива (pyproject [project].name) — для чтения версии установленного
 # пакета из метаданных (setuptools-scm; статической версии нет, issue #162/#183).
@@ -184,7 +184,7 @@ def _commits_since(rev_range: str) -> str:
     return str(len(numbered) + len(unnumbered))
 
 
-def _latest_release_tag() -> str | None:
+def latest_release_tag() -> str | None:
     """Ближайший РЕЛИЗНЫЙ тег (``vX.Y.Z``) или ``None``, если такого нет.
 
     issue #1065: рядом с релизными живут служебные теги (``v-checkpoint-…``), и
@@ -203,7 +203,7 @@ def _latest_release_tag() -> str | None:
 
 def project_version() -> str:
     """Вернуть версию вида '1.2.17' по схеме проекта (см. модульный докстринг)."""
-    tag = _latest_release_tag()
+    tag = latest_release_tag()
     if tag is not None:
         major, minor, _patch = tag.lstrip("v").split(".")
         commits = _commits_since(f"{tag}..HEAD")
