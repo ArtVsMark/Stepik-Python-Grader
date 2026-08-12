@@ -261,5 +261,6 @@
   "ai_hints_capped": "\n… остальные AI-подсказки пропущены: достигнут потолок {limit} за прогон ([tool.stepik-grader] ai_max_hints).",
   "ai_hint_case_header": "\n· {solution} · тест {index}:",
   "progress_checking_solutions": "Проверка решений...",
-  "progress_benchmarking_solutions": "Бенчмарк решений..."
+  "progress_benchmarking_solutions": "Бенчмарк решений...",
+  "run_profile_tests_elsewhere": "📁 Тесты взяты из: {test_dir} (папка решения — {solution_dir})"
 }

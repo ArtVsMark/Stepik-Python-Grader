@@ -74,6 +74,11 @@ class SolutionResult(TypedDict):
     avg_time: float
     peak_memory_mb: float
     first_fail: int | None
+    # issue #935: предупреждения загрузки набора кейсов — рассогласование
+    # блоков формата 3, непарные файлы, смешение форматов. NotRequired, потому
+    # что словари результата собирают и другие пути (кэш, web-адаптеры), а
+    # обязательный ключ сломал бы их молча.
+    warnings: NotRequired[list[str]]
     cases: list[CaseResult]
 
 
