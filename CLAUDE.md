@@ -158,11 +158,13 @@ PR. Тип ветки/коммита — по Conventional Commits (см. § Ф�
 - Модули, слои, граф зависимостей (DAG), «что умеет каждый модуль» —
   [`docs/dev/architecture.md`](docs/dev/architecture.md)
 
-Пакет живёт в `src/stepik_grader/` (src-layout). Точки входа —
-`grader.py`/`cli.py`/`downloader.py`/`diagnostic_stepik.py` + `config.py`;
-всё остальное внутреннее — в `src/stepik_grader/core/`. Запуск — только
-`python -m stepik_grader.X` или `stepik-grader` после `pip install -e .`
-(прямого `python grader.py` из корня нет).
+Пакет живёт в `src/stepik_grader/` (src-layout). Точки входа — пакет `cli/`
+(фасад в `cli/__init__.py`, отсюда работает скрипт `stepik-grader`), `grader.py`,
+`downloader.py`, `diagnostic_stepik.py`, `launcher.py` (GUI-лаунчер),
+`pytest_plugin.py` + `config.py`; всё остальное внутреннее — в
+`src/stepik_grader/core/`. Запуск — только `python -m stepik_grader.X` или
+`stepik-grader` / `stepik-grader-gui` после `pip install -e .` (прямого
+`python grader.py` из корня нет).
 
 ---
 
