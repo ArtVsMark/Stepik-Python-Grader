@@ -171,7 +171,7 @@ core/ai_hints.py          ──→  core/diag_log.py  (редакция клю�
 core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py
 core/user_settings.py     ──→  atomic_io.py  (.grader_settings.json атомарно; иначе stdlib-leaf)
 core/stats.py             ──→  atomic_io.py  (ротация .grader_stats.jsonl атомарной заменой)
-downloader.py / downloader_config.py  ──→  core/i18n.py  (сообщения мастера скачивания на языке меню)
+downloader.py / downloader_config.py / diagnostic_stepik.py  ──→  core/i18n.py  (сообщения мастера скачивания и диагностики на языке меню)
 core/history.py           ──→  db.py  (.grader_history.db через общий SQLite-коннектор; иначе stdlib-leaf)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
