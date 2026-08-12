@@ -204,10 +204,6 @@ def test_load_test_cases_format2(tmp_path: pathlib.Path):
     assert cases[0].expected_lines == ["25"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Missing expected_N.txt is silently skipped, see #959",
-)
 def test_load_test_cases_format2_missing_expected_warns(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -218,10 +214,6 @@ def test_load_test_cases_format2_missing_expected_warns(
         grader.load_test_cases(tmp_path)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="input_03.txt is dropped, see #959",
-)
 def test_load_test_cases_format2_preserves_leading_zero(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -237,10 +229,6 @@ def test_load_test_cases_format2_preserves_leading_zero(
     assert cases[0].expected_lines == ["25"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="input_2.txt and input_02.txt collide, see #959",
-)
 def test_load_test_cases_format2_distinguishes_leading_zero(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -259,6 +247,122 @@ def test_load_test_cases_format2_distinguishes_leading_zero(
 def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     """An empty directory yields no cases."""
     assert grader.load_test_cases(tmp_path) == []
+
+
+def test_load_test_cases_cp1251_does_not_raise(tmp_path: pathlib.Path) -> None:
+    """Файлы тестов не в UTF-8 не роняют прогон трейсбеком (issue #939).
+
+    До фикса `UnicodeDecodeError` уходил наружу, а в режиме 2 обрывал пачку,
+    унося результаты остальных решений.
+    """
+    (tmp_path / "input.txt").write_bytes("# TEST_1:\nМир\n".encode("cp1251"))
+    (tmp_path / "output.txt").write_bytes("# TEST_1:\nОК\n".encode("cp1251"))
+
+    with pytest.warns(UserWarning, match="не в utf-8"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format3_with_bom(tmp_path: pathlib.Path) -> None:
+    """BOM в начале файла не обнуляет набор кейсов (issue #939).
+
+    До фикса `U+FEFF` оставался в строке маркера, `# TEST_1:` не матчился,
+    и прогон печатал «NO TESTS» с кодом возврата 0.
+    """
+    (tmp_path / "input.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n5\n")
+    (tmp_path / "output.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n10\n")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["10"]
+
+
+def test_load_test_cases_format3_without_markers_warns(tmp_path: pathlib.Path) -> None:
+    """Файлы формата 3 без маркеров дают подсказку, а не молчаливый пустой набор."""
+    (tmp_path / "input.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("10\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"TEST_1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert cases == []
+
+
+def test_load_test_cases_format3_clean_files_do_not_warn(tmp_path: pathlib.Path) -> None:
+    """Ровный UTF-8 без BOM и с маркерами не поднимает предупреждений (issue #939)."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format1_missing_clue_warns(tmp_path: pathlib.Path) -> None:
+    """Формат 1: файл N без N.clue пропускается с предупреждением (issue #932).
+
+    До фикса набор молча усекался, и «OK 1/1» относилось к неполному набору.
+    """
+    (tmp_path / "1").write_text("1\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
+    (tmp_path / "2").write_text("2\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"2\.clue"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert [c.index for c in cases] == [1]
+
+
+def test_load_test_cases_mixed_format1_and_format2_warns(tmp_path: pathlib.Path) -> None:
+    """Форматы 1 и 2 рядом: предупреждение, оба набора загружены (issue #932)."""
+    (tmp_path / "1").write_text("5\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("999\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="форматы 1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2
+
+
+def test_load_test_cases_colliding_indexes_are_unique(tmp_path: pathlib.Path) -> None:
+    """Пересечение индексов не даёт двух «Тестов 1» (issue #932).
+
+    Кейс не выбрасывается — он получает свободный номер, иначе фикс лечил бы
+    один способ потерять кейс, вводя другой.
+    """
+    (tmp_path / "1").write_text("5\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("999\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning):
+        cases = grader.load_test_cases(tmp_path)
+
+    indexes = [c.index for c in cases]
+    assert len(indexes) == len(set(indexes)), f"индексы задвоились: {indexes}"
+
+
+def test_load_test_cases_no_warning_on_clean_set(tmp_path: pathlib.Path) -> None:
+    """Ровный набор не поднимает предупреждений (issue #932).
+
+    Guard на пустом входе: без этой проверки предупреждения могли бы сыпаться
+    на каждой нормальной задаче и обесцениться.
+    """
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("25\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert [c.index for c in cases] == [1]
 
 
 def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Path) -> None:

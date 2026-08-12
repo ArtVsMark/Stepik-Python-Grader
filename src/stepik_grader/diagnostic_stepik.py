@@ -18,12 +18,11 @@ import json
 import pathlib
 import re
 from typing import Any
-from urllib.parse import urlencode
 
 import requests
 
 from stepik_grader.core.diag_log import configure_diagnostics, get_logger
-from stepik_grader.core.oauth_flow import authorize_via_browser, load_secrets, make_session
+from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.core.stepik_client import API_HOST
 from stepik_grader.downloader import parse_stepik_step_url
 
@@ -74,26 +73,15 @@ OAUTH_TIMEOUT_SECONDS = 120
 # ---------------------------------------------------------------------------
 
 
-def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -> requests.Session:
-    """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном.
-
-    Делегирует полный OAuth-flow в oauth_flow.authorize_via_browser.
-    Принимает три отдельных аргумента (диагностический интерфейс),
-    а не secrets-dict (интерфейс downloader).
-    """
-    auth_url = f"{API_HOST}/oauth2/authorize/?" + urlencode(
-        {"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri}
-    )
-    _print("\nОткрой в браузере и подтверди доступ приложению:")
-    _print(auth_url)
-    _print(f"\nОжидание редиректа с code (таймаут {OAUTH_TIMEOUT_SECONDS}s)...")
-
-    token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
-    access_token = token_data.get("access_token")
-    if not access_token:
-        raise RuntimeError("Stepik не вернул access_token.")
-    _print("✅ Authorization code получен.")
-    return make_session(str(access_token))
+# Своей реализации авторизации у диагностики нет (issue #1017): имя
+# ``create_user_session`` — тот же ``oauth_flow.create_user_session``, что
+# используют загрузчик, импорт эталонов и стенд корпуса. Прежняя локальная
+# версия принимала три отдельных аргумента и звала ``authorize_via_browser``
+# сразу, ничего не зная о сохранённых токенах: при полностью рабочем
+# ``secrets.json`` диагностика открывала браузер и падала по таймауту ожидания
+# кода — то есть отказывала ровно в той ситуации, ради которой её запускают.
+# Реэкспорт сохраняет публичное имя модуля (``__all__``), но поведение теперь
+# одно на весь пакет: валидный access_token → обмен refresh_token → браузер.
 
 
 # ---------------------------------------------------------------------------
@@ -281,11 +269,15 @@ def main() -> None:
     # каталог; сетевые вызовы через stepik_client логируются с редакцией секретов.
     configure_diagnostics("debug", log_dir=output_dir)
     try:
-        client_id, client_secret, redirect_uri = load_secrets(pathlib.Path(secrets_file))
+        secrets_path = pathlib.Path(secrets_file)
+        # issue #1017: читаем ПОЛНЫЙ словарь, вместе с сохранёнными токенами —
+        # иначе валидный access_token и живой refresh_token остаются невидимы,
+        # и авторизация всегда уходит в браузер.
+        secrets = load_secrets_dict(secrets_path)
         _print("✅ secrets.json успешно прочитан.")
         lesson_id, step_position = parse_stepik_step_url(step_url)
         _print(f"✅ URL распознан: lesson_id={lesson_id}, step={step_position}")
-        session = create_user_session(client_id, client_secret, redirect_uri)
+        session = create_user_session(secrets, secrets_path)
         _print("✅ OAuth access token пользователя успешно получен.")
         step_id, lesson, step_data = get_step_data_by_position(session, lesson_id, step_position)
         _print("✅ Step data получены через API /steps/{id}.")
