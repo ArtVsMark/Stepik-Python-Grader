@@ -50,6 +50,13 @@ jobs:
       # Тоже чистый stdlib, поэтому живёт в этом же быстром job'е.
       - name: Web module import guardrails (issue #855)
         run: python scripts/check_web_imports.py
+      # issue #997: выдуманный абсолютный путь в argv теста работает с настоящим
+      # диском. `--root /some/dir` создал на машине разработчика C:\some\dir с
+      # .grader_settings.json, и тот файл через месяц уронил этот же тест —
+      # только локально: под Linux запись в корень / не проходит, поэтому здесь
+      # ловим причину статически, а не ждём следа. Тоже чистый stdlib (ast).
+      - name: Test isolation guardrails (issue #997)
+        run: python scripts/check_test_isolation.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
