@@ -22,13 +22,22 @@ __all__: list[str] = []
 # параметра, иначе — позиционно в порядке присваиваний блока (issue #622).
 # Имена параметров и имена переменных теста часто расходятся (date1/date2 vs
 # start/end), поэтому fallback обязателен, иначе получаем KeyError → ложный RE.
+#
+# issue #938 (DEV-2-01): совпадение по имени проверяется по `_assigned` — тому,
+# что реально присвоил тест-блок, — а не по `_local_vars`. На уровне модуля
+# обёртки `locals()` это её globals, куда уже импортированы `date`, `time`,
+# `datetime`, `timedelta`, `Decimal`, `Fraction`. Решение `days_between(date,
+# delta)` при блоке `d = "2020-01-01"` / `delta = 5` находило параметр `date`
+# среди импортов, связывало его с классом stdlib вместо значения теста, и
+# позиционный fallback не срабатывал вовсе — верное решение получало WA.
+# `_local_vars` остаётся только источником ЗНАЧЕНИЙ, но не критерием выбора.
 _NAMED_BINDING_TEMPLATE = """_sig = inspect.signature({func})
 _local_vars = locals()
 _param_names = list(_sig.parameters)
-if all(_n in _local_vars for _n in _param_names):
+_assigned = {assigned}
+if all(_n in _assigned for _n in _param_names):
     _args = [_local_vars[_n] for _n in _param_names]
 else:
-    _assigned = {assigned}
     _args = [_local_vars[_n] for _n in _assigned if _n in _local_vars][: len(_param_names)]"""
 
 

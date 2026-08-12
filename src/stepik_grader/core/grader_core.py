@@ -77,6 +77,7 @@ __all__ = [
 from stepik_grader.core.microbench_runner import apply_relative_ranking, run_microbench
 from stepik_grader.core.mode_detector import (
     _ast_function_name,
+    _ast_function_names,
     _block_invokes_solution,
     _detect_run_mode,  # noqa: F401  (реэкспорт для grader.py, не вызывается здесь напрямую)
     _is_python_code_block,
@@ -311,7 +312,12 @@ def _prepare_run_spec(
     # а не по «похоже ли на Python-код»: присваивание `a = 5` — это данные
     # legacy-теста, а не драйвер (issue #622).
     func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
-    if _block_invokes_solution(input_data, func_name):
+    # issue #938: драйвером блок считается, если вызывает ЛЮБУЮ функцию решения,
+    # а не ту одну, что выбрана для legacy-обёртки. Иначе вердикт зависел от
+    # порядка объявлений: `def _helper` выше целевой функции уводил блок
+    # `show(5)` в legacy-обёртку и давал NameError на верном решении.
+    known_names = {*_ast_function_names(solution_path), *([func_name] if func_name else [])}
+    if _block_invokes_solution(input_data, known_names):
         # python-generation function-call: блок уже содержит print(func(...))
         wrapper_src = _build_call_wrapper(solution_path, input_data)
     else:
