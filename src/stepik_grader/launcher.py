@@ -95,7 +95,14 @@ _STEPIK_CONFIG_NAME = "stepik_config.json"
 
 # Глубина обхода при подсчёте задач в рабочей папке: рабочей папкой может
 # оказаться домашняя, и полный скан диска в GUI недопустим.
-_TASK_SCAN_DEPTH = 3
+#
+# Число не произвольное — это структура, которую создаёт собственный загрузчик:
+# `<курс>/<секция>/<урок>/<шаг>`, то есть задача лежит на ЧЕТВЁРТОМ уровне от
+# рабочей папки. При прежней глубине 3 счётчик до неё не доходил и показывал
+# «Найдено задач: 0» на полной папке (issue #1018) — проверено прогоном на
+# реально скачанном курсе. Пятый уровень — запас на одну обёртку сверху
+# (например, папка-семестр над курсами).
+_TASK_SCAN_DEPTH = 5
 
 # Сколько ждём готовности сервера (bind + первый accept) после старта, и с каким
 # шагом опрашиваем TCP. Импорт http-стека и чтение статики при старте --serve
@@ -214,16 +221,25 @@ def default_workdir(cwd: Path | None = None) -> Path:
     return config.parent if root.resolve().is_relative_to(config.parent) else root
 
 
-def count_tasks(workdir: Path, *, max_depth: int = _TASK_SCAN_DEPTH) -> int:
-    """Сколько папок задач видно в рабочей папке — папок с подпапкой ``tests``.
+def count_tasks(workdir: Path, *, max_depth: int = _TASK_SCAN_DEPTH) -> tuple[int, int]:
+    """Сколько папок задач видно в рабочей папке и сколько из них с тестами.
+
+    Возвращает пару ``(всего, с тестами)``. Папка задачи — та, где лежит
+    ``meta.json`` (его кладёт загрузчик) или подпапка ``tests``.
 
     Нужна, чтобы промах с папкой был виден сразу («найдено задач: 0»), а не
     после открытия пустого веб-интерфейса. Обход ограничен глубиной: рабочей
     папкой может оказаться домашняя, и полный скан диска в GUI недопустим.
+
+    issue #1018: раньше считались только папки с ``tests``, поэтому свежескачанный
+    шаг без публичных тестов давал «Найдено задач: 0» — как будто скачивание не
+    сработало. Два числа вместо одного отличают «ничего не скачано» от «скачано,
+    но проверять пока нечем».
     """
     if not workdir.is_dir():
-        return 0
-    found = 0
+        return 0, 0
+    tasks = 0
+    with_tests = 0
     stack: list[tuple[Path, int]] = [(workdir, 0)]
     while stack:
         current, depth = stack.pop()
@@ -231,11 +247,15 @@ def count_tasks(workdir: Path, *, max_depth: int = _TASK_SCAN_DEPTH) -> int:
             children = [entry for entry in current.iterdir() if entry.is_dir()]
         except OSError:
             continue
-        if any(child.name == "tests" for child in children):
-            found += 1
+        has_tests = any(child.name == "tests" for child in children)
+        if has_tests:
+            tasks += 1
+            with_tests += 1
+        elif (current / "meta.json").is_file():
+            tasks += 1
         if depth < max_depth:
             stack.extend((child, depth + 1) for child in children if not child.name.startswith("."))
-    return found
+    return tasks, with_tests
 
 
 def _print(text: str) -> None:
@@ -644,7 +664,12 @@ class LauncherApp:
         if not workdir.is_dir():
             self.tasks_var.set(self._t("launcher_workdir_missing"))
             return
-        self.tasks_var.set(self._t("launcher_tasks_found", count=count_tasks(workdir)))
+        tasks, with_tests = count_tasks(workdir)
+        # issue #1018: пока все задачи с тестами — прежняя короткая строка;
+        # расхождение показывается явно, иначе «задач 3» при нуле проверяемых
+        # выглядит как обещание, которого интерфейс не выполнит.
+        key = "launcher_tasks_found" if tasks == with_tests else "launcher_tasks_found_partial"
+        self.tasks_var.set(self._t(key, count=tasks, with_tests=with_tests))
 
     def run(self) -> None:
         """Войти в блокирующий ``mainloop`` (используется ``main``, не тестами)."""
