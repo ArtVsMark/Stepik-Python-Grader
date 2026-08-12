@@ -414,7 +414,7 @@ def check_changelog_version_budget(errors: list[str]) -> None:
         errors.append(
             f"CHANGELOG.md: {len(versions)} versioned releases exceed the budget "
             f"of {CHANGELOG_MAX_VERSIONS} (issue #373). Rotate the oldest into "
-            "docs/changelog-archive.md (keep [Unreleased] + the newest "
+            "docs/archive/changelog-archive.md (keep [Unreleased] + the newest "
             f"{CHANGELOG_MAX_VERSIONS} MINOR releases)."
         )
     else:
@@ -557,22 +557,42 @@ def _json_strings(value: object) -> list[str]:
     return []
 
 
-def collect_ui_strings() -> dict[str, list[str]]:
+def collect_ui_strings(errors: list[str] | None = None) -> dict[str, list[str]]:
     """Пользовательские строки интерфейса: ``{относительный путь: [строки]}``.
 
     Две поверхности, которые пользователь читает наравне с документацией:
     вывод ``--help`` (``cli/options.py``) и каталоги сообщений
-    (``core/locales/*.json``). Отсутствующий файл молча пропускается — guard
-    не должен падать на урезанном чекауте.
+    (``core/locales/*.json``).
+
+    issue #988 (REV-2-02): пропавший вход — это ошибка, а не повод пропустить
+    проверку. Прежняя редакция брала оба источника «если найдётся» (``is_file``
+    плюс ``glob``), поэтому переезд ``options.py`` или каталога локалей обнулял
+    гейт, оставляя его зелёным: проверка сообщала «0 строк проверено» ровно тем
+    же тоном, что и «всё чисто». Guard, зеленеющий на пустом входе, не отличим
+    от отсутствующего.
     """
     strings: dict[str, list[str]] = {}
+
     options_py = _ROOT / "src" / "stepik_grader" / "cli" / "options.py"
     if options_py.is_file():
         strings[options_py.relative_to(_ROOT).as_posix()] = _help_strings(options_py)
+    elif errors is not None:
+        errors.append(
+            "UI-strings guard: не найден src/stepik_grader/cli/options.py — вход проверки "
+            "пропал (переезд файла?), политика по строкам --help не проверена."
+        )
+
     locales = _ROOT / "src" / "stepik_grader" / "core" / "locales"
-    for loc in sorted(locales.glob("*.json")):
+    locale_files = sorted(locales.glob("*.json"))
+    if not locale_files and errors is not None:
+        errors.append(
+            "UI-strings guard: в src/stepik_grader/core/locales нет ни одного *.json — "
+            "вход проверки пропал, политика по сообщениям локалей не проверена."
+        )
+    for loc in locale_files:
         data = json.loads(loc.read_text(encoding="utf-8"))
         strings[loc.relative_to(_ROOT).as_posix()] = _json_strings(data)
+
     return strings
 
 
@@ -585,7 +605,7 @@ def check_ui_issue_tail_policy(errors: list[str]) -> None:
     Markdown, поэтому гейт на доках эту зону не покрывал.
     """
     checked = 0
-    for source, values in collect_ui_strings().items():
+    for source, values in collect_ui_strings(errors).items():
         tails = sorted({tail for value in values for tail in _ISSUE_TAIL_RE.findall(value)})
         checked += len(values)
         if tails:

@@ -37,6 +37,7 @@ Baseline вычисляется из git (``git describe --tags --abbrev=0``). �
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -71,6 +72,24 @@ def _latest_tag_baseline() -> tuple[int, int, int] | None:
     if not m:
         return None
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
+def _baseline_is_required() -> bool:
+    """Обязан ли baseline быть доступен в этом окружении (issue #988, REV-2-01).
+
+    Прежде отсутствие baseline всегда давало ``SKIP`` и ``exit 0``: любая ошибка
+    git — сломанный репозиторий, урезанный чекаут, отсутствующие теги — гасила
+    гейт целиком, а следом печаталось ``OK: versions consistent``. Гейт зеленел
+    именно тогда, когда проверить ничего не удалось.
+
+    Различать причины по коду выхода ``git describe`` нельзя — «тегов нет» и
+    «репозиторий недоступен» дают одинаковый ``CalledProcessError``. Зато точно
+    известно окружение, где baseline обязан быть: CI выкачивает историю с
+    ``fetch-depth: 0``, поэтому там ``SKIP`` означает поломку, а не сборку из
+    tarball. Признак — стандартная переменная ``CI``; локально поведение
+    прежнее, чтобы сборка из sdist без истории не падала.
+    """
+    return os.environ.get("CI", "").lower() in {"1", "true", "yes"}
 
 
 def _check_pyproject_dynamic(errors: list[str]) -> None:
@@ -187,7 +206,14 @@ def main() -> int:
     _check_pyproject_dynamic(errors)
 
     if baseline is None:
-        print("SKIP: no git tag vX.Y.0 found (no git/history) - baseline comparison skipped.")
+        if _baseline_is_required():
+            errors.append(
+                "no git tag vX.Y.0 found, but CI=1: history and tags must be available here "
+                "(actions/checkout with fetch-depth: 0). Without a baseline this gate checks "
+                "nothing but pyproject - it must fail, not print OK (issue #988)."
+            )
+        else:
+            print("SKIP: no git tag vX.Y.0 found (no git/history) - baseline comparison skipped.")
     else:
         print(f"Release baseline (latest git tag): v{baseline[0]}.{baseline[1]}.{baseline[2]}")
         _check_changelog(baseline, errors)
