@@ -33,6 +33,7 @@ from urllib.parse import urlparse
 
 from stepik_grader import config, rules
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.exit_codes import ExitCode
 from stepik_grader.cli.prompts import EXPLICIT_YES
 from stepik_grader.config import get_config
 from stepik_grader.core import (
@@ -90,6 +91,19 @@ def _verdict_counts_from_cases(cases: Sequence[CaseResult]) -> dict[str, int]:
 def _has_failures(cases: Sequence[CaseResult]) -> bool:
     """Есть ли среди кейсов непройденные (для nudge «Подучить», issue #430)."""
     return any(not c.get("passed") for c in cases)
+
+
+def _outcome_for_cases(cases: Sequence[CaseResult]) -> ExitCode:
+    """Код исхода по набору кейсов (issue #936).
+
+    Пустой набор — это ``NO_TESTS``, а не успех: «0/0» в таблице печатается как
+    «NO TESTS» (см. ``reporter._correctness_status``), и код возврата обязан
+    говорить то же самое. Иначе CI-гейт зеленеет на задаче, тесты к которой не
+    скачались, — самый тихий способ пропустить неверное решение.
+    """
+    if not cases:
+        return ExitCode.NO_TESTS
+    return ExitCode.FAILURES if _has_failures(cases) else ExitCode.OK
 
 
 def _preflight_skip(
@@ -444,7 +458,12 @@ def _missing_tests_hint(ctx: CliContext, solution: pathlib.Path) -> str:
     return ctx.t(key, name=solution.name, expected=str(folder / "tests"))
 
 
-def _print_run_profile(output: str) -> None:
+def _print_run_profile(
+    output: str,
+    *,
+    solution: pathlib.Path | None = None,
+    test_dir: pathlib.Path | None = None,
+) -> None:
     """Шапка прогона: чем именно проверяли (issue #984).
 
     Условия, определяющие вердикт, были не видны нигде — пользователь не знал
@@ -470,6 +489,21 @@ def _print_run_profile(output: str) -> None:
             config=config_label,
         )
     )
+    # issue #935 (RUN-2-08): подъём к родительской папке за тестами — штатная
+    # стратегия resolve_test_dir, но в отчёте о ней не было ни слова. Решение в
+    # подпапке грейдилось чужими тестами, и «Expected: 10 / Actual: 5» выглядело
+    # ошибкой студента. Говорим об этом ровно тогда, когда тесты взяты НЕ рядом
+    # с решением: в обычном случае строка была бы шумом.
+    if solution is not None and test_dir is not None:
+        solution_dir = solution.resolve().parent
+        if test_dir.resolve().parent != solution_dir:
+            print(
+                _t(
+                    "run_profile_tests_elsewhere",
+                    test_dir=test_dir,
+                    solution_dir=solution_dir,
+                )
+            )
 
 
 def _resolve_individual_test_dir(
@@ -501,24 +535,28 @@ def _run_mode_1(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1.
 
-    Возвращает ``had_failures`` — были ли непройденные кейсы. Интерактивное меню
-    (issue #430) решает по этому флагу, печатать ли однократный за сессию nudge
-    «Подучить»; CLI ``--mode 1`` возврат игнорирует. ``False`` также на ранних
-    выходах (файл/тесты не найдены — прогона не было).
+    Возвращает код исхода (issue #936): ``OK`` — все кейсы прошли, ``FAILURES`` —
+    есть непройденные, ``NO_TESTS`` — проверять было нечего (файл или каталог
+    тестов не найден). Прежде здесь был ``bool had_failures``, и «нет тестов»
+    было неотличимо от успеха — ровно поэтому ``--mode 1`` в CI зеленел на
+    пустом наборе. Меню (issue #430) по этому же значению решает, печатать ли
+    подсказку «Подучить»: она уместна только при ``FAILURES``.
     """
     if not solution.is_file():
         print(ctx.t("file_not_found", path=solution))
-        return False
+        return ExitCode.NO_TESTS
 
     test_dir = resolve_test_dir(solution)
     if test_dir is None or not test_dir.is_dir():
+        # issue #1018 + #936: подсказка разная для скачанной задачи и чужой
+        # папки, а код возврата в обоих случаях один — проверять было нечем.
         print(_missing_tests_hint(ctx, solution))
-        return False
+        return ExitCode.NO_TESTS
 
-    _print_run_profile(output)
+    _print_run_profile(output, solution=solution, test_dir=test_dir)
     cache = GraderCache() if use_cache else None
     result, from_cache = _run_tests_maybe_cached(
         ctx, solution, test_dir, verbose=verbose, output=output, cache=cache
@@ -547,11 +585,11 @@ def _run_mode_1(
             or None,
         )
 
-    had_failures = _has_failures(result["cases"])
+    outcome = _outcome_for_cases(result["cases"])
 
     if output == "json":
         print(json.dumps({"file": str(solution), **result}, ensure_ascii=False))
-        return had_failures
+        return outcome
     if output in ("csv", "markdown"):
         rows = [
             {
@@ -565,7 +603,7 @@ def _run_mode_1(
             for i, c in enumerate(result["cases"], start=1)
         ]
         ctx.print_tabular(output, rows, ["index", "passed", "verdict", "time", "memory", "error"])
-        return had_failures
+        return outcome
 
     col_file = 28
     print()
@@ -575,7 +613,7 @@ def _run_mode_1(
         _print_lint_blocks([solution], None, output, lint_by_sol)
     if ai_hints:
         _print_ai_hints([(solution, result)])
-    return had_failures
+    return outcome
 
 
 def _run_mode_2(
@@ -589,21 +627,20 @@ def _run_mode_2(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2.
 
-    Возвращает ``had_failures`` (см. ``_run_mode_1``) — были ли непройденные
-    кейсы среди всех решений; меню решает по нему про однократный nudge. ``False``
-    на ранних выходах (папка/решения не найдены).
+    Возвращает код исхода (issue #936), как ``_run_mode_1``: ``FAILURES`` — есть
+    непройденные кейсы среди решений, ``NO_TESTS`` — папки или решений нет.
     """
     if not directory.is_dir():
         print(ctx.t("dir_not_found", path=directory))
-        return False
+        return ExitCode.NO_TESTS
 
     scripts = find_all_solution_files(directory)
     if not scripts:
         print(ctx.t("no_solutions_found"))
-        return False
+        return ExitCode.NO_TESTS
 
     col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
 
@@ -649,11 +686,11 @@ def _run_mode_2(
                 lint=history_recording.lint_records_from_violations(all_violations) or None,
             )
 
-    had_failures = _has_failures([c for _, result in rows for c in result["cases"]])
+    outcome = _outcome_for_cases([c for _, result in rows for c in result["cases"]])
 
     if output == "json":
         print(json.dumps({"results": {str(p): r for p, r in rows}}, ensure_ascii=False))
-        return had_failures
+        return outcome
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **result} for path, result in rows]
         fields = [
@@ -668,7 +705,7 @@ def _run_mode_2(
             "first_fail",
         ]
         ctx.print_tabular(output, table_rows, fields)
-        return had_failures
+        return outcome
 
     print_correctness_results(rows, directory, col_file=col_file)
     if cache is not None:
@@ -677,7 +714,7 @@ def _run_mode_2(
         _print_lint_blocks([p for p, _ in rows], directory, output, lint_by_sol)
     if ai_hints:
         _print_ai_hints(rows)
-    return had_failures
+    return outcome
 
 
 def _run_mode_3(

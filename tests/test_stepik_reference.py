@@ -249,3 +249,76 @@ class TestFetchFunctions:
         )
         with pytest.raises(ValueError, match="proxy"):
             stepik_client.fetch_discussion_proxy(MagicMock(), "p2")
+
+
+# ---------------------------------------------------------------------------
+# Идемпотентность импорта и устойчивость к смене формата API (issue #944)
+# ---------------------------------------------------------------------------
+
+
+class TestRepeatedImport:
+    """Повторный импорт не должен множить файлы и терять привязку."""
+
+    def test_second_import_creates_no_duplicates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Тот же reference, импортированный дважды, лежит в папке один раз.
+
+        issue #944: дедуп по коду работал только внутри партии, а слот брался
+        первый свободный — в папке оказывалось 12 файлов вместо 6, и режимы 2-4
+        гоняли один и тот же reference дважды, искажая сравнение решений.
+        """
+        _write_meta(tmp_path)
+        _patch_chain(monkeypatch)
+        first = sr.import_references_from_task_dir(tmp_path, secrets_path=tmp_path / "secrets.json")
+
+        second = sr.import_references_from_task_dir(
+            tmp_path, secrets_path=tmp_path / "secrets.json"
+        )
+
+        assert [p.name for p in first] == ["task3_100.py", "task3_101.py"]
+        assert second == [], "повторный импорт создал файлы заново"
+        assert sorted(p.name for p in tmp_path.glob("task3_1*.py")) == [
+            "task3_100.py",
+            "task3_101.py",
+        ]
+
+    def test_second_import_keeps_previous_meta(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Привязка ранее импортированных файлов остаётся в meta.json (issue #944).
+
+        Раньше список заменялся целиком, и прежние файлы становились «ничьими»:
+        на диске лежат, а meta про них не знает.
+        """
+        _write_meta(tmp_path)
+        _patch_chain(monkeypatch)
+        sr.import_references_from_task_dir(tmp_path, secrets_path=tmp_path / "secrets.json")
+
+        sr.import_references_from_task_dir(tmp_path, secrets_path=tmp_path / "secrets.json")
+
+        meta = json.loads((tmp_path / "meta.json").read_text(encoding="utf-8"))
+        files = [entry["file"] for entry in meta["stepik_references"]]
+        assert files == ["task3_100.py", "task3_101.py"]
+
+
+class TestApiShapeChanges:
+    """Смена формата ответа Stepik даёт понятную ошибку, а не голый трейсбек."""
+
+    def test_thread_without_proxy_raises_value_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Ветка решений без `discussion_proxy` — ValueError с текстом (issue #944)."""
+        _write_meta(tmp_path)
+        _patch_chain(monkeypatch, threads=[{"thread": "solutions"}])
+
+        with pytest.raises(ValueError, match="discussion_proxy"):
+            sr.import_references_from_task_dir(tmp_path, secrets_path=tmp_path / "secrets.json")
+
+    def test_threads_as_strings_do_not_crash(self) -> None:
+        """Список строк вместо словарей не роняет выбор ветки (issue #944).
+
+        Прежний прямой `.get` давал `AttributeError: 'str' object has no
+        attribute 'get'`.
+        """
+        assert pick_solutions_thread(["мусор", "из", "кэша"]) is None  # type: ignore[list-item]

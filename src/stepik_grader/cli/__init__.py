@@ -48,6 +48,7 @@ from stepik_grader import config
 # этого файла напрямую (см. docstring выше и _build_cli_context() ниже).
 from stepik_grader.cli import commands, interactive
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.exit_codes import ExitCode
 
 # issue #121 Phase 2: интерактивное меню/профили — вынесены в leaf-модуль
 # cli/interactive.py. _ask_number/_BENCH_PROFILES/_MICRO_PROFILES нигде не
@@ -291,7 +292,7 @@ def _run_mode_1(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
     return commands._run_mode_1(
         _build_cli_context(),
@@ -316,7 +317,7 @@ def _run_mode_2(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
     return commands._run_mode_2(
         _build_cli_context(),
@@ -434,20 +435,26 @@ def _watch_and_rerun(watch_path: pathlib.Path, rerun: Callable[[], object]) -> N
         pass
 
 
-def _dispatch_with_watch(target: pathlib.Path, run: Callable[[], object], *, watch: bool) -> None:
+def _dispatch_with_watch(
+    target: pathlib.Path, run: Callable[[], ExitCode], *, watch: bool
+) -> ExitCode:
     """Запустить ``run`` один раз или, под ``--watch``, перезапускать при
     изменениях ``target``.
 
     issue #354 — общий раннер вместо двух почти одинаковых watch/no-watch
     веток в режимах 1 и 2.
+
+    issue #936: возвращает код исхода одиночного прогона. Под ``--watch`` кода
+    нет по сути — цикл живёт до Ctrl+C, и «итога» у него не бывает; такой
+    запуск завершается ``OK``.
     """
     if watch:
         _watch_and_rerun(target, run)
-    else:
-        run()
+        return ExitCode.OK
+    return run()
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> ExitCode:
     """Точка входа CLI: argparse для non-interactive режимов, иначе меню.
 
     stepik-grader                                             — интерактивное меню
@@ -491,7 +498,7 @@ def main(argv: list[str] | None = None) -> None:
         # Имя дистрибутива, а не файла: `grader.py` при src-layout не существует
         # ни как команда, ни как файл в корне (issue #820).
         print(f"stepik-grader {_format_version_for_display(__version__)}")
-        return
+        return ExitCode.OK
 
     if args.clear_cache:
         # issue #816 (DEV-11): чистим ОБА кэша. Раньше флаг трогал только
@@ -502,7 +509,7 @@ def main(argv: list[str] | None = None) -> None:
 
         removed = GraderCache().clear() + clear_stepik_cache()
         print(_t("cache_cleared", count=removed))
-        return
+        return ExitCode.OK
 
     if args.revoke_ai_consent:
         # issue #812 (SECD-06): отозвать согласие было нечем — только правкой
@@ -511,7 +518,7 @@ def main(argv: list[str] | None = None) -> None:
         from stepik_grader.cli.commands import revoke_ai_consent
 
         print(_t("ai_consent_revoked" if revoke_ai_consent() else "ai_consent_absent"))
-        return
+        return ExitCode.OK
 
     if args.purge_history is not None:
         # issue #813 (SECD-03): у локального журнала обучения должен быть
@@ -530,7 +537,7 @@ def main(argv: list[str] | None = None) -> None:
             print(_t("history_purged", runs=runs_removed, stats=stats_removed))
         else:
             print(_t("history_purged_task", task=task_key, runs=runs_removed))
-        return
+        return ExitCode.OK
 
     if args.stats_summary:
         summary = stats.read_summary()
@@ -538,7 +545,7 @@ def main(argv: list[str] | None = None) -> None:
             print(_t("stats_no_data"))
         else:
             print_stats_summary(summary)
-        return
+        return ExitCode.OK
 
     if args.export_progress:
         from stepik_grader.core import progress_export
@@ -548,7 +555,7 @@ def main(argv: list[str] | None = None) -> None:
         report = progress_export.build_progress_report(db_path)
         if report["total_runs"] == 0:
             print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
-            return
+            return ExitCode.OK
         fmt = args.export_progress
         # issue #821: отчёт следует выбранному языку — раньше он всегда выходил
         # русским, включая атрибут <html lang>, даже под `--lang en`.
@@ -560,7 +567,7 @@ def main(argv: list[str] | None = None) -> None:
         out = pathlib.Path.cwd() / f"grader-progress.{fmt}"
         out.write_text(rendered, encoding="utf-8")
         print(_t("progress_exported", path=out))
-        return
+        return ExitCode.OK
 
     if args.insights:
         from stepik_grader import rules
@@ -584,14 +591,14 @@ def main(argv: list[str] | None = None) -> None:
                 print_insights_summary(
                     cards, rules_provider=rules.bundled_rules(), labels=_insights_labels()
                 )
-        return
+        return ExitCode.OK
 
     if args.init_vscode:
         from stepik_grader import ide
 
         written, path = ide.write_vscode_tasks()
         print(_t("vscode_written" if written else "vscode_exists", path=path))
-        return
+        return ExitCode.OK
 
     if args.import_reference:
         # issue #55: закреплённое решение Stepik + топовые как task{N}_{100+}.py.
@@ -607,7 +614,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"✅ Импортировано reference-решений: {len(saved)}")
         for saved_path in saved:
             print(f"   {saved_path.name}")
-        return
+        return ExitCode.OK
 
     if args.serve:
         # issue #396: --sandbox теперь проброшен в web — run_server ставит
@@ -631,11 +638,11 @@ def main(argv: list[str] | None = None) -> None:
             )
         except SandboxUnavailableError as exc:
             parser.error(_t("sandbox_unavailable", reason=str(exc)))
-        return
+        return ExitCode.OK
 
     if args.mode is None:
         _interactive_menu()
-        return
+        return ExitCode.OK
 
     record_stats = _resolve_record_stats(args)
     record_history = _resolve_record_history(args)
@@ -662,7 +669,7 @@ def main(argv: list[str] | None = None) -> None:
         # Режим 1 — один файл; инкрементальность (issue #71) неприменима,
         # поэтому кэш под --watch автоматически не включаем.
         use_cache = _resolve_use_cache(args, incremental=False)
-        _dispatch_with_watch(
+        return _dispatch_with_watch(
             args.file,
             lambda: _run_mode_1(
                 args.file,
@@ -683,7 +690,7 @@ def main(argv: list[str] | None = None) -> None:
         # issue #71: под --watch кэш включается по умолчанию — на событие
         # перезапускается только изменённый файл, остальные строки берутся из кэша.
         use_cache = _resolve_use_cache(args, incremental=args.watch)
-        _dispatch_with_watch(
+        return _dispatch_with_watch(
             args.dir,
             lambda: _run_mode_2(
                 args.dir,
@@ -723,3 +730,17 @@ def main(argv: list[str] | None = None) -> None:
             record_history=record_history,
             ai_hints=ai_hints,
         )
+
+    # issue #936: режимы 3 и 4 — сравнение и микробенч, у них нет вердикта
+    # «правильно/неправильно», по которому строится гейт. Возвращают OK.
+    return ExitCode.OK
+
+
+def run_cli(argv: list[str] | None = None) -> None:
+    """Обёртка консольного скрипта: превращает код исхода в статус процесса.
+
+    issue #936: `main()` остаётся вызываемой из кода и тестов без побочного
+    `SystemExit`, а точка входа `stepik-grader` завершает процесс кодом прогона —
+    иначе CI-гейт, построенный по документации, зеленеет на упавших тестах.
+    """
+    raise SystemExit(main(argv))

@@ -12,6 +12,14 @@ on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
 
+# issue #1036 (REL-1-02): одно ревью на PR. Каждый пуш в ветку запускал новое, а
+# предыдущее продолжало занимать слот и дописывать комментарии к уже
+# переписанному диффу — при разводке конфликтов это несколько ревью одного и
+# того же PR подряд.
+concurrency:
+  group: review-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
     # issue #808 (ACT-04): на форковых PR секрета нет — job не падал бы с

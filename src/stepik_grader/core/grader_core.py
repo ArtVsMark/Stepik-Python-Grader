@@ -28,6 +28,7 @@ import pathlib
 import statistics
 import tempfile
 import threading
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
@@ -93,6 +94,7 @@ from stepik_grader.core.normalizers import floats_equal_with_precision, split_ou
 from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line  # noqa: F401
 from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult, Verdict
 from stepik_grader.core.runner import (
+    TRUNCATION_MARKER,
     RunOutcome,
     RunSpec,
     _apply_memory_limit,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
@@ -302,7 +304,7 @@ def _prepare_run_spec(
                 timeout=timeout,
                 measure_memory=measure_memory,
                 max_memory_mb=mem_cap,
-                max_output_bytes=CONFIG.max_output_bytes,
+                max_output_bytes=get_config().max_output_bytes,
                 cancel_event=cancel_event,
             )
         )
@@ -361,7 +363,7 @@ def _prepare_run_spec(
             timeout=timeout,
             measure_memory=measure_memory,
             max_memory_mb=mem_cap,
-            max_output_bytes=CONFIG.max_output_bytes,
+            max_output_bytes=get_config().max_output_bytes,
             cancel_event=cancel_event,
         ),
         tmp_wrapper_path=wrapper_path,
@@ -469,6 +471,19 @@ def _map_outcome_to_result(
             )
         )
 
+    # issue #935 (RUN-1-02/QA-1-04): факт обрезки вывода доходил только до
+    # ветки returncode != 0, а здесь `error` был захардкожен пустым. Решение,
+    # напечатавшее больше `max_output_bytes`, получало обычный WA — студент
+    # искал несуществующую ошибку в своём коде, а причина была в лимите
+    # грейдера. Пометка живёт в stderr (в stdout её класть нельзя — он
+    # сравнивается с ожиданием), поэтому переносим её в `error` как есть.
+    note = ""
+    if not passed and TRUNCATION_MARKER in stderr:
+        note = next(
+            (line.strip() for line in stderr.splitlines() if TRUNCATION_MARKER in line),
+            TRUNCATION_MARKER,
+        )
+
     return {
         "passed": passed,
         "output": actual_lines,
@@ -476,7 +491,7 @@ def _map_outcome_to_result(
         "diff": diff_str,
         "time": outcome.elapsed,
         "memory": outcome.peak_memory_mb,
-        "error": "",
+        "error": note,
         "timed_out": False,
         "verdict": "AC" if passed else "WA",
         "exit_code": outcome.returncode,
@@ -588,13 +603,27 @@ def run_tests(
         avg_time   (float) — среднее время на тест
         peak_memory_mb (float) — пик памяти (МБ)
         first_fail (int | None) — индекс первого упавшего теста
+        warnings   (list[str]) — предупреждения загрузки набора (issue #935):
+                             рассогласование блоков формата 3, непарные файлы,
+                             смешение форматов. Пустой список — набор полон
         cases      (list)  — детальные результаты по каждому кейсу; каждый
                              включает "stdin" (вход кейса, issue #397)
     """
     # issue #830 (ARCH-04): значение конфига читается в момент ВЫЗОВА, а не
     # вмораживается в дефолт при импорте модуля.
     timeout = get_config().timeout_seconds if timeout is None else timeout
-    test_cases = load_test_cases(test_dir)
+    # issue #935 (RUN-2-05): загрузчик предупреждает о неполном наборе через
+    # `warnings.warn`, то есть в stderr — машиночитаемый вывод об этом молчал,
+    # и CI не отличал полный прогон от урезанного. Ловим предупреждения здесь и
+    # переносим их в результат: рассогласование блоков формата 3, непарные
+    # файлы, смешение форматов — всё, из-за чего «OK N/N» относится не ко
+    # всему набору.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        test_cases = load_test_cases(test_dir)
+    load_warnings = [str(w.message) for w in caught]
+    for message in caught:
+        warnings.warn_explicit(message.message, message.category, message.filename, message.lineno)
     # Определяем режим запуска один раз для всех тест-кейсов.
     _apply_run_mode_override(test_cases, solution_path, test_dir)
 
@@ -663,6 +692,10 @@ def run_tests(
         "avg_time": avg_time,
         "peak_memory_mb": peak_mb,
         "first_fail": first_fail,
+        # issue #935: предупреждения загрузки набора — часть результата, а не
+        # только строка в stderr. Пустой список в обычном прогоне, поэтому
+        # потребители контракта (web, кэш, тесты) не ломаются.
+        "warnings": load_warnings,
         "cases": results,
     }
 

@@ -1461,3 +1461,72 @@ class TestPurgeHistoryFlag:
         monkeypatch.chdir(tmp_path)
         cli.main(["--purge-history"])
         assert "0" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# Коды возврата (issue #936): исход прогона как машинный сигнал
+# ---------------------------------------------------------------------------
+
+
+def _task_with_cases(tmp_path: pathlib.Path, expected: str) -> pathlib.Path:
+    """Задача с одним кейсом: вход `5`, ожидание задаётся параметром."""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "tests" / "expected_1.txt").write_text(expected, encoding="utf-8")
+    solution = tmp_path / "task1.py"
+    solution.write_text("print(input())\n", encoding="utf-8")
+    return solution
+
+
+class TestExitCodes:
+    """`--mode 1/2` документированы как CI-сценарий, значит исход обязан быть в rc."""
+
+    def test_passing_run_returns_ok(self, tmp_path: pathlib.Path) -> None:
+        """Все кейсы прошли — код 0."""
+        solution = _task_with_cases(tmp_path, "5\n")
+        assert cli.main(["--mode", "1", "--file", str(solution)]) == cli.ExitCode.OK
+
+    def test_failing_run_returns_failures(self, tmp_path: pathlib.Path) -> None:
+        """Есть непройденный кейс — код 1, а не 0 (issue #936)."""
+        solution = _task_with_cases(tmp_path, "999\n")
+        assert cli.main(["--mode", "1", "--file", str(solution)]) == cli.ExitCode.FAILURES
+
+    def test_empty_tests_dir_returns_no_tests(self, tmp_path: pathlib.Path) -> None:
+        """Каталог tests/ есть, но кейсов нет — код 2, а не «успех» (issue #936).
+
+        Это самый тихий способ пропустить неверное решение: задача не скачалась,
+        а гейт зелёный.
+        """
+        (tmp_path / "tests").mkdir()
+        solution = tmp_path / "task1.py"
+        solution.write_text("print(1)\n", encoding="utf-8")
+
+        assert cli.main(["--mode", "1", "--file", str(solution)]) == cli.ExitCode.NO_TESTS
+
+    def test_missing_file_returns_no_tests(self, tmp_path: pathlib.Path) -> None:
+        """Файла решения нет — код 2: проверять нечего."""
+        missing = tmp_path / "task1.py"
+        assert cli.main(["--mode", "1", "--file", str(missing)]) == cli.ExitCode.NO_TESTS
+
+    def test_mode_2_failing_returns_failures(self, tmp_path: pathlib.Path) -> None:
+        """Режим 2 с провалом в таблице — код 1."""
+        _task_with_cases(tmp_path, "999\n")
+        assert cli.main(["--mode", "2", "--dir", str(tmp_path)]) == cli.ExitCode.FAILURES
+
+    def test_mode_2_without_solutions_returns_no_tests(self, tmp_path: pathlib.Path) -> None:
+        """Режим 2 на папке без решений — код 2."""
+        assert cli.main(["--mode", "2", "--dir", str(tmp_path)]) == cli.ExitCode.NO_TESTS
+
+    def test_version_returns_ok(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Служебные команды завершаются нулём — гейт не должен на них падать."""
+        assert cli.main(["--version"]) == cli.ExitCode.OK
+        capsys.readouterr()
+
+    def test_run_cli_raises_system_exit_with_code(self, tmp_path: pathlib.Path) -> None:
+        """Точка входа консольного скрипта превращает код исхода в статус процесса."""
+        solution = _task_with_cases(tmp_path, "999\n")
+
+        with pytest.raises(SystemExit) as exc:
+            cli.run_cli(["--mode", "1", "--file", str(solution)])
+
+        assert exc.value.code == cli.ExitCode.FAILURES
