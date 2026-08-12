@@ -302,8 +302,12 @@ def _maybe_nudge_history(
     «упало» и «проверять было нечего», а после введения кодов исхода
     ``NO_TESTS`` истинен — без явной сверки подсказка «Подучить» выскакивала бы
     там, где прогона не было.
+
+    Сравнение по значению, а не по тождеству: ``ExitCode`` — ``IntEnum``, и
+    вызывающая сторона (включая тестовые дубли режимов) вправе вернуть простой
+    ``bool``. ``False == ExitCode.OK`` истинно, ``False is ExitCode.OK`` — нет.
     """
-    if outcome is ExitCode.FAILURES and not record_history and not nudged:
+    if outcome == ExitCode.FAILURES and not record_history and not nudged:
         print(ctx.t("nudge_enable_history"))
         return True
     return nudged
@@ -500,9 +504,9 @@ def _interactive_menu(ctx: CliContext) -> None:
                 )
                 # issue #936: серию трогает только состоявшийся прогон — при
                 # NO_TESTS проверять было нечего, обнулять её не за что.
-                if outcome is ExitCode.FAILURES:
+                if outcome == ExitCode.FAILURES:
                     success_streak = 0
-                elif outcome is ExitCode.OK:
+                elif outcome == ExitCode.OK:
                     success_streak += 1
                 nudged_success = _maybe_nudge_success_streak(
                     ctx,
@@ -521,9 +525,9 @@ def _interactive_menu(ctx: CliContext) -> None:
                 )
                 # issue #936: серию трогает только состоявшийся прогон — при
                 # NO_TESTS проверять было нечего, обнулять её не за что.
-                if outcome is ExitCode.FAILURES:
+                if outcome == ExitCode.FAILURES:
                     success_streak = 0
-                elif outcome is ExitCode.OK:
+                elif outcome == ExitCode.OK:
                     success_streak += 1
                 nudged_success = _maybe_nudge_success_streak(
                     ctx,
@@ -631,9 +635,9 @@ def _interactive_menu(ctx: CliContext) -> None:
                     nudged = _maybe_nudge_history(
                         ctx, graded, record_history=record_history, nudged=nudged
                     )
-                    if graded is ExitCode.FAILURES:
+                    if graded == ExitCode.FAILURES:
                         success_streak = 0
-                    elif graded is ExitCode.OK:
+                    elif graded == ExitCode.OK:
                         success_streak += 1
                     nudged_success = _maybe_nudge_success_streak(
                         ctx,

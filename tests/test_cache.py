@@ -282,7 +282,11 @@ def test_cache_miss_when_run_conditions_change(tmp_path: pathlib.Path) -> None:
             text=True,
             encoding="utf-8",
         )
-        assert completed.returncode == 0, completed.stderr
+        # issue #936: код возврата теперь несёт исход прогона, и второй заход
+        # здесь честно падает по таймауту. Тест про инвалидацию кэша, а не про
+        # вердикт, поэтому проверяем, что прогон СОСТОЯЛСЯ: 0 (AC) или 1 (есть
+        # падения), но не 2 («проверять нечего») и не аварийный код.
+        assert completed.returncode in (0, 1), completed.stderr
         payload: dict[str, object] = json.loads(completed.stdout.strip().splitlines()[-1])
         return payload
 
