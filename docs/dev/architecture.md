@@ -110,7 +110,7 @@ core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, c
 core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
 core/stepik_client.py ──→  core/storage.py
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli/__init__.py  (тонкий фасад)
-grader.py              ──→  core/runner.py  (Runner/RunSpec/RunOutcome/LocalRunner — реэкспорт точки расширения рядом с set_runner, issue #997)
+grader.py              ──→  core/runner.py  (Runner/RunSpec/RunOutcome/LocalRunner — точка расширения целиком в фасаде, рядом с set_runner)
 core/grader_core.py    ──→  core/microbench_runner.py, core/normalizers.py, core/runner.py
 core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
 core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
