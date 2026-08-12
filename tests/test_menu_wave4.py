@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -236,6 +237,40 @@ def test_history_toggle_off_persists(tmp_path: Path, monkeypatch, capsys) -> Non
     assert user_settings.load_settings(path).record_history is False
 
 
+def test_history_toggle_does_not_resurrect_revoked_consent(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """issue #997 (CNC-5-01/CNC-5-04): открытое меню воскрешало отозванное согласие.
+
+    Меню снимает снапшот настроек при запуске. Пока оно открыто, согласие на
+    отправку кода AI-провайдеру отзывают другим каналом (веб или
+    ``--revoke-ai-consent``) — и переключение тумблера истории возвращало на
+    диск весь снапшот, включая ``ai_hint_consent: true``.
+    """
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    path.write_text(
+        json.dumps({"ai_hint_consent": True, "ai_hint_consent_endpoint": "http://ai"}),
+        encoding="utf-8",
+    )
+
+    inputs = iter(["7", "0"])
+
+    def _input_with_revocation(*_a):
+        value = next(inputs)
+        if value == "7":
+            # Момент между снапшотом меню и записью тумблера.
+            user_settings.save_fields(path, ai_hint_consent=None, ai_hint_consent_endpoint=None)
+        return value
+
+    monkeypatch.setattr("builtins.input", _input_with_revocation)
+    cli._interactive_menu()
+
+    settings = user_settings.load_settings(path)
+    assert settings.ai_hint_consent is None, "меню вернуло отозванное согласие на диск"
+    assert settings.record_history is True, "тумблер истории не сохранился"
+
+
 def test_history_toggle_save_failure_is_graceful(tmp_path: Path, monkeypatch, capsys) -> None:
     """Сбой сохранения (read-only cwd / полный диск) не роняет меню — best-effort,
     симметрично load_settings (review-находка PR-A)."""
@@ -244,7 +279,7 @@ def test_history_toggle_save_failure_is_graceful(tmp_path: Path, monkeypatch, ca
     def _boom(*_a, **_k):
         raise OSError("read-only file system")
 
-    monkeypatch.setattr(user_settings, "save_settings", _boom)
+    monkeypatch.setattr(user_settings, "save_fields", _boom)
     inputs = iter(["7", "0"])
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()  # не должно упасть трейсбеком

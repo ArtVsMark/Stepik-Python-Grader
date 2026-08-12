@@ -32,6 +32,7 @@ __all__ = [
     "UserSettings",
     "default_settings_path",
     "load_settings",
+    "save_fields",
     "save_settings",
 ]
 
@@ -124,16 +125,75 @@ def load_settings(path: Path) -> UserSettings:
     )
 
 
+def _read_raw(path: Path) -> dict[str, object]:
+    """Сырое содержимое файла настроек как dict (битое/отсутствующее → пустой).
+
+    Отдельно от ``load_settings``: тому нужен типизированный ``UserSettings``, а
+    записи — все ключи файла, включая незнакомые этой версии. Иначе обновление
+    одного флага стирало бы поля, которых код ещё не знает.
+    """
+    try:
+        raw = path.read_bytes().decode("utf-8", errors="replace")
+    except OSError:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_fields(path: Path, **fields: object) -> None:
+    """Записать ТОЛЬКО названные поля поверх текущего файла (issue #997).
+
+    ``None`` в значении — явное стирание ключа, а не «не задано»: так
+    отзывается согласие на AI-подсказки. Неупомянутые поля остаются как есть,
+    включая незнакомые этой версии.
+
+    Зачем вместо ``save_settings``: тот пишет весь объект, а объект у
+    интерактивного меню — снапшот, снятый при запуске. Пока меню открыто, файл
+    мог изменить веб или соседний процесс, и переключение тумблера истории
+    возвращало на диск всё остальное состояние часовой давности — включая
+    отозванное согласие на отправку кода AI-провайдеру (``CNC-5-01``,
+    ``CNC-5-04``, ``SET-2-02``).
+
+    Гонку двух одновременных писателей это не решает (read-modify-write не
+    атомарен), но окно сузилось с «вся сессия меню» до времени одной записи.
+    """
+    known = {
+        "record_history",
+        "ai_hint_consent",
+        "ai_hint_consent_endpoint",
+        "onboarding_seen",
+    }
+    unknown = set(fields) - known
+    if unknown:
+        raise ValueError(f"неизвестные поля настроек: {sorted(unknown)}")
+    data = _read_raw(path)
+    for name, value in fields.items():
+        if value is None:
+            data.pop(name, None)
+        else:
+            data[name] = value
+    atomic_write_json(path, data, fsync=False)
+
+
 def save_settings(settings: UserSettings, path: Path) -> None:
     """Записать настройки в ``path`` атомарно через общий ``atomic_write_json``.
 
     Пишутся только явно заданные (не-``None``) поля, чтобы файл не фиксировал
-    «наследуемые из CONFIG» значения. ``atomic_write_json`` (issue #551) сменил
+    «наследуемые из CONFIG» значения, и **поверх текущего содержимого файла**:
+    ключи, которых нет в объекте (записанные другим каналом или другой версией),
+    сохраняются. Стереть ключ этой функцией нельзя — для этого
+    :func:`save_fields` с ``None``.
+
+    Когда известно, какие именно поля меняются, берите :func:`save_fields`: он
+    не тащит на диск остальной снапшот объекта. ``atomic_write_json`` (issue #551) сменил
     прежний фиксированный ``.tmp`` (его делили параллельные писатели — гонка) на
     уникальный ``mkstemp``; ``fsync=False`` — настройки редки и не критичны,
     достаточно атомарности замены.
     """
-    payload: dict[str, object] = {}
+    payload: dict[str, object] = _read_raw(path)
     if settings.record_history is not None:
         payload["record_history"] = settings.record_history
     if settings.ai_hint_consent is not None:
