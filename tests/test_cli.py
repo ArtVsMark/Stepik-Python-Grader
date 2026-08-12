@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import importlib.metadata
+import json
 import pathlib
 import sys
 import tomllib
@@ -165,6 +166,83 @@ class TestArgparseCli:
     def test_invalid_mode_choice_rejected(self) -> None:
         with pytest.raises(SystemExit):
             cli.main(["--mode", "9"])
+
+    def test_config_flag_with_missing_file_is_rejected(
+        self, tmp_path: pathlib.Path, capsys
+    ) -> None:
+        """issue #993: явно указанный конфиг обязан существовать.
+
+        Тихий откат на автопоиск здесь хуже отказа: пользователь просил
+        конкретный файл, а прогон пошёл бы с чужими параметрами.
+        """
+        with pytest.raises(SystemExit):
+            cli.main(["--config", str(tmp_path / "nope.toml"), "--version"])
+        assert "--config" in capsys.readouterr().err
+
+    def test_config_flag_sets_explicit_source(self, tmp_path: pathlib.Path) -> None:
+        """--config фиксирует источник конфигурации на весь процесс.
+
+        Модуль берётся через ``cli.config``, а не свежим импортом: соседний
+        ``test_bare_import_does_not_read_pyproject_toml`` переимпортирует
+        ``stepik_grader.config``, после чего в ``sys.modules`` лежит ДРУГОЙ
+        объект модуля — со своим кэшем и своими переопределениями.
+        """
+        config = cli.config
+
+        cfg = tmp_path / "grader.toml"
+        cfg.write_text("[tool.stepik-grader]\ntimeout_seconds = 7.0\n", encoding="utf-8")
+        try:
+            cli.main(["--config", str(cfg), "--version"])
+            assert config.config_source() == cfg
+            assert config.get_config().timeout_seconds == 7.0
+        finally:
+            config.set_config_path(None)
+
+    def test_run_profile_header_names_conditions(
+        self, tmp_path: pathlib.Path, monkeypatch, capsys
+    ) -> None:
+        """issue #984: шапка прогона говорит, чем проверяли и каким конфигом.
+
+        Прежде условия, определяющие вердикт, не были видны нигде — расхождение
+        двух прогонов объяснить было нечем.
+        """
+        config = cli.config
+        cfg = tmp_path / "grader.toml"
+        cfg.write_text("[tool.stepik-grader]\ntimeout_seconds = 4.0\n", encoding="utf-8")
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        sol = tmp_path / "task.py"
+        sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        try:
+            cli.main(["--mode", "1", "--file", str(sol), "--config", str(cfg)])
+        finally:
+            config.set_config_path(None)
+
+        out = capsys.readouterr().out
+        assert "Условия прогона" in out
+        assert "LocalRunner" in out
+        assert "4.0" in out  # таймаут из применённого конфига
+        assert str(cfg) in out  # и сам применённый файл
+
+    def test_run_profile_header_absent_in_machine_output(
+        self, tmp_path: pathlib.Path, monkeypatch, capsys
+    ) -> None:
+        """В json/csv/markdown шапки нет — это данные для пайплайна."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        sol = tmp_path / "task.py"
+        sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(sol), "--output", "json"])
+
+        out = capsys.readouterr().out
+        assert "Условия прогона" not in out
+        json.loads(out.strip().splitlines()[-1])  # вывод остаётся разбираемым
 
     def test_mode_1_dispatches_to_run_mode_1(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         sol = tmp_path / "task1.py"

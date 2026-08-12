@@ -5,13 +5,22 @@
 рёбер-циклов в DAG не создаёт (cli.py → core/cache.py → core/storage.py).
 
 Идея: при повторном запуске грейдера не перепрогонять тесты для решения,
-чьё содержимое И набор тест-кейсов не изменились с прошлого раза. Ключ
-кэша — пара sha256:
+чьё содержимое, набор тест-кейсов И условия исполнения не изменились с
+прошлого раза. Ключ кэша — три отпечатка:
 
     solution_sha  — sha256 содержимого файла решения
     tests_sha     — sha256 всех файлов тест-директории (путь + содержимое)
+    env           — sha256 условий прогона (core/runprofile.py): runner и
+                    backend песочницы, таймаут, лимиты вывода/памяти,
+                    кодировка, версия интерпретатора и пакета
 
-Изменение ЛЮБОГО из хешей инвалидирует запись — тест перезапускается.
+Изменение ЛЮБОГО из трёх инвалидирует запись — тест перезапускается.
+
+Третий появился по находкам аудита 2026-08-10 (issue #984): вердикт зависит
+от условий не меньше, чем от кода. Кэш, знавший только два хеша, отдавал
+обычному прогону результат, порождённый ``--sandbox`` (``FAIL 0/2`` и чужие
+15.10 МБ), а под ``--sandbox`` возвращал несанбоксный вердикт — то есть
+изоляция при активном ``--cache`` не включалась вовсе.
 
 Хранилище: один JSON-файл ``.grader_cache/results.json`` (по умолчанию в
 CWD). Кэш opt-in: включается флагом ``--cache`` / ``--no-cache`` или секцией
@@ -22,6 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import pathlib
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
@@ -36,7 +46,10 @@ __all__ = [
 
 CACHE_DIR_NAME = ".grader_cache"
 _CACHE_FILE_NAME = "results.json"
-_CACHE_VERSION = 1
+# Версия 2 (issue #984): в записи появился отпечаток условий прогона. Записи
+# версии 1 порождены неизвестными условиями и не подлежат переносу — файл
+# трактуется как пустой, тесты прогоняются заново.
+_CACHE_VERSION = 2
 # Верхняя граница числа записей кэша (issue #553): backstop против неограниченного
 # роста results.json. При превышении отбрасываются самые старые по порядку вставки.
 _CACHE_MAX_ENTRIES = 512
@@ -92,6 +105,7 @@ class GraderCache:
         self.cache_dir = base
         self.cache_file = base / _CACHE_FILE_NAME
         self._data = self._load()
+        self._save_warned = False
 
     def _load(self) -> dict[str, Any]:
         if not self.cache_file.exists():
@@ -113,9 +127,15 @@ class GraderCache:
         return str(solution_path.resolve())
 
     def get(
-        self, solution_path: pathlib.Path, solution_sha: str, tests_sha: str
+        self, solution_path: pathlib.Path, solution_sha: str, tests_sha: str, *, env: str
     ) -> dict[str, Any] | None:
-        """Вернуть кэшированный result, если оба хеша совпадают; иначе None."""
+        """Вернуть кэшированный result, если совпали все три отпечатка; иначе None.
+
+        ``env`` — отпечаток условий прогона (``RunProfile.fingerprint``).
+        Keyword-only и без значения по умолчанию намеренно: забытый аргумент
+        должен ломать вызов на месте, а не тихо возвращать вердикт, снятый при
+        других таймауте и изоляции (issue #984).
+        """
         entry = self._data["entries"].get(self._key(solution_path))
         # issue #792 (FST-04): запись должна быть словарём. Прежняя проверка
         # `if not entry` пропускала непустую строку/число из повреждённого или
@@ -124,7 +144,11 @@ class GraderCache:
         # «промаха», а не ронять грейдинг.
         if not isinstance(entry, dict):
             return None
-        if entry.get("solution_sha") == solution_sha and entry.get("tests_sha") == tests_sha:
+        if (
+            entry.get("solution_sha") == solution_sha
+            and entry.get("tests_sha") == tests_sha
+            and entry.get("env") == env
+        ):
             result = entry.get("result")
             return result if isinstance(result, dict) else None
         return None
@@ -135,11 +159,14 @@ class GraderCache:
         solution_sha: str,
         tests_sha: str,
         result: Mapping[str, Any],
+        *,
+        env: str,
     ) -> None:
-        """Сохранить result в память под парой хешей (без записи на диск)."""
+        """Сохранить result в память под тремя отпечатками (без записи на диск)."""
         self._data["entries"][self._key(solution_path)] = {
             "solution_sha": solution_sha,
             "tests_sha": tests_sha,
+            "env": env,
             "result": result,
         }
 
@@ -170,9 +197,26 @@ class GraderCache:
         return removed
 
     def save(self) -> None:
-        """Прунит мёртвые записи (issue #553) и пишет .grader_cache/results.json."""
+        """Прунит мёртвые записи (issue #553) и пишет .grader_cache/results.json.
+
+        Отказ записи не роняет грейдинг (issue #984, PY-3-02): каталог только
+        для чтения, кончившееся место, сетевой диск — всё это причины не
+        сохранить кэш, но не причины потерять уже посчитанный вердикт. Кэш
+        регенерируем по определению, поэтому сбой гасится одним предупреждением
+        на экземпляр — тот же принцип, что у ``_load()`` и ``stats.record_run``.
+        """
         self.prune()
-        save_json_file(self.cache_file, self._data)
+        try:
+            save_json_file(self.cache_file, self._data)
+        except OSError as e:
+            if not self._save_warned:
+                self._save_warned = True
+                warnings.warn(
+                    f"{self.cache_file}: кэш результатов не сохранён ({e}); "
+                    f"на вердикт это не влияет — следующий прогон посчитает заново.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
     def clear(self) -> int:
         """Удалить файл кэша и вернуть число удалённых записей."""

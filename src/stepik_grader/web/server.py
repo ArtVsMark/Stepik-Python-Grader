@@ -23,6 +23,7 @@ import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from stepik_grader import config
 from stepik_grader.core import user_settings
 from stepik_grader.web import runs
 from stepik_grader.web.api_routes import _ApiRoutesMixin
@@ -245,6 +246,10 @@ def run_server(
 
         set_runner(SandboxRunner())
     workspace = root.expanduser().resolve() if root else pathlib.Path.cwd().resolve()
+    # issue #984: workspace сервера — он же корень настроек прогона. Прежде веб
+    # якорил настройки на ``--root``, а конфиг читался от cwd: один запуск имел
+    # два разных корня, и вердикт зависел от того, откуда стартовал сервер.
+    config.set_workspace_root(workspace)
     server = _GraderServer(
         (host, port),
         _Handler,
