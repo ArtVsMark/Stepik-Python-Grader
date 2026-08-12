@@ -166,12 +166,17 @@ class TestTokenIsValid:
 
 
 # ---------------------------------------------------------------------------
-# wait_for_auth_code (drives a real OAuthHandler via a fake HTTPServer)
+# wait_for_auth_code (drives a real OAuthHandler via a fake server)
 # ---------------------------------------------------------------------------
 
 
 def _fake_server_factory(simulated_path):
-    """Build a fake HTTPServer class that drives the real handler with simulated_path."""
+    """Fake-класс сервера, прогоняющий настоящий handler на simulated_path.
+
+    Подменяет ``_OAuthHTTPServer`` (issue #943): колбэк-сервер перестал быть
+    голым ``HTTPServer`` — он переопределяет ``server_bind``, чтобы не ходить в
+    обратный DNS при старте.
+    """
 
     class _FakeServer:
         def __init__(self, server_address, handler_class):
@@ -200,21 +205,21 @@ class TestWaitForAuthCode:
         REFACTORING INVARIANT: same extraction logic in oauth_flow.wait_for_auth_code.
         """
         fake_server = _fake_server_factory("/callback?code=test_code&state=xyz")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         code = wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
         assert code == "test_code"
 
     def test_wait_for_auth_code_raises_on_error_param(self, monkeypatch):
         """An ?error= callback (with matching state) raises RuntimeError. REFACTORING INVARIANT."""
         fake_server = _fake_server_factory("/callback?error=access_denied&state=xyz")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(RuntimeError):
             wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
 
     def test_wait_for_auth_code_timeout_without_code(self, monkeypatch):
         """No code and no error within timeout raises TimeoutError. REFACTORING INVARIANT."""
         fake_server = _fake_server_factory("/callback?state=xyz")  # no code, no error
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(TimeoutError):
             wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
 
@@ -226,14 +231,14 @@ class TestWaitForAuthCode:
         yield a usable code.
         """
         fake_server = _fake_server_factory("/callback?code=attacker_code&state=wrong")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(RuntimeError, match="state"):
             wait_for_auth_code("localhost", 8080, "/callback", "expected", timeout=1)
 
     def test_wait_for_auth_code_raises_on_missing_state(self, monkeypatch):
         """Callback with no ``state`` param at all is rejected the same as a mismatch."""
         fake_server = _fake_server_factory("/callback?code=attacker_code")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(RuntimeError, match="state"):
             wait_for_auth_code("localhost", 8080, "/callback", "expected", timeout=1)
 

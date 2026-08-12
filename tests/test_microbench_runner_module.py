@@ -18,6 +18,13 @@ tests/test_microbench.py.
 
 from __future__ import annotations
 
+import pathlib
+import stat
+import sys
+import tempfile
+
+import pytest
+
 from stepik_grader.core import microbench_runner
 from stepik_grader.core.microbench_runner import (
     MicrobenchResult,
@@ -26,6 +33,7 @@ from stepik_grader.core.microbench_runner import (
     apply_relative_ranking,
     run_microbench,
 )
+from stepik_grader.core.runner import RunOutcome
 
 
 def test_microbench_runner_basic_timing() -> None:
@@ -177,6 +185,59 @@ def test_microbench_runner_uses_public_run_spec(monkeypatch) -> None:
     monkeypatch.setattr(microbench_runner, "run_spec", fake_run_spec)
     run_microbench("x = 1\n", stdin_data="", number=5)
     assert len(calls) == 1  # ровно один прогон, через публичный run_spec
+
+
+def _captured_bench_spec(monkeypatch) -> tuple[pathlib.Path, int]:
+    """Прогнать микробенч, вернув путь bench-скрипта и права его каталога.
+
+    ``run_spec`` подменяется, чтобы снять состояние ДО того, как ``finally``
+    снесёт каталог: после возврата из ``run_microbench`` проверять уже нечего,
+    поэтому права читаются здесь, а не в самом тесте.
+    """
+    seen: list[tuple[pathlib.Path, int]] = []
+
+    def fake_run_spec(spec):
+        # Каталог обязан существовать в момент прогона — иначе раннеру нечего
+        # исполнять; проверяем это здесь же, а не после уборки.
+        assert spec.path.is_file(), spec.path
+        seen.append((spec.path, stat.S_IMODE(spec.path.parent.stat().st_mode)))
+        return RunOutcome()
+
+    monkeypatch.setattr(microbench_runner, "run_spec", fake_run_spec)
+    run_microbench("x = 1\n", stdin_data="", number=5)
+    assert len(seen) == 1
+    return seen[0]
+
+
+def test_bench_script_lives_in_private_dir_not_shared_tmp(monkeypatch) -> None:
+    """bench-скрипт лежит в приватном каталоге, а не прямо в общем temp (#945).
+
+    Каталог скрипта CPython ставит ПЕРВЫМ в ``sys.path`` дочернего процесса:
+    в общем ``/tmp`` посторонний мог подложить свой ``timeit.py``, и строка
+    ``import timeit as _timeit`` bench-скрипта исполнила бы чужой код правами
+    владельца грейдера. Права самого файла (0600) не спасают — атака идёт на
+    каталог, поэтому проверяется именно он.
+    """
+    bench_path, _mode = _captured_bench_spec(monkeypatch)
+
+    shared_tmp = pathlib.Path(tempfile.gettempdir()).resolve()
+    parent = bench_path.parent.resolve()
+    assert parent != shared_tmp, f"bench-скрипт лежит прямо в общем temp: {bench_path}"
+    assert parent.name.startswith("stepik-bench-"), parent
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="права POSIX; на Windows иная модель ACL")
+def test_bench_dir_is_owner_only(monkeypatch) -> None:
+    """Приватный каталог bench-скрипта — 0700, как у runner.py и tracer.py (#945)."""
+    _bench_path, mode = _captured_bench_spec(monkeypatch)
+    assert mode == 0o700, oct(mode)
+
+
+def test_bench_dir_removed_after_run(monkeypatch) -> None:
+    """Каталог со скриптом уносится целиком после прогона, а не остаётся мусором."""
+    bench_path, _mode = _captured_bench_spec(monkeypatch)
+    assert not bench_path.exists(), bench_path
+    assert not bench_path.parent.exists(), bench_path.parent
 
 
 def test_microbench_runner_apply_relative_orders_by_median() -> None:

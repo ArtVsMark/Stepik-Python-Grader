@@ -25,6 +25,7 @@ from __future__ import annotations
 import contextlib
 import difflib
 import pathlib
+import shutil
 import statistics
 import tempfile
 import threading
@@ -294,10 +295,17 @@ class _RunPlan:
     ``error`` — ошибка подготовки (нет ``function_name`` / невалидный wrapper),
     при которой запуск не производится и кейс сразу маппится в RE. Инвариант:
     ровно одно из ``spec``/``error`` заполнено.
+
+    ``tmp_wrapper_dir`` — приватный каталог, в котором лежит wrapper (issue
+    #945). Уборка сносит именно каталог, а не один файл: каталог и есть то, что
+    защищает исполнение (см. ``_prepare_run_spec``). Отдельное поле, а не
+    ``tmp_wrapper_path.parent``, чтобы ``rmtree`` не мог уехать в чужую папку,
+    если путь придёт откуда-то ещё.
     """
 
     spec: RunSpec | None = None
     tmp_wrapper_path: pathlib.Path | None = None
+    tmp_wrapper_dir: pathlib.Path | None = None
     error: str | None = None
 
 
@@ -383,16 +391,15 @@ def _prepare_run_spec(
     # дочернего процесса, которому раннер выставил PYTHONUTF8=1. Прежний
     # CONFIG.encoding здесь означал бы, что при cp1251 сгенерированный код
     # физически не разберётся.
-    tmp_wrapper = tempfile.NamedTemporaryFile(  # noqa: SIM115
-        mode="w",
-        suffix=".py",
-        encoding=_CHILD_IO_ENCODING,
-        delete=False,
-    )
-    tmp_wrapper.write(wrapper_src)
-    tmp_wrapper.flush()
-    tmp_wrapper.close()
-    wrapper_path = pathlib.Path(tmp_wrapper.name)
+    # issue #945: приватный каталог 0700 вместо общего системного temp — тот же
+    # вектор, что закрыт в runner.py/tracer.py (issue #799) и в микробенче:
+    # каталог исполняемого скрипта CPython ставит ПЕРВЫМ в ``sys.path``
+    # дочернего процесса, поэтому в общем ``/tmp`` посторонний мог подложить
+    # свой ``json.py`` и подменить импорт внутри wrapper'а. Права файла тут не
+    # при чём — цель атаки каталог.
+    wrapper_dir = pathlib.Path(tempfile.mkdtemp(prefix="stepik-wrapper-"))
+    wrapper_path = wrapper_dir / "wrapper.py"
+    wrapper_path.write_text(wrapper_src, encoding=_CHILD_IO_ENCODING)
     return _RunPlan(
         spec=RunSpec(
             path=wrapper_path,
@@ -404,6 +411,7 @@ def _prepare_run_spec(
             cancel_event=cancel_event,
         ),
         tmp_wrapper_path=wrapper_path,
+        tmp_wrapper_dir=wrapper_dir,
     )
 
 
@@ -609,8 +617,12 @@ def run_single_test(
         # станет точкой выбора per-request Runner'а при серверном пивоте.
         outcome = run_spec(plan.spec)
     finally:
-        # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
-        if plan.tmp_wrapper_path is not None:
+        # issue #945: сносим каталог целиком, а не один файл — приватный каталог
+        # и есть то, что защищает исполнение, оставлять его пустым незачем.
+        # ignore_errors — уборка не должна ронять уже посчитанный вердикт.
+        if plan.tmp_wrapper_dir is not None:
+            shutil.rmtree(plan.tmp_wrapper_dir, ignore_errors=True)
+        elif plan.tmp_wrapper_path is not None:
             with contextlib.suppress(OSError):
                 plan.tmp_wrapper_path.unlink()
 
