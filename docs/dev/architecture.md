@@ -104,6 +104,7 @@
 downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
 downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py, core/test_source_fetcher.py, core/step_content.py  (реэкспорт публичных имён)
 downloader.py          ──→  downloader_config.py  (конфиг+интерактив)
+downloader.py          ──→  core/submission_archive.py  (история отправок в <задача>/submissions/)
 downloader_config.py   ──→  core/storage.py
 core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, core/tests_writer.py  (НЕ импортирует downloader)
 core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
