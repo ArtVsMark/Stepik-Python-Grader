@@ -67,6 +67,7 @@ __all__ = [
     "fetch_step_data",
     "fetch_step_languages",
     "fetch_submission_data",
+    "fetch_submission_history",
     "fetch_unit_data",
     "is_stepik_url",
     "make_session",
@@ -113,6 +114,12 @@ _RETRY_AFTER_MAX_SECONDS = 60
 # любого архива тест-кейсов и несопоставимо меньше того, чем можно уронить
 # машину.
 _MAX_EXTERNAL_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
+# issue #1055: потолок обхода истории отправок. Страница API — 20 записей, то
+# есть 50 страниц ≈ 1000 попыток по одному шагу: столько не набирает даже
+# многократно переписанное решение, а цикл получает конец при залипшем
+# `has_next`.
+_SUBMISSIONS_MAX_PAGES = 50
 
 HEADERS: dict[str, str] = {
     "User-Agent": (
@@ -880,7 +887,11 @@ def fetch_submission_data(
     session: requests.Session,
     step_id: int,
 ) -> dict[str, Any] | None:
-    """Возвращает последний сабмишн для шага или None если их нет."""
+    """Возвращает последний сабмишн для шага или None если их нет.
+
+    Один запрос, только первая страница: вызывающей стороне нужен лишь
+    свежайший ответ. Вся история — ``fetch_submission_history``.
+    """
     response = _get_with_retry(
         session,
         f"{API_HOST}/api/submissions",
@@ -888,6 +899,47 @@ def fetch_submission_data(
     )
     submissions: list[dict[str, Any]] = response.json().get("submissions", [])
     return submissions[0] if submissions else None
+
+
+def fetch_submission_history(
+    session: requests.Session,
+    step_id: int,
+    *,
+    max_pages: int = _SUBMISSIONS_MAX_PAGES,
+) -> list[dict[str, Any]]:
+    """Возвращает ВСЕ отправки пользователя по шагу, новые первыми.
+
+    Эндпоинт отдаёт историю постранично, а не только последний ответ
+    (issue #1055): у каждой записи есть код (``reply.code``), вердикт
+    платформы (``status``) и время — это и есть источник корпуса реальных
+    решений вместе с эталонными вердиктами.
+
+    ``max_pages`` ограничивает обход: страницы кончаются по ``meta.has_next``,
+    но выдумывать доверие к чужому флагу незачем — при его залипании обход
+    остановится на пределе, а не будет ходить по кругу.
+    """
+    collected: list[dict[str, Any]] = []
+    page = 1
+    while page <= max_pages:
+        response = _get_with_retry(
+            session,
+            f"{API_HOST}/api/submissions",
+            params={"step": step_id, "order": "desc", "page": page},
+        )
+        data = response.json()
+        submissions: list[dict[str, Any]] = data.get("submissions", [])
+        collected.extend(s for s in submissions if isinstance(s, dict))
+        meta = data.get("meta") or {}
+        if not meta.get("has_next"):
+            break
+        page += 1
+    else:
+        _log.warning(
+            "история отправок шага %s оборвана на %d-й странице (has_next всё ещё true)",
+            step_id,
+            max_pages,
+        )
+    return collected
 
 
 # ---------------------------------------------------------------------------

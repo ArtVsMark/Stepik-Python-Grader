@@ -770,18 +770,61 @@ class TestDialogFallbackMenu:
         cli._interactive_menu()  # не должно быть трейсбека
         assert "File not found" in capsys.readouterr().out
 
+    def test_ctrl_c_at_menu_prompt_exits_cleanly(self, monkeypatch, capsys) -> None:
+        """issue #997 (DEV-1-03, PROD-1-03): Ctrl+C — выход, а не трейсбек.
+
+        Точечные обработчики стояли только внутри пунктов 6/8/9, поэтому самый
+        частый способ закончить работу — прерывание на выборе режима — выглядел
+        как поломка программы.
+        """
+
+        def _interrupt(*_args: object) -> str:
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr("builtins.input", _interrupt)
+
+        cli._interactive_menu()  # не должно быть трейсбека
+
+        assert "Goodbye" in capsys.readouterr().out
+
 
 class TestDialogFallbackCli:
     """`--mode N` без --file/--dir: диалог только в text-режиме."""
 
     def test_missing_file_uses_dialog_in_text_mode(self, monkeypatch, tmp_path) -> None:
+        from stepik_grader.cli import interactive as interactive_mod
+
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         called = []
+        # issue #997 (DEV-1-05): диалог предлагается только при живом терминале;
+        # под pytest потоки перехвачены, поэтому интерактивность задаётся явно.
+        monkeypatch.setattr(interactive_mod, "_is_interactive", lambda: True)
         monkeypatch.setattr(cli, "_pick_path_via_dialog", lambda *, want_dir: str(sol))
         monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: called.append(solution))
         cli.main(["--mode", "1"])
         assert called == [str(sol)]
+
+    def test_missing_file_without_terminal_errors_instead_of_dialog(self, monkeypatch) -> None:
+        """issue #997 (DEV-1-05): скрипту показывают ошибку, а не окно tkinter.
+
+        Признак «text-режим» ничего не говорит о том, есть ли кому нажать кнопку
+        в диалоге: `--mode 1` без `--file` из скрипта открывал модальное окно и
+        вис на нём до убийства процесса — в CI это выглядит как зависший шаг без
+        единой строки в логе.
+        """
+        from stepik_grader.cli import interactive as interactive_mod
+
+        called = []
+        monkeypatch.setattr(interactive_mod, "_is_interactive", lambda: False)
+        monkeypatch.setattr(
+            cli, "_pick_path_via_dialog", lambda *, want_dir: called.append(True) or "/x"
+        )
+
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1"])
+
+        assert called == []  # окно не открывалось
 
     def test_missing_file_json_output_no_dialog_errors(self, monkeypatch) -> None:
         # В машинном режиме диалог не показываем — argparse.error → SystemExit.

@@ -68,6 +68,7 @@
 | `core/runprofile.py` | Application / Configuration | Паспорт условий прогона (`RunProfile`, `current_profile()`): активный `Runner` и backend песочницы, таймаут, лимиты вывода/памяти, кодировка, версии Python и пакета, применённый конфиг. Два потребителя — шапка отчёта (`describe()`) и ключ кэша (`fingerprint`): условия меняют вердикт наравне с кодом, поэтому их отпечаток инвалидирует запись |
 | `core/user_settings.py` | Application / Configuration (leaf) | Персистентные пользовательские настройки CLI (`.grader_settings.json`) — тумблер записи истории из меню и т.п.; отдельный слой от frozen `config.py` (изменяемые пользователем настройки, не `pyproject.toml`); единственный project-импорт — top-level `atomic_io.atomic_write_json` (stdlib-leaf) |
 | `core/stepik_reference.py` | Application | Импорт закреплённых/топовых решений Stepik как reference-competitor'ов для режимов 2–4 (`--import-reference`/`--import-top`): `import_references_from_task_dir`; НЕ часть grading-core (вторичный конкурент, не источник первичной проверки) |
+| `core/submission_archive.py` | Application | История своих отправок по шагу в `<задача>/submissions/`: файл кода на каждую попытку + `meta.json` с вердиктом платформы, `hint` и временем (`save_submission_history`). Ничего не затирает — в отличие от `solution.py`, который хранит только последнюю отправку; имена намеренно вне маски `_SOLUTION_FILE_RE`, иначе старые попытки пришли бы в режимы 2–4 конкурентами |
 | `rules/` (пакет) | Domain | Карточки правил PEP 8: `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет `core/mtime_cache` — не leaf |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
@@ -103,6 +104,7 @@
 downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
 downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py, core/test_source_fetcher.py, core/step_content.py  (реэкспорт публичных имён)
 downloader.py          ──→  downloader_config.py  (конфиг+интерактив)
+downloader.py          ──→  core/submission_archive.py  (история отправок в <задача>/submissions/)
 downloader_config.py   ──→  core/storage.py
 core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, core/tests_writer.py  (НЕ импортирует downloader)
 core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
@@ -169,6 +171,7 @@ core/history_recording.py ──→  core/history.py, core/insights.py, core/glo
 core/progress_export.py   ──→  core/history.py, core/insights.py  (агрегаты прогресса)
 core/ai_hints.py          ──→  core/diag_log.py  (редакция ключа; config передаётся вызывающим, requests — вне проекта)
 core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py
+core/submission_archive.py ──→  core/step_content.py, core/storage.py, core/diag_log.py  (раскладка истории отправок; сеть — на стороне вызывающего)
 core/user_settings.py     ──→  atomic_io.py  (.grader_settings.json атомарно; иначе stdlib-leaf)
 core/stats.py             ──→  atomic_io.py  (ротация .grader_stats.jsonl атомарной заменой)
 downloader.py / downloader_config.py / diagnostic_stepik.py  ──→  core/i18n.py  (сообщения мастера скачивания и диагностики на языке меню)

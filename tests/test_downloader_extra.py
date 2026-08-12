@@ -12,6 +12,8 @@ from __future__ import annotations
 import pathlib
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from stepik_grader import downloader
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.downloader import build_task_directory, save_task_files
@@ -66,6 +68,105 @@ class TestSaveTaskFiles:
         meta = load_json_file(tmp_path / "meta.json")
         assert meta["function_name"] == "f"
         assert meta["submission_id"] == 9
+
+    def test_history_lands_next_to_task_without_erasing(self, tmp_path: pathlib.Path):
+        """История отправок раскладывается рядом и переживает перекачку шага.
+
+        issue #1055: `solution.py` хранит только последнюю отправку и
+        переписывается при каждом скачивании — прошлые попытки, включая
+        неверные, исчезали вместе с вердиктами платформы.
+        """
+        step = self._step(text="")
+        history = [
+            {
+                "id": 3,
+                "status": "correct",
+                "time": "2024-03-01T12:05:11Z",
+                "reply": {"code": "print(3)"},
+            },
+            {
+                "id": 1,
+                "status": "wrong",
+                "time": "2024-03-01T12:00:05Z",
+                "reply": {"code": "print(1)"},
+            },
+        ]
+
+        save_task_files(
+            tmp_path,
+            step,
+            history[0],
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+            submissions=history,
+        )
+        # Перекачка: API отдал только свежую отправку.
+        save_task_files(
+            tmp_path,
+            step,
+            history[0],
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+            submissions=[history[0]],
+        )
+
+        archive = tmp_path / "submissions"
+        assert sorted(p.name for p in archive.glob("*.py")) == [
+            "2024-03-01T12-00-05_wrong_1.py",
+            "2024-03-01T12-05-11_correct_3.py",
+        ]
+        assert (tmp_path / "solution.py").read_text(encoding="utf-8") == "print(3)"
+        assert load_json_file(tmp_path / "meta.json")["submissions_archived"] == 2
+
+    def test_archived_history_is_invisible_to_solution_search(self, tmp_path: pathlib.Path):
+        """Старые попытки не должны стать конкурентами в режимах 2–4.
+
+        Поиск решений рекурсивен, поэтому файл истории с именем вида
+        `task3_7.py` пришёл бы в сравнение как ещё одно решение.
+        """
+        from stepik_grader.core.test_loader import find_all_solution_files
+
+        save_task_files(
+            tmp_path,
+            self._step(text=""),
+            None,
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+            submissions=[
+                {
+                    "id": 1,
+                    "status": "wrong",
+                    "time": "2024-03-01T12:00:05Z",
+                    "reply": {"code": "print(1)"},
+                }
+            ],
+        )
+
+        assert [p.name for p in find_all_solution_files(tmp_path)] == [
+            "task3_1.py",
+            "task3_2.py",
+        ]
+
+    def test_without_history_no_archive_directory(self, tmp_path: pathlib.Path):
+        """Нет отправок — нет и пустого каталога в каждой скачанной задаче."""
+        save_task_files(
+            tmp_path,
+            self._step(text=""),
+            None,
+            self._meta(),
+            self._meta(),
+            self._meta(),
+            MagicMock(),
+        )
+
+        assert not (tmp_path / "submissions").exists()
+        assert load_json_file(tmp_path / "meta.json")["submissions_archived"] == 0
 
     def test_no_text_returns_early(self, tmp_path: pathlib.Path):
         """Пустой block.text → task.md не создаётся, ранний выход."""
@@ -200,7 +301,7 @@ class TestProcessStepUrl:
                 "stepik_grader.downloader.fetch_step_data",
                 return_value={"id": 4, "position": 5, "title": "Step"},
             ),
-            patch("stepik_grader.downloader.fetch_submission_data", return_value=None),
+            patch("stepik_grader.downloader.fetch_submission_history", return_value=[]),
             patch(
                 "stepik_grader.downloader.save_task_files", return_value=(3, "html_table")
             ) as mock_save,
@@ -213,6 +314,48 @@ class TestProcessStepUrl:
         assert task_dir == downloader.build_task_directory(tmp_path, "C", "S", "L", 5, "Step")
         assert count == 3
         assert source == "html_table"
+
+    def test_history_is_fetched_and_latest_goes_to_solution(self, tmp_path: pathlib.Path):
+        """Скачивание берёт ВСЮ историю, а `solution.py` получает свежую отправку.
+
+        issue #1055: раньше запрашивалась одна запись (`submissions[0]`), и
+        остальные попытки — с вердиктами платформы — терялись безвозвратно.
+        """
+        history = [
+            {"id": 3, "status": "correct", "time": "2024-03-01T12:05:11Z"},
+            {"id": 2, "status": "wrong", "time": "2024-03-01T12:02:00Z"},
+        ]
+        with (
+            patch(
+                "stepik_grader.downloader.fetch_lesson_data", return_value={"id": 1, "title": "L"}
+            ),
+            patch("stepik_grader.downloader.fetch_unit_data", return_value={"section": 2}),
+            patch(
+                "stepik_grader.downloader.fetch_section_data",
+                return_value={"id": 2, "course": 3, "title": "S"},
+            ),
+            patch(
+                "stepik_grader.downloader.fetch_course_data", return_value={"id": 3, "title": "C"}
+            ),
+            patch(
+                "stepik_grader.downloader.fetch_step_data",
+                return_value={"id": 4, "position": 5, "title": "Step"},
+            ),
+            patch(
+                "stepik_grader.downloader.fetch_submission_history", return_value=history
+            ) as mock_history,
+            patch(
+                "stepik_grader.downloader.save_task_files", return_value=(0, "none")
+            ) as mock_save,
+        ):
+            downloader.process_step_url(
+                "https://stepik.org/lesson/1/step/5?unit=2", MagicMock(), tmp_path
+            )
+
+        mock_history.assert_called_once()
+        assert mock_history.call_args.args[1] == 4  # step_id
+        assert mock_save.call_args.args[2] == history[0]  # solution.py — последняя
+        assert mock_save.call_args.kwargs["submissions"] == history
 
 
 class TestMain:
@@ -273,6 +416,98 @@ class TestMain:
             patch("stepik_grader.downloader.process_step_url", side_effect=ValueError("bad url")),
         ):
             downloader.main()  # не должно бросить
+
+
+class TestDownloaderCli:
+    """issue #997: точка входа разбирает аргументы и сообщает исход процессу."""
+
+    def test_help_prints_usage_instead_of_running_wizard(self, tmp_path, monkeypatch, capsys):
+        """`--help` печатает справку и не создаёт stepik_config.json (INS-5-01).
+
+        Модуль сразу уходил в мастер конфигурации, поэтому документированная
+        команда не разбирала собственных флагов: `--help` съедался первым
+        вопросом, в текущем каталоге появлялся конфиг, а на закрытом stdin
+        прогон падал с кодом 0.
+        """
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(SystemExit) as exc:
+            downloader.run_cli(["--help"])
+
+        assert exc.value.code == 0
+        assert "--lang" in capsys.readouterr().out
+        assert not (tmp_path / "stepik_config.json").exists()
+
+    def test_config_failure_returns_nonzero_and_names_the_file(self, tmp_path, monkeypatch, capsys):
+        """Сбой конфига → код 1 и путь к файлу (INS-3-03, RUN-5-05, JRN-3A-01)."""
+        monkeypatch.chdir(tmp_path)
+        with patch(
+            "stepik_grader.downloader.load_or_create_config", side_effect=RuntimeError("битый json")
+        ):
+            code = downloader.run_cli([])
+
+        out = capsys.readouterr().out.replace("\n", "")
+        assert code == 1
+        assert "битый json" in out
+        assert "stepik_config.json" in out  # файл назван, а не «ошибка конфига»
+
+    def test_urls_from_arguments_skip_the_prompt(self, tmp_path, monkeypatch):
+        """URL из аргументов скачиваются без единого вопроса — режим для скриптов."""
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
+            patch("builtins.input") as mock_input,
+            patch(
+                "stepik_grader.downloader.process_step_url",
+                return_value=(tmp_path / "task", None, None),
+            ) as mock_proc,
+        ):
+            code = downloader.run_cli(["https://stepik.org/lesson/1/step/1"])
+
+        mock_input.assert_not_called()
+        assert mock_proc.call_count == 1
+        assert code == 0
+
+    def test_failed_step_gives_nonzero_code(self, tmp_path, monkeypatch):
+        """Отказ по шагу — тоже исход: скрипт, заказавший URL, должен узнать."""
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
+            patch(
+                "stepik_grader.downloader.process_step_url",
+                side_effect=ValueError("нет такого шага"),
+            ),
+        ):
+            code = downloader.run_cli(["https://stepik.org/lesson/1/step/1"])
+
+        assert code == 1
+
+    def test_eof_in_url_loop_finishes_normally(self, tmp_path, monkeypatch):
+        """Закрытый stdin завершает ввод, а не роняет трейсбек (RUN-5-04).
+
+        «Ввода больше нет» — то же самое, что пустая строка, и обрабатываться
+        должно так же.
+        """
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
+            patch("builtins.input", side_effect=EOFError),
+        ):
+            code = downloader.run_cli([])
+
+        assert code == 0
 
 
 class TestMainReturnsDownloadedPaths:
