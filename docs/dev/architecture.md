@@ -156,6 +156,7 @@ cli/commands.py        ──→  core/ai_hints.py, core/history_recording.py  (
 cli/commands.py        ──→  core/runprofile.py  (паспорт условий прогона: шапка отчёта + отпечаток в ключе кэша)
 core/runprofile.py     ──→  config.py, core/runner.py  (действующие настройки + активный Runner; снимается в момент вызова, не на импорте)
 cli/__init__.py        ──→  core/progress_export.py  (--export-progress), core/stepik_reference.py  (--import-reference/--import-top)
+cli/__init__.py        ──→  core/history.py  (--purge-history: PurgePreview для предпросмотра удаления; сам purge_history — ленивый импорт в ветке флага)
 cli/interactive.py     ──→  core/user_settings.py  (тумблер записи истории из меню)
 web/api_routes.py      ──→  web/reference_adapter.py  (POST /api/import-reference)
 web/api_routes.py      ──→  web/settings_adapter.py  (настройки пользователя: onboarding_seen, consent AI-подсказки)

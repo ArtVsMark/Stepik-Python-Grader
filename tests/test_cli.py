@@ -1439,3 +1439,59 @@ class TestPurgeHistoryFlag:
         monkeypatch.chdir(tmp_path)
         cli.main(["--purge-history"])
         assert "0" in capsys.readouterr().out
+
+    def test_purge_prints_what_will_be_deleted(self, tmp_path, monkeypatch, capsys) -> None:
+        """issue #990: объём удаления виден ДО удаления, а не после.
+
+        Данные уходят необратимо, поэтому пользователь должен успеть увидеть,
+        сколько прогонов и каких задач исчезнет.
+        """
+        monkeypatch.chdir(tmp_path)
+        self._seed(tmp_path)
+
+        # Язык задаётся явно: main() выставляет _LANG из --lang (по умолчанию
+        # ru), перекрывая autouse-фикстуру английского.
+        cli.main(["--purge-history", "--lang", "en"])
+
+        out = capsys.readouterr().out
+        assert "Will be deleted permanently" in out
+        assert "alpha" in out and "beta" in out  # обе задачи названы
+
+    def test_purge_of_shared_key_warns_about_collision(self, tmp_path, monkeypatch, capsys) -> None:
+        """Ключ задачи — имя папки, и одноимённые папки делят историю.
+
+        Пока это так, точечное удаление способно унести чужой курс; о риске
+        сообщается до удаления, а не постфактум в issue.
+        """
+        from stepik_grader.core.history import record_run
+        from stepik_grader.core.history_recording import default_history_db_path
+
+        monkeypatch.chdir(tmp_path)
+        db_path = default_history_db_path()
+        # Одинаковый ключ, разные решения — так выглядит коллизия одноимённых
+        # папок из разных курсов в единой пользовательской базе.
+        record_run(2, [], db_path=db_path, task_key="задача-3", solution_name="course_a.py")
+        record_run(2, [], db_path=db_path, task_key="задача-3", solution_name="course_b.py")
+
+        cli.main(["--purge-history", "задача-3"])
+
+        out = capsys.readouterr().out
+        assert "course_a.py" in out and "course_b.py" in out
+
+    def test_purge_survives_corrupt_database(self, tmp_path, monkeypatch, capsys) -> None:
+        """Битая база — не трейсбек: цель команды и есть «истории не стало».
+
+        Находки PROD-2-02/FZZ-5-05: пользователь с повреждённым журналом
+        приходит сюда именно за этим, а получал `sqlite3.DatabaseError`.
+        """
+        from stepik_grader.core.history_recording import default_history_db_path
+
+        monkeypatch.chdir(tmp_path)
+        db_path = default_history_db_path()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_path.write_text("это не sqlite", encoding="utf-8")
+
+        cli.main(["--purge-history"])
+
+        assert not db_path.exists()
+        assert capsys.readouterr().out  # что-то сказано пользователю
