@@ -216,6 +216,43 @@ class BenchStats:
 # не спускается в тела функций, поэтому цикл существовал, а тест был зелёным.
 
 
+def _undecodable_output_result(
+    case: TestCase,
+    outcome: RunOutcome,
+    exc: UnicodeDecodeError,
+) -> CaseResult:
+    """Вердикт для вывода, который не является корректным UTF-8 (issue #1031).
+
+    Отдельный исход, а не «просто WA»: сравнивать такой вывод с ожиданием
+    нельзя — при терпимом декоде любые непредставимые байты схлопываются в
+    один и тот же ``�``, и разные выводы становятся неотличимы. Поэтому
+    причина называется прямо, а не прячется за ``█`` в отчёте.
+
+    Вывод всё же показывается — терпимым декодом: пустой ``output`` не дал бы
+    понять, что вообще напечатало решение, а показанные символы замены вместе
+    с текстом ошибки объясняют картину целиком.
+    """
+    lossy = outcome.stdout.decode(_CHILD_IO_ENCODING, errors="replace")
+    bad_byte = exc.object[exc.start : exc.start + 1]
+    return {
+        "passed": False,
+        "output": split_output_lines(lossy),
+        "expected": case.expected_lines,
+        "diff": "",
+        "time": outcome.elapsed,
+        "memory": outcome.peak_memory_mb,
+        "error": (
+            f"вывод решения не является корректным {_CHILD_IO_ENCODING}: "
+            f"байт 0x{bad_byte.hex()} в позиции {exc.start}. Сравнить его с ожиданием нельзя — "
+            "разные байты дали бы один и тот же символ замены, и неверное решение получило бы AC. "
+            "Печатайте текст, а не сырые байты (см. docs/use/configuration.md)."
+        ),
+        "timed_out": False,
+        "verdict": "WA",
+        "exit_code": outcome.returncode,
+    }
+
+
 def _fail_result(
     case: TestCase,
     *,
@@ -427,7 +464,8 @@ def _map_outcome_to_result(
     # как он кодируется на входе и как раннер настраивает сам процесс. С
     # CONFIG.encoding != utf-8 это давало ложные WA: вывод решения читался
     # чужой кодировкой и не совпадал с ожиданием.
-    stdout = outcome.stdout.decode(_CHILD_IO_ENCODING, errors="replace")
+    # stderr — только для показа, поэтому декодируется терпимо: битый байт в
+    # трейсбеке не должен мешать увидеть сам трейсбек.
     stderr = outcome.stderr.decode(_CHILD_IO_ENCODING, errors="replace")
 
     if outcome.returncode != 0:
@@ -444,6 +482,20 @@ def _map_outcome_to_result(
             memory=outcome.peak_memory_mb,
             exit_code=outcome.returncode,
         )
+
+    # issue #1031: декодируем СТРОГО — и только здесь, после ветки RE. Прежний
+    # `errors="replace"` схлопывал любые непредставимые байты в один и тот же
+    # `�`, поэтому РАЗНЫЕ выводы становились равны: `b"\x80"`, `b"\xff"` и
+    # `b"\xfe"` все давали `AC` против ожидания из одного символа замены. Это
+    # ложное принятие неверного решения — тот же класс, что #932 и #940.
+    #
+    # Порядок важен: строгий декод стоит ПОСЛЕ проверки `returncode`, иначе
+    # упавшее решение, успевшее напечатать битый байт, получало бы WA вместо
+    # честного RE — то есть диагноз подменялся бы на ходу.
+    try:
+        stdout = outcome.stdout.decode(_CHILD_IO_ENCODING)
+    except UnicodeDecodeError as exc:
+        return _undecodable_output_result(case, outcome, exc)
 
     # issue #843: разбор только по настоящим переводам строки. Прежний
     # `splitlines()` резал вывод ещё по восьми управляющим символам, из-за чего
