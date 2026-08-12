@@ -9,12 +9,14 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import pathlib
 
 import pytest
 
 from stepik_grader import cli
+from stepik_grader.cli import commands
 from stepik_grader.core.cache import (
     CACHE_DIR_NAME,
     GraderCache,
@@ -377,3 +379,88 @@ def test_prune_caps_total_entries_dropping_oldest(
     assert cache.get(paths[0], "s0", "t", env=_ENV) is None
     assert cache.get(paths[1], "s1", "t", env=_ENV) is None
     assert cache.get(paths[4], "s4", "t", env=_ENV) == {"i": 4}
+
+
+# ---------------------------------------------------------------------------
+# Кэш не врёт про вердикт и про статистику — issue #997 (CNC-1-01, CNC-1-03)
+# ---------------------------------------------------------------------------
+
+
+class TestCacheDoesNotLie:
+    """TLE не кэшируется; попадание в кэш не выдаётся за прогон."""
+
+    def _task(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        task = tmp_path / "task"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text("print(input())\n", encoding="utf-8")
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        return task
+
+    def _result(self, verdict: str) -> dict:
+        return {
+            "total": 1,
+            "passed": 0 if verdict != "AC" else 1,
+            "failed": 0 if verdict != "WA" else 1,
+            "errors": 0,
+            "total_time": 1.5,
+            "cases": [{"n": 1, "verdict": verdict, "time": 1.5}],
+        }
+
+    def test_tle_is_not_cached(self, tmp_path, monkeypatch):
+        """CNC-1-01: TLE зависит от загрузки машины, а не от кода.
+
+        Залипший в кэше TLE означал, что верное решение «не проходит» уже без
+        запуска — пока пользователь не поправит код или не почистит кэш.
+        """
+        task = self._task(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        # CliContext — frozen dataclass: подменяем прогон копией контекста.
+        ctx = dataclasses.replace(
+            cli._build_cli_context(), run_tests=lambda *a, **k: self._result("TLE")
+        )
+        cache = GraderCache()
+
+        commands._run_tests_maybe_cached(
+            ctx, task / "task1_1.py", task / "tests", verbose=False, output="text", cache=cache
+        )
+
+        _, from_cache = commands._run_tests_maybe_cached(
+            ctx, task / "task1_1.py", task / "tests", verbose=False, output="text", cache=cache
+        )
+        assert from_cache is False, "TLE попал в кэш и будет выдаваться без запуска"
+
+    def test_normal_verdict_is_still_cached(self, tmp_path, monkeypatch):
+        """Регрессия: обычные вердикты кэшируются, как и раньше."""
+        task = self._task(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        ctx = dataclasses.replace(
+            cli._build_cli_context(), run_tests=lambda *a, **k: self._result("AC")
+        )
+        cache = GraderCache()
+
+        commands._run_tests_maybe_cached(
+            ctx, task / "task1_1.py", task / "tests", verbose=False, output="text", cache=cache
+        )
+        _, from_cache = commands._run_tests_maybe_cached(
+            ctx, task / "task1_1.py", task / "tests", verbose=False, output="text", cache=cache
+        )
+
+        assert from_cache is True
+
+    def test_cache_hit_is_not_recorded_as_a_run(self, tmp_path, monkeypatch, capsys):
+        """CNC-1-03: попадание в кэш писалось в статистику с чужим total_time."""
+        task = self._task(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        stats_file = tmp_path / ".grader_stats.jsonl"
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--cache", "--stats"])
+        capsys.readouterr()
+        first_lines = stats_file.read_text(encoding="utf-8").splitlines()
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--cache", "--stats"])
+        capsys.readouterr()
+        second_lines = stats_file.read_text(encoding="utf-8").splitlines()
+
+        assert len(first_lines) == 1
+        assert second_lines == first_lines, "попадание в кэш записано как ещё один прогон"
