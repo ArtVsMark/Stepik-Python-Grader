@@ -166,6 +166,37 @@ class TestArgparseCli:
         with pytest.raises(SystemExit):
             cli.main(["--mode", "9"])
 
+    def test_config_flag_with_missing_file_is_rejected(
+        self, tmp_path: pathlib.Path, capsys
+    ) -> None:
+        """issue #993: явно указанный конфиг обязан существовать.
+
+        Тихий откат на автопоиск здесь хуже отказа: пользователь просил
+        конкретный файл, а прогон пошёл бы с чужими параметрами.
+        """
+        with pytest.raises(SystemExit):
+            cli.main(["--config", str(tmp_path / "nope.toml"), "--version"])
+        assert "--config" in capsys.readouterr().err
+
+    def test_config_flag_sets_explicit_source(self, tmp_path: pathlib.Path) -> None:
+        """--config фиксирует источник конфигурации на весь процесс.
+
+        Модуль берётся через ``cli.config``, а не свежим импортом: соседний
+        ``test_bare_import_does_not_read_pyproject_toml`` переимпортирует
+        ``stepik_grader.config``, после чего в ``sys.modules`` лежит ДРУГОЙ
+        объект модуля — со своим кэшем и своими переопределениями.
+        """
+        config = cli.config
+
+        cfg = tmp_path / "grader.toml"
+        cfg.write_text("[tool.stepik-grader]\ntimeout_seconds = 7.0\n", encoding="utf-8")
+        try:
+            cli.main(["--config", str(cfg), "--version"])
+            assert config.config_source() == cfg
+            assert config.get_config().timeout_seconds == 7.0
+        finally:
+            config.set_config_path(None)
+
     def test_mode_1_dispatches_to_run_mode_1(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")

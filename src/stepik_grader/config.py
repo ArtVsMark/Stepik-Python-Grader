@@ -14,6 +14,21 @@ CONFIG``) продолжает работать без изменений: `from
 проходит через тот же ``__getattr__``, разница лишь в том, что голый
 ``import stepik_grader.config`` (без обращения к ``.CONFIG``) больше не
 трогает диск.
+
+Откуда берётся конфиг (issue #258, уточнено в #993 — детерминизм окружения):
+
+1. явный путь — CLI-флаг ``--config`` или ``set_config_path()``;
+2. переменная окружения ``STEPIK_GRADER_CONFIG``;
+3. поиск ``pyproject.toml`` от корня настроек (``workspace_root()``) вверх —
+   **до границы проекта** (``.git``/``.hg``/``.grader_settings.json`` или
+   домашний каталог) и **только файлы с секцией** ``[tool.stepik-grader]``;
+4. legacy-путь относительно расположения пакета (src-layout).
+
+Оба ограничителя третьего пункта — про воспроизводимость вердикта: без них
+``pyproject.toml`` чужого проекта этажом выше молча менял параметры прогона, а
+синтаксическая ошибка в нём роняла трейсбеком любую команду, включая
+``--help``. Применённый файл доступен как ``config_source()`` — часть паспорта
+условий прогона (issue #984).
 """
 
 from __future__ import annotations
@@ -22,20 +37,37 @@ import codecs
 import dataclasses
 import os
 import pathlib
+import sys
 import tomllib
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 __all__ = [  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
     "CONFIG",
+    "CONFIG_FLAG",
     "GraderConfig",
+    "config_source",
     "get_config",
     "load_config",
+    "reset_config_cache",
+    "set_config_path",
+    "set_workspace_root",
     "validate_values",
+    "workspace_root",
 ]
 
 _ENV_CONFIG_PATH = "STEPIK_GRADER_CONFIG"
+_CONFIG_SECTION = "stepik-grader"
+#: CLI-флаг явного пути к конфигу (issue #993). Объявлен здесь, а не в
+#: ``cli/options.py``: его разбирает и сам ``config`` (см. ``_path_from_argv``).
+CONFIG_FLAG = "--config"
+#: Маркеры границы проекта (issue #993): каталог с любым из них — потолок
+#: поиска конфига и кандидат в корень настроек. Выше границы лежат чужие
+#: проекты и домашний каталог, чей ``pyproject.toml`` к прогону отношения не
+#: имеет — прежде подъём шёл до корня ФС и подхватывал первый попавшийся файл.
+_BOUNDARY_MARKERS = (".git", ".hg", ".grader_settings.json")
 
 
 @dataclass(frozen=True)
@@ -271,71 +303,265 @@ def validate_values(values: Mapping[str, object]) -> list[str]:
     ]
 
 
-def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:
-    """Ищет pyproject.toml от ``start`` (по умолчанию cwd) вверх до корня ФС.
+def _home() -> pathlib.Path | None:
+    """Домашний каталог пользователя или ``None``, если его нет (CI, контейнер)."""
+    try:
+        return pathlib.Path.home()
+    except (OSError, RuntimeError):
+        return None
 
-    Паттерн поиска конфига, общий для pip/ruff/mypy — первый найденный файл
-    выигрывает. Не проверяет наличие секции ``[tool.stepik-grader]`` внутри —
-    это делает ``load_config()``.
+
+def _is_boundary(directory: pathlib.Path) -> bool:
+    """Каталог — граница проекта: содержит ``.git``/``.hg``/файл настроек."""
+    return any((directory / marker).exists() for marker in _BOUNDARY_MARKERS)
+
+
+def _dirs_up_to_boundary(start: pathlib.Path) -> Iterator[pathlib.Path]:
+    """Каталоги от ``start`` вверх, до границы проекта включительно.
+
+    Границей служит маркер из ``_BOUNDARY_MARKERS`` или домашний каталог
+    пользователя. Выше не поднимаемся: содержимое чужих папок не должно
+    влиять на вердикт (issue #993).
     """
-    current = (start or pathlib.Path.cwd()).resolve()
-    for candidate in (current, *current.parents):
-        candidate_path = candidate / "pyproject.toml"
-        if candidate_path.is_file():
-            return candidate_path
+    home = _home()
+    for directory in (start, *start.parents):
+        yield directory
+        if _is_boundary(directory) or directory == home:
+            return
+
+
+def _toml_table(path: pathlib.Path, *, warn: bool = True) -> dict[str, Any] | None:
+    """Разобрать TOML-файл; битый или нечитаемый — предупреждение и ``None``.
+
+    issue #993 (INS-1-01/INS-4-01): прежде ``tomllib.load`` вызывался голым, и
+    синтаксическая ошибка в ЧУЖОМ ``pyproject.toml`` этажом выше роняла
+    трейсбеком любую команду, включая ``--help`` и ``--version``. Диагностика
+    идёт тем же ``UserWarning``-каналом, что и неизвестные ключи секции.
+
+    ``warn=False`` — для служебных чтений (поиск корня настроек), чтобы один
+    битый файл не породил два одинаковых предупреждения за резолв.
+    """
+    try:
+        with path.open("rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        problem = f"файл не разобран как TOML ({e})"
+    except OSError as e:
+        problem = f"файл недоступен для чтения ({e})"
+    if warn:
+        warnings.warn(
+            f"{path}: {problem}; конфигурация из него не читается.",
+            UserWarning,
+            stacklevel=2,
+        )
     return None
 
 
-def _resolve_pyproject_path() -> pathlib.Path | None:
-    """Определяет путь к pyproject.toml (issue #258).
+def _grader_section(data: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Секция ``[tool.stepik-grader]`` или ``None``, если её нет.
 
-    Порядок разрешения: ``STEPIK_GRADER_CONFIG`` (если указывает на
-    существующий файл) → поиск от ``cwd`` вверх → legacy-путь относительно
-    расположения пакета (src/-layout, Issue #35, сохраняет поведение при
-    запуске тестов из корня репозитория). Невалидное значение переменной
-    окружения не поднимает исключение — резолюция просто продолжается со
-    следующего источника.
+    Отсутствие секции — признак чужого ``pyproject.toml``: такой файл при
+    поиске вверх по дереву пропускается, а не выигрывает (issue #993).
     """
-    env_value = os.environ.get(_ENV_CONFIG_PATH)
-    if env_value:
-        env_path = pathlib.Path(env_value)
-        if env_path.is_file():
-            return env_path
+    tool = data.get("tool")
+    if not isinstance(tool, Mapping):
+        return None
+    overrides = tool.get(_CONFIG_SECTION)
+    return overrides if isinstance(overrides, Mapping) else None
 
-    found = _find_pyproject()
+
+def _path_from_argv(argv: Sequence[str] | None = None) -> pathlib.Path | None:
+    """Путь из ``--config PATH`` / ``--config=PATH`` в аргументах командной строки.
+
+    Читается напрямую из ``sys.argv``, а не из результата ``argparse``:
+    ``CONFIG`` связывается на импорте в двух десятках модулей, и к моменту
+    разбора аргументов конфиг уже прочитан. Флаг всё равно объявлен в парсере —
+    ради справки и проверки существования файла.
+
+    Чужой ``--config`` не подхватывается: сканирование включается, только если
+    процесс запущен как сам грейдер (``stepik-grader`` или
+    ``python -m stepik_grader``), а не как чей-то хост-процесс с нашим пакетом
+    в зависимостях.
+    """
+    if argv is None:
+        if not _argv_is_grader():
+            return None
+        argv = sys.argv[1:]
+    args = list(argv)
+    for i, arg in enumerate(args):
+        if arg == CONFIG_FLAG and i + 1 < len(args):
+            return pathlib.Path(args[i + 1]).expanduser()
+        if arg.startswith(f"{CONFIG_FLAG}="):
+            return pathlib.Path(arg.split("=", 1)[1]).expanduser()
+    return None
+
+
+def _argv_is_grader() -> bool:
+    """Процесс запущен как CLI грейдера (console script или ``python -m``)."""
+    argv0 = pathlib.Path(sys.argv[0] or "")
+    if argv0.stem.startswith("stepik-grader"):
+        return True
+    return argv0.name == "__main__.py" and argv0.parent.name == "stepik_grader"
+
+
+_explicit_config_path: pathlib.Path | None = None
+_explicit_workspace_root: pathlib.Path | None = None
+_config_source: pathlib.Path | None = None
+
+
+def set_config_path(path: pathlib.Path | None) -> None:
+    """Задать явный путь к конфигу (``--config``, тесты) и сбросить кэш.
+
+    Высший приоритет источника — выше ``STEPIK_GRADER_CONFIG`` и поиска по
+    дереву. ``None`` снимает переопределение.
+    """
+    global _explicit_config_path
+    _explicit_config_path = path.expanduser() if path is not None else None
+    reset_config_cache()
+
+
+def set_workspace_root(root: pathlib.Path | None) -> None:
+    """Задать явный корень настроек (``--serve --root``) и сбросить кэш.
+
+    Один корень для CLI и веба (issue #984): от него резолвятся и
+    ``pyproject.toml``, и ``.grader_settings.json``. Прежде конфиг якорился на
+    ``cwd``, а веб-настройки — на ``--root``, то есть один запуск читал
+    настройки из двух разных мест.
+    """
+    global _explicit_workspace_root
+    _explicit_workspace_root = root.expanduser().resolve() if root is not None else None
+    reset_config_cache()
+
+
+def workspace_root(start: pathlib.Path | None = None) -> pathlib.Path:
+    """Корень настроек: каталог, от которого резолвятся конфиг и настройки.
+
+    Порядок: явно заданный (``set_workspace_root``) → ближайший вверх от
+    ``start`` каталог с файлом настроек, ``pyproject.toml`` с секцией
+    ``[tool.stepik-grader]`` или ``.git`` → сам ``start`` (по умолчанию cwd).
+    """
+    if _explicit_workspace_root is not None:
+        return _explicit_workspace_root
+    base = (start or pathlib.Path.cwd()).resolve()
+    for directory in _dirs_up_to_boundary(base):
+        if (directory / ".grader_settings.json").is_file():
+            return directory
+        pyproject = directory / "pyproject.toml"
+        if pyproject.is_file():
+            # Тихо: о битом файле предупредит сам резолв конфига ниже.
+            data = _toml_table(pyproject, warn=False)
+            if data is not None and _grader_section(data) is not None:
+                return directory
+        if _is_boundary(directory):
+            return directory
+    return base
+
+
+def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:
+    """Ищет pyproject.toml с секцией грейдера от ``start`` вверх до границы проекта.
+
+    От «первого попавшегося файла» (паттерн pip/ruff/mypy) поиск отличается
+    двумя ограничителями (issue #993): подъём останавливается на границе
+    проекта (``.git``, файл настроек, домашний каталог), а файл без секции
+    ``[tool.stepik-grader]`` пропускается как чужой. Прежде обоих не было —
+    ``pyproject.toml`` соседнего проекта этажом выше молча переворачивал
+    вердикт (``AC 2/2`` → ``FAIL 0/2``).
+    """
+    found = _find_config_source(start)
+    return None if found is None else found[0]
+
+
+def _find_config_source(
+    start: pathlib.Path | None = None,
+) -> tuple[pathlib.Path, Mapping[str, Any]] | None:
+    """Пара «путь конфига, секция грейдера» из поиска по дереву; иначе ``None``."""
+    base = (start or pathlib.Path.cwd()).resolve()
+    for directory in _dirs_up_to_boundary(base):
+        candidate = directory / "pyproject.toml"
+        if not candidate.is_file():
+            continue
+        data = _toml_table(candidate)
+        if data is None:
+            continue
+        overrides = _grader_section(data)
+        if overrides is not None:
+            return candidate, overrides
+    return None
+
+
+def _resolve_config_source() -> tuple[pathlib.Path, Mapping[str, Any]] | None:
+    """Определяет применяемый конфиг: путь и секция ``[tool.stepik-grader]``.
+
+    Порядок разрешения (issue #258, уточнён в #993): явный путь
+    (``--config`` / ``set_config_path``) → ``STEPIK_GRADER_CONFIG`` → поиск от
+    корня настроек вверх до границы проекта → legacy-путь относительно
+    расположения пакета (src/-layout, issue #35, сохраняет поведение при
+    запуске тестов из корня репозитория).
+
+    Явный источник (флаг или переменная окружения) ищется по дереву не дальше:
+    если файл указан и не читается, конфиг остаётся дефолтным — подставлять
+    вместо него найденный где-то ещё значило бы прогон не тем конфигом, что
+    просил пользователь.
+    """
+    explicit = _explicit_config_path or _path_from_argv()
+    if explicit is None:
+        env_value = os.environ.get(_ENV_CONFIG_PATH)
+        explicit = pathlib.Path(env_value).expanduser() if env_value else None
+    if explicit is not None and explicit.is_file():
+        data = _toml_table(explicit)
+        if data is None:
+            return None
+        return explicit, _grader_section(data) or {}
+
+    found = _find_config_source(workspace_root())
     if found is not None:
         return found
 
     legacy = pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
     if legacy.is_file():
-        return legacy
+        data = _toml_table(legacy)
+        overrides = None if data is None else _grader_section(data)
+        if overrides is not None:
+            return legacy, overrides
 
     return None
+
+
+def config_source() -> pathlib.Path | None:
+    """Файл, из которого взята действующая конфигурация; ``None`` — дефолты.
+
+    Часть «паспорта условий прогона» (issue #984): пользователь должен видеть,
+    какой именно ``pyproject.toml`` повлиял на вердикт. Гарантирует, что
+    конфиг уже разрешён — при необходимости резолвит его.
+    """
+    get_config()
+    return _config_source
 
 
 def load_config() -> GraderConfig:
     """Загружает конфиг из [tool.stepik-grader] в pyproject.toml.
 
-    Путь к pyproject.toml резолвится через ``_resolve_pyproject_path()``
-    (env → поиск от cwd вверх → legacy fallback, issue #258). Если файл не
-    найден или секция отсутствует — возвращает GraderConfig с дефолтными
-    значениями. Всегда перечитывает файл заново (без кэша) — кэширование для
-    типичного пути потребления делает ``get_config()``/``CONFIG``, эта
-    функция остаётся простым loader'ом.
+    Источник резолвится через ``_resolve_config_source()`` (явный ``--config``
+    → env → поиск от корня настроек вверх до границы проекта → legacy
+    fallback). Если файл не найден или секция отсутствует — возвращает
+    GraderConfig с дефолтными значениями. Всегда перечитывает файл заново
+    (без кэша) — кэширование для типичного пути потребления делает
+    ``get_config()``/``CONFIG``, эта функция остаётся простым loader'ом.
 
-    Опечатка в пользовательской секции не роняет грейдер (issue #795):
-    неизвестное имя ключа и значение, не прошедшее проверку, отбрасываются с
-    ``UserWarning``, который называет файл, ключ, допустимое значение и
-    подставленный дефолт. Прежде и то, и другое проходило молча — неизвестный
-    ключ отфильтровывался без следа, а негодное значение доезжало до раннера
-    и падало трейсбеком из чужого модуля.
+    Ни битый TOML, ни опечатка в секции не роняют грейдер (issue #795, #993):
+    нечитаемый файл, неизвестное имя ключа и значение, не прошедшее проверку,
+    отбрасываются с ``UserWarning``, который называет файл, ключ, допустимое
+    значение и подставленный дефолт. Прежде негодное значение доезжало до
+    раннера и падало трейсбеком из чужого модуля, а синтаксическая ошибка в
+    чужом ``pyproject.toml`` выше по дереву — до первого теста.
     """
-    pyproject = _resolve_pyproject_path()
-    if pyproject is None:
+    global _config_source
+    resolved = _resolve_config_source()
+    if resolved is None:
+        _config_source = None
         return GraderConfig()
-    with pyproject.open("rb") as f:
-        data = tomllib.load(f)
-    overrides = data.get("tool", {}).get("stepik-grader", {})
+    pyproject, overrides = resolved
+    _config_source = pyproject
     # issue #143: dataclasses.fields() — публичный API вместо приватного
     # dunder-атрибута dataclass (то же множество имён полей, поведение не меняется).
     valid_names = {f.name for f in dataclasses.fields(GraderConfig)}
@@ -375,6 +601,19 @@ def get_config() -> GraderConfig:
     if _cached_config is None:
         _cached_config = load_config()
     return _cached_config
+
+
+def reset_config_cache() -> None:
+    """Сбросить закэшированную конфигурацию — следующий доступ перечитает файл.
+
+    Нужна там, где источник конфига меняется уже в живом процессе:
+    ``--config``/``--root`` разбираются после импорта модулей, а те успевают
+    связать ``CONFIG`` (issue #984). Значения, уже прочитанные через
+    ``from ... import CONFIG``, этим не переприсваиваются — на них влияет
+    только порядок вызова, поэтому CLI ставит путь до диспетчеризации в режим.
+    """
+    global _cached_config
+    _cached_config = None
 
 
 def __getattr__(name: str) -> GraderConfig:

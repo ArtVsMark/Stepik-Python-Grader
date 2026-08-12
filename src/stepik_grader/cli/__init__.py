@@ -41,6 +41,8 @@ import os
 import pathlib
 from collections.abc import Callable
 
+from stepik_grader import config
+
 # issue #120: mode handlers — вынесены в leaf-модуль cli/commands.py; получают
 # зависимости через CliContext (cli/context.py), а не читают module globals
 # этого файла напрямую (см. docstring выше и _build_cli_context() ниже).
@@ -464,6 +466,19 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
+
+    # issue #993: источник конфигурации фиксируется до всего остального —
+    # вердикт не должен зависеть от того, что лежит в родительских каталогах.
+    # Несуществующий путь — ошибка разбора аргументов, а не тихий откат на
+    # автопоиск: пользователь просил конкретный файл.
+    if args.config is not None:
+        if not args.config.is_file():
+            parser.error(f"--config: файл не найден — {args.config}")
+        config.set_config_path(args.config)
+    # issue #984: один корень настроек для CLI и веба. Без --root корень
+    # резолвится от рабочей папки вверх до границы проекта.
+    if args.root is not None:
+        config.set_workspace_root(args.root)
 
     # issue #146: opt-in диагностический лог. --diagnostic → debug; иначе уровень
     # берётся из STEPIK_GRADER_LOG (по умолчанию выключено, файл не создаётся).

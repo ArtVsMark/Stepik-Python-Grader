@@ -73,13 +73,20 @@ class UserSettings:
     onboarding_seen: bool | None = None
 
 
-def default_settings_path() -> Path:
-    """Путь к файлу настроек в текущей рабочей директории (issue #430).
+def default_settings_path(root: Path | None = None) -> Path:
+    """Путь к файлу настроек внутри корня настроек (issue #430, #984).
 
     Мирит семантику с ``history_recording.default_history_db_path()``:
     настройка живёт там же, где база истории, которой она управляет.
+
+    ``root`` — корень настроек прогона (``config.workspace_root()``): CLI
+    передаёт его явно, чтобы читать тот же файл, что и веб, который якорится на
+    ``--root``. Прежде CLI жёстко брал ``cwd``, и один запуск имел два разных
+    корня настроек. Параметр, а не импорт ``config``: модуль остаётся
+    leaf'ом с единственным ребром на ``atomic_io``, а знание о ``--root``
+    живёт в слое, который его и разбирает. ``None`` — прежнее поведение (cwd).
     """
-    return Path.cwd() / SETTINGS_FILE_NAME
+    return (root or Path.cwd()) / SETTINGS_FILE_NAME
 
 
 def load_settings(path: Path) -> UserSettings:

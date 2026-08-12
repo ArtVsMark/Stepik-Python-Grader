@@ -9,6 +9,10 @@ T6: ``[tool.pytest.ini_options] timeout = 120`` действует только 
 
 from __future__ import annotations
 
+import sys
+from collections.abc import Iterator
+from types import ModuleType
+
 import pytest
 
 # pytest-timeout регистрирует pytest11 entry point с именем "timeout"; под ним же
@@ -51,6 +55,42 @@ def _isolate_history_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -
         "STEPIK_GRADER_HISTORY_DB",
         str(tmp_path_factory.mktemp("history-isolated") / "history.db"),
     )
+
+
+def _loaded_config_modules() -> list[ModuleType]:
+    """Все живые экземпляры ``stepik_grader.config`` (обычно один).
+
+    Второй появляется после ``test_bare_import_does_not_read_pyproject_toml``:
+    он переимпортирует модуль, и в ``sys.modules`` встаёт НОВЫЙ объект, тогда
+    как ``cli``/``web`` держат ссылку на прежний. Сбрасывать нужно оба, иначе
+    переопределение останется жить в том, который видит код под тестом.
+    """
+    candidates = [
+        sys.modules.get("stepik_grader.config"),
+        getattr(sys.modules.get("stepik_grader.cli"), "config", None),
+        getattr(sys.modules.get("stepik_grader.web.server"), "config", None),
+    ]
+    unique: dict[int, ModuleType] = {}
+    for module in candidates:
+        if module is not None and hasattr(module, "set_config_path"):
+            unique[id(module)] = module
+    return list(unique.values())
+
+
+@pytest.fixture(autouse=True)
+def _reset_config_overrides() -> Iterator[None]:
+    """Ни один тест не оставляет процессный источник конфига следующему (issue #993).
+
+    ``--config`` и ``--root`` фиксируют источник конфигурации и корень настроек
+    на весь процесс — это их назначение в реальном запуске, но в одном процессе
+    pytest такое переопределение утекает в соседние тесты: прогон ``--serve
+    --root /some/dir`` уводил чтение ``.grader_settings.json`` в чужую папку у
+    всех тестов после него.
+    """
+    yield
+    for module in _loaded_config_modules():
+        module.set_config_path(None)
+        module.set_workspace_root(None)
 
 
 @pytest.fixture(autouse=True)

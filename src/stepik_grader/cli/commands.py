@@ -31,7 +31,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 from urllib.parse import urlparse
 
-from stepik_grader import rules
+from stepik_grader import config, rules
 from stepik_grader.cli.context import CliContext
 from stepik_grader.cli.prompts import EXPLICIT_YES
 from stepik_grader.config import get_config
@@ -217,7 +217,7 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
     В неинтерактивной сессии (нет TTY: CI, пайп) согласие не запрашивается —
     подсказки просто пропускаются с явным сообщением.
     """
-    settings_path = user_settings.default_settings_path()
+    settings_path = user_settings.default_settings_path(config.workspace_root())
     settings = user_settings.load_settings(settings_path)
     endpoint = consent_endpoint(base_url)
     if settings.ai_hint_consent is True and settings.ai_hint_consent_endpoint == endpoint:
@@ -253,7 +253,7 @@ def revoke_ai_consent() -> bool:
     ``SECD-06``: отозвать согласие было нечем — только правкой JSON руками.
     Согласие на передачу данных, которое нельзя отозвать, согласием не является.
     """
-    settings_path = user_settings.default_settings_path()
+    settings_path = user_settings.default_settings_path(config.workspace_root())
     settings = user_settings.load_settings(settings_path)
     had = settings.ai_hint_consent is True
     settings.ai_hint_consent = None
