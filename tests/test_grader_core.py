@@ -249,6 +249,60 @@ def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     assert grader.load_test_cases(tmp_path) == []
 
 
+def test_load_test_cases_cp1251_does_not_raise(tmp_path: pathlib.Path) -> None:
+    """Файлы тестов не в UTF-8 не роняют прогон трейсбеком (issue #939).
+
+    До фикса `UnicodeDecodeError` уходил наружу, а в режиме 2 обрывал пачку,
+    унося результаты остальных решений.
+    """
+    (tmp_path / "input.txt").write_bytes("# TEST_1:\nМир\n".encode("cp1251"))
+    (tmp_path / "output.txt").write_bytes("# TEST_1:\nОК\n".encode("cp1251"))
+
+    with pytest.warns(UserWarning, match="не в utf-8"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format3_with_bom(tmp_path: pathlib.Path) -> None:
+    """BOM в начале файла не обнуляет набор кейсов (issue #939).
+
+    До фикса `U+FEFF` оставался в строке маркера, `# TEST_1:` не матчился,
+    и прогон печатал «NO TESTS» с кодом возврата 0.
+    """
+    (tmp_path / "input.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n5\n")
+    (tmp_path / "output.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n10\n")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["10"]
+
+
+def test_load_test_cases_format3_without_markers_warns(tmp_path: pathlib.Path) -> None:
+    """Файлы формата 3 без маркеров дают подсказку, а не молчаливый пустой набор."""
+    (tmp_path / "input.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("10\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"TEST_1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert cases == []
+
+
+def test_load_test_cases_format3_clean_files_do_not_warn(tmp_path: pathlib.Path) -> None:
+    """Ровный UTF-8 без BOM и с маркерами не поднимает предупреждений (issue #939)."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
 def test_load_test_cases_format1_missing_clue_warns(tmp_path: pathlib.Path) -> None:
     """Формат 1: файл N без N.clue пропускается с предупреждением (issue #932).
 
