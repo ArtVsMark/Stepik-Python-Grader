@@ -428,6 +428,22 @@ def _run_tests_maybe_cached(
     return result, False
 
 
+def _missing_tests_hint(ctx: CliContext, solution: pathlib.Path) -> str:
+    """Подсказка «тестов нет» — разная для скачанной задачи и для чужой папки.
+
+    issue #1018: совет «запустите загрузчик» был безусловным, и после скачивания
+    шага без публичных тестов получался круг — загрузчик уже сказал «тесты не
+    найдены», а грейдер отправлял к нему обратно. Повторное скачивание в этом
+    случае ничего не меняет: тестов нет на стороне Stepik.
+
+    Признак скачанной задачи — ``meta.json`` рядом с решением: его кладёт
+    загрузчик, и вручную такой файл не появляется.
+    """
+    folder = solution.resolve().parent
+    key = "test_dir_not_found_task" if (folder / "meta.json").is_file() else "test_dir_not_found"
+    return ctx.t(key, name=solution.name, expected=str(folder / "tests"))
+
+
 def _print_run_profile(output: str) -> None:
     """Шапка прогона: чем именно проверяли (issue #984).
 
@@ -499,13 +515,7 @@ def _run_mode_1(
 
     test_dir = resolve_test_dir(solution)
     if test_dir is None or not test_dir.is_dir():
-        print(
-            ctx.t(
-                "test_dir_not_found",
-                name=solution.name,
-                expected=str(solution.resolve().parent / "tests"),
-            )
-        )
+        print(_missing_tests_hint(ctx, solution))
         return False
 
     _print_run_profile(output)
