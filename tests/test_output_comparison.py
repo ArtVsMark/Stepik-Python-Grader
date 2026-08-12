@@ -481,3 +481,74 @@ def test_testblock_code_block_with_indent_still_runs_as_function(
         expected="42",
     )
     assert result["verdict"] == "AC"
+
+
+# ---------------------------------------------------------------------------
+# Результат объясняет вердикт (issue #935)
+# ---------------------------------------------------------------------------
+
+
+def test_truncated_output_says_so(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """WA от обрезки вывода несёт причину, а не выглядит обычным несовпадением.
+
+    issue #935 (RUN-1-02): пометка об обрезке уходила в stderr, а AC/WA-ветка
+    хардкодила пустой `error` — студент искал несуществующую ошибку в своём
+    коде, хотя вывод обрезал сам грейдер.
+    """
+    from stepik_grader import config as config_mod
+
+    # CONFIG — frozen dataclass, поэтому лимит задаётся так же, как у
+    # пользователя: настоящим файлом конфигурации.
+    cfg = tmp_path / "tiny.toml"
+    cfg.write_text("[tool.stepik-grader]\nmax_output_bytes = 3\n", encoding="utf-8")
+    config_mod.set_config_path(cfg)
+    try:
+        result = _named(tmp_path, 'print("y")\nprint("y")\nprint("y")', expected=b"y\ny\ny\n")
+    finally:
+        config_mod.set_config_path(None)
+
+    assert result["verdict"] == "WA"
+    assert "обрезан" in result["error"], result["error"]
+
+
+def test_clean_run_has_no_spurious_error(tmp_path: pathlib.Path) -> None:
+    """Обычный WA остаётся без служебной пометки (guard к issue #935)."""
+    result = _named(tmp_path, 'print("a")', expected=b"b\n")
+
+    assert result["verdict"] == "WA"
+    assert result["error"] == ""
+
+
+def test_dropped_format3_blocks_reach_the_result(tmp_path: pathlib.Path) -> None:
+    """Урезанный набор формата 3 виден в результате, а не только в stderr.
+
+    issue #935 (RUN-2-05): три блока входа против одного блока ожиданий давали
+    «1/1 OK» и чистый JSON — CI не отличал полный прогон от урезанного.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+    (task_dir / "tests" / "input.txt").write_text(
+        "# TEST_1:\n5\n\n# TEST_2:\n7\n\n# TEST_3:\n9\n", encoding="utf-8"
+    )
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning):
+        result = run_tests(task_dir / "task.py", task_dir / "tests", timeout=_TIMEOUT)
+
+    assert result["passed"] == 1
+    assert result["warnings"], "предупреждение о неполном наборе не дошло до результата"
+    assert "block" in result["warnings"][0]
+
+
+def test_complete_run_has_empty_warnings(tmp_path: pathlib.Path) -> None:
+    """Полный набор не порождает предупреждений (guard к issue #935)."""
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    result = run_tests(task_dir / "task.py", task_dir / "tests", timeout=_TIMEOUT)
+
+    assert result["warnings"] == []
