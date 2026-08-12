@@ -329,6 +329,11 @@ jobs:
             fi
             python scripts/generate_version_badge.py
             python scripts/generate_glossary_badge.py
+            # issue #1063: бейдж «тег ↔ опубликованный пакет». Ходит в PyPI,
+            # поэтому сетевой сбой не должен ронять остальные бейджи: скрипт
+            # сам отвечает серым «pypi ?» и завершается успешно, а `|| true`
+            # прикрывает уже совсем неожиданное падение.
+            python scripts/generate_release_badge.py || true
             # issue #835: пул задач для новичка. Сетевой сбой не должен ронять
             # обновление ОСТАЛЬНЫХ бейджей — прошлое честное число остаётся.
             python scripts/generate_good_first_issues_badge.py || true
