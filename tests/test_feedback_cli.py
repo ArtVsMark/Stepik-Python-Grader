@@ -142,11 +142,15 @@ def test_keyboard_interrupt_returns_to_menu(monkeypatch: pytest.MonkeyPatch, cap
             raise KeyboardInterrupt from None
 
     monkeypatch.setattr("builtins.input", _input)
-    # Второй проход меню упирается в KeyboardInterrupt на выборе режима — он не
-    # подавляется на верхнем уровне, значит меню дожило до следующей итерации.
-    with pytest.raises(KeyboardInterrupt):
-        cli._interactive_menu()
-    assert "Feedback" in capsys.readouterr().out
+    # Второй проход меню упирается в KeyboardInterrupt на выборе режима. С
+    # issue #997 (DEV-1-03) это штатный выход, а не трейсбек, поэтому «меню
+    # дожило до следующей итерации» проверяется прямым признаком — оно
+    # отрисовано дважды, — а не тем, что исключение всплыло наружу.
+    cli._interactive_menu()
+
+    out = capsys.readouterr().out
+    assert "Feedback" in out
+    assert out.count("Stepik Python Grader") == 2  # меню показано до и после flow
 
 
 def test_secrets_never_reach_the_url(monkeypatch: pytest.MonkeyPatch, opened: list[str]) -> None:

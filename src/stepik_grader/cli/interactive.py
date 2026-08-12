@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import pathlib
+import sys
 import webbrowser
 
 from stepik_grader import config
@@ -218,12 +219,28 @@ def _resolve_cli_path_or_error(
     ``--watch``) предлагает нативный файловый диалог; иначе — или при отмене
     диалога / отсутствии tkinter — завершает работу через ``parser.error``
     (чистое сообщение argparse, не трейсбек). issue #79.
+
+    issue #997 (DEV-1-05): признак «text-режим» не отвечает на вопрос, есть ли
+    кому нажать кнопку в диалоге. Скрипт, запустивший ``--mode 1`` без
+    ``--file``, получал окно tkinter и вис на нём до убийства процесса — в CI
+    это выглядит как зависший шаг без единой строки в логе. Диалог предлагается
+    только при живом терминале; иначе сразу ``parser.error`` с именем флага.
     """
-    if args.output == "text" and not args.watch:
+    if args.output == "text" and not args.watch and _is_interactive():
         picked = ctx.pick_path_via_dialog(want_dir=want_dir)
         if picked:
             return picked
     parser.error(f"--mode {args.mode} requires {flag}")
+
+
+def _is_interactive() -> bool:
+    """Есть ли за терминалом человек: stdin и stdout — TTY.
+
+    Проверяются оба потока: под пайпом (``| tee``) stdin остаётся терминалом, а
+    показывать модальное окно в таком запуске всё равно нельзя — его никто не
+    ждёт, а вывод уходит в файл.
+    """
+    return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
 
 
 def _show_insights(ctx: CliContext) -> None:
@@ -660,5 +677,15 @@ def _interactive_menu(ctx: CliContext) -> None:
             # ввод пути/числа/профиля в _prompt_path/_ask_*) — корректный выход,
             # не трейсбек. Пайповый ввод (`printf '1\n' | ... grader`) завершается
             # штатно, а не падает на вложенном input() после исчерпания потока.
+            print(ctx.t("goodbye"))
+            return
+        except KeyboardInterrupt:
+            # issue #997 (DEV-1-03, PROD-1-03): Ctrl+C на выборе режима ронял
+            # процесс трейсбеком KeyboardInterrupt. Точечные обработчики стояли
+            # только внутри пунктов 6/8/9, то есть самый частый способ выйти из
+            # программы — единственный, который выглядел как поломка. Прерывание
+            # равнозначно «0»: пользователь просит закончить, а не сообщает об
+            # ошибке.
+            print()
             print(ctx.t("goodbye"))
             return
