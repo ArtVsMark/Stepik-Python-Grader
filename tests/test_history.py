@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import pathlib
 import sqlite3
 import threading
 from pathlib import Path
 
 import pytest
 
+from stepik_grader import cli
 from stepik_grader.core import history
 from stepik_grader.core.history import CaseRecord, LintRecord, RunRecord
 
@@ -904,3 +906,63 @@ def test_relative_task_dir_is_resolved_against_base_not_cwd(tmp_path, monkeypatc
     key = history.task_key_for(Path("module1/04-slug"), base)
 
     assert key.replace("\\", "/") == "module1/04-slug"
+
+
+# ---------------------------------------------------------------------------
+# Ключ задачи стабилен при любом каталоге запуска — issue #997
+# (JRN-4A-02, LNG-1-04)
+# ---------------------------------------------------------------------------
+
+
+class TestTaskKeyIsStableAcrossCwd:
+    """Одна задача — один ключ, откуда бы её ни запустили."""
+
+    def _project(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        """Проект с маркером ``[tool.stepik-grader]`` и задачей внутри."""
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.stepik-grader]\nrecord_history = true\n", encoding="utf-8"
+        )
+        task = tmp_path / "module1" / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        return task
+
+    def _keys(self, db_path: pathlib.Path) -> set[str]:
+        return {row["task_key"] for row in history.read_task_progress(db_path)}
+
+    def test_same_key_from_project_root_and_task_dir(self, tmp_path, monkeypatch, capsys):
+        """JRN-4A-02/LNG-1-04: два ключа на одну задачу давали двойной TTFG.
+
+        Из корня проекта ключом был ``module1/task1``, из самой папки задачи —
+        ``task1``: в базе появлялись две строки, «Прогресс» рисовал задачу
+        дважды, а лимит retention фактически удваивался.
+        """
+        task = self._project(tmp_path)
+        db_path = tmp_path / "hist.db"
+        monkeypatch.setenv("STEPIK_GRADER_HISTORY_DB", str(db_path))
+
+        monkeypatch.chdir(tmp_path)
+        cli.main(["--mode", "1", "--file", "module1/task1/task1_1.py", "--history"])
+        monkeypatch.chdir(task)
+        cli.main(["--mode", "1", "--file", "task1_1.py", "--history"])
+        capsys.readouterr()
+
+        assert self._keys(db_path) == {str(pathlib.Path("module1") / "task1")}
+
+    def test_key_outside_project_is_folder_name(self, tmp_path, monkeypatch, capsys):
+        """Регрессия: без маркера проекта ключ — имя папки задачи, как прежде."""
+        task = tmp_path / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        db_path = tmp_path / "hist.db"
+        monkeypatch.setenv("STEPIK_GRADER_HISTORY_DB", str(db_path))
+
+        monkeypatch.chdir(task)
+        cli.main(["--mode", "1", "--file", "task1_1.py", "--history"])
+        capsys.readouterr()
+
+        assert self._keys(db_path) == {"task1"}
