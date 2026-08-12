@@ -211,15 +211,16 @@ def test_missing_trailing_newline_in_expected_is_forgiven(tmp_path: pathlib.Path
     assert result["verdict"] == "AC"
 
 
-def test_bom_in_expected_file_fails_a_correct_solution(tmp_path: pathlib.Path) -> None:
-    """BOM в файле ожиданий даёт WA верному решению.
+def test_bom_in_expected_file_does_not_fail_a_correct_solution(tmp_path: pathlib.Path) -> None:
+    """BOM в файле ожиданий больше не даёт WA верному решению (issue #939).
 
-    Ловушка Windows: «Блокнот» и Excel сохраняют UTF-8 с BOM, а файлы читаются
-    как обычный UTF-8 — маркер остаётся первым символом первой строки.
+    Ловушка Windows: «Блокнот» и Excel сохраняют UTF-8 с BOM. Раньше маркер
+    оставался первым символом первой строки и верное решение получало `WA`;
+    теперь он срезается при чтении файла тестов.
     """
     result = _named(tmp_path, "print('a')", expected=b"\xef\xbb\xbfa\n")
-    assert result["verdict"] == "WA"
-    assert result["expected"] == ["﻿a"]
+    assert result["verdict"] == "AC"
+    assert result["expected"] == ["a"]
 
 
 def test_bom_printed_by_solution_fails(tmp_path: pathlib.Path) -> None:
@@ -228,15 +229,16 @@ def test_bom_printed_by_solution_fails(tmp_path: pathlib.Path) -> None:
     assert result["verdict"] == "WA"
 
 
-def test_bom_in_input_file_leaks_into_stdin(tmp_path: pathlib.Path) -> None:
-    """BOM во ВХОДНОМ файле утекает в stdin решения — первый `input()` получает маркер.
+def test_bom_in_input_file_does_not_leak_into_stdin(tmp_path: pathlib.Path) -> None:
+    """BOM во ВХОДНОМ файле больше не утекает в stdin решения (issue #939).
 
-    Для студента это выглядит как `ValueError` в `int(input())` на верном коде.
+    Раньше первый `input()` получал маркер, и для студента это выглядело как
+    `ValueError` в `int(input())` на совершенно верном коде.
     """
     result = _named(tmp_path, "print(repr(input()))", expected=b"'5'\n", stdin=b"\xef\xbb\xbf5\n")
-    assert result["verdict"] == "WA"
-    # repr() экранирует невидимый маркер: решение получило BOM + '5', а не '5'.
-    assert result["output"] == [repr(chr(0xFEFF) + "5")]
+    assert result["verdict"] == "AC"
+    # repr() показал бы невидимый маркер, если бы он дошёл до решения.
+    assert result["output"] == [repr("5")]
 
 
 # ---------------------------------------------------------------------------
