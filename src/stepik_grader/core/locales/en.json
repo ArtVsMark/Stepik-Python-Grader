@@ -119,6 +119,8 @@
   "no_test_cases_found": "  ⚠ No test cases found in: {test_dir}",
   "no_results": "  No results.",
   "micro_mem_note": "  * Py-heap — peak Python-heap (tracemalloc) for stdin blocks / RSS for function blocks;\n    tracemalloc does not see C-extension allocations (numpy, etc.).",
+  "run_profile": "⚙ Run conditions: {runner} · timeout {timeout}s · Python {python} · config: {config}",
+  "run_profile_config_default": "built-in defaults",
   "cache_hit": "✅ Cache is up to date: no tests re-run (0 changes).",
   "cache_summary": "✅ Cache: {hits} of {total} solutions served from cache.",
   "cache_cleared": "🗑 Cache cleared: {count} entries removed.",

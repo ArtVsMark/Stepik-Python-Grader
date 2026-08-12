@@ -119,6 +119,8 @@
   "no_test_cases_found": "  ⚠ Тест-кейсы не найдены в: {test_dir}",
   "no_results": "  Нет результатов.",
   "micro_mem_note": "  * Py-heap — пик Python-heap (tracemalloc) для stdin-блоков / RSS для function-блоков;\n    tracemalloc не видит аллокации C-расширений (numpy и т.п.).",
+  "run_profile": "⚙ Условия прогона: {runner} · таймаут {timeout} с · Python {python} · конфиг: {config}",
+  "run_profile_config_default": "значения по умолчанию",
   "cache_hit": "✅ Кэш актуален: тесты не перезапускались (0 изменений).",
   "cache_summary": "✅ Кэш: {hits} из {total} решений взято из кэша.",
   "cache_cleared": "🗑 Кэш очищен: удалено записей — {count}.",
