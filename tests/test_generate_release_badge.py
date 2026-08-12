@@ -158,11 +158,26 @@ class TestFetchPypiVersion:
 
 
 class TestLatestReleaseTag:
-    """Тег читается из git, отсутствие тегов — не ошибка."""
+    """Тег берётся из scripts/version.py, а не из своей копии маски."""
 
-    def test_reads_tag_from_git(self) -> None:
-        with patch.object(subprocess, "check_output", return_value="v1.10.0\n"):
-            assert _MODULE.latest_release_tag() == "v1.10.0"
+    def test_reuses_version_script(self) -> None:
+        """Определение релизного тега — одно на проект (issue #1065).
+
+        Своя копия маски разъехалась бы с оригиналом при первом же изменении
+        схемы тегов, и бейдж показал бы «расхождение с PyPI» на ровном месте —
+        то есть соврал бы ровно тем сигналом, ради которого заведён.
+        """
+        fn = _MODULE.load_latest_release_tag_fn()
+
+        assert fn.__module__ == "_project_version_module"
+        assert fn() == _MODULE.latest_release_tag()
+
+    def test_badge_does_not_call_git_describe_itself(self) -> None:
+        """В самом скрипте бейджа не должно быть второго `git describe`."""
+        source = _SCRIPT.read_text(encoding="utf-8")
+        code_lines = [line for line in source.splitlines() if not line.lstrip().startswith("#")]
+
+        assert "describe" not in "\n".join(code_lines).split('"""')[-1]
 
     def test_repo_without_tags_is_none(self) -> None:
         with patch.object(
