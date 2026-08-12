@@ -104,6 +104,7 @@
 downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
 downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py, core/test_source_fetcher.py, core/step_content.py  (реэкспорт публичных имён)
 downloader.py          ──→  downloader_config.py  (конфиг+интерактив)
+downloader.py          ──→  core/submission_archive.py  (история отправок в <задача>/submissions/)
 downloader_config.py   ──→  core/storage.py
 core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, core/tests_writer.py  (НЕ импортирует downloader)
 core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
@@ -121,6 +122,7 @@ cli/__init__.py        ──→  cli/commands.py, cli/context.py  (тонкие
 cli/__init__.py        ──→  cli/rendering.py  (реэкспорт _print_tabular/_rows_to_csv/_rows_to_markdown)
 cli/__init__.py        ──→  cli/interactive.py  (тонкие обёртки _interactive_menu/_ask_*/_pick_path_via_dialog/_prompt_path/_resolve_cli_path_or_error/_print_menu)
 cli/options.py         ──→  config.py  (CONFIG.use_cache в _resolve_use_cache; leaf — не импортирует cli/__init__.py)
+cli/options.py         ──→  core/user_settings.py  (персистентный тумблер истории в _resolve_record_history: одна лестница приоритета для режимов 1-4 и --serve)
 cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/reporter.py, core/microbench_runner.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)

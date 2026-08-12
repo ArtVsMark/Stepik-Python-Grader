@@ -957,16 +957,21 @@ class TestEntrypointSideEffectFlags:
             {"port": 8000, "root": None, "confine": True, "sandbox": False, "record_history": True}
         ]
 
-    def test_serve_passes_root(self, monkeypatch) -> None:
+    def test_serve_passes_root(self, monkeypatch, tmp_path) -> None:
         from stepik_grader import web
 
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
-        cli.main(["--serve", "--root", "/some/dir"])
+        # issue #997: путь берётся реальный (tmp_path), а не выдуманный
+        # «/some/dir». С тех пор как --root задаёт корень настроек, резолвер
+        # истории читает по этому пути .grader_settings.json — с фиктивным
+        # каталогом тест начинал зависеть от состояния диска машины, а прогоны
+        # оставляли там файл настроек.
+        cli.main(["--serve", "--root", str(tmp_path)])
         assert called == [
             {
                 "port": 8000,
-                "root": pathlib.Path("/some/dir"),
+                "root": tmp_path,
                 "confine": True,
                 "sandbox": False,
                 "record_history": True,
@@ -1629,3 +1634,60 @@ class TestExitCodes:
             cli.run_cli(["--mode", "1", "--file", str(solution)])
 
         assert exc.value.code == cli.ExitCode.FAILURES
+
+
+class TestSandboxAndHistoryToggle:
+    """issue #997: флаг и сохранённая настройка не должны молча игнорироваться."""
+
+    def test_sandbox_without_mode_reaches_the_menu(self, monkeypatch) -> None:
+        """`--sandbox` без `--mode` включает изоляцию для меню, а не молчит.
+
+        Находки DEV-1-02, LNCH-2-01, SBX-4-03, SEC-2-01 — четыре независимых
+        среза об одном: блок обработки флага стоял ниже ветки меню, поэтому
+        пользователь просил песочницу, получал обычное меню и грейдил через
+        LocalRunner. Молчание про безопасность хуже отказа.
+        """
+        from stepik_grader.core import sandbox as sandbox_mod
+
+        installed: list[object] = []
+        monkeypatch.setattr(sandbox_mod, "SandboxRunner", lambda: "sandbox-runner")
+        monkeypatch.setattr(cli, "set_runner", lambda runner: installed.append(runner))
+        monkeypatch.setattr(cli, "_interactive_menu", lambda: None)
+
+        cli.main(["--sandbox"])
+
+        assert installed == ["sandbox-runner"]
+
+    def test_serve_respects_saved_history_toggle(self, tmp_path, monkeypatch) -> None:
+        """`--serve` уважает выключенный тумблер истории (LNCH-2-03/3-01/5-01, SET-2-03).
+
+        Пользователь выключал запись пунктом 7 меню и получал её обратно при
+        первом же запуске веба: у `--serve` была своя лестница приоритета, не
+        знавшая ни про сохранённый выбор, ни про pyproject.
+        """
+        from stepik_grader import web
+        from stepik_grader.core import user_settings
+
+        monkeypatch.chdir(tmp_path)
+        user_settings.save_settings(
+            user_settings.UserSettings(record_history=False),
+            tmp_path / user_settings.SETTINGS_FILE_NAME,
+        )
+        captured: list[dict[str, object]] = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: captured.append(kwargs))
+
+        cli.main(["--serve"])
+
+        assert captured and captured[0]["record_history"] is False
+
+    def test_serve_defaults_to_history_on(self, tmp_path, monkeypatch) -> None:
+        """Без сохранённого выбора веб по-прежнему пишет историю (ADR-0002, issue #395)."""
+        from stepik_grader import web
+
+        monkeypatch.chdir(tmp_path)
+        captured: list[dict[str, object]] = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: captured.append(kwargs))
+
+        cli.main(["--serve"])
+
+        assert captured and captured[0]["record_history"] is True
