@@ -129,6 +129,16 @@ def reference_slot_filename(step_position: int, slot: int) -> str:
     return f"task{step_position}_{slot}.py"
 
 
+def _existing_reference_files(directory: Path, step_position: int) -> list[Path]:
+    """Уже лежащие в папке reference-файлы этой задачи (issue #944)."""
+    files: list[Path] = []
+    slot = REFERENCE_SLOT_START
+    while (path := directory / reference_slot_filename(step_position, slot)).exists():
+        files.append(path)
+        slot += 1
+    return files
+
+
 def next_free_reference_slot(
     directory: Path,
     step_position: int,
@@ -189,7 +199,14 @@ def import_references_from_task_dir(
     if solutions_thread is None:
         raise ValueError("У задачи нет ветки решений (solutions thread)")
 
-    proxy = fetch_discussion_proxy(session, str(solutions_thread["discussion_proxy"]))
+    # issue #944: соседние обрывы цепочки бросают понятный ValueError, а здесь
+    # был прямой доступ по ключу — смена формата API давала KeyError, который
+    # CLI не ловит (там except на FileNotFoundError/ValueError/OSError/
+    # RequestException), то есть пользователь получал голый трейсбек.
+    proxy_id = solutions_thread.get("discussion_proxy")
+    if not proxy_id:
+        raise ValueError("Ответ Stepik без discussion_proxy — структура API изменилась")
+    proxy = fetch_discussion_proxy(session, str(proxy_id))
     # запас на дедуп/фильтр по лайкам; most_liked уже отсортирован Stepik
     candidate_ids = (proxy.get("discussions_most_liked") or [])[: max(20, max_top * 3)]
     if not candidate_ids:
@@ -202,26 +219,46 @@ def import_references_from_task_dir(
     if not selected:
         raise ValueError("Не удалось извлечь код ни одного решения из ветки")
 
+    # issue #944: дедуп по коду работал только внутри текущей партии, а
+    # next_free_reference_slot ищет первый свободный номер, не сравнивая
+    # содержимое. Повторный импорт клал те же решения ещё раз: в папке 12
+    # файлов вместо 6, и режимы 2-4 гоняли один и тот же reference дважды,
+    # искажая сравнение решений.
+    existing_codes = {
+        _normalize_code(path.read_text(encoding="utf-8"))
+        for path in _existing_reference_files(task_dir, int(step_position))
+    }
+    previous_meta = meta.get("stepik_references")
     saved: list[Path] = []
-    refs_meta: list[dict[str, Any]] = []
+    refs_meta: list[dict[str, Any]] = list(previous_meta) if isinstance(previous_meta, list) else []
+    known_comment_ids = {entry.get("comment_id") for entry in refs_meta if isinstance(entry, dict)}
     for ref in selected:
+        if _normalize_code(ref.code) in existing_codes:
+            _log.debug("reference уже импортирован, пропуск: comment_id=%s", ref.comment_id)
+            continue
         slot = next_free_reference_slot(task_dir, int(step_position))
         file_path = task_dir / reference_slot_filename(int(step_position), slot)
         code = ref.code if ref.code.endswith("\n") else ref.code + "\n"
         file_path.write_text(code, encoding="utf-8")
         saved.append(file_path)
-        refs_meta.append(
-            {
-                "file": file_path.name,
-                "comment_id": ref.comment_id,
-                "likes": ref.likes,
-                "is_pinned": ref.is_pinned,
-            }
-        )
+        existing_codes.add(_normalize_code(ref.code))
+        if ref.comment_id not in known_comment_ids:
+            known_comment_ids.add(ref.comment_id)
+            refs_meta.append(
+                {
+                    "file": file_path.name,
+                    "comment_id": ref.comment_id,
+                    "likes": ref.likes,
+                    "is_pinned": ref.is_pinned,
+                }
+            )
         _log.debug(
             "reference сохранён: %s (pinned=%s likes=%d)", file_path.name, ref.is_pinned, ref.likes
         )
 
+    # issue #944: список мержится с прежним, а не заменяется целиком — иначе
+    # привязка ранее импортированных файлов исчезала из meta.json, а сами
+    # файлы оставались на диске «ничьими».
     meta["stepik_references"] = refs_meta
     save_json_file(meta_path, meta)
     return saved
