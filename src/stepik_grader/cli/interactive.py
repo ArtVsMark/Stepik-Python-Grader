@@ -37,6 +37,7 @@ import webbrowser
 
 from stepik_grader import config
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.exit_codes import ExitCode
 from stepik_grader.cli.prompts import CONFIRM_YES
 from stepik_grader.config import CONFIG
 from stepik_grader.core import feedback, user_settings
@@ -259,12 +260,12 @@ def _maybe_grade_downloaded(
     *,
     record_stats: bool,
     record_history: bool,
-) -> bool | None:
+) -> ExitCode | None:
     """Предложить проверить только что скачанную задачу (issue #822, PROD-09).
 
-    Возвращает ``had_failures`` прогона или ``None``, если проверять было нечего
-    либо пользователь отказался — вызывающая сторона по ``None`` понимает, что
-    прогона не было, и не трогает серию зачётов.
+    Возвращает код исхода прогона (issue #936) или ``None``, если проверять было
+    нечего либо пользователь отказался — вызывающая сторона по ``None`` понимает,
+    что прогона не было, и не трогает серию зачётов.
 
     Скачано несколько задач — предлагаем последнюю: это та, что пользователь
     ввёл только что, и другие варианты требовали бы ещё одного выбора ровно
@@ -285,19 +286,24 @@ def _maybe_grade_downloaded(
         return None
     if answer not in CONFIRM_YES:
         return None
-    return bool(ctx.run_mode_2(task_dir, record_stats=record_stats, record_history=record_history))
+    return ctx.run_mode_2(task_dir, record_stats=record_stats, record_history=record_history)
 
 
 def _maybe_nudge_history(
-    ctx: CliContext, had_failures: bool, *, record_history: bool, nudged: bool
+    ctx: CliContext, outcome: ExitCode, *, record_history: bool, nudged: bool
 ) -> bool:
     """Однократный (за сессию меню) nudge про «Подучить» после прогона с падениями.
 
     issue #430: печатается только при выключенной истории и только если ещё не
     показывали в этой сессии меню («не чаще раза за запуск»). Возвращает
     обновлённый флаг ``nudged``.
+
+    issue #936: сверка именно с ``FAILURES``. Прежний ``bool`` не различал
+    «упало» и «проверять было нечего», а после введения кодов исхода
+    ``NO_TESTS`` истинен — без явной сверки подсказка «Подучить» выскакивала бы
+    там, где прогона не было.
     """
-    if had_failures and not record_history and not nudged:
+    if outcome is ExitCode.FAILURES and not record_history and not nudged:
         print(ctx.t("nudge_enable_history"))
         return True
     return nudged
@@ -486,13 +492,18 @@ def _interactive_menu(ctx: CliContext) -> None:
 
             if choice == "1":
                 solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
-                had_failures = ctx.run_mode_1(
+                outcome = ctx.run_mode_1(
                     solution, record_stats=record_stats, record_history=record_history
                 )
                 nudged = _maybe_nudge_history(
-                    ctx, had_failures, record_history=record_history, nudged=nudged
+                    ctx, outcome, record_history=record_history, nudged=nudged
                 )
-                success_streak = 0 if had_failures else success_streak + 1
+                # issue #936: серию трогает только состоявшийся прогон — при
+                # NO_TESTS проверять было нечего, обнулять её не за что.
+                if outcome is ExitCode.FAILURES:
+                    success_streak = 0
+                elif outcome is ExitCode.OK:
+                    success_streak += 1
                 nudged_success = _maybe_nudge_success_streak(
                     ctx,
                     success_streak,
@@ -502,13 +513,18 @@ def _interactive_menu(ctx: CliContext) -> None:
 
             elif choice == "2":
                 directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-                had_failures = ctx.run_mode_2(
+                outcome = ctx.run_mode_2(
                     directory, record_stats=record_stats, record_history=record_history
                 )
                 nudged = _maybe_nudge_history(
-                    ctx, had_failures, record_history=record_history, nudged=nudged
+                    ctx, outcome, record_history=record_history, nudged=nudged
                 )
-                success_streak = 0 if had_failures else success_streak + 1
+                # issue #936: серию трогает только состоявшийся прогон — при
+                # NO_TESTS проверять было нечего, обнулять её не за что.
+                if outcome is ExitCode.FAILURES:
+                    success_streak = 0
+                elif outcome is ExitCode.OK:
+                    success_streak += 1
                 nudged_success = _maybe_nudge_success_streak(
                     ctx,
                     success_streak,
@@ -615,7 +631,10 @@ def _interactive_menu(ctx: CliContext) -> None:
                     nudged = _maybe_nudge_history(
                         ctx, graded, record_history=record_history, nudged=nudged
                     )
-                    success_streak = 0 if graded else success_streak + 1
+                    if graded is ExitCode.FAILURES:
+                        success_streak = 0
+                    elif graded is ExitCode.OK:
+                        success_streak += 1
                     nudged_success = _maybe_nudge_success_streak(
                         ctx,
                         success_streak,
