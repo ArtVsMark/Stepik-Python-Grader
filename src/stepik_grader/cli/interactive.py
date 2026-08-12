@@ -35,6 +35,7 @@ import contextlib
 import pathlib
 import webbrowser
 
+from stepik_grader import config
 from stepik_grader.cli.context import CliContext
 from stepik_grader.cli.prompts import CONFIRM_YES
 from stepik_grader.config import CONFIG
@@ -457,7 +458,7 @@ def _interactive_menu(ctx: CliContext) -> None:
     issue #753: пункт 9 — обратная связь: собирает окружение и открывает
     заполненную форму issue на GitHub после предпросмотра и подтверждения.
     """
-    settings_path = user_settings.default_settings_path()
+    settings_path = user_settings.default_settings_path(config.workspace_root())
     settings = user_settings.load_settings(settings_path)
     # issue #268/#344: интерактивное меню не проходит через argparse, поэтому
     # --stats/--history и их --no-* недоступны — record_stats читаем из CONFIG.

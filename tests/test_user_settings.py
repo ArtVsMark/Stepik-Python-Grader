@@ -18,6 +18,21 @@ def test_default_settings_path_uses_cwd(tmp_path: Path, monkeypatch) -> None:
     assert user_settings.default_settings_path() == tmp_path / user_settings.SETTINGS_FILE_NAME
 
 
+def test_default_settings_path_follows_given_root(tmp_path: Path, monkeypatch) -> None:
+    """issue #984: корень настроек передаётся явно — CLI и веб читают один файл.
+
+    Прежде CLI жёстко брал ``cwd``, а веб — ``--root``: один запуск имел два
+    разных корня настроек, и тумблеры (история, согласие на AI) расходились.
+    """
+    nested = tmp_path / "task"
+    nested.mkdir()
+    monkeypatch.chdir(nested)
+
+    assert (
+        user_settings.default_settings_path(tmp_path) == tmp_path / user_settings.SETTINGS_FILE_NAME
+    )
+
+
 def test_load_absent_returns_defaults(tmp_path: Path) -> None:
     settings = user_settings.load_settings(tmp_path / "nope.json")
     assert settings == UserSettings()

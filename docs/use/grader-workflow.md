@@ -333,6 +333,22 @@ stepik-grader --mode 2 --dir . --output json > results.json
 `run_benchmark()`/`run_microbench_mode()` (ключи `file`/`results`/`groups` в
 зависимости от режима), без отдельной документированной схемы.
 
+### `--config`
+
+```bash
+stepik-grader --mode 2 --dir . --config /путь/к/course.toml   # явный файл конфигурации
+```
+
+Берёт `[tool.stepik-grader]` из указанного файла вместо автопоиска. Приоритет
+выше переменной `STEPIK_GRADER_CONFIG` и поиска `pyproject.toml` по дереву;
+несуществующий путь — ошибка запуска, а не тихий откат на автопоиск. Полезен
+там, где параметры прогона задаёт CI, а рабочая папка про них ничего не знает.
+
+Без флага `pyproject.toml` ищется от рабочей папки вверх, но не дальше границы
+проекта (`.git`, `.hg`, `.grader_settings.json` или домашний каталог) и только
+среди файлов с секцией `[tool.stepik-grader]` — чужой конфиг соседнего проекта
+на вердикт не влияет. Подробнее — [configuration.md](configuration.md).
+
 ### `--output csv` / `--output markdown`
 
 ```bash

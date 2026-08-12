@@ -18,7 +18,7 @@ import argparse
 import pathlib
 import sys
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, CONFIG_FLAG
 
 __all__ = [
     "_build_arg_parser",
@@ -94,6 +94,17 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         choices=["ru", "en"],
         default="ru",
         help="Язык меню и сообщений (по умолчанию ru).",
+    )
+    parser.add_argument(
+        CONFIG_FLAG,
+        type=pathlib.Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Файл конфигурации ([tool.stepik-grader]) вместо автопоиска. "
+            "Приоритет выше STEPIK_GRADER_CONFIG и поиска по дереву; без флага "
+            "pyproject.toml ищется от рабочей папки вверх до границы проекта."
+        ),
     )
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument(
