@@ -40,7 +40,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TypedDict, runtime_checkable
 
 from stepik_grader import db
 
@@ -51,8 +51,10 @@ __all__ = [
     "CaseRecord",
     "HistoryRepository",
     "LintRecord",
+    "PurgePreview",
     "RunRecord",
     "SqliteHistoryRepository",
+    "preview_purge",
     "purge_history",
     "read_recent_runs",
     "read_task_progress",
@@ -692,6 +694,57 @@ def read_task_progress(db_path: Path, *, limit: int = 1000) -> list[dict[str, An
     return SqliteHistoryRepository(db_path).task_progress(limit=limit)
 
 
+class PurgePreview(TypedDict):
+    """Объём предстоящего удаления истории (issue #990)."""
+
+    runs: int
+    tasks: list[str]
+    solutions: list[str]
+
+
+def preview_purge(db_path: Path, *, task_key: str | None = None) -> PurgePreview:
+    """Что именно исчезнет при ``purge_history`` — до удаления (issue #990).
+
+    Сколько прогонов уйдёт, каких задач они касаются и какие файлы решений в
+    них встречались. Удаление истории необратимо, поэтому пользователь обязан
+    увидеть объём заранее — тем более что ключ задачи сейчас совпадает у
+    одноимённых папок разных курсов, и «своя» задача может утащить чужую.
+
+    Best-effort, как вся работа с историей: нет базы, битый файл, нечитаемый
+    путь — пустой предпросмотр, а не исключение.
+    """
+    empty: PurgePreview = {"runs": 0, "tasks": [], "solutions": []}
+    if not db_path.is_file():
+        return empty
+    where = "" if task_key is None else " WHERE task_key = ?"
+    params: tuple[str, ...] = () if task_key is None else (task_key,)
+    try:
+        with contextlib.closing(db.connect(db_path)) as conn:
+            runs = int(conn.execute(f"SELECT COUNT(*) FROM runs{where}", params).fetchone()[0])
+            tasks = [
+                str(row[0])
+                for row in conn.execute(
+                    f"SELECT DISTINCT task_key FROM runs{where} ORDER BY task_key", params
+                )
+                if row[0]
+            ]
+            solutions = [
+                str(row[0])
+                for row in conn.execute(
+                    f"SELECT DISTINCT solution_name FROM runs{where} "
+                    f"ORDER BY solution_name LIMIT 20",
+                    params,
+                )
+                if row[0]
+            ]
+    except (sqlite3.DatabaseError, OSError):
+        # Молча, как и остальной модуль: предпросмотр — вспомогательный шаг,
+        # и его отказ не должен мешать самому удалению (битую базу как раз и
+        # хотят снести).
+        return empty
+    return {"runs": runs, "tasks": tasks, "solutions": solutions}
+
+
 def purge_history(db_path: Path, *, task_key: str | None = None) -> int:
     """Удалить историю прогонов; вернуть число удалённых прогонов (issue #813).
 
@@ -701,25 +754,43 @@ def purge_history(db_path: Path, *, task_key: str | None = None) -> int:
     этой задачи (``cases``/``lint`` уходят каскадом по FK), а база остаётся.
 
     Best-effort, как и вся работа с историей: отсутствующая БД — это 0
-    удалённых, а не ошибка.
+    удалённых, а не ошибка. Битая база — тоже: цель команды и есть «истории не
+    стало», поэтому нечитаемый файл удаляется целиком вместо трейсбека
+    ``sqlite3.DatabaseError`` (issue #990, находки PROD-2-02/FZZ-5-05) —
+    пользователь, у которого журнал повреждён, приходит сюда как раз за этим.
     """
     if not db_path.is_file():
         return 0
     if task_key is None:
+        return _drop_database(db_path)
+    try:
+        with contextlib.closing(_connect(db_path)) as conn:
+            cursor = conn.execute("DELETE FROM runs WHERE task_key = ?", (task_key,))
+            # issue #819 + #813: агрегат «до первого зачёта» живёт отдельной строкой
+            # и каскадом FK не уносится — без этого «историю удалили» оставляло бы
+            # число попыток и время первого зачёта по задаче лежать в базе.
+            conn.execute("DELETE FROM task_progress WHERE task_key = ?", (task_key,))
+            conn.commit()
+            # VACUUM возвращает место ОС: иначе удалённые записи остаются
+            # вычитываемыми из файла сырым чтением, а обещание «удалили» — неполным.
+            conn.execute("VACUUM")
+            return int(cursor.rowcount or 0)
+    except (sqlite3.DatabaseError, OSError):
+        # Точечное удаление на битой базе невозможно: SQL не выполнить. Сносим
+        # файл целиком — это шире запрошенного, но честнее молчаливого отказа,
+        # и соответствует смыслу команды. Число прогонов неизвестно: база не
+        # читается, поэтому возвращаем 0, а не выдуманную цифру.
+        _drop_database(db_path)
+        return 0
+
+
+def _drop_database(db_path: Path) -> int:
+    """Удалить файл БД вместе с WAL/SHM-спутниками; вернуть число прогонов в ней."""
+    removed = 0
+    with contextlib.suppress(sqlite3.DatabaseError, OSError):
         with contextlib.closing(db.connect(db_path)) as conn:
             removed = int(conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0])
-        for suffix in ("", "-wal", "-shm"):
-            with contextlib.suppress(OSError):
-                db_path.with_name(db_path.name + suffix).unlink(missing_ok=True)
-        return removed
-    with contextlib.closing(_connect(db_path)) as conn:
-        cursor = conn.execute("DELETE FROM runs WHERE task_key = ?", (task_key,))
-        # issue #819 + #813: агрегат «до первого зачёта» живёт отдельной строкой
-        # и каскадом FK не уносится — без этого «историю удалили» оставляло бы
-        # число попыток и время первого зачёта по задаче лежать в базе.
-        conn.execute("DELETE FROM task_progress WHERE task_key = ?", (task_key,))
-        conn.commit()
-        # VACUUM возвращает место ОС: иначе удалённые записи остаются
-        # вычитываемыми из файла сырым чтением, а обещание «удалили» — неполным.
-        conn.execute("VACUUM")
-        return int(cursor.rowcount or 0)
+    for suffix in ("", "-wal", "-shm"):
+        with contextlib.suppress(OSError):
+            db_path.with_name(db_path.name + suffix).unlink(missing_ok=True)
+    return removed
