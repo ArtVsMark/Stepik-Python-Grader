@@ -53,7 +53,6 @@ from __future__ import annotations
 
 import contextlib
 import ctypes
-import math
 import os
 import subprocess
 import sys
@@ -79,6 +78,9 @@ from stepik_grader.core.sandbox import _limits
 __all__ = ["WindowsSandboxRunner", "create_backend"]
 
 _CREATE_SUSPENDED = 0x00000004
+# issue #927: NTSTATUS, с которым Job Object завершает процесс, исчерпавший
+# `PerProcessUserTimeLimit`. В консоли виден как 3221225540.
+_STATUS_QUOTA_EXCEEDED = 0xC0000044
 
 _JOB_OBJECT_LIMIT_PROCESS_TIME = 0x00000002
 _JOB_OBJECT_LIMIT_ACTIVE_PROCESS = 0x00000008
@@ -250,7 +252,12 @@ class WindowsSandboxRunner:
             max_memory_mb = float(
                 _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb)
             )
-            cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
+            # issue #927: квота считается от wall-таймаута прогона, а не от одной
+            # константы. Прежде `--timeout 60` под изоляцией не работал вовсе:
+            # Job Object убивал верное решение на десятой секунде CPU, когда до
+            # таймаута оставалось ещё пятьдесят. POSIX-backend'ы связали квоту с
+            # таймаутом ещё в #986 — Windows остался на константе.
+            cpu_seconds = _limits.cpu_quota_seconds(spec.timeout, CONFIG.sandbox_max_cpu_seconds)
 
             start = time.perf_counter()
             try:
@@ -452,6 +459,22 @@ class WindowsSandboxRunner:
                 peak_memory_mb=peak_mb_result[0],
             )
 
+        # issue #927: Job Object убивает процесс САМ, по `PerProcessUserTimeLimit`,
+        # и делает это раньше, чем watcher-поток успеет выставить `cpu_exceeded`.
+        # Приходит обычный ненулевой код `0xC0000044` (`STATUS_QUOTA_EXCEEDED`) —
+        # и без этой ветки он разбирался как `RE`: студент видел «Process exited
+        # with code 3221225540 (no stderr)» на верном решении. Падала квота, а
+        # отвечало решение — тот же класс, что #986 закрывал на POSIX.
+        if _quota_exceeded(proc.returncode):
+            return RunOutcome(
+                sandbox_violation="cpu",
+                stdout=partial_stdout,
+                stderr=partial_stderr,
+                elapsed=elapsed,
+                returncode=proc.returncode,
+                peak_memory_mb=peak_mb_result[0],
+            )
+
         return RunOutcome(
             stdout=b"".join(stdout_chunks),
             stderr=b"".join(stderr_chunks),
@@ -459,6 +482,19 @@ class WindowsSandboxRunner:
             elapsed=elapsed,
             peak_memory_mb=peak_mb_result[0],
         )
+
+
+def _quota_exceeded(returncode: int | None) -> bool:
+    """Код завершения означает «Job Object убил по квоте» (issue #927).
+
+    ``STATUS_QUOTA_EXCEEDED`` приходит и как беззнаковое ``3221225540``, и как
+    знаковое ``-1073741756`` — Python отдаёт то или другое в зависимости от
+    того, как код прошёл через API. Сверяются младшие 32 бита, поэтому обе
+    формы распознаются одинаково.
+    """
+    if returncode is None or returncode == 0:
+        return False
+    return (returncode & 0xFFFFFFFF) == _STATUS_QUOTA_EXCEEDED
 
 
 def create_backend() -> WindowsSandboxRunner:

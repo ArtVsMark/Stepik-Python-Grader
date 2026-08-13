@@ -25,7 +25,7 @@ import sys
 import pytest
 
 from stepik_grader.core import grader_core, runner
-from stepik_grader.core.sandbox import SandboxRunner, SandboxUnavailableError
+from stepik_grader.core.sandbox import SandboxRunner, SandboxUnavailableError, _limits
 
 
 def _sandbox_or_skip() -> SandboxRunner:
@@ -154,11 +154,15 @@ class TestSandboxParity:
         assert sandboxed == ["WA"]
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32", reason="POSIX-квоты: RLIMIT_CPU/SIGXCPU нет на Windows"
-)
-class TestCpuQuotaParity:
-    """CPU-квота — backstop, а не второй таймаут (issue #986, PY-2-01/SBX-3-01)."""
+class TestCpuQuotaFormula:
+    """Сама формула квоты — арифметика, одинаковая для трёх backend'ов.
+
+    Эти проверки жили внутри POSIX-класса под ``skipif(win32)``, и ровно поэтому
+    дефект #927 дожил до прогона на машине владельца: формула проверялась только
+    там, где она уже была подключена, а Windows-backend считал квоту от одной
+    константы и `--timeout 60` под изоляцией не работал вовсе. Класс намеренно
+    без ``skipif`` — считать `max(timeout+1, configured)` умеет любая ОС.
+    """
 
     def test_quota_follows_timeout(self) -> None:
         """Длинный прогон получает квоту больше своего таймаута.
@@ -167,15 +171,68 @@ class TestCpuQuotaParity:
         что изоляция убьёт решение на 10-й секунде — раньше, чем истечёт время,
         которое пользователь ему разрешил.
         """
-        from stepik_grader.core.sandbox._posix_bootstrap import cpu_quota_seconds
-
-        assert cpu_quota_seconds(timeout=15.0, configured_max=10.0) > 15
+        assert _limits.cpu_quota_seconds(timeout=15.0, configured_max=10.0) > 15
 
     def test_quota_keeps_configured_floor(self) -> None:
         """Короткий таймаут не опускает квоту ниже настроенной."""
+        assert _limits.cpu_quota_seconds(timeout=1.0, configured_max=10.0) == 10
+
+    def test_posix_alias_delegates_to_the_shared_formula(self) -> None:
+        """Имя на POSIX-стороне осталось — на него ссылаются `_linux`/`_macos`."""
         from stepik_grader.core.sandbox._posix_bootstrap import cpu_quota_seconds
 
-        assert cpu_quota_seconds(timeout=1.0, configured_max=10.0) == 10
+        assert cpu_quota_seconds(timeout=15.0, configured_max=10.0) == _limits.cpu_quota_seconds(
+            timeout=15.0, configured_max=10.0
+        )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Job Object и его NTSTATUS — только Windows")
+class TestWindowsQuotaVerdict:
+    """Обрыв по квоте Job Object называется своим именем, а не `RE` (issue #927)."""
+
+    @pytest.mark.parametrize(
+        "returncode,why",
+        [
+            (3221225540, "беззнаковая форма 0xC0000044 — так её печатает консоль"),
+            (-1073741756, "знаковая форма того же кода"),
+        ],
+    )
+    def test_quota_status_is_recognised(self, returncode: int, why: str) -> None:
+        from stepik_grader.core.sandbox._windows import _quota_exceeded
+
+        assert _quota_exceeded(returncode) is True, why
+
+    @pytest.mark.parametrize("returncode", [0, 1, 3, None, -1, 3221225477])
+    def test_other_codes_stay_solution_errors(self, returncode: int | None) -> None:
+        """Обычный ненулевой код — по-прежнему `RE`: это ошибка решения, а не квота.
+
+        `3221225477` (0xC0000005, access violation) в списке намеренно: соседний
+        NTSTATUS не должен попадать под ту же ветку.
+        """
+        from stepik_grader.core.sandbox._windows import _quota_exceeded
+
+        assert _quota_exceeded(returncode) is False
+
+    def test_backend_asks_the_shared_formula(self) -> None:
+        """Windows-backend берёт квоту из общего модуля, а не из своей константы."""
+        source = (
+            pathlib.Path(__file__).parent.parent
+            / "src"
+            / "stepik_grader"
+            / "core"
+            / "sandbox"
+            / "_windows.py"
+        ).read_text(encoding="utf-8")
+
+        assert "_limits.cpu_quota_seconds(spec.timeout" in source
+        assert "math.ceil(CONFIG.sandbox_max_cpu_seconds)" not in source
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX-квоты: RLIMIT_CPU/SIGXCPU нет на Windows"
+)
+class TestCpuQuotaParity:
+    """CPU-квота — backstop, а не второй таймаут (issue #986, PY-2-01/SBX-3-01)."""
 
     def test_hanging_solution_times_out_like_local(self, tmp_path: pathlib.Path) -> None:
         """Зависшее решение даёт TLE в обоих режимах, а не сбой на границе квоты."""
