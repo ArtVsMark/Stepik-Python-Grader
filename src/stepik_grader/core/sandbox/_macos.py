@@ -42,7 +42,6 @@ SECURITY.md:
 
 from __future__ import annotations
 
-import math
 import os
 import shutil
 import sys
@@ -121,7 +120,12 @@ class MacSandboxRunner:
             except (OSError, ValueError) as exc:
                 return RunOutcome(launch_error=str(exc))
 
-            cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
+            # issue #986 (PY-2-01): квота выводится из wall-таймаута прогона, а не
+            # берётся константой — иначе разрешённый пользователем долгий прогон
+            # режется на середине.
+            cpu_seconds = _posix_bootstrap.cpu_quota_seconds(
+                spec.timeout, CONFIG.sandbox_max_cpu_seconds
+            )
             bootstrap = _posix_bootstrap.build_bootstrap_argv(
                 sys.executable,
                 str(script_path),

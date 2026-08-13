@@ -152,3 +152,69 @@ class TestSandboxParity:
 
         assert sandboxed == _verdicts(solution, sandboxed=False)
         assert sandboxed == ["WA"]
+
+
+class TestCpuQuotaParity:
+    """CPU-квота — backstop, а не второй таймаут (issue #986, PY-2-01/SBX-3-01)."""
+
+    def test_quota_follows_timeout(self) -> None:
+        """Длинный прогон получает квоту больше своего таймаута.
+
+        Пока квота была константой из конфига, `timeout=15` при квоте 10 означал,
+        что изоляция убьёт решение на 10-й секунде — раньше, чем истечёт время,
+        которое пользователь ему разрешил.
+        """
+        from stepik_grader.core.sandbox._posix_bootstrap import cpu_quota_seconds
+
+        assert cpu_quota_seconds(timeout=15.0, configured_max=10.0) > 15
+
+    def test_quota_keeps_configured_floor(self) -> None:
+        """Короткий таймаут не опускает квоту ниже настроенной."""
+        from stepik_grader.core.sandbox._posix_bootstrap import cpu_quota_seconds
+
+        assert cpu_quota_seconds(timeout=1.0, configured_max=10.0) == 10
+
+    def test_hanging_solution_times_out_like_local(self, tmp_path: pathlib.Path) -> None:
+        """Зависшее решение даёт TLE в обоих режимах, а не сбой на границе квоты."""
+        from stepik_grader.core.runner import LocalRunner, RunSpec
+
+        spec = RunSpec(path=None, code=b"while True:\n    pass\n", stdin=None, timeout=3.0)
+
+        sandboxed = _sandbox_or_skip().run(spec)
+        local = LocalRunner().run(spec)
+
+        assert sandboxed.timed_out is local.timed_out is True
+        assert sandboxed.sandbox_violation is None
+
+
+class TestQuotaKillRecognition:
+    """Убийство по квоте распознаётся в обеих формах кода возврата (issue #986)."""
+
+    def test_direct_child_negative_code(self) -> None:
+        import signal
+
+        from stepik_grader.core.sandbox._posix_common import _killed_by
+
+        assert _killed_by(-signal.SIGXCPU, signal.SIGXCPU) is True
+
+    def test_via_bwrap_positive_code(self) -> None:
+        """bwrap переживает своего ребёнка и отдаёт `128 + N`.
+
+        Ровно этот случай не распознавался: код 137 (128+SIGKILL) не проходил
+        проверку «отрицательный», и исчерпание квоты становилось невнятным RE.
+        """
+        import signal
+
+        from stepik_grader.core.sandbox._posix_common import _killed_by
+
+        assert _killed_by(128 + signal.SIGKILL, signal.SIGXCPU) is True
+        assert _killed_by(128 + signal.SIGXCPU, signal.SIGXCPU) is True
+
+    def test_plain_failure_is_not_a_quota_kill(self) -> None:
+        """Обычное падение решения остаётся падением решения."""
+        import signal
+
+        from stepik_grader.core.sandbox._posix_common import _killed_by
+
+        assert _killed_by(1, signal.SIGXCPU) is False
+        assert _killed_by(0, signal.SIGXCPU) is False

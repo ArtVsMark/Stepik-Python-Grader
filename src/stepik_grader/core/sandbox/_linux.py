@@ -36,7 +36,6 @@ site-packages venv'а НЕ пробрасываются, поэтому реше
 
 from __future__ import annotations
 
-import math
 import os
 import shutil
 import sys
@@ -107,7 +106,10 @@ def _usrmerge_symlink_args() -> list[str]:
 
 
 def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
-    cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
+    # issue #986 (PY-2-01): квота выводится из wall-таймаута прогона, а не
+    # берётся константой — иначе разрешённый пользователем долгий прогон
+    # режется на середине.
+    cpu_seconds = _posix_bootstrap.cpu_quota_seconds(spec.timeout, CONFIG.sandbox_max_cpu_seconds)
     max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
     bootstrap = _posix_bootstrap.build_bootstrap_argv(
         sys.executable,
