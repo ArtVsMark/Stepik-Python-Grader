@@ -944,7 +944,14 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--port", "9090"])
         assert called == [
-            {"port": 9090, "root": None, "confine": True, "sandbox": False, "record_history": True}
+            {
+                "port": 9090,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
     def test_serve_uses_default_port(self, monkeypatch) -> None:
@@ -954,7 +961,14 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve"])
         assert called == [
-            {"port": 8000, "root": None, "confine": True, "sandbox": False, "record_history": True}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
     def test_serve_passes_root(self, monkeypatch, tmp_path) -> None:
@@ -975,6 +989,7 @@ class TestEntrypointSideEffectFlags:
                 "confine": True,
                 "sandbox": False,
                 "record_history": True,
+                "lang": "ru",
             }
         ]
 
@@ -985,7 +1000,14 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--no-root-confinement"])
         assert called == [
-            {"port": 8000, "root": None, "confine": False, "sandbox": False, "record_history": True}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": False,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
     def test_serve_passes_sandbox_flag(self, monkeypatch) -> None:
@@ -998,7 +1020,14 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--sandbox"])
         assert called == [
-            {"port": 8000, "root": None, "confine": True, "sandbox": True, "record_history": True}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": True,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
     def test_serve_no_history_disables_recording(self, monkeypatch) -> None:
@@ -1010,7 +1039,38 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--no-history"])
         assert called == [
-            {"port": 8000, "root": None, "confine": True, "sandbox": False, "record_history": False}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": False,
+                "lang": "ru",
+            }
+        ]
+
+    def test_serve_passes_lang_to_the_page(self, monkeypatch) -> None:
+        """issue #1131 (LNCH-2-05): выбранный язык доезжает до веб-интерфейса.
+
+        Прежде `--lang en --serve` переводил только сообщения API, а страница
+        открывалась на русском: флаг действовал наполовину и молчал об этом.
+        """
+        from stepik_grader import web
+
+        called: list[dict[str, object]] = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+
+        cli.main(["--serve", "--lang", "en"])
+
+        assert called == [
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "en",
+            }
         ]
 
     def test_serve_sandbox_unavailable_is_rejected(self, monkeypatch, capsys) -> None:

@@ -37,7 +37,11 @@ const SECTIONS = ["check", "downloader", "glossary", "rules", "insights", "progr
 // ---------------------------------------------------------------------------
 const state = {
   section: localStorage.getItem("grader_section") || "check", // одно из SECTIONS
-  lang: localStorage.getItem("grader_lang") || "ru", // issue #364 — язык сообщений сервера (?lang=)
+  // issue #364 — язык сообщений сервера (?lang=); issue #1131 — стартовый
+  // язык от сервера (--serve --lang) вместо жёсткого "ru": флаг был
+  // единственным явным выбором языка, и страница его игнорировала.
+  // localStorage сильнее: переключатель в шапке — более поздний выбор.
+  lang: localStorage.getItem("grader_lang") || document.body.dataset.startLang || "ru",
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
   resultTab: "table", // "table" | "detail"
   lastResult: null,
