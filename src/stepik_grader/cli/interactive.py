@@ -101,6 +101,10 @@ def _ask_bench_profile(ctx: CliContext) -> int:
     choice = input(ctx.t("select_profile_prompt")).strip() or "2"
     repeats = _BENCH_PROFILES.get(choice)
     if repeats is None:
+        # issue #997 (DES-2-08): опечатка в номере профиля молча превращалась
+        # во второй профиль. Пользователь просил 50 повторов, получал 15 — и
+        # сравнивал результаты, думая, что мерил то, что выбрал.
+        print(ctx.t("profile_unknown_default_used", value=choice, default="2"))
         repeats = _BENCH_PROFILES["2"]
     if repeats == 0:
         repeats = _ask_number(ctx.t("enter_repeats_prompt"), default=15, ctx=ctx)
@@ -120,6 +124,9 @@ def _ask_micro_profile(ctx: CliContext) -> int:
     choice = input(ctx.t("select_profile_prompt")).strip() or "2"
     number = _MICRO_PROFILES.get(choice)
     if number is None:
+        # issue #997 (DES-2-08): то же для micro-bench — «7» давало 1000
+        # вызовов вместо запрошенных 100 000, и разница списывалась на машину.
+        print(ctx.t("profile_unknown_default_used", value=choice, default="2"))
         number = _MICRO_PROFILES["2"]
     if number == 0:
         number = _ask_number(ctx.t("enter_calls_prompt"), default=1000, ctx=ctx)
@@ -243,6 +250,21 @@ def _is_interactive() -> bool:
     return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
 
 
+def _runs_in_window(db_path: pathlib.Path, window: int) -> int:
+    """Сколько прогонов реально попало в окно карточек «Подучить».
+
+    Отдельная функция, а не поле карточки: карточки агрегированы по ключу
+    ошибки, и число прогонов у них одинаковое, но при пустом списке брать его
+    неоткуда. Ошибка чтения базы не должна ронять раздел — тогда 0.
+    """
+    from stepik_grader.core import history
+
+    try:
+        return len(history.read_recent_runs(db_path, limit=window))
+    except Exception:
+        return 0
+
+
 def _show_insights(ctx: CliContext) -> None:
     """Пункт «Подучить» (5): карточки частых ошибок из истории прогонов."""
     from stepik_grader import rules
@@ -258,6 +280,20 @@ def _show_insights(ctx: CliContext) -> None:
         t=CONFIG.insights_active_threshold_t,
         k=CONFIG.insights_clean_streak_k,
     )
+    if cards:
+        # issue #997 (JRN-1-05): база истории — пользовательская и общая для
+        # всех папок. В свежей установке раздел показывал карточки, накопленные
+        # в другом проекте, при том что тумблер истории тут говорит «ВЫКЛ», —
+        # и понять, откуда взялись чужие ошибки, было неоткуда. Называем файл и
+        # окно, по которому считали.
+        print(
+            ctx.t(
+                "insights_source",
+                path=db_path,
+                runs=_runs_in_window(db_path, CONFIG.insights_window_n),
+                window=CONFIG.insights_window_n,
+            )
+        )
     if not cards:
         # issue #822 (PROD-11): в меню историю включают пунктом 7, а не флагом.
         # Общий текст советовал `--history` — из меню это тупик: пользователь
@@ -614,7 +650,11 @@ def _interactive_menu(ctx: CliContext) -> None:
                 record_history = not record_history
                 settings.record_history = record_history
                 try:
-                    user_settings.save_settings(settings, settings_path)
+                    # issue #997 (CNC-5-04, CNC-5-01): на диск уходит ТОЛЬКО
+                    # тумблер. Прежде писался весь снапшот настроек, снятый при
+                    # запуске меню, и открытое меню откатывало всё, что за это
+                    # время записал веб, — включая отозванное AI-согласие.
+                    user_settings.save_fields(settings_path, record_history=record_history)
                 except OSError as exc:
                     # Best-effort, симметрично load_settings: read-only cwd / полный
                     # диск не должны ронять меню. Переключение действует на сессию.

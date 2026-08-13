@@ -36,7 +36,6 @@ site-packages venv'а НЕ пробрасываются, поэтому реше
 
 from __future__ import annotations
 
-import math
 import os
 import shutil
 import sys
@@ -45,7 +44,7 @@ from pathlib import Path
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.run_dir import ephemeral_run_dir
-from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
+from stepik_grader.core.runner import RunOutcome, RunSpec, materialize_spec
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
 
 __all__ = ["LinuxSandboxRunner", "create_backend"]
@@ -87,6 +86,42 @@ def _python_tree_binds() -> list[str]:
     return deduped
 
 
+def _site_packages_mask_args() -> list[str]:
+    """bwrap-аргументы, скрывающие ``site-packages`` грейдера внутри песочницы.
+
+    issue #986 (SEC-2-02/CANON-2-01). Изоляция монтирует дерево интерпретатора
+    целиком, а в venv внутри него лежат зависимости грейдера — решение видело
+    ``requests``/``psutil``/``rich`` и любой пакет, который окажется в окружении.
+    Заявлено ровно обратное: ``supports_project_imports = False`` в самом
+    backend'е и дважды SECURITY.md («биндится только интерпретатор+stdlib, не
+    venv site-packages»).
+
+    Вред не только в расхождении с обещанием. Решение, случайно опершееся на
+    сторонний пакет, проходит локально и падает `ImportError` на Stepik — то
+    есть грейдер выдаёт зелёное там, где проверка на самом деле не пройдена.
+
+    Каталог перекрывается пустой ``tmpfs``: stdlib живёт отдельно
+    (``sysconfig.get_path("stdlib")``, обычно под ``/usr``), поэтому
+    интерпретатор стартует как ни в чём не бывало. Пути вне примонтированных
+    деревьев пропускаем — bwrap отвергает ``--tmpfs`` на несуществующей точке.
+    """
+    trees = _python_tree_binds()
+    masked: list[str] = []
+    for key in ("purelib", "platlib"):
+        raw = sysconfig.get_paths().get(key)
+        if not raw:
+            continue
+        path = str(Path(raw).resolve())
+        inside_tree = any(path == tree or path.startswith(tree + os.sep) for tree in trees)
+        if inside_tree and path not in masked:
+            masked.append(path)
+
+    args: list[str] = []
+    for path in masked:
+        args += ["--tmpfs", path]
+    return args
+
+
 def _usrmerge_symlink_args() -> list[str]:
     """bwrap-аргументы, воссоздающие top-level usrmerge-симлинки внутри песочницы.
 
@@ -107,7 +142,10 @@ def _usrmerge_symlink_args() -> list[str]:
 
 
 def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
-    cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
+    # issue #986 (PY-2-01): квота выводится из wall-таймаута прогона, а не
+    # берётся константой — иначе разрешённый пользователем долгий прогон
+    # режется на середине.
+    cpu_seconds = _posix_bootstrap.cpu_quota_seconds(spec.timeout, CONFIG.sandbox_max_cpu_seconds)
     max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
     bootstrap = _posix_bootstrap.build_bootstrap_argv(
         sys.executable,
@@ -121,6 +159,9 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     argv = [str(bwrap)]
     for tree in _python_tree_binds():
         argv += ["--ro-bind", tree, tree]
+    # issue #986 (SEC-2-02): скрыть site-packages грейдера — ПОСЛЕ bind'ов дерева
+    # интерпретатора, иначе монтирование дерева перекрыло бы саму маску.
+    argv += _site_packages_mask_args()
     # issue #420: воссоздать usrmerge-симлинки (/lib64 -> /usr/lib64 и т.п.) ПОСЛЕ
     # bind'а /usr — иначе ELF-загрузчик решения не находится (см. helper).
     argv += _usrmerge_symlink_args()
@@ -162,10 +203,11 @@ class LinuxSandboxRunner:
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
-            script_path = run_dir / "solution.py"
+            # issue #992: имя скрипта и файлы-спутники приходят из spec —
+            # в function-режиме обёртку нельзя класть под именем модуля решения.
             try:
-                script_path.write_bytes(spec_source_bytes(spec))
-            except OSError as exc:
+                script_path = materialize_spec(spec, run_dir)
+            except (OSError, ValueError) as exc:
                 return RunOutcome(launch_error=str(exc))
 
             argv = self._build_argv(spec, run_dir, script_path)

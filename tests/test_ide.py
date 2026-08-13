@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import os
 import pathlib
+import subprocess
+import sys
 
 from stepik_grader import cli, ide
+from stepik_grader.cli import options
 
 
 class TestWriteVscodeTasks:
@@ -67,3 +72,55 @@ class TestInitVscodeCli:
         assert "exists" in out.lower() or "существует" in out
         # Существующий файл не тронут.
         assert (tmp_path / ".vscode" / "tasks.json").read_text(encoding="utf-8") == "x"
+
+
+class TestVscodeTasksMatchCli:
+    """Шаблон задач не расходится с реальным CLI (issue #997, STR-1-07).
+
+    ``VSCODE_TASKS`` — статический JSON: переименуй флаг в парсере, и задачи
+    VS Code сломаются молча, у пользователя, а не в CI. Гейт сверяет шаблон с
+    самим парсером, поэтому дрейф падает здесь.
+    """
+
+    def _task_args(self) -> list[list[str]]:
+        return [task["args"] for task in ide.VSCODE_TASKS["tasks"]]
+
+    def test_every_flag_exists_in_parser(self) -> None:
+        parser = options._build_arg_parser()
+        known = {opt for action in parser._actions for opt in action.option_strings}
+
+        used = {arg for args in self._task_args() for arg in args if arg.startswith("--")}
+        assert used, "в шаблоне не осталось флагов — гейт перестал что-либо проверять"
+        assert used <= known, f"флаги из tasks.json исчезли из CLI: {sorted(used - known)}"
+
+    def test_every_task_is_accepted_by_parser(self) -> None:
+        """Каждая задача разбирается парсером целиком, включая значения --mode."""
+        parser = options._build_arg_parser()
+        for args in self._task_args():
+            # ${file}/${fileDirname} подставляет VS Code — здесь достаточно,
+            # что парсер принимает форму команды.
+            cli_args = [a for a in args if a not in ("-m", "stepik_grader.grader")]
+            parser.parse_args(cli_args)
+
+    def test_module_target_is_importable(self) -> None:
+        """``-m stepik_grader.grader`` указывает на существующую точку входа."""
+        assert importlib.util.find_spec("stepik_grader.grader") is not None
+
+
+class TestModuleEntryPoint:
+    """``python -m stepik_grader.ide`` не притворяется успешной командой."""
+
+    def test_direct_run_explains_and_fails(self) -> None:
+        """issue #997 (INS-3-04): был тихий no-op с кодом 0."""
+        proc = subprocess.run(
+            [sys.executable, "-m", "stepik_grader.ide"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        )
+        assert proc.returncode != 0
+        assert "--init-vscode" in proc.stderr
+        assert proc.stdout.strip() == ""

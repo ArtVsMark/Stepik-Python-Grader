@@ -22,6 +22,7 @@ import contextlib
 import hashlib
 import ipaddress
 import json as _json_mod
+import os
 import pathlib
 import secrets as secrets_module
 import socketserver
@@ -51,6 +52,9 @@ __all__ = [
     "RETRY_STATUS_FORCELIST",
     "STEPIK_HOST",
     "ExternalUrlRejected",
+    "OAuthCallbackPortBusy",
+    "StepikNetworkError",
+    "StepikResponseFormatError",
     "SubmissionResult",
     "authorize_via_browser",
     "clear_cache",
@@ -84,7 +88,31 @@ __all__ = [
 
 _log = get_logger("stepik_client")  # issue #148: диагностический лог (opt-in)
 
-API_HOST = "https://stepik.org"
+_DEFAULT_API_HOST = "https://stepik.org"
+
+
+def _resolve_api_host() -> str:
+    """Хост Stepik API: ``STEPIK_GRADER_API_HOST`` или дефолт (issue #997, STR-3-06).
+
+    Переменная окружения нужна тестовому стенду и будущему серверному режиму:
+    без неё единственный способ увести запросы с боевого stepik.org — патчить
+    модуль. Значение обязано быть http/https-URL, иначе молчаливая опечатка
+    превратила бы каждый запрос в непонятную ошибку соединения.
+    """
+    raw_host = os.environ.get("STEPIK_GRADER_API_HOST", "").strip()
+    if not raw_host:
+        return _DEFAULT_API_HOST
+    if not raw_host.startswith(("http://", "https://")):
+        _log.warning(
+            "STEPIK_GRADER_API_HOST=%r без схемы http(s) — использую %s",
+            raw_host,
+            _DEFAULT_API_HOST,
+        )
+        return _DEFAULT_API_HOST
+    return raw_host.rstrip("/")
+
+
+API_HOST = _resolve_api_host()
 
 # issue #943: шаг опроса колбэк-сервера. ``handle_request`` блокирует поток до
 # запроса или до своего таймаута, поэтому ждать им весь остаток дедлайна нельзя:
@@ -114,6 +142,10 @@ _RETRY_AFTER_MAX_SECONDS = 60
 # любого архива тест-кейсов и несопоставимо меньше того, чем можно уронить
 # машину.
 _MAX_EXTERNAL_DOWNLOAD_BYTES = 64 * 1024 * 1024
+# Размер чанка потокового чтения внешней загрузки (issue #997): достаточно
+# крупный, чтобы не дробить мегабайтный ZIP на тысячи итераций, и достаточно
+# мелкий, чтобы превышение лимита ловилось задолго до того, как память кончится.
+_EXTERNAL_DOWNLOAD_CHUNK_BYTES = 256 * 1024
 
 # issue #1055: потолок обхода истории отправок. Страница API — 20 записей, то
 # есть 50 страниц ≈ 1000 попыток по одному шагу: столько не набирает даже
@@ -134,6 +166,50 @@ HEADERS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Session factory
 # ---------------------------------------------------------------------------
+
+
+def _retry_adapter_config(retries: int, backoff_factor: float) -> Retry:
+    """Единая политика повторов для всех запросов к Stepik (issue #997, REV-3-04).
+
+    Вынесено из ``make_session``, потому что токен-запросы (обновление
+    access_token и обмен authorization_code) шли голым ``requests.post`` мимо
+    любых повторов: единичный 503 у Stepik ронял скачивание и отправку
+    решения, хотя следующая попытка прошла бы.
+    """
+    return Retry(
+        total=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=RETRY_STATUS_FORCELIST,
+        respect_retry_after_header=True,
+        # issue #815 (NETA-01): POST в дефолтный allowed_methods urllib3 не
+        # входит (там только идемпотентные методы), поэтому единичный 429/503 на
+        # `/api/attempts` или `/api/submissions` ронял отправку решения с первой
+        # попытки — при том что докстринг `_post_json` обещал транспортный
+        # повтор. Повторяем ТОЛЬКО статусы из `RETRY_STATUS_FORCELIST`: это
+        # «сервер занят/временно недоступен», где повтор безопасен. Обычная
+        # ошибка POST (4xx кроме 429) как не повторялась, так и не повторяется.
+        allowed_methods=_RETRY_METHODS,
+        # issue #815 (NETA-03): потолок сна по `Retry-After`. Дефолт urllib3 —
+        # 6 часов: один 429 с большим заголовком подвешивал поток-обработчик
+        # web-запроса без возможности отмены, а в CLI — весь процесс. Честная
+        # ошибка «Stepik просит подождать» полезнее зависшего грейдера.
+        retry_after_max=_RETRY_AFTER_MAX_SECONDS,
+    )
+
+
+def _token_session(*, retries: int = 3, backoff_factor: float = 1.0) -> requests.Session:
+    """Сессия для токен-эндпоинта: те же повторы, но БЕЗ Authorization.
+
+    Bearer-заголовка здесь быть не должно — учётные данные едут в
+    ``HTTPBasicAuth``, а протухший access_token в заголовке только сбивал бы
+    сервер авторизации.
+    """
+    session = requests.Session()
+    session.headers.update({"User-Agent": HEADERS["User-Agent"]})
+    adapter = HTTPAdapter(max_retries=_retry_adapter_config(retries, backoff_factor))
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
 def make_session(
@@ -171,26 +247,7 @@ def make_session(
     session.headers.update(HEADERS)
     session.headers["Authorization"] = f"Bearer {access_token}"
 
-    retry = Retry(
-        total=retries,
-        backoff_factor=backoff_factor,
-        status_forcelist=RETRY_STATUS_FORCELIST,
-        respect_retry_after_header=True,
-        # issue #815 (NETA-01): POST в дефолтный allowed_methods urllib3 не
-        # входит (там только идемпотентные методы), поэтому единичный 429/503 на
-        # `/api/attempts` или `/api/submissions` ронял отправку решения с первой
-        # попытки — при том что докстринг `_post_json` обещал транспортный
-        # повтор. Повторяем ТОЛЬКО статусы из `RETRY_STATUS_FORCELIST`: это
-        # «сервер занят/временно недоступен», где повтор безопасен. Обычная
-        # ошибка POST (4xx кроме 429) как не повторялась, так и не повторяется.
-        allowed_methods=_RETRY_METHODS,
-        # issue #815 (NETA-03): потолок сна по `Retry-After`. Дефолт urllib3 —
-        # 6 часов: один 429 с большим заголовком подвешивал поток-обработчик
-        # web-запроса без возможности отмены, а в CLI — весь процесс. Честная
-        # ошибка «Stepik просит подождать» полезнее зависшего грейдера.
-        retry_after_max=_RETRY_AFTER_MAX_SECONDS,
-    )
-    adapter = HTTPAdapter(max_retries=retry)
+    adapter = HTTPAdapter(max_retries=_retry_adapter_config(retries, backoff_factor))
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
@@ -219,8 +276,60 @@ EXTERNAL_DOWNLOAD_ALLOWED_HOSTS: frozenset[str] = frozenset(
 )
 
 
+class StepikResponseFormatError(RuntimeError):
+    """Ответ Stepik API не той формы, которую ожидает грейдер (issue #997, STR-3-03).
+
+    Отдельно от «не найдено»: пропавший ключ коллекции или элементы без
+    ожидаемых полей — это изменение API, а пользователю печаталось «шаг с
+    позицией N не найден в уроке L», и он шёл проверять свой URL, который в
+    порядке. Разные причины требуют разных действий, поэтому и типы разные.
+    """
+
+
+def _api_items(data: Any, key: str, *, url: str) -> list[dict[str, Any]]:
+    """Достать коллекцию ``key`` из ответа API, отличая пустоту от смены формы.
+
+    Пустой список — законный ответ («ничего не нашлось»). Отсутствующий ключ
+    или не-список на его месте — сменившийся контракт API, и об этом надо
+    сказать прямо.
+    """
+    if not isinstance(data, dict) or key not in data:
+        raise StepikResponseFormatError(
+            f"Ответ {url} без ключа {key!r} — формат Stepik API изменился. "
+            f"Обновите грейдер; если не помогло — заведите issue."
+        )
+    items = data[key]
+    if not isinstance(items, list):
+        raise StepikResponseFormatError(
+            f"Ключ {key!r} в ответе {url} — {type(items).__name__}, ожидался список: "
+            f"формат Stepik API изменился."
+        )
+    return [item for item in items if isinstance(item, dict)]
+
+
 class ExternalUrlRejected(ValueError):
     """URL внешней загрузки не прошёл проверку allowlist/private-address."""
+
+
+class OAuthCallbackPortBusy(RuntimeError):
+    """Порт колбэка OAuth занят другим процессом (issue #997, ``JRN-3A-04``).
+
+    Отдельный тип, а не общий ``OSError``: вызывающая сторона показывает разные
+    подсказки. Занятый порт чинится закрытием чужого процесса или сменой
+    ``redirect_uri``, а прежде он приходил тем же путём, что и отказ сервера, и
+    пользователь читал совет «проверьте client_id / client_secret» — то есть
+    правил ровно то, что было в порядке.
+    """
+
+
+class StepikNetworkError(RuntimeError):
+    """Сеть до Stepik недоступна (issue #997, ``DEV-3-06``).
+
+    Обрыв связи, DNS, таймаут — всё, что не является ответом сервера. Прежде
+    эти случаи доходили до общего обработчика авторизации и объявлялись
+    неверными учётными данными: пользователь шёл перевыпускать OAuth-приложение
+    из-за отключившегося Wi-Fi.
+    """
 
 
 def _is_stepik_host(hostname: str) -> bool:
@@ -275,13 +384,20 @@ _MAX_EXTERNAL_REDIRECT_HOPS = 5
 def _guard_response_size(response: requests.Response, url: str) -> None:
     """Отклонить слишком большой ответ внешней загрузки (issue #815, ``NETA-04``).
 
-    ``requests`` без ``stream=True`` читает тело в память целиком, а адрес
-    приходит из HTML задачи — то есть из недоверенного источника: ссылка на
-    многогигабайтный файл выжирала RAM до OOM ещё до того, как кто-либо
+    Адрес приходит из HTML задачи — то есть из недоверенного источника: ссылка
+    на многогигабайтный файл выжирала бы RAM до OOM ещё до того, как кто-либо
     посмотрит на содержимое.
 
     Сначала смотрим ``Content-Length`` (дёшево и отсекает честный большой
-    файл), затем фактический размер: заголовок необязателен и может врать.
+    файл), затем читаем тело **потоково**, обрывая чтение на первом же чанке за
+    лимитом: заголовок необязателен и может врать (issue #997, ``DEV-3-05`` и
+    ``REV-3-03``). Прежде здесь стоял ``len(response.content)`` — то есть
+    проверка срабатывала уже после того, как весь ответ оказался в памяти, и
+    защищала ровно от того случая, который и так объявлен честным заголовком.
+
+    Прочитанные байты кладутся обратно в ``response``, поэтому вызывающая
+    сторона по-прежнему читает ``response.content`` и о потоковом чтении не
+    знает.
     """
     # ВНИМАНИЕ: `ExternalUrlRejected` — подкласс `ValueError`, поэтому парсинг
     # заголовка отделён от проверки: `suppress(ValueError)` вокруг `raise`
@@ -295,11 +411,24 @@ def _guard_response_size(response: requests.Response, url: str) -> None:
         raise ExternalUrlRejected(
             f"Ответ слишком велик ({declared} Б > {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
         )
-    actual = len(response.content)
-    if actual > _MAX_EXTERNAL_DOWNLOAD_BYTES:
-        raise ExternalUrlRejected(
-            f"Ответ слишком велик ({actual} Б > {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
-        )
+
+    chunks: list[bytes] = []
+    read = 0
+    for chunk in response.iter_content(chunk_size=_EXTERNAL_DOWNLOAD_CHUNK_BYTES):
+        if not chunk:
+            continue
+        read += len(chunk)
+        if read > _MAX_EXTERNAL_DOWNLOAD_BYTES:
+            response.close()
+            raise ExternalUrlRejected(
+                f"Ответ слишком велик (> {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
+            )
+        chunks.append(chunk)
+    # requests не даёт публичного способа отдать уже прочитанное тело обратно,
+    # а менять контракт функции (Response → bytes) ради этого дороже: тело
+    # читают четыре места в test_source_fetcher, и все ждут Response.
+    response._content = b"".join(chunks)
+    response._content_consumed = True
 
 
 def external_download_get(
@@ -329,7 +458,9 @@ def external_download_get(
 
     current = url
     for _hop in range(_MAX_EXTERNAL_REDIRECT_HOPS + 1):
-        response = session.get(current, timeout=timeout, allow_redirects=False)
+        # stream=True — иначе requests прочитает тело в память ДО проверки
+        # размера, и охранник ниже будет защищать уже израсходованную RAM.
+        response = session.get(current, timeout=timeout, allow_redirects=False, stream=True)
         if not response.is_redirect:
             _guard_response_size(response, current)
             return response
@@ -395,11 +526,10 @@ def refresh_access_token(
     register_secret(client_secret)
     register_secret(refresh_token)
     _log.info("обновляю access_token через %s/oauth2/token/ (grant=refresh_token)", API_HOST)
-    response = requests.post(
+    response = _token_session().post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),
         data={"grant_type": "refresh_token", "refresh_token": refresh_token},
-        headers={"User-Agent": HEADERS["User-Agent"]},
         timeout=30,
     )
     response.raise_for_status()
@@ -530,7 +660,16 @@ def wait_for_auth_code(
     """
     auth_data: dict[str, Any] = {}
     handler_class = _make_oauth_handler(auth_data, path, expected_state)
-    server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
+    try:
+        server = _OAuthHTTPServer((host, port), handler_class)  # type: ignore[arg-type]
+    except OSError as exc:
+        # issue #997 (JRN-3A-04): «Address already in use» на 8080 — самая
+        # частая причина, по которой авторизация не начинается вовсе, и она
+        # никак не связана с учётными данными. Называем её прямо.
+        raise OAuthCallbackPortBusy(
+            f"Порт {port} занят другим процессом ({exc}). Закройте занявшую его "
+            f"программу или укажите другой redirect_uri в secrets.json."
+        ) from exc
 
     # issue #943 (DEV-3-04): обслуживаем запросы ДО ДЕДЛАЙНА, а не ровно один.
     # Раньше здесь стоял единственный ``handle_request`` — и любой посторонний
@@ -603,7 +742,7 @@ def authorize_via_browser(
     register_secret(client_secret)
     register_secret(code)
     _log.info("обмениваю authorization_code на токены через %s/oauth2/token/", API_HOST)
-    response = requests.post(
+    response = _token_session().post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),
         data={
@@ -611,7 +750,6 @@ def authorize_via_browser(
             "code": code,
             "redirect_uri": redirect_uri,
         },
-        headers={"User-Agent": HEADERS["User-Agent"]},
         timeout=30,
     )
     response.raise_for_status()
@@ -657,6 +795,17 @@ def create_user_session(
             return make_session(str(secrets["access_token"]))
         except requests.HTTPError:
             print("Refresh token истёк, выполняется повторная авторизация...")
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            # issue #997 (DEV-3-06): обрыв связи, DNS или таймаут — это НЕ
+            # «истёкший токен» и не повод открывать браузер: там пользователя
+            # ждёт та же недоступная сеть. Прежде эти исключения доходили до
+            # общего обработчика авторизации, который советует проверить
+            # client_id/client_secret, — и человек шёл перевыпускать
+            # OAuth-приложение из-за отключившегося Wi-Fi.
+            raise StepikNetworkError(
+                f"Нет связи со Stepik ({exc}). Проверьте интернет-соединение и "
+                f"повторите — учётные данные здесь ни при чём."
+            ) from exc
         except ValueError as exc:
             # issue #943: ответ 200 без пригодных полей. secrets НЕ трогаем —
             # прежний токен остаётся как есть, а не подменяется протухшим с
@@ -815,12 +964,23 @@ def fetch_step_data(
             f"{API_HOST}/api/steps",
             params={"lesson": lesson_id, "page": page},
         )
-        data = response.json()
-        steps: list[dict[str, Any]] = data.get("steps", [])
+        url = f"{API_HOST}/api/steps"
+        steps = _api_items(response.json(), "steps", url=url)
         for step in steps:
             if step.get("position") == step_position:
                 return step
-        meta = data.get("meta", {})
+        # Шаги пришли, но ни у одного нет позиции — поле переименовали или
+        # убрали. Раньше это молча превращалось в «шаг не найден».
+        if steps and all("position" not in step for step in steps):
+            raise StepikResponseFormatError(
+                f"Шаги урока {lesson_id} пришли без поля 'position' — формат Stepik API изменился."
+            )
+        meta = response.json().get("meta") or {}
+        if not isinstance(meta, dict):
+            raise StepikResponseFormatError(
+                f"Ключ 'meta' в ответе {url} — {type(meta).__name__}, ожидался объект: "
+                f"формат Stepik API изменился."
+            )
         if not meta.get("has_next"):
             break
         page += 1
@@ -829,8 +989,8 @@ def fetch_step_data(
 
 def fetch_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]:
     """Возвращает объект урока по lesson_id."""
-    data = _cached_api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
-    lessons: list[dict[str, Any]] = data.get("lessons", [])
+    url = f"{API_HOST}/api/lessons/{lesson_id}"
+    lessons = _api_items(_cached_api_get(session, url), "lessons", url=url)
     if not lessons:
         raise ValueError(f"Урок {lesson_id} не найден")
     return lessons[0]

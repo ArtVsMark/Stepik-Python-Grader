@@ -5,7 +5,7 @@ OAuth делегируется в oauth_flow (фасад поверх stepik_cli
   - load_secrets — импортируется из oauth_flow
   - authorize_via_browser — импортируется из oauth_flow
   - make_session — импортируется из oauth_flow
-  - API_HOST — импортируется из stepik_client (константа)
+  - API_HOST — читается как stepik_client.API_HOST (переопределяем окружением)
 
 Запуск:
     python -m stepik_grader.diagnostic_stepik
@@ -23,10 +23,13 @@ from typing import Any
 
 import requests
 
+# issue #997 (STR-3-06): импортируем МОДУЛЬ, а не значение — иначе
+# переопределение хоста через STEPIK_GRADER_API_HOST не видно диагностике,
+# и она проверяет боевой stepik.org, пока грейдер ходит на стенд.
+from stepik_grader.core import stepik_client
 from stepik_grader.core.diag_log import DIAGNOSTICS_DIR, configure_diagnostics, get_logger, redact
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
-from stepik_grader.core.stepik_client import API_HOST
 from stepik_grader.downloader import parse_stepik_step_url
 
 __all__ = [
@@ -124,7 +127,7 @@ def api_get(session: requests.Session, url: str) -> dict[str, Any]:
 
 def get_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]:
     """Получить данные урока по lesson_id."""
-    data = api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
+    data = api_get(session, f"{stepik_client.API_HOST}/api/lessons/{lesson_id}")
     lessons = data.get("lessons", [])
     if not lessons:
         raise ValueError(f"API не вернул lesson для id={lesson_id}")
@@ -134,7 +137,7 @@ def get_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]
 
 def get_step_data(session: requests.Session, step_id: int) -> dict[str, Any]:
     """Получить данные шага по step_id."""
-    data = api_get(session, f"{API_HOST}/api/steps/{step_id}")
+    data = api_get(session, f"{stepik_client.API_HOST}/api/steps/{step_id}")
     steps = data.get("steps", [])
     if not steps:
         raise ValueError(f"API не вернул step для step_id={step_id}")

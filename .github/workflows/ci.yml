@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # issue #988: без списка типов GitHub берёт дефолт `opened, synchronize,
+    # reopened` — `ready_for_review` в него НЕ входит. PR, созданный черновиком,
+    # оставался вовсе без проверок: ни при создании, ни после снятия черновика,
+    # пока в ветку не запушат новый коммит. Проверено на живых PR этого
+    # репозитория — прогон стартовал только после `git push`, а снятие черновика
+    # и переоткрытие PR не давали ничего.
+    types: [opened, synchronize, reopened, ready_for_review]
 
 # issue #1036 (находки REL-1-02/STR-2-01 аудита 2026-08-10): один прогон на
 # ветку. Без группы каждый пуш и каждое обновление PR запускали ПОЛНУЮ матрицу
@@ -50,6 +57,11 @@ jobs:
       # Тоже чистый stdlib, поэтому живёт в этом же быстром job'е.
       - name: Web module import guardrails (issue #855)
         run: python scripts/check_web_imports.py
+      # issue #988: ошибка в workflow не видна ни линтеру, ни тестам — она
+      # проявляется один раз, в момент релиза, и стоит невозвратно (версия в
+      # PyPI неперезаписываема). Проверка на чистом stdlib, поэтому живёт здесь.
+      - name: Workflow guardrails (issue #988)
+        run: python scripts/check_workflow_guardrails.py
       # issue #997: выдуманный абсолютный путь в argv теста работает с настоящим
       # диском. `--root /some/dir` создал на машине разработчика C:\some\dir с
       # .grader_settings.json, и тот файл через месяц уронил этот же тест —
@@ -518,5 +530,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install . pip-audit
+      # issue #988 (REV-4-06): «краснеет в логах» — слишком слабый сигнал. Job
+      # объявлен continue-on-error, поэтому его провал не виден ни в статусе PR,
+      # ни в списке проверок: чтобы узнать про найденную CVE, надо было открыть
+      # лог именно этого job'а и дочитать его. Аннотация ::warning:: всплывает в
+      # сводке прогона и в интерфейсе PR — тот же не-блокирующий сигнал, но
+      # замеченный. Блокировать по-прежнему не блокируем осознанно: новая CVE в
+      # транзитивной зависимости не должна валить несвязанный чужой PR.
       - name: pip-audit (informational, non-blocking)
-        run: pip-audit --skip-editable
+        # Без пайпа намеренно: за `|` код возврата берётся от последней команды
+        # конвейера, и `pip-audit | tee` вернул бы успех даже на находке.
+        run: |
+          if ! pip-audit --skip-editable --progress-spinner=off; then
+            echo "::warning title=pip-audit::Найдена уязвимость в runtime-замыкании — см. лог job'а supply-chain и docs/dev/supply-chain.md"
+            exit 1
+          fi

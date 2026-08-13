@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import json
+import pathlib
 from unittest.mock import patch
 
 import pytest
 
 from stepik_grader import cli
-from stepik_grader.core import history, history_recording
+from stepik_grader.core import history, history_recording, progress_export
 from stepik_grader.core.history import CaseRecord
 from stepik_grader.core.lint import ruff_available
 
@@ -86,3 +88,68 @@ def test_no_lint_flag_no_style_block(tmp_path, monkeypatch, capsys) -> None:
     cli.main(["--mode", "1", "--file", str(tmp_path / "sol.py")])  # без --lint
     out = capsys.readouterr().out
     assert "Стиль" not in out
+
+
+# ---------------------------------------------------------------------------
+# История как машинный интерфейс — issue #997 (VIS-1-03, COM-1-07)
+# ---------------------------------------------------------------------------
+
+
+class TestHistoryMachineReadable:
+    """--insights уважает --output json, --export-progress умеет json."""
+
+    def _history_with_one_run(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        """Прогон с падением → в истории есть и карточка, и задача."""
+        task = tmp_path / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("11", encoding="utf-8")
+        return task
+
+    def test_insights_json_is_parseable(self, tmp_path, monkeypatch, capsys):
+        """VIS-1-03: сводку можно забрать скриптом, а не парсингом таблиц rich."""
+        task = self._history_with_one_run(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--history"])
+        capsys.readouterr()
+
+        cli.main(["--insights", "--output", "json"])
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["schema"] == cli.INSIGHTS_SCHEMA
+        assert [card["key"] for card in payload["cards"]] == ["wrong-answer"]
+        assert payload["tasks"][0]["task_key"] == "task1"
+        assert payload["tasks"][0]["solved"] is False
+
+    def test_insights_json_on_empty_history_is_still_json(self, tmp_path, monkeypatch, capsys):
+        """Пустая история — объект с пустыми списками, а не русская проза."""
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--insights", "--output", "json"])
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["cards"] == [] and payload["tasks"] == []
+
+    def test_insights_text_output_unchanged(self, tmp_path, monkeypatch, capsys):
+        """Регрессия: без --output json печатается прежний человекочитаемый текст."""
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--insights"])
+
+        out = capsys.readouterr().out
+        assert out.strip() and not out.lstrip().startswith("{")
+
+    def test_export_progress_json_has_stable_schema(self, tmp_path, monkeypatch, capsys):
+        """COM-1-07: прогресс сводится по группе без разбора вёрстки отчёта."""
+        task = self._history_with_one_run(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--history"])
+        capsys.readouterr()
+
+        cli.main(["--export-progress", "json"])
+
+        exported = json.loads((tmp_path / "grader-progress.json").read_text(encoding="utf-8"))
+        assert exported["schema"] == progress_export.SCHEMA
+        assert exported["tasks"][0]["task_key"] == "task1"
+        assert exported["verdicts"] == {"WA": 1}

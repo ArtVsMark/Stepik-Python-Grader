@@ -191,10 +191,19 @@ class TestExternalDownloadSizeLimit:
     """
 
     def _response(self, *, body: bytes, declared: str | None = None) -> MagicMock:
+        """Мок ответа, отдающий тело потоково (issue #997).
+
+        Тело больше не читается целиком до проверки размера, поэтому мок обязан
+        вести себя как настоящий ``Response`` со ``stream=True``: иначе тест
+        проверял бы путь, которого в коде нет.
+        """
         resp = MagicMock()
         resp.is_redirect = False
-        resp.content = body
         resp.headers = {} if declared is None else {"Content-Length": declared}
+        chunk = 256 * 1024
+        resp.iter_content = lambda chunk_size=chunk: iter(
+            [body[i : i + (chunk_size or chunk)] for i in range(0, len(body), chunk_size or chunk)]
+        )
         return resp
 
     def test_oversized_content_length_is_rejected(self) -> None:
@@ -217,6 +226,41 @@ class TestExternalDownloadSizeLimit:
             pytest.raises(ExternalUrlRejected, match="слишком велик"),
         ):
             external_download_get("https://github.com/o/r/big.zip")
+
+    def test_oversized_body_is_cut_off_mid_stream(self) -> None:
+        """issue #997 (DEV-3-05, REV-3-03): чтение обрывается на превышении.
+
+        Прежде размер проверялся через ``len(response.content)`` — то есть уже
+        после того, как весь ответ оказывался в памяти, и защита работала ровно
+        в том случае, который и так объявлен честным ``Content-Length``. Здесь
+        заголовка нет, а тело «бесконечное»: тест проверяет, что чтение
+        прекратилось, а не что исключение возникло когда-нибудь потом.
+        """
+        chunk = b"A" * (1024 * 1024)
+        served: list[int] = []
+
+        def _endless(chunk_size: int | None = None) -> object:
+            while True:
+                served.append(len(chunk))
+                yield chunk
+
+        resp = MagicMock()
+        resp.is_redirect = False
+        resp.headers = {}
+        resp.iter_content = _endless
+        session = MagicMock()
+        session.get.return_value = resp
+
+        with (
+            patch("requests.Session", return_value=session),
+            pytest.raises(ExternalUrlRejected, match="слишком велик"),
+        ):
+            external_download_get("https://github.com/o/r/endless.zip")
+
+        # 64 МБ лимита при мегабайтном чанке — не больше 65 итераций; главное,
+        # что поток остановлен, а не прочитан до конца (его конца нет).
+        assert len(served) <= 66
+        resp.close.assert_called_once()
 
     def test_normal_body_passes(self) -> None:
         """Контроль: обычный архив тест-кейсов лимит не задевает."""

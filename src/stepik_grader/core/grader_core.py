@@ -408,11 +408,43 @@ def _prepare_run_spec(
             measure_memory=measure_memory,
             max_memory_mb=mem_cap,
             max_output_bytes=get_config().max_output_bytes,
+            # issue #992 (SBX-1-01/SBX-1-02): под изоляцией внутрь попадает
+            # только то, что отдали в spec. Обёртка обязана сохранить своё имя —
+            # положенная под именем модуля решения, она импортировала саму себя
+            # («cannot import name ... from partially initialized module») и
+            # роняла ВСЕ function-кейсы верного решения. Рядом кладётся сам
+            # модуль решения и его соседи: вне изоляции они доступны по
+            # исходному пути, внутри — только так.
+            script_name=wrapper_path.name,
+            aux_files=_solution_aux_files(solution_path),
             cancel_event=cancel_event,
         ),
         tmp_wrapper_path=wrapper_path,
         tmp_wrapper_dir=wrapper_dir,
     )
+
+
+def _solution_aux_files(solution_path: pathlib.Path) -> tuple[tuple[str, bytes], ...]:
+    """Модуль решения и соседние ``*.py`` для переноса внутрь изоляции (issue #992).
+
+    Обёртка импортирует решение, а решение — соседние модули своей папки
+    (``helpers.py`` рядом с ``solution.py``). Вне изоляции они доступны по
+    исходному пути; внутри видно только то, что материализовано в рабочем
+    каталоге, — поэтому список собирается явно.
+
+    Берутся только ``*.py`` верхнего уровня папки решения: пакеты и данные —
+    отдельный разговор, а тянуть внутрь всё подряд означало бы копировать в
+    изоляцию произвольные файлы пользователя. Нечитаемый файл пропускается —
+    он и так не помог бы решению, а падать на подготовке из-за чужого файла
+    рядом нельзя.
+    """
+    aux: list[tuple[str, bytes]] = []
+    for candidate in sorted(solution_path.parent.glob("*.py")):
+        try:
+            aux.append((candidate.name, candidate.read_bytes()))
+        except OSError:
+            continue
+    return tuple(aux)
 
 
 def _map_outcome_to_result(

@@ -1,5 +1,7 @@
 {
+  "insights_source": "  Источник: {path} · прогонов в окне: {runs} из {window}",
   "path_not_found": "Путь не найден: {path}",
+  "profile_unknown_default_used": "  Профиля «{value}» нет — использую профиль {default}.",
   "solutions_not_found": "Решения не найдены в: {path}",
   "folder_not_found": "Папка не найдена: {path}",
   "file_read_failed": "Не удалось прочитать файл: {error}",
@@ -164,6 +166,10 @@
   "dl_arg_url": "URL шага Stepik (можно несколько; без аргументов URL спрашиваются по одному).",
   "dl_arg_lang": "Язык сообщений: ru или en (по умолчанию ru).",
   "dl_auth_failed": "❌ Не удалось авторизоваться в Stepik: {error}",
+  "dl_auth_network": "❌ Не удалось связаться со Stepik: {error}",
+  "dl_auth_network_hint": "   Учётные данные тут ни при чём: проверьте интернет-соединение, VPN и прокси, затем повторите.",
+  "dl_auth_port_busy": "❌ Не удалось начать авторизацию: {error}",
+  "dl_auth_port_busy_hint": "   Учётные данные тут ни при чём: порт колбэка занят. Закройте программу, слушающую этот порт, или задайте свободный redirect_uri.",
   "dl_auth_check_fields": "   Проверьте client_id / client_secret / redirect_uri в secrets.json — они должны совпадать с полями OAuth-приложения ({url}).",
   "dl_auth_diagnostics": "   Диагностика токена:  python -m stepik_grader.diagnostic_stepik",
   "dl_auth_docs": "   Подробнее об OAuth:  docs/use/installation.md",

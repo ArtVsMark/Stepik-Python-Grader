@@ -1,5 +1,7 @@
 {
+  "insights_source": "  Source: {path} · runs in window: {runs} of {window}",
   "path_not_found": "Path not found: {path}",
+  "profile_unknown_default_used": "  No profile «{value}» — using profile {default}.",
   "solutions_not_found": "No solutions found in: {path}",
   "folder_not_found": "Folder not found: {path}",
   "file_read_failed": "Failed to read file: {error}",
@@ -164,6 +166,10 @@
   "dl_arg_url": "Stepik step URL (repeatable; without arguments URLs are asked one by one).",
   "dl_arg_lang": "Message language: ru or en (default: ru).",
   "dl_auth_failed": "❌ Failed to authorize with Stepik: {error}",
+  "dl_auth_network": "❌ Could not reach Stepik: {error}",
+  "dl_auth_network_hint": "   Credentials are not the issue: check your internet connection, VPN and proxy, then retry.",
+  "dl_auth_port_busy": "❌ Could not start authorization: {error}",
+  "dl_auth_port_busy_hint": "   Credentials are not the issue: the callback port is busy. Close the program listening on it, or set a free redirect_uri.",
   "dl_auth_check_fields": "   Check client_id / client_secret / redirect_uri in secrets.json — they must match the fields of your OAuth application ({url}).",
   "dl_auth_diagnostics": "   Token diagnostics:  python -m stepik_grader.diagnostic_stepik",
   "dl_auth_docs": "   More about OAuth:   docs/use/installation.md",

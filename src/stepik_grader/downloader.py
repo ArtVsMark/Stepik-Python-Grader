@@ -36,7 +36,12 @@ import requests
 from stepik_grader import downloader_config
 from stepik_grader.core.diag_log import configure_diagnostics, get_logger
 from stepik_grader.core.i18n import load_locale_messages
-from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
+from stepik_grader.core.oauth_flow import (
+    OAuthCallbackPortBusy,
+    StepikNetworkError,
+    create_user_session,
+    load_secrets_dict,
+)
 from stepik_grader.core.step_content import (
     extract_function_name,
     extract_python_code,
@@ -478,6 +483,21 @@ def _download(lang: str, urls: list[str] | None) -> tuple[list[pathlib.Path], in
     try:
         secrets = load_secrets_dict(secrets_path)
         session = create_user_session(secrets, secrets_path)
+    except OAuthCallbackPortBusy as error:
+        # issue #997 (JRN-3A-04): занятый порт колбэка приходил сюда обычным
+        # OSError и получал совет «проверьте client_id / client_secret» —
+        # пользователь правил заведомо исправные учётные данные.
+        _log.exception("порт колбэка OAuth занят (secrets=%s)", secrets_path)
+        _print(_t("dl_auth_port_busy", error=error))
+        _print(_t("dl_auth_port_busy_hint"))
+        _print(_t("dl_auth_diagnostics"))
+        return [], 1
+    except StepikNetworkError as error:
+        # issue #997 (DEV-3-06): обрыв сети — не отказ авторизации.
+        _log.exception("нет связи со Stepik (secrets=%s)", secrets_path)
+        _print(_t("dl_auth_network", error=error))
+        _print(_t("dl_auth_network_hint"))
+        return [], 1
     except Exception as error:
         _log.exception("сбой авторизации Stepik (secrets=%s)", secrets_path)
         # issue #433: дружелюбная ошибка со следующим шагом, а не голый текст.

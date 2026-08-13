@@ -37,6 +37,8 @@ from stepik_grader.core.oauth_flow import (
     wait_for_auth_code,
 )
 from stepik_grader.core.stepik_client import (
+    OAuthCallbackPortBusy,
+    StepikNetworkError,
     _make_oauth_handler,
     create_user_session,
     refresh_access_token,
@@ -343,13 +345,14 @@ class TestRefreshAccessToken:
             "expires_in": 3600,
         }
         with patch(
-            "stepik_grader.core.stepik_client.requests.post", return_value=mock_resp
+            "stepik_grader.core.stepik_client._token_session",
+            return_value=MagicMock(post=MagicMock(return_value=mock_resp)),
         ) as mock_post:
             result = refresh_access_token("cid", "csecret", "old_refresh")
         assert result["access_token"] == "new_access"
-        called_url = mock_post.call_args[0][0]
+        called_url = mock_post.return_value.post.call_args[0][0]
         assert called_url.endswith("/oauth2/token/")
-        sent_data = mock_post.call_args.kwargs["data"]
+        sent_data = mock_post.return_value.post.call_args.kwargs["data"]
         assert sent_data["grant_type"] == "refresh_token"
         assert sent_data["refresh_token"] == "old_refresh"
 
@@ -445,6 +448,108 @@ class TestRefreshAccessToken:
         assert session.headers["Authorization"] == "Bearer browser_access"
         saved = json.loads(secrets_path.read_text(encoding="utf-8"))
         assert saved["access_token"] == "browser_access"
+
+
+# ---------------------------------------------------------------------------
+# Настоящая причина отказа — issue #997 (JRN-3A-04, DEV-3-06)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthFailureReasons:
+    """Занятый порт и обрыв сети называют себя, а не «неверные учётные данные»."""
+
+    def test_busy_callback_port_raises_dedicated_error(self):
+        """Занятый порт колбэка → OAuthCallbackPortBusy с номером порта."""
+        with patch(
+            "stepik_grader.core.stepik_client._OAuthHTTPServer",
+            side_effect=OSError(48, "Address already in use"),
+        ):
+            with pytest.raises(OAuthCallbackPortBusy) as excinfo:
+                wait_for_auth_code("localhost", 8080, "/callback", "state")
+
+        message = str(excinfo.value)
+        assert "8080" in message
+        assert "redirect_uri" in message
+
+    def test_network_failure_during_refresh_is_not_credentials_error(self, tmp_path):
+        """Обрыв связи при refresh → StepikNetworkError, браузер НЕ открывается."""
+        secrets_path = tmp_path / "secrets.json"
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "access_token": "",
+            "refresh_token": "live_refresh",
+            "expires_at": 0,
+        }
+        secrets_path.write_text(json.dumps(secrets), encoding="utf-8")
+
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.refresh_access_token",
+                side_effect=requests.ConnectionError("dns failure"),
+            ),
+            patch(
+                "stepik_grader.core.stepik_client.authorize_via_browser",
+            ) as mock_authorize,
+        ):
+            with pytest.raises(StepikNetworkError) as excinfo:
+                create_user_session(secrets, secrets_path)
+
+        mock_authorize.assert_not_called()
+        assert "Stepik" in str(excinfo.value)
+
+    def test_timeout_during_refresh_is_network_error(self, tmp_path):
+        """Таймаут — тот же класс причины, что и обрыв связи."""
+        secrets_path = tmp_path / "secrets.json"
+        secrets_path.write_text(
+            json.dumps(
+                {
+                    "client_id": "cid",
+                    "client_secret": "csecret",
+                    "redirect_uri": "http://localhost:8080/callback",
+                    "refresh_token": "live_refresh",
+                    "expires_at": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with patch(
+            "stepik_grader.core.stepik_client.refresh_access_token",
+            side_effect=requests.Timeout("too slow"),
+        ):
+            with pytest.raises(StepikNetworkError):
+                create_user_session(
+                    json.loads(secrets_path.read_text(encoding="utf-8")), secrets_path
+                )
+
+    def test_http_error_still_falls_back_to_browser(self, tmp_path):
+        """Регрессия: истёкший refresh по-прежнему уходит в браузер, а не в ошибку."""
+        secrets_path = tmp_path / "secrets.json"
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "refresh_token": "stale",
+            "expires_at": 0,
+        }
+        secrets_path.write_text(json.dumps(secrets), encoding="utf-8")
+
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.refresh_access_token",
+                side_effect=requests.HTTPError("expired"),
+            ),
+            patch(
+                "stepik_grader.core.stepik_client.authorize_via_browser",
+                return_value={"access_token": "browser_access", "expires_at": time.time() + 60},
+            ) as mock_authorize,
+        ):
+            session = create_user_session(secrets, secrets_path)
+
+        mock_authorize.assert_called_once()
+        assert session.headers["Authorization"] == "Bearer browser_access"
 
 
 # ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from stepik_grader import downloader
+from stepik_grader.core.oauth_flow import OAuthCallbackPortBusy, StepikNetworkError
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.downloader import build_task_directory, save_task_files
 
@@ -389,6 +390,53 @@ class TestMain:
         out = capsys.readouterr().out
         assert "diagnostic_stepik" in out  # следующий шаг, а не голый текст ошибки
         assert downloader.STEPIK_OAUTH_APPS_URL in out
+
+    def test_busy_port_does_not_blame_credentials(self, tmp_path: pathlib.Path, capsys):
+        """Занятый порт колбэка → подсказка про порт, БЕЗ совета про client_id.
+
+        issue #997 (JRN-3A-04): раньше OSError «Address already in use» доходил
+        до общего обработчика, и пользователь правил исправные учётные данные.
+        """
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch(
+                "stepik_grader.downloader.create_user_session",
+                side_effect=OAuthCallbackPortBusy("Порт 8080 занят другим процессом"),
+            ),
+            patch("builtins.input") as mock_input,
+        ):
+            downloader.main()
+
+        mock_input.assert_not_called()
+        # rich переносит длинные подсказки — склеиваем строки перед проверкой
+        out = capsys.readouterr().out.replace("\n", "")
+        assert "8080" in out
+        assert "redirect_uri" in out
+        assert "client_secret" not in out
+        assert downloader.STEPIK_OAUTH_APPS_URL not in out
+
+    def test_network_failure_does_not_blame_credentials(self, tmp_path: pathlib.Path, capsys):
+        """Обрыв связи → подсказка про сеть, БЕЗ совета про client_id (DEV-3-06)."""
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch(
+                "stepik_grader.downloader.create_user_session",
+                side_effect=StepikNetworkError("Нет связи со Stepik (dns failure)"),
+            ),
+            patch("builtins.input") as mock_input,
+        ):
+            downloader.main()
+
+        mock_input.assert_not_called()
+        out = capsys.readouterr().out.replace("\n", "")
+        assert "client_secret" not in out
+        assert downloader.STEPIK_OAUTH_APPS_URL not in out
 
     def test_processes_urls_until_blank(self, tmp_path: pathlib.Path):
         """Цикл обрабатывает URL пока не введена пустая строка."""

@@ -76,3 +76,18 @@ def write_vscode_tasks(
         encoding="utf-8",
     )
     return True, path
+
+
+if __name__ == "__main__":  # pragma: no cover - точка входа
+    # issue #997 (INS-3-04): ``python -m stepik_grader.ide`` был тихим no-op с
+    # кодом 0 — команда «отработала», ``.vscode/tasks.json`` не появился, и
+    # понять почему было неоткуда. Модуль остаётся библиотекой, но запуск
+    # напрямую честно говорит, чем его заменить, и уходит с ненулевым кодом.
+    import sys
+
+    print(
+        "stepik_grader.ide — библиотечный модуль, а не команда.\n"
+        "Чтобы создать .vscode/tasks.json:  stepik-grader --init-vscode",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
