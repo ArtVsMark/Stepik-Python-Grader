@@ -78,6 +78,56 @@ def test_warmup_applied_in_bench_script() -> None:
     assert script.index("_timeit.timeit(") < script.index("_tm.start()")
 
 
+def test_timing_run_is_outside_tracemalloc() -> None:
+    """Замер времени НЕ идёт под профилировщиком памяти (issue #956).
+
+    `tracemalloc` берёт плату пропорционально числу аллокаций, поэтому под ним
+    решение, активнее работающее со структурами данных, выглядит медленнее
+    независимо от реальной скорости — режим 4 ранжировал решения наоборот.
+    Порядок починен в #991, но гейта на него не было: возврат `_tm.start()`
+    выше замера тесты не заметили бы, а сам дефект виден только на сравнении
+    двух решений, то есть у пользователя.
+    """
+    from stepik_grader.core.microbench_runner import _build_bench_script
+
+    script = _build_bench_script("x = [i for i in range(1000)]\n", stdin_data="", number=10)
+
+    repeat_at = script.index("_timeit.repeat(")
+    start_at = script.index("_tm.start()")
+    stop_at = script.index("_tm.stop()")
+    assert start_at < stop_at, "профилировщик должен открываться и закрываться"
+    assert not (start_at < repeat_at < stop_at), (
+        "замер времени оказался между _tm.start() и _tm.stop(): накладные расходы "
+        "tracemalloc снова штрафуют решения по числу аллокаций"
+    )
+
+
+def test_memory_pass_stays_under_tracemalloc() -> None:
+    """Пик памяти по-прежнему меряется — отдельным прогоном под профилировщиком."""
+    from stepik_grader.core.microbench_runner import _build_bench_script
+
+    script = _build_bench_script("x = 1\n", stdin_data="", number=10)
+
+    start_at = script.index("_tm.start()")
+    stop_at = script.index("_tm.stop()")
+    measure_at = script.index("_tm.get_traced_memory()")
+    assert start_at < measure_at < stop_at, "пик памяти снимается внутри окна профилировщика"
+    assert "print('MEM:' + str(_peak_bytes))" in script
+
+
+def test_peak_memory_survives_the_split_run() -> None:
+    """Строка `MEM:` доезжает до результата живым прогоном (issue #956).
+
+    Разделение проходов трогает формат stdout bench-скрипта, а его разбирает
+    `run_microbench`. Регресс здесь выглядел бы безобидно — «память просто 0» —
+    и молча обнулял бы половину сравнения решений.
+    """
+    result = run_microbench("data = [i * i for i in range(20000)]\n", number=1)
+
+    assert not result["error"]
+    assert result["peak_memory_mb"] > 0, "пик памяти обнулился — строка MEM: не разобралась"
+
+
 def test_run_microbench_with_input() -> None:
     """Решение использующее input() корректно работает с stdin."""
     result = run_microbench("n = int(input())\nprint(n * 2)\n", stdin_data="5\n", number=20)
