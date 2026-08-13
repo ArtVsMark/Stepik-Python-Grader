@@ -649,8 +649,9 @@ issue на билд нет — направление держит только 
 > источник покрытия — два бейджа в README (single-OS `coverage.json` + cross-OS
 > `coverage-combined.json`, обновляются CI каждый прогон); карточки глоссария
 > считает `scripts/generate_glossary_badge.py`, сверить локально —
-> `python -m stepik_grader.glossary.coverage --cards src/stepik_grader/glossary/data`
-> (без `--cards` база не подхватится и отчёт покажет 0/909). Исключение одно:
+> `python -m stepik_grader.glossary.coverage` (встроенная база берётся по
+> умолчанию; `--cards` нужен только для сторонней базы, `--empty-base` —
+> посчитать «с нуля»). Исключение одно:
 > строка `| Версия | X.Y.Z |` — её проверяет
 > `scripts/check_version_consistency.py` (мягкое предупреждение при расхождении
 > с последним git-тегом; обновлять при релизе MINOR). Эволюция метрик по
