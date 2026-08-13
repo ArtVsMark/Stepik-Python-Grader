@@ -224,3 +224,47 @@ class TestQuotaKillRecognition:
 
         assert _killed_by(1, signal.SIGXCPU) is False
         assert _killed_by(0, signal.SIGXCPU) is False
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="маска site-packages — bwrap-специфика")
+class TestSitePackagesIsolation:
+    """Решению не видны зависимости грейдера (issue #986, SEC-2-02/CANON-2-01).
+
+    Обещание заявлено трижды — флагом `supports_project_imports = False` в самом
+    backend'е и дважды в SECURITY.md, — а изоляция монтировала дерево
+    интерпретатора целиком вместе с venv. Вред двойной: изоляция слабее
+    написанного, и решение, случайно опершееся на сторонний пакет, проходит
+    локально, чтобы упасть `ImportError` на Stepik.
+    """
+
+    def test_project_dependency_is_not_importable(self) -> None:
+        from stepik_grader.core.runner import RunSpec
+
+        probe = b"import requests\nprint(requests.__file__)\n"
+
+        outcome = _sandbox_or_skip().run(RunSpec(path=None, code=probe, stdin=None, timeout=10.0))
+
+        assert b"ModuleNotFoundError" in outcome.stderr or b"ImportError" in outcome.stderr
+        assert b"site-packages" not in outcome.stdout
+
+    def test_stdlib_still_works(self) -> None:
+        """Маска не должна задевать stdlib — он живёт вне venv."""
+        from stepik_grader.core.runner import RunSpec
+
+        probe = b"import json, math\nprint(json.dumps({'x': math.floor(2.7)}))\n"
+
+        outcome = _sandbox_or_skip().run(RunSpec(path=None, code=probe, stdin=None, timeout=10.0))
+
+        assert outcome.stdout.strip() == b'{"x": 2}'
+        assert outcome.returncode == 0
+
+    def test_mask_targets_only_paths_inside_mounted_trees(self) -> None:
+        """bwrap отвергает --tmpfs на несмонтированной точке — такие пути пропускаются."""
+        from stepik_grader.core.sandbox._linux import _python_tree_binds, _site_packages_mask_args
+
+        args = _site_packages_mask_args()
+        trees = _python_tree_binds()
+
+        assert args[::2] == ["--tmpfs"] * (len(args) // 2)
+        for path in args[1::2]:
+            assert any(path.startswith(tree) for tree in trees), path
