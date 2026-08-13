@@ -351,13 +351,25 @@ class _FakeController:
         self._status = ServerStatus(state=state, url=url)
         self.host = DEFAULT_HOST
         self.started: list[tuple[int, bool, Path]] = []
+        # issue #1131: выбор языка и записи истории — отдельно от прежнего
+        # кортежа, чтобы существующие проверки start-аргументов не переписывать.
+        self.choices: list[tuple[str | None, bool | None]] = []
         self.stopped = 0
 
     def snapshot(self) -> ServerStatus:
         return self._status
 
-    def start(self, port: int, *, sandbox: bool, workdir: Path) -> None:
+    def start(
+        self,
+        port: int,
+        *,
+        sandbox: bool,
+        workdir: Path,
+        lang: str | None = None,
+        record_history: bool | None = None,
+    ) -> None:
         self.started.append((port, sandbox, workdir))
+        self.choices.append((lang, record_history))
 
     def stop(self) -> None:
         self.stopped += 1
@@ -391,6 +403,40 @@ class TestGuiHandlers:
         app.sandbox_var.set(True)
         app._on_action()
         assert fake.started and fake.started[0][1] is True
+
+    def test_untouched_choices_stay_inherited(self, tk_window) -> None:
+        """issue #1131: нетронутые контролы уходят как «не выбирал», а не как дефолт.
+
+        Инвариант ADR-0012: только тогда настройка из `pyproject.toml` продолжает
+        действовать, а профиль не замораживает дефолты дня своего создания.
+        """
+        fake = _FakeController(ServerState.STOPPED)
+        app = LauncherApp(tk_window, fake)
+        app.port_var.set(str(_free_port()))
+
+        app._on_action()
+
+        assert fake.choices[0][1] is None  # запись истории — «как в настройках»
+
+    def test_history_choice_reaches_the_controller(self, tk_window) -> None:
+        """Выбранное «выключить» доезжает до команды, а не теряется в окне."""
+        fake = _FakeController(ServerState.STOPPED)
+        app = LauncherApp(tk_window, fake)
+        app.port_var.set(str(_free_port()))
+        app.history_var.set(app._t("launcher_history_off"))
+
+        app._on_action()
+
+        assert fake.choices[0][1] is False
+
+    def test_command_preview_shows_what_will_run(self, tk_window) -> None:
+        """Предпросмотр показывает реальную команду, а не приблизительную."""
+        app = LauncherApp(tk_window, _FakeController())
+        app.sandbox_var.set(True)
+
+        preview = app.command_var.get()
+
+        assert "--serve" in preview and "--sandbox" in preview
 
     def test_on_action_stops_when_running(self, tk_window) -> None:
         fake = _FakeController(ServerState.RUNNING)
