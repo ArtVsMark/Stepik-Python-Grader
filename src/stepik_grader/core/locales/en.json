@@ -306,7 +306,7 @@
   "server_workspace_confined": "   Working directory: {workspace}  (paths outside it are rejected with 403)",
   "server_workspace_unconfined": "   Working directory: {workspace}  (path confinement DISABLED via --no-root-confinement — any path on disk is accessible)",
   "solutions_not_found": "No solutions found in: {path}",
-  "source_not_a_solution": "Source view is limited to solution files (.py); requested: {name}",
+  "source_not_a_solution": "This operation is limited to solution files (.py); requested: {name}",
   "specify_code": "Specify code (a string).",
   "specify_folder": "Specify a folder.",
   "specify_oauth_creds": "Provide client_id and client_secret.",
