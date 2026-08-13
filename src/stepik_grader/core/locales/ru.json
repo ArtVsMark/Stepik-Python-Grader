@@ -306,7 +306,7 @@
   "server_workspace_confined": "   Рабочая директория: {workspace}  (пути вне неё отклоняются 403)",
   "server_workspace_unconfined": "   Рабочая директория: {workspace}  (конфайнмент путей ОТКЛЮЧЁН --no-root-confinement — доступен любой путь на диске)",
   "solutions_not_found": "Решения не найдены в: {path}",
-  "source_not_a_solution": "Показ исходника доступен только для файлов решений (.py); запрошено: {name}",
+  "source_not_a_solution": "Операция доступна только для файлов решений (.py); запрошено: {name}",
   "specify_code": "Укажите code (строка).",
   "specify_folder": "Укажите папку.",
   "specify_oauth_creds": "Укажите client_id и client_secret.",

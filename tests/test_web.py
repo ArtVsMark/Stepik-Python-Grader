@@ -1123,6 +1123,44 @@ class TestSecurityHeaders:
         assert data["message_id"] == "source_not_a_solution"
         assert b"SECRET-XYZ" not in body
 
+    def test_api_save_solution_refuses_non_python_target(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """issue #963 (SEC-1-03): ручка сохраняет РЕШЕНИЕ, а не любой файл.
+
+        Замерено до фикса живым сервером: `path=secrets.json` возвращал 200 и
+        затирал токен Stepik текстом решения. Optimistic-lock не мешал — без
+        `expected_mtime` проверки нет вовсе.
+        """
+        secrets = tmp_path / "secrets.json"
+        secrets.write_text('{"client_secret": "SECRET-XYZ"}', encoding="utf-8")
+        payload = json.dumps(
+            {"folder": str(tmp_path), "path": str(secrets), "code": "print(1)"}
+        ).encode()
+
+        status, body = _post(server + "/api/save-solution", payload)
+
+        assert status == 403
+        assert json.loads(body)["message_id"] == "source_not_a_solution"
+        assert "SECRET-XYZ" in secrets.read_text(encoding="utf-8"), "файл затёрт"
+
+    def test_api_hint_refuses_non_python_path(self, server: str, tmp_path: pathlib.Path) -> None:
+        """issue #963 (SEC-1-01): здесь файл не показывается, а увозится наружу.
+
+        Содержимое `path` уходит в промпт внешнему AI-провайдеру, и следов в
+        интерфейсе не остаётся — в ответе только подсказка. Гейт обязан стоять
+        до чтения файла, а не после.
+        """
+        secrets = tmp_path / "secrets.json"
+        secrets.write_text('{"access_token": "SECRET-XYZ"}', encoding="utf-8")
+        payload = json.dumps({"verdict": "WA", "path": str(secrets), "consent": True}).encode()
+
+        status, body = _post(server + "/api/v1/hint", payload)
+
+        assert status == 403
+        assert json.loads(body)["message_id"] == "source_not_a_solution"
+        assert b"SECRET-XYZ" not in body
+
     def test_api_source_still_reads_uppercase_py(self, server: str, tmp_path: pathlib.Path) -> None:
         """Фильтр по расширению регистронезависим — ``TASK.PY`` остаётся читаемым."""
         sol = tmp_path / "TASK.PY"
