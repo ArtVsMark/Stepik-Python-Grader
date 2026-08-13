@@ -108,6 +108,33 @@ class TestBuildServerCommand:
         assert "python3" not in cmd
         assert "python" not in cmd[1:]
 
+    # issue #1131 — выбор пользователя доезжает до сервера, а «не выбирал»
+    # остаётся отличимым от «выбрал то же, что дефолт» (ADR-0012).
+
+    def test_untouched_choices_add_no_flags(self) -> None:
+        """Ключевой инвариант ADR-0012: дефолты НЕ запекаются в команду.
+
+        Иначе правка `pyproject.toml` перестала бы действовать — окно
+        перекрывало бы её флагом с тем же значением, — а сохранённый профиль
+        заморозил бы дефолты того дня, когда его создали.
+        """
+        cmd = build_server_command(8000, sandbox=False, workdir=Path("/w"))
+
+        assert "--lang" not in cmd
+        assert "--history" not in cmd
+        assert "--no-history" not in cmd
+
+    def test_language_reaches_the_server(self) -> None:
+        cmd = build_server_command(8000, sandbox=False, workdir=Path("/w"), lang="en")
+        assert cmd[cmd.index("--lang") + 1] == "en"
+
+    def test_history_on_and_off_are_distinct_flags(self) -> None:
+        on = build_server_command(8000, sandbox=False, workdir=Path("/w"), record_history=True)
+        off = build_server_command(8000, sandbox=False, workdir=Path("/w"), record_history=False)
+
+        assert "--history" in on and "--no-history" not in on
+        assert "--no-history" in off and "--history" not in off
+
 
 class TestPortAvailable:
     def test_true_for_free_port(self) -> None:
@@ -164,6 +191,25 @@ class TestServerControllerLifecycle:
         controller.stop()
         assert _wait_state(controller, ServerState.STOPPED)
         assert len(calls) == 1
+
+    def test_start_passes_lang_and_history_to_the_command(self) -> None:
+        """issue #1131: выбор из окна доходит до дочернего процесса, а не теряется."""
+        port = _free_port()
+        base = _spawn_running(port)
+        calls: list[list[str]] = []
+
+        def capturing_spawn(command: list[str]) -> subprocess.Popen[str]:
+            calls.append(command)
+            return base(command)
+
+        controller = ServerController(spawn=capturing_spawn)
+        controller.start(port, sandbox=False, workdir=Path.cwd(), lang="en", record_history=False)
+        assert _wait_state(controller, ServerState.RUNNING)
+        controller.stop()
+        assert _wait_state(controller, ServerState.STOPPED)
+
+        assert calls[0][calls[0].index("--lang") + 1] == "en"
+        assert "--no-history" in calls[0]
 
     def test_stop_without_start_is_noop(self) -> None:
         controller = ServerController(spawn=_spawn_failing)
