@@ -40,6 +40,7 @@ __all__ = [
     "check_coverage_gate_is_explicit",
     "check_release_gates_match_promises",
     "check_release_pipeline",
+    "check_release_publishes_verified_assets",
     "extract_job",
     "main",
 ]
@@ -250,6 +251,41 @@ def check_coverage_gate_is_explicit(errors: list[str], source: str | None = None
     print(f"ci.yml: гейт покрытия задан явно (--cov-fail-under={threshold}).")
 
 
+def check_release_publishes_verified_assets(errors: list[str], source: str | None = None) -> None:
+    """Релиз падает при пропаже ассетов и проверяет содержимое колеса.
+
+    issue #953: обе защиты закрывают один и тот же провал — «релизный job
+    зелёный независимо от того, что опубликовалось». Пустой glob у
+    ``softprops/action-gh-release`` по умолчанию даёт релиз без единого файла
+    молча, а ``twine check`` читает метаданные и не замечает сломанный glob в
+    ``package-data`` — тесты его тоже не замечают, потому что смотрят дерево
+    исходников, а не артефакт.
+    """
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — публикация не проверена")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    found_before = len(errors)
+    if "fail_on_unmatched_files: true" not in source:
+        errors.append(
+            "release.yml: у action-gh-release нет fail_on_unmatched_files: true. "
+            "По умолчанию пустой glob публикует релиз БЕЗ файлов и оставляет job "
+            "зелёным — тег проставлен, страница видна, скачать нечего."
+        )
+
+    if "check_wheel_contents.py" not in source:
+        errors.append(
+            "release.yml: нет шага проверки содержимого колеса "
+            "(scripts/check_wheel_contents.py). Сломанный glob в package-data не виден "
+            "ни twine check, ни тестам — они читают дерево исходников, а не артефакт."
+        )
+
+    if len(errors) == found_before:
+        print("release.yml: пропажа ассетов и содержимое колеса под гейтом.")
+
+
 def main() -> int:
     """Вернуть 0, если инварианты workflow держатся; 1 — если нарушены."""
     errors: list[str] = []
@@ -258,6 +294,7 @@ def main() -> int:
     check_release_gates_match_promises(errors)
     check_ci_listens_to_ready_for_review(errors)
     check_coverage_gate_is_explicit(errors)
+    check_release_publishes_verified_assets(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)

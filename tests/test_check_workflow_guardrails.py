@@ -283,3 +283,53 @@ class TestCoverageGateIsExplicit:
         _MODULE.check_coverage_gate_is_explicit(errors)
 
         assert errors == []
+
+
+class TestReleasePublishesVerifiedAssets:
+    """Пропажа ассетов и содержимое колеса под гейтом (issue #953)."""
+
+    def test_missing_fail_on_unmatched_is_caught(self) -> None:
+        """Без флага пустой glob публикует релиз без файлов и молчит."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(
+            errors,
+            source="      - uses: softprops/action-gh-release\n        with:\n"
+            "          files: dist/*\n"
+            "      - run: python scripts/check_wheel_contents.py dist/*.whl\n",
+        )
+
+        assert any("fail_on_unmatched_files" in error for error in errors), errors
+
+    def test_missing_wheel_check_is_caught(self) -> None:
+        """Без проверки содержимого сломанный package-data уезжает на PyPI."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(
+            errors,
+            source="      - uses: softprops/action-gh-release\n        with:\n"
+            "          fail_on_unmatched_files: true\n",
+        )
+
+        assert any("check_wheel_contents" in error for error in errors), errors
+
+    def test_healthy_release_passes(self) -> None:
+        """Обе защиты на месте — претензий нет."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(
+            errors,
+            source="      - run: python scripts/check_wheel_contents.py dist/*.whl\n"
+            "      - uses: softprops/action-gh-release\n        with:\n"
+            "          fail_on_unmatched_files: true\n",
+        )
+
+        assert errors == []
+
+    def test_real_release_workflow_is_guarded(self) -> None:
+        """Guard-the-guard: настоящий release.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(errors)
+
+        assert errors == []
