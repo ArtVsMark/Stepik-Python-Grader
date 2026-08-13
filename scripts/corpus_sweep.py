@@ -219,6 +219,24 @@ def _collect_solutions(task_dir: pathlib.Path) -> tuple[pathlib.Path, ...]:
     return tuple(preferred + others)
 
 
+def _missing_attachments(task: SweepTask) -> list[str]:
+    """Имена вложений условия, которых нет на диске (issue #1112).
+
+    Источник правды — ``meta.json``: загрузчик пишет туда отчёт по каждому
+    вложению. Старые задачи, скачанные до появления отчёта, поля не имеют —
+    для них список пуст, и поведение прежнее.
+    """
+    entries = task.meta.get("attachments")
+    if not isinstance(entries, list):
+        return []
+    missing: list[str] = []
+    for entry in entries:
+        name = str(entry.get("name") or "") if isinstance(entry, dict) else ""
+        if name and not (task.task_dir / name).is_file():
+            missing.append(name)
+    return missing
+
+
 def pick_reference(
     task: SweepTask, *, timeout: float = DEFAULT_TIMEOUT
 ) -> tuple[pathlib.Path | None, str]:
@@ -239,6 +257,15 @@ def pick_reference(
         return None, "нет директории tests/"
     if not task.solutions:
         return None, "нет файлов-решений"
+
+    # issue #1112: задача с вложением условия невоспроизводима, пока файла нет
+    # рядом с решением: оно откроет его по имени и упадёт `FileNotFoundError`.
+    # Это дефицит ДАННЫХ, а не ядра, и называть его надо своим именем — иначе
+    # он приходит в отчёт как «ни одно решение не прошло тесты» и уводит разбор
+    # в ядро (ровно так и было на первом прогоне по реальной базе).
+    missing_attachments = _missing_attachments(task)
+    if missing_attachments:
+        return None, "нет вложений условия: " + ", ".join(missing_attachments)
 
     tried: list[str] = []
     for candidate in task.solutions:
