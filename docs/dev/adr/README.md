@@ -37,3 +37,4 @@ API-поверхность) нельзя закапывать в issue/PR — о
 | [0009](0009-server-data-model.md) | Единая доменная модель + PostgreSQL-надмножество SQLite для server mode (accounts/workspaces/RBAC) | Proposed |
 | [0010](0010-web-core-boundary.md) | Граница web↔core: адаптеры = сервисный слой, фасад `web/grading`, общий ContentProvider не вводим (правило трёх) | Accepted |
 | [0011](0011-local-persistence.md) | Локальная персистентность: общий top-level `db.py` (код, не единый файл), миграция только missing-queue на SQLite | Accepted |
+| [0012](0012-launcher-settings-store.md) | Настройки лаунчера хранятся в `.grader_settings.json`; `pyproject.toml` — только на чтение, флагов на каждую настройку не заводим | Accepted |
