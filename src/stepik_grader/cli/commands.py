@@ -93,6 +93,26 @@ def _has_failures(cases: Sequence[CaseResult]) -> bool:
     return any(not c.get("passed") for c in cases)
 
 
+_STATUS_BY_EXIT: dict[ExitCode, str] = {
+    ExitCode.OK: "ok",
+    ExitCode.FAILURES: "fail",
+    ExitCode.NO_TESTS: "no_tests",
+}
+
+
+def _status_for(outcome: ExitCode) -> str:
+    """Машинный статус прогона (issue #997, MTX-4-04).
+
+    В текстовой таблице «0/0» печатается как ``NO TESTS``, а машинный вывод
+    отдавал ту же ситуацию как ``total: 0, failed: 0`` — то есть без единого
+    провала. Потребитель, читающий JSON, видел успех там, где не было ни одной
+    проверки: тесты не скачались, набор пуст, а CI зеленеет.
+
+    Значение то же, что кодирует код возврата, — они не могут разойтись.
+    """
+    return _STATUS_BY_EXIT.get(outcome, "fail")
+
+
 def _outcome_for_cases(cases: Sequence[CaseResult]) -> ExitCode:
     """Код исхода по набору кейсов (issue #936).
 
@@ -464,8 +484,30 @@ def _run_tests_maybe_cached(
         return cast("SolutionResult", cached), True
 
     result = ctx.run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
-    cache.put(solution, solution_sha, tests_sha, result, env=env)
+    if _is_cacheable(result):
+        cache.put(solution, solution_sha, tests_sha, result, env=env)
     return result, False
+
+
+# Вердикты, зависящие не от кода, а от того, чем в этот момент занята машина
+# (issue #997, CNC-1-01). Кэш обещает «тот же код + те же тесты + те же условия
+# → тот же вердикт», а на TLE это неверно: параллельные прогоны на загруженной
+# машине давали одному и тому же верному решению разные вердикты, и первый же
+# TLE залипал в кэше — дальше решение «не проходило» уже без запуска, пока
+# пользователь не менял код или не чистил кэш.
+_TIME_DEPENDENT_VERDICTS = frozenset({"TLE"})
+
+
+def _is_cacheable(result: Mapping[str, Any]) -> bool:
+    """Можно ли доверить этот результат кэшу (issue #997, CNC-1-01).
+
+    Нет, если хоть один кейс упал по времени: повтор на незагруженной машине
+    дал бы другой вердикт, а кэш выдавал бы старый без запуска.
+    """
+    cases = result.get("cases") or []
+    return not any(
+        str(case.get("verdict", "")).upper() in _TIME_DEPENDENT_VERDICTS for case in cases
+    )
 
 
 def _missing_tests_hint(ctx: CliContext, solution: pathlib.Path) -> str:
@@ -615,7 +657,11 @@ def _run_mode_1(
 
     # issue #403: собрать lint один раз — и для истории, и для печати ниже.
     lint_by_sol = _collect_lint([solution]) if record_lint else None
-    if record_stats:
+    if record_stats and not from_cache:
+        # issue #997 (CNC-1-03): попадание в кэш писалось в .grader_stats.jsonl
+        # как полноценный прогон, причём с ``total_time`` из чужого,
+        # закэшированного запуска. Строка выглядела как ещё одно измерение и
+        # портила и счётчик прогонов, и любую статистику по времени.
         stats.record_run(1, _verdict_counts_from_cases(result["cases"]), result["total_time"])
     if record_history:
         history.record_run(
@@ -636,7 +682,12 @@ def _run_mode_1(
     outcome = _outcome_for_cases(result["cases"])
 
     if output == "json":
-        print(json.dumps({"file": str(solution), **result}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"file": str(solution), "status": _status_for(outcome), **result},
+                ensure_ascii=False,
+            )
+        )
         return outcome
     if output in ("csv", "markdown"):
         rows = [
@@ -650,6 +701,19 @@ def _run_mode_1(
             }
             for i, c in enumerate(result["cases"], start=1)
         ]
+        if not rows:
+            # issue #997 (MTX-4-04): пустая таблица читалась как «всё хорошо».
+            # Одна строка со статусом честнее нуля строк.
+            rows = [
+                {
+                    "index": 0,
+                    "passed": False,
+                    "verdict": _status_for(outcome).upper(),
+                    "time": 0.0,
+                    "memory": 0.0,
+                    "error": ctx.t("no_test_cases_loaded"),
+                }
+            ]
         ctx.print_tabular(output, rows, ["index", "passed", "verdict", "time", "memory", "error"])
         return outcome
 
@@ -696,6 +760,10 @@ def _run_mode_2(
 
     _print_run_profile(output)
     rows: list[tuple[pathlib.Path, SolutionResult]] = []
+    # issue #997 (CNC-1-03): в статистику идут только реально прогнанные
+    # решения. Прежде агрегат режима 2 складывал и закэшированные — вместе с
+    # их total_time из чужого запуска, который в этот раз никто не измерял.
+    measured: list[SolutionResult] = []
     machine_output = output != "text"
     cache = GraderCache() if use_cache else None
     cache_hits = 0
@@ -711,6 +779,8 @@ def _run_mode_2(
         )
         cache_hits += int(from_cache)
         rows.append((path, result))
+        if not from_cache:
+            measured.append(result)
 
     if cache is not None:
         cache.save()
@@ -720,8 +790,13 @@ def _run_mode_2(
     if record_stats or record_history:
         all_cases = [c for _, result in rows for c in result["cases"]]
         total_time = sum(result["total_time"] for _, result in rows)
-        if record_stats:
-            stats.record_run(2, _verdict_counts_from_cases(all_cases), total_time)
+        if record_stats and measured:
+            measured_cases = [c for result in measured for c in result["cases"]]
+            stats.record_run(
+                2,
+                _verdict_counts_from_cases(measured_cases),
+                sum(result["total_time"] for result in measured),
+            )
         if record_history:
             # Агрегатный прогон режима 2 → объединённые нарушения всех решений
             # (карточки «Подучить» агрегируют по rule_code, атрибуция по файлу тут
@@ -740,7 +815,18 @@ def _run_mode_2(
     outcome = _outcome_for_cases([c for _, result in rows for c in result["cases"]])
 
     if output == "json":
-        print(json.dumps({"results": {str(p): r for p, r in rows}}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "status": _status_for(outcome),
+                    "results": {
+                        str(p): {"status": _status_for(_outcome_for_cases(r["cases"])), **r}
+                        for p, r in rows
+                    },
+                },
+                ensure_ascii=False,
+            )
+        )
         return outcome
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **result} for path, result in rows]

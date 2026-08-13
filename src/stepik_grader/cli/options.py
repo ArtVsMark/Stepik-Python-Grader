@@ -223,6 +223,27 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SEC",
+        help=(
+            "Таймаут одного запуска решения в секундах — перекрывает "
+            "[tool.stepik-grader] timeout_seconds на этот запуск. Без файла "
+            "проекта (установка через pipx) это единственный способ его задать."
+        ),
+    )
+    parser.add_argument(
+        "--memory-limit",
+        type=int,
+        default=None,
+        metavar="MB",
+        help=(
+            "Лимит памяти решения в мегабайтах; 0 — снять лимит. Перекрывает "
+            "[tool.stepik-grader] max_memory_mb на этот запуск."
+        ),
+    )
+    parser.add_argument(
         "--insights",
         action="store_true",
         help=(
