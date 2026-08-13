@@ -366,7 +366,13 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
         type_file = dir_path / f"{inp_file.name}.type"
         test_type = "stdin"
         if type_file.exists():
-            raw_type = type_file.read_text(encoding=ENCODING).strip()
+            # issue #987 (REV-1-02): читаем тем же терпимым путём, что и сами
+            # тест-кейсы. Голый `read_text` ронял загрузку набора на первом же
+            # не-UTF8 байте, хотя соседний `load_text_lines` то же отклонение
+            # переживает, — и BOM от «Блокнота» оставлял `﻿function`,
+            # которое `strip()` не срезает: кейс типа `function` молча
+            # становился `stdin`, то есть верное решение получало WA.
+            raw_type = read_test_text(type_file).strip()
             if raw_type == "function":
                 test_type = "function"
 
