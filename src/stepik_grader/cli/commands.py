@@ -53,6 +53,7 @@ from stepik_grader.core.grader_core import (
 )
 from stepik_grader.core.microbench_runner import apply_relative_ranking
 from stepik_grader.core.reporter import (
+    escape_control_chars,
     print_benchmark_results,
     print_case_verbose,
     print_correctness_results,
@@ -742,6 +743,12 @@ def _run_mode_1(
         )
         return outcome
     if output in ("csv", "markdown"):
+        # issue #981: `error` — это stderr решения, а csv/markdown печатаются в
+        # терминал как есть. Без экранирования ANSI-последовательность из
+        # упавшего решения перерисовывала бы таблицу поверх напечатанного —
+        # тот же канал подделки, что закрыт в подробном отчёте. JSON-вывод
+        # экранирует управляющие символы сам (`json.dumps`), поэтому трогается
+        # только табличная ветка.
         rows = [
             {
                 "index": i,
@@ -749,7 +756,7 @@ def _run_mode_1(
                 "verdict": c.get("verdict", ""),
                 "time": c["time"],
                 "memory": c["memory"],
-                "error": c["error"],
+                "error": escape_control_chars(str(c["error"] or "")),
             }
             for i, c in enumerate(result["cases"], start=1)
         ]
