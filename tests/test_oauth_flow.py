@@ -18,9 +18,12 @@ not. Update the import lines, keep the assertions.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import socket
 import threading
 import time
+import urllib.request
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
@@ -785,3 +788,53 @@ class TestRefreshRace:
         assert session is not None
         assert session.headers["Authorization"] == "Bearer winner-token"
         mock_refresh.assert_not_called()  # обмена не было вовсе
+
+
+class TestBusyPortIsDetectedOnEveryOS:
+    """Занятый порт колбэка виден и на Windows (issue #997, JRN-3A-04).
+
+    ``HTTPServer`` ставит ``SO_REUSEADDR``, и на Windows этот флаг РАЗРЕШАЕТ
+    второй bind на уже слушаемый порт: bind проходит, колбэк уходит чужому
+    слушателю, а пользователь вместо «порт занят» ждёт таймаута «код не
+    получен». Поймано живым прогоном на Windows — на POSIX тот же код падал
+    как надо, поэтому тесты с моками проблему не показывали.
+    """
+
+    def _busy_socket(self, port: int) -> socket.socket:
+        sock = socket.socket()
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("localhost", port))
+        sock.listen(1)
+        return sock
+
+    def _free_port(self) -> int:
+        with socket.socket() as probe:
+            probe.bind(("localhost", 0))
+            return int(probe.getsockname()[1])
+
+    def test_busy_port_raises_instead_of_timing_out(self):
+        port = self._free_port()
+        holder = self._busy_socket(port)
+        try:
+            with pytest.raises(OAuthCallbackPortBusy) as excinfo:
+                wait_for_auth_code("localhost", port, "/callback", "state", timeout=1)
+        finally:
+            holder.close()
+
+        assert str(port) in str(excinfo.value)
+        assert "redirect_uri" in str(excinfo.value)
+
+    def test_free_port_still_serves_the_callback(self):
+        """Регрессия: SO_EXCLUSIVEADDRUSE не должен ломать обычный сценарий."""
+        port = self._free_port()
+
+        def knock() -> None:
+            time.sleep(0.5)
+            with contextlib.suppress(Exception):
+                urllib.request.urlopen(
+                    f"http://localhost:{port}/callback?code=ABC123&state=xyz", timeout=3
+                ).read()
+
+        threading.Thread(target=knock, daemon=True).start()
+
+        assert wait_for_auth_code("localhost", port, "/callback", "xyz", timeout=8) == "ABC123"
