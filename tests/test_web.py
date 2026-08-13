@@ -770,6 +770,7 @@ def server_factory():
         confine: bool = True,
         sandbox: bool = False,
         record_history: bool = True,
+        lang: str = "ru",
     ) -> str:
         httpd = web_server._GraderServer(
             ("127.0.0.1", 0),
@@ -778,6 +779,7 @@ def server_factory():
             confine=confine,
             sandbox=sandbox,
             record_history=record_history,
+            lang=lang,
         )
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()
@@ -883,6 +885,38 @@ class TestHttpHandler:
         page = body.decode("utf-8")
         assert 'data-sandbox="true"' in page
         assert 'data-record-history="false"' in page
+
+    def test_index_injects_start_lang_default_ru(self, server: str) -> None:
+        """issue #1131: стартовый язык страницы приходит от сервера, дефолт — ru."""
+        _, body = _get(server + "/")
+        page = body.decode("utf-8")
+        assert 'data-start-lang="ru"' in page
+        assert "__START_LANG__" not in page
+
+    def test_index_start_lang_follows_the_flag(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """`--serve --lang en` открывает английскую страницу, а не русскую.
+
+        Находка LNCH-2-05: фронт брал язык только из localStorage с откатом на
+        «ru», поэтому единственный явный выбор языка игнорировался — флаг
+        переводил сообщения API и молчал про интерфейс.
+        """
+        url = server_factory(tmp_path, lang="en")
+
+        _, body = _get(url + "/")
+
+        assert 'data-start-lang="en"' in body.decode("utf-8")
+
+    def test_index_start_lang_falls_back_on_garbage(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """Неизвестная локаль — не 500 и не пустая страница, а откат на ru."""
+        url = server_factory(tmp_path, lang="klingon")
+
+        _, body = _get(url + "/")
+
+        assert 'data-start-lang="ru"' in body.decode("utf-8")
 
     def test_index_injects_onboarding_seen_default_false(self, server: str) -> None:
         """issue #660: чистый workspace → онбординг ещё не закрыт (флаг false)."""

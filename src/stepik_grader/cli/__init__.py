@@ -779,6 +779,11 @@ def main(argv: list[str] | None = None) -> ExitCode:
                 # `--serve`. Теперь резолвер один на все поверхности, а дефолт
                 # веба передаётся параметром.
                 record_history=_resolve_record_history(args, default=True),
+                # issue #1131 (LNCH-2-05): выбранный язык доезжает до страницы.
+                # Раньше `--lang en --serve` переводил только сообщения API, а
+                # интерфейс открывался на русском — флаг молча действовал
+                # наполовину.
+                lang=args.lang,
             )
         except SandboxUnavailableError as exc:
             parser.error(_t("sandbox_unavailable", reason=str(exc)))
