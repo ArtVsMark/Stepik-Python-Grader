@@ -108,6 +108,33 @@ class TestBuildServerCommand:
         assert "python3" not in cmd
         assert "python" not in cmd[1:]
 
+    # issue #1131 — выбор пользователя доезжает до сервера, а «не выбирал»
+    # остаётся отличимым от «выбрал то же, что дефолт» (ADR-0012).
+
+    def test_untouched_choices_add_no_flags(self) -> None:
+        """Ключевой инвариант ADR-0012: дефолты НЕ запекаются в команду.
+
+        Иначе правка `pyproject.toml` перестала бы действовать — окно
+        перекрывало бы её флагом с тем же значением, — а сохранённый профиль
+        заморозил бы дефолты того дня, когда его создали.
+        """
+        cmd = build_server_command(8000, sandbox=False, workdir=Path("/w"))
+
+        assert "--lang" not in cmd
+        assert "--history" not in cmd
+        assert "--no-history" not in cmd
+
+    def test_language_reaches_the_server(self) -> None:
+        cmd = build_server_command(8000, sandbox=False, workdir=Path("/w"), lang="en")
+        assert cmd[cmd.index("--lang") + 1] == "en"
+
+    def test_history_on_and_off_are_distinct_flags(self) -> None:
+        on = build_server_command(8000, sandbox=False, workdir=Path("/w"), record_history=True)
+        off = build_server_command(8000, sandbox=False, workdir=Path("/w"), record_history=False)
+
+        assert "--history" in on and "--no-history" not in on
+        assert "--no-history" in off and "--history" not in off
+
 
 class TestPortAvailable:
     def test_true_for_free_port(self) -> None:
@@ -164,6 +191,25 @@ class TestServerControllerLifecycle:
         controller.stop()
         assert _wait_state(controller, ServerState.STOPPED)
         assert len(calls) == 1
+
+    def test_start_passes_lang_and_history_to_the_command(self) -> None:
+        """issue #1131: выбор из окна доходит до дочернего процесса, а не теряется."""
+        port = _free_port()
+        base = _spawn_running(port)
+        calls: list[list[str]] = []
+
+        def capturing_spawn(command: list[str]) -> subprocess.Popen[str]:
+            calls.append(command)
+            return base(command)
+
+        controller = ServerController(spawn=capturing_spawn)
+        controller.start(port, sandbox=False, workdir=Path.cwd(), lang="en", record_history=False)
+        assert _wait_state(controller, ServerState.RUNNING)
+        controller.stop()
+        assert _wait_state(controller, ServerState.STOPPED)
+
+        assert calls[0][calls[0].index("--lang") + 1] == "en"
+        assert "--no-history" in calls[0]
 
     def test_stop_without_start_is_noop(self) -> None:
         controller = ServerController(spawn=_spawn_failing)
@@ -305,13 +351,25 @@ class _FakeController:
         self._status = ServerStatus(state=state, url=url)
         self.host = DEFAULT_HOST
         self.started: list[tuple[int, bool, Path]] = []
+        # issue #1131: выбор языка и записи истории — отдельно от прежнего
+        # кортежа, чтобы существующие проверки start-аргументов не переписывать.
+        self.choices: list[tuple[str | None, bool | None]] = []
         self.stopped = 0
 
     def snapshot(self) -> ServerStatus:
         return self._status
 
-    def start(self, port: int, *, sandbox: bool, workdir: Path) -> None:
+    def start(
+        self,
+        port: int,
+        *,
+        sandbox: bool,
+        workdir: Path,
+        lang: str | None = None,
+        record_history: bool | None = None,
+    ) -> None:
         self.started.append((port, sandbox, workdir))
+        self.choices.append((lang, record_history))
 
     def stop(self) -> None:
         self.stopped += 1
@@ -345,6 +403,40 @@ class TestGuiHandlers:
         app.sandbox_var.set(True)
         app._on_action()
         assert fake.started and fake.started[0][1] is True
+
+    def test_untouched_choices_stay_inherited(self, tk_window) -> None:
+        """issue #1131: нетронутые контролы уходят как «не выбирал», а не как дефолт.
+
+        Инвариант ADR-0012: только тогда настройка из `pyproject.toml` продолжает
+        действовать, а профиль не замораживает дефолты дня своего создания.
+        """
+        fake = _FakeController(ServerState.STOPPED)
+        app = LauncherApp(tk_window, fake)
+        app.port_var.set(str(_free_port()))
+
+        app._on_action()
+
+        assert fake.choices[0][1] is None  # запись истории — «как в настройках»
+
+    def test_history_choice_reaches_the_controller(self, tk_window) -> None:
+        """Выбранное «выключить» доезжает до команды, а не теряется в окне."""
+        fake = _FakeController(ServerState.STOPPED)
+        app = LauncherApp(tk_window, fake)
+        app.port_var.set(str(_free_port()))
+        app.history_var.set(app._t("launcher_history_off"))
+
+        app._on_action()
+
+        assert fake.choices[0][1] is False
+
+    def test_command_preview_shows_what_will_run(self, tk_window) -> None:
+        """Предпросмотр показывает реальную команду, а не приблизительную."""
+        app = LauncherApp(tk_window, _FakeController())
+        app.sandbox_var.set(True)
+
+        preview = app.command_var.get()
+
+        assert "--serve" in preview and "--sandbox" in preview
 
     def test_on_action_stops_when_running(self, tk_window) -> None:
         fake = _FakeController(ServerState.RUNNING)

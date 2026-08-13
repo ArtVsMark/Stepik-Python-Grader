@@ -2,8 +2,9 @@
 
 Application-слой, entry point (``python -m stepik_grader.launcher`` и
 gui-script ``stepik-grader-gui``). Небольшое tkinter-окно: выбор варианта
-запуска (простой / с изоляцией ``--sandbox``), порт, рабочая папка, кнопка
-Запустить/Остановить, статус со ссылкой и авто-открытие браузера.
+запуска (простой / с изоляцией ``--sandbox``), запись истории, язык, порт,
+рабочая папка, предпросмотр команды, кнопка Запустить/Остановить, статус со
+ссылкой и авто-открытие браузера.
 
 Почему это НЕ часть веба (issue #661): чтобы открыть любую страницу
 веб-интерфейса, сервер уже должен быть запущен — стартовый экран сам себя не
@@ -20,10 +21,10 @@ gui-script ``stepik-grader-gui``). Небольшое tkinter-окно: выбо
 
 Отдельный процесс даёт чистый stop (terminate), ноль утечки глобального
 состояния и переиспользует уже готовый CLI-путь (флаги ``--serve/--sandbox/
---port/--root`` и honest-fail на недоступном backend'е через
-``SandboxUnavailableError``). Как следствие модуль — leaf: НИКАКИХ проектных
-импортов, только stdlib (+ опциональный ``rich`` для fallback-вывода), то есть
-ноль новых рёбер DAG.
+--port/--root/--lang/--history`` и honest-fail на недоступном backend'е через
+``SandboxUnavailableError``). Из проекта модуль тянет только
+``stdio_encoding`` и ``config.workspace_root`` (общий корень настроек) —
+ядро грейдера в процесс окна не импортируется.
 
 ``tkinter`` импортируется ЛЕНИВО (внутри GUI-путей), поэтому GUI-free ядро
 (``build_server_command``/``port_available``/``ServerController``) импортируется
@@ -277,7 +278,14 @@ def _print(text: str) -> None:
         print(text)
 
 
-def build_server_command(port: int, *, sandbox: bool, workdir: Path) -> list[str]:
+def build_server_command(
+    port: int,
+    *,
+    sandbox: bool,
+    workdir: Path,
+    lang: str | None = None,
+    record_history: bool | None = None,
+) -> list[str]:
     """Собрать команду запуска web-сервера как отдельного процесса (issue #661).
 
     Сервер поднимается через уже готовый CLI-путь
@@ -288,6 +296,15 @@ def build_server_command(port: int, *, sandbox: bool, workdir: Path) -> list[str
     ``workdir`` пробрасывается как ``--root`` (рабочая директория/конфайнмент
     путей сервера). Интерпретатор — ``sys.executable`` (инвариант CLAUDE.md),
     не строковый ``"python"``.
+
+    ``lang`` и ``record_history`` (issue #1131) — выбор пользователя в окне.
+    ``None`` означает «не выбирал»: флаг не добавляется, и значение резолвится
+    сервером по обычной лестнице (явный флаг → ``.grader_settings.json`` →
+    ``pyproject.toml`` → дефолт поверхности, ADR-0012). Именно поэтому
+    параметры трёхзначные, а не ``bool``/``str`` с дефолтом: запекать текущий
+    дефолт в команду нельзя — тогда правка ``pyproject.toml`` перестала бы
+    действовать, а сохранённый профиль заморозил бы дефолты дня своего
+    создания.
     """
     cmd = [
         sys.executable,
@@ -301,6 +318,10 @@ def build_server_command(port: int, *, sandbox: bool, workdir: Path) -> list[str
     ]
     if sandbox:
         cmd.append("--sandbox")
+    if lang is not None:
+        cmd += ["--lang", lang]
+    if record_history is not None:
+        cmd.append("--history" if record_history else "--no-history")
     return cmd
 
 
@@ -378,7 +399,15 @@ class ServerController:
         with self._lock:
             return self._status
 
-    def start(self, port: int, *, sandbox: bool, workdir: Path) -> None:
+    def start(
+        self,
+        port: int,
+        *,
+        sandbox: bool,
+        workdir: Path,
+        lang: str | None = None,
+        record_history: bool | None = None,
+    ) -> None:
         """Запустить сервер отдельным процессом; идемпотентно при уже активном.
 
         Немедленно переводит состояние в ``STARTING`` и стартует монитор-поток,
@@ -391,7 +420,13 @@ class ServerController:
             self._stopping = False
             self._stderr_tail = []
             self._status = ServerStatus(state=ServerState.STARTING)
-        command = build_server_command(port, sandbox=sandbox, workdir=workdir)
+        command = build_server_command(
+            port,
+            sandbox=sandbox,
+            workdir=workdir,
+            lang=lang,
+            record_history=record_history,
+        )
         try:
             proc = self._spawn(command)
         except OSError as exc:
@@ -577,9 +612,11 @@ class LauncherApp:
         self._opened_url = ""
         self._last_url = ""
         self._poll_id: str | None = None
-        # issue #821: подписи окна — из каталога проекта; язык определяется один
-        # раз при построении виджетов (переключателя языка в окне нет).
-        self._messages = load_ui_messages(detect_lang())
+        # issue #821: подписи окна — из каталога проекта. issue #1131: язык
+        # больше не определяется раз и навсегда — в окне есть переключатель,
+        # и он же задаёт язык страницы дочернего сервера.
+        self._lang = detect_lang()
+        self._messages = load_ui_messages(self._lang)
 
         root.title(self._t("launcher_window_title"))
         root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -590,7 +627,18 @@ class LauncherApp:
         self.workdir_var = tk.StringVar(value=str(default_workdir()))
         self.status_var = tk.StringVar(value=self._t("launcher_status_stopped"))
         self.tasks_var = tk.StringVar(value="")
+        # issue #1131: язык и запись истории — выбор пользователя ДО старта.
+        # Язык окна и есть язык сервера: два разных было бы странно, поэтому
+        # переключатель один и меняет обоих.
+        self.lang_var = tk.StringVar(value=self._lang)
+        # «Не выбирал» отдельно от «выбрал то же, что дефолт» (ADR-0012):
+        # None → флаг не попадёт в команду, значение резолвит сервер.
+        # Значение подставляется после создания Combobox — оно из каталога.
+        self.history_var = tk.StringVar(value="")
+        self.command_var = tk.StringVar(value="")
         self.workdir_var.trace_add("write", lambda *_: self._refresh_tasks_found())
+        for var in (self.port_var, self.sandbox_var, self.workdir_var, self.history_var):
+            var.trace_add("write", lambda *_: self._refresh_command_preview())
 
         frame = ttk.Frame(root, padding=16)
         frame.grid(row=0, column=0, sticky="nsew")
@@ -618,48 +666,101 @@ class LauncherApp:
             variable=self.sandbox_var,
             value=True,
         )
-        self.radio_sandbox.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 12))
+        self.radio_sandbox.grid(row=2, column=0, columnspan=3, sticky="w")
+
+        # issue #1131 (LNCH-1-02): последствие выбора названо в точке выбора.
+        # «С изоляцией» отключает пошаговый трейс (core/tracer.py) — раньше
+        # пользователь включал защиту и терял функцию, не понимая почему.
+        self.sandbox_note = ttk.Label(
+            frame, text=self._t("launcher_mode_sandbox_note"), wraplength=420, justify="left"
+        )
+        self.sandbox_note.grid(row=3, column=0, columnspan=3, sticky="w", pady=(0, 12))
+
+        # issue #1131 (LNCH-1-01): запись истории — тумблер, а не молчаливый
+        # дефолт. Это настройка приватности: решения студента ложатся в
+        # локальную базу, и отказаться от этого он должен уметь до старта.
+        ttk.Label(frame, text=self._t("launcher_history")).grid(
+            row=4, column=0, sticky="w", pady=(0, 8)
+        )
+        self.history_box = ttk.Combobox(
+            frame,
+            textvariable=self.history_var,
+            state="readonly",
+            width=28,
+            values=[
+                self._t("launcher_history_inherit"),
+                self._t("launcher_history_on"),
+                self._t("launcher_history_off"),
+            ],
+        )
+        self.history_box.grid(row=4, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.history_box.set(self._t("launcher_history_inherit"))
+
+        # issue #1131 (LNCH-2-05): язык выбирается на старте и доезжает до
+        # браузера — до этого фикса страница всегда открывалась на русском.
+        ttk.Label(frame, text=self._t("launcher_lang")).grid(
+            row=5, column=0, sticky="w", pady=(0, 8)
+        )
+        self.lang_box = ttk.Combobox(
+            frame,
+            textvariable=self.lang_var,
+            state="readonly",
+            width=12,
+            values=list(_SUPPORTED_LANGS),
+        )
+        self.lang_box.grid(row=5, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.lang_box.bind("<<ComboboxSelected>>", lambda _event: self._on_lang_changed())
 
         # Порт
         ttk.Label(frame, text=self._t("launcher_port")).grid(
-            row=3, column=0, sticky="w", pady=(0, 8)
+            row=6, column=0, sticky="w", pady=(0, 8)
         )
         self.port_entry = ttk.Entry(frame, textvariable=self.port_var, width=10)
-        self.port_entry.grid(row=3, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.port_entry.grid(row=6, column=1, columnspan=2, sticky="w", pady=(0, 8))
 
         # Рабочая папка
         ttk.Label(frame, text=self._t("launcher_workdir")).grid(
-            row=4, column=0, sticky="w", pady=(0, 8)
+            row=7, column=0, sticky="w", pady=(0, 8)
         )
         self.workdir_entry = ttk.Entry(frame, textvariable=self.workdir_var)
-        self.workdir_entry.grid(row=4, column=1, sticky="ew", pady=(0, 8))
+        self.workdir_entry.grid(row=7, column=1, sticky="ew", pady=(0, 8))
         self.browse_btn = ttk.Button(
             frame, text=self._t("launcher_browse"), command=self._browse_dir
         )
-        self.browse_btn.grid(row=4, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
+        self.browse_btn.grid(row=7, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
 
         # Сколько задач видно в выбранной папке (issue #823): промах виден здесь,
         # а не после открытия пустого веб-интерфейса.
         self.tasks_label = ttk.Label(frame, textvariable=self.tasks_var)
-        self.tasks_label.grid(row=5, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.tasks_label.grid(row=8, column=1, columnspan=2, sticky="w", pady=(0, 8))
         self._refresh_tasks_found()
+
+        # issue #1131 (LNCH-1-07): что именно включится — видно ДО нажатия.
+        # Веб-онбординг обещал галку sandbox в лаунчере, которой там не было;
+        # предъявленная команда делает обещание проверяемым, а заодно учит
+        # пользователя тому же запуску из терминала.
+        self.command_label = ttk.Label(
+            frame, textvariable=self.command_var, wraplength=420, justify="left"
+        )
+        self.command_label.grid(row=9, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        self._refresh_command_preview()
 
         # Действие + открыть в браузере
         self.action_btn = ttk.Button(frame, text=self._t("launcher_start"), command=self._on_action)
-        self.action_btn.grid(row=6, column=0, sticky="w")
+        self.action_btn.grid(row=10, column=0, sticky="w")
         self.open_btn = ttk.Button(
             frame,
             text=self._t("launcher_open_browser"),
             command=self._open_browser,
             state="disabled",
         )
-        self.open_btn.grid(row=6, column=1, columnspan=2, sticky="e")
+        self.open_btn.grid(row=10, column=1, columnspan=2, sticky="e")
 
         # Статус
         self.status_label = ttk.Label(
             frame, textvariable=self.status_var, wraplength=420, justify="left"
         )
-        self.status_label.grid(row=7, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        self.status_label.grid(row=11, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
         self._poll()
 
@@ -714,7 +815,69 @@ class LauncherApp:
         if not port_available(port, host=self.controller.host):
             self._set_status(self._t("launcher_port_busy", port=port), error=True)
             return
-        self.controller.start(port, sandbox=self.sandbox_var.get(), workdir=workdir)
+        self.controller.start(
+            port,
+            sandbox=self.sandbox_var.get(),
+            workdir=workdir,
+            lang=self.lang_var.get(),
+            record_history=self.selected_record_history(),
+        )
+
+    def selected_record_history(self) -> bool | None:
+        """Выбор по записи истории: ``True``/``False``/``None`` — «унаследовать».
+
+        ``None`` — не «выключено», а «пользователь не решал»: флаг не попадёт в
+        команду, и значение резолвит сервер по обычной лестнице (ADR-0012).
+        """
+        chosen = self.history_var.get()
+        if chosen == self._t("launcher_history_on"):
+            return True
+        if chosen == self._t("launcher_history_off"):
+            return False
+        return None
+
+    def _refresh_command_preview(self) -> None:
+        """Показать команду, которая получится при текущем выборе (issue #1131)."""
+        raw_port = self.port_var.get().strip()
+        port = int(raw_port) if raw_port.isdigit() else DEFAULT_PORT
+        command = build_server_command(
+            port,
+            sandbox=self.sandbox_var.get(),
+            workdir=Path(self.workdir_var.get().strip() or "."),
+            lang=self.lang_var.get(),
+            record_history=self.selected_record_history(),
+        )
+        # Первый элемент — путь к интерпретатору: в предпросмотре он длиннее
+        # самой команды и ничего не объясняет.
+        self.command_var.set(
+            self._t("launcher_command_preview", command=" ".join(["python", *command[1:]]))
+        )
+
+    def _on_lang_changed(self) -> None:
+        """Переключение языка: подписи окна и язык сервера меняются вместе.
+
+        Перерисовываем только то, что видит пользователь прямо сейчас: полная
+        пересборка окна ради смены подписей уронила бы состояние запущенного
+        сервера, а язык обязан переключаться и на работающем лаунчере.
+        """
+        self._lang = self.lang_var.get()
+        self._messages = load_ui_messages(self._lang)
+        self.root.title(self._t("launcher_window_title"))
+        self.radio_simple.config(text=self._t("launcher_mode_simple"))
+        self.radio_sandbox.config(text=self._t("launcher_mode_sandbox"))
+        self.sandbox_note.config(text=self._t("launcher_mode_sandbox_note"))
+        self.browse_btn.config(text=self._t("launcher_browse"))
+        self.open_btn.config(text=self._t("launcher_open_browser"))
+        self.history_box.config(
+            values=[
+                self._t("launcher_history_inherit"),
+                self._t("launcher_history_on"),
+                self._t("launcher_history_off"),
+            ]
+        )
+        self.history_box.set(self._t("launcher_history_inherit"))
+        self._refresh_tasks_found()
+        self._refresh_command_preview()
 
     def _browse_dir(self) -> None:
         """Нативный диалог выбора рабочей папки (tkinter.filedialog)."""

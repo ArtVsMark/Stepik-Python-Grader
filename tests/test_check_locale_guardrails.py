@@ -319,3 +319,63 @@ def test_english_quotes_pass(monkeypatch, tmp_path: Path) -> None:
     module.check_en_locale_uses_one_quote_style(errors)
 
     assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #960 (ED-2-03): guard видит не только веб
+#
+# Проверка ловила два имени веб-каталога, а основные потребители зовутся иначе:
+# CLI через `ctx.t(...)`, загрузчик и диагностика через `_t(...)`. 83 из 85
+# call-site'ов ей были не видны, поэтому переименование ключа в CLI оставляло
+# гейт зелёным — и студент видел служебный идентификатор вместо текста ошибки.
+# ---------------------------------------------------------------------------
+
+
+def _package_with(module_source: str, tmp_path: Path) -> Path:
+    """Мини-пакет из одного модуля — вход для проверки полноты ключей."""
+    pkg_dir = tmp_path / "stepik_grader"
+    pkg_dir.mkdir()
+    (pkg_dir / "mod.py").write_text(module_source, encoding="utf-8")
+    return pkg_dir
+
+
+def test_cli_call_site_is_seen(monkeypatch, tmp_path: Path) -> None:
+    """Ключ, использованный только через `ctx.t(...)`, обязан ронять guard."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_PKG_DIR", _package_with('ctx.t("no_such_key")\n', tmp_path))
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"other": "текст"}, {"other": "text"})
+    )
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+
+    assert any("no_such_key" in error for error in errors), errors
+
+
+def test_downloader_call_site_is_seen(monkeypatch, tmp_path: Path) -> None:
+    """То же для `_t(...)` — загрузчик и диагностика зовут каталог так."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_PKG_DIR", _package_with('_t("dl_missing_key")\n', tmp_path))
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"other": "текст"}, {"other": "text"})
+    )
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+
+    assert any("dl_missing_key" in error for error in errors), errors
+
+
+def test_known_cli_key_passes(monkeypatch, tmp_path: Path) -> None:
+    """Существующий ключ через `ctx.t(...)` претензий не вызывает."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_PKG_DIR", _package_with('ctx.t("known")\n', tmp_path))
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"known": "текст"}, {"known": "text"})
+    )
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+
+    assert errors == []
