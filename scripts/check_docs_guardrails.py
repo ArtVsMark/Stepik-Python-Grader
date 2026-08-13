@@ -70,6 +70,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
 import re
 import sys
@@ -78,6 +79,7 @@ from pathlib import Path
 __all__ = [
     "CHANGELOG_MAX_VERSIONS",
     "README_LINE_BUDGET",
+    "check_changelog_fragments",
     "check_changelog_version_budget",
     "check_docs_directions",
     "check_docs_index_completeness",
@@ -397,6 +399,30 @@ def check_docs_index_completeness(errors: list[str]) -> None:
     print(f"docs/ index: checked {checked} file(s) against per-directory README indexes.")
 
 
+def check_changelog_fragments(errors: list[str]) -> None:
+    """Фрагменты ``changelog.d/`` читаются сборкой релиза.
+
+    Негодный фрагмент опасен именно тем, что молчит: запись просто не попадёт в
+    релиз, и обнаружится это через месяц. Правила разбора живут в
+    ``scripts/collect_changelog.py`` — здесь они не дублируются, а вызываются,
+    иначе два набора правил разъедутся при первой же правке.
+    """
+    script = _ROOT / "scripts" / "collect_changelog.py"
+    spec = importlib.util.spec_from_file_location("_collect_changelog_guard", script)
+    if spec is None or spec.loader is None:  # pragma: no cover — файл на месте в репозитории
+        errors.append("scripts/collect_changelog.py: не удалось загрузить модуль сборки")
+        return
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    problems: list[str] = module.validate(_ROOT / "changelog.d")
+    for problem in problems:
+        errors.append(f"changelog.d/{problem}")
+    if not problems:
+        count = len(module.fragment_files(_ROOT / "changelog.d"))
+        print(f"changelog.d: {count} fragment(s), all readable by the release collector.")
+
+
 def check_changelog_version_budget(errors: list[str]) -> None:
     """CHANGELOG.md держит не более ``CHANGELOG_MAX_VERSIONS`` версионных релизов.
 
@@ -685,6 +711,7 @@ def main() -> int:
     check_docs_directions(errors)
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)
+    check_changelog_fragments(errors)
     check_issue_tail_policy(errors)
     check_ui_issue_tail_policy(errors)
 
