@@ -627,7 +627,12 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     _cprint(f"  {icon} Test {case.index}: {result.verdict}", style=color)
 
     if result.error:
-        _cprint(f"    [ERROR] {result.error}", style="red")
+        # issue #981: текст ошибки — это stderr решения целиком
+        # (grader_core: error=stderr.strip()), то есть строка, которую пишет
+        # проверяемый код. Печать её сырой оставляла открытым тот же канал
+        # подделки отчёта, что и `Actual:`, и даже удобнее: решению достаточно
+        # намеренно упасть, чтобы попасть в эту ветку.
+        _cprint(f"    [ERROR] {_clip_value(result.error)}", style="red")
         # issue #72/#356: подсказка по типу исключения из общей базы карточек
         # (bundled JSON → компактная карта fallback). Ссылки наружу нет
         # (issue #684) — полная карточка живёт в своём разделе «Глоссарий»
