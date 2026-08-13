@@ -34,6 +34,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 
 from stepik_grader import downloader_config
+from stepik_grader.core.attachments import download_attachments
 from stepik_grader.core.diag_log import configure_diagnostics, get_logger
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.oauth_flow import (
@@ -71,6 +72,7 @@ from stepik_grader.core.submission_archive import archive_dir_for, save_submissi
 # `_is_function_style`/`_download_*` — на них завязаны test_analyzer.py и
 # патчи save_task_files.
 from stepik_grader.core.task_page_parser import (
+    extract_attachment_links,
     extract_external_test_links,
     extract_tests_from_html,
 )
@@ -329,6 +331,12 @@ def save_task_files(
 
     (task_dir / "task.md").write_text(text, encoding="utf-8")
 
+    # issue #1112: вложения условия качаются ДО тестов и независимо от них.
+    # Решение открывает такой файл по имени из рабочего каталога, поэтому без
+    # него задача не воспроизводится вовсе — и провал выглядит как ошибка
+    # студента (`FileNotFoundError`), а не как недоскачанная задача.
+    _save_attachments(task_dir, text, session, meta)
+
     zip_links, github_links = extract_external_test_links(text)
 
     # 1. ZIP — скачиваем автоматически
@@ -362,6 +370,36 @@ def save_task_files(
     _print(_t("dl_tests_not_found"))
     _warn_if_stale_tests(task_dir)
     return 0, "none"
+
+
+def _save_attachments(
+    task_dir: pathlib.Path,
+    text: str,
+    session: requests.Session,
+    meta: dict[str, Any],
+) -> None:
+    """Скачать вложения условия и записать их состояние в ``meta.json`` (#1112).
+
+    Отчёт кладётся в ``meta`` всегда, когда в условии есть ссылки: и про
+    скачанные файлы, и про те, что не приехали. Иначе задача с файловым вводом
+    выглядит как обычная, а её ``RE`` списывают на решение — ровно так дефект и
+    дожил до прогона по реальной базе.
+    """
+    links = extract_attachment_links(text)
+    if not links:
+        return
+
+    report = download_attachments(task_dir, links, session)
+    saved = [item for item in report if item["status"] in {"saved", "exists"}]
+    failed = [item for item in report if item["status"] not in {"saved", "exists"}]
+
+    meta["attachments"] = report
+    save_json_file(task_dir / "meta.json", meta)
+
+    if saved:
+        _print(_t("dl_attachments_saved", count=len(saved)))
+    for item in failed:
+        _print(_t("dl_attachment_failed", name=item["name"] or item["url"]))
 
 
 # ---------------------------------------------------------------------------
@@ -465,8 +503,18 @@ def _download(lang: str, urls: list[str] | None) -> tuple[list[pathlib.Path], in
     config_path = pathlib.Path(CONFIG_FILE)
 
     try:
-        config = load_or_create_config(config_path)
+        # issue #1109: с URL в аргументах мастер молчит — пользователь уже
+        # сказал, чего хочет, и «Нужно изменить настройку?» тут только мешает.
+        config = load_or_create_config(config_path, ask_to_change=urls is None)
         config = normalize_config_paths(config, config_path)
+    except (EOFError, OSError) as error:
+        # issue #1109: ввод недоступен (пайп, скрипт, CI, GUI-обёртка). Прежде
+        # это приходило сюда общим `except Exception` и печаталось как «ошибка
+        # работы с конфигом… исправьте файл или удалите его» — совет удалить
+        # ИСПРАВНЫЙ файл, вместе с путём к базе задач в нём.
+        _log.exception("нет интерактивного ввода для мастера конфигурации: %s", config_path)
+        _print(_t("dl_config_needs_input", path=config_path.resolve(), error=error))
+        return [], 1
     except Exception as error:
         # issue #831 (DEV-12): стек — в диагностический лог (opt-in, с редакцией
         # секретов). Пользователю остаётся короткое сообщение, но баг-репорт

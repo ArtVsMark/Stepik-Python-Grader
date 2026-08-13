@@ -126,7 +126,13 @@ class TestBranchHygiene:
     def test_foreign_branch_with_same_name_is_caught(
         self, preflight: ModuleType, repo: pathlib.Path, tmp_path: pathlib.Path
     ) -> None:
-        """Имя занято соседним окном — пуш отлетит «tip is behind»."""
+        """Имя занято соседним окном — пуш отлетит «tip is behind».
+
+        Проверка предупреждает, но не блокирует: после squash-мержа своего же PR
+        ветка на origin тоже перестаёт быть предком (squash не сохраняет прежнюю
+        вершину), и блокировка на этом признаке останавливала бы работу на ровном
+        месте. Запретить пуш в чужую ветку всё равно должен git, а не догадка.
+        """
         other = tmp_path / "other-window"
         origin = repo.parent / "origin.git"
         subprocess.run(["git", "clone", str(origin), str(other)], check=True, capture_output=True)
@@ -142,7 +148,8 @@ class TestBranchHygiene:
         check = preflight.check_branch_not_taken()
 
         assert not check.ok
-        assert "ведёт кто-то ещё" in check.detail
+        assert "разошлась" in check.detail
+        assert not check.blocking
 
 
 class TestChangelogBuffer:
@@ -180,6 +187,35 @@ class TestChangelogBuffer:
         _git(repo, "commit", "-am", "change code with changelog")
 
         assert preflight.check_changelog_buffer().ok
+
+    def test_fragment_closes_the_requirement(
+        self, preflight: ModuleType, repo: pathlib.Path
+    ) -> None:
+        """Файл в `changelog.d/` — основная форма записи, строка в буфере не нужна.
+
+        Ради этого переход и сделан: два PR кладут разные файлы и не дерутся за
+        один участок `CHANGELOG.md`, из-за которого соседний мерж делал PR
+        конфликтным — а конфликтный PR остаётся вовсе без проверок.
+        """
+        (repo / "module.py").write_text("x = 2\n", encoding="utf-8")
+        (repo / "changelog.d").mkdir()
+        (repo / "changelog.d" / "my-branch.fixed.md").write_text("починка (#1)\n", encoding="utf-8")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-m", "change with fragment")
+
+        assert preflight.check_changelog_buffer().ok
+
+    def test_fragment_readme_is_not_a_record(
+        self, preflight: ModuleType, repo: pathlib.Path
+    ) -> None:
+        """README каталога фрагментов записью не считается."""
+        (repo / "module.py").write_text("x = 2\n", encoding="utf-8")
+        (repo / "changelog.d").mkdir()
+        (repo / "changelog.d" / "README.md").write_text("как писать\n", encoding="utf-8")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-m", "docs only")
+
+        assert not preflight.check_changelog_buffer().ok
 
     def test_survives_narrow_locale(self, repo: pathlib.Path, tmp_path: pathlib.Path) -> None:
         """Узкая локаль не должна ломать сравнение русских строк.

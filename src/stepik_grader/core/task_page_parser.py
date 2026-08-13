@@ -15,6 +15,7 @@ import re
 from html.parser import HTMLParser
 
 __all__ = [
+    "extract_attachment_links",
     "extract_external_test_links",
     "extract_tests_from_html",
     "is_function_style",
@@ -25,6 +26,15 @@ __all__ = [
 # остаются в downloader.py, т.к. используются на этапе скачивания, не парсинга).
 _ZIP_URL_RE = re.compile(r'href=["\']([^"\']*\.zip)["\']', re.IGNORECASE)
 _GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE)
+
+# issue #1112: вложения условия — файлы, которые решение ОТКРЫВАЕТ по имени
+# (`open('files.txt')`). Живут на `stepik.org/media/attachments/...` и до сих
+# пор не скачивались вовсе: принятое платформой решение падало локально
+# `FileNotFoundError`, и подсказка глоссария добросовестно объясняла студенту
+# его несуществующую ошибку.
+_ATTACHMENT_URL_RE = re.compile(
+    r'href=["\']([^"\']*?/media/attachments/[^"\']+)["\']', re.IGNORECASE
+)
 
 
 # Теги, чьё содержимое — не текст кейса, даже если лежит внутри <td> (issue
@@ -222,3 +232,27 @@ def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
     zip_links = _unique(_ZIP_URL_RE.findall(html))
     github_links = _unique(_GITHUB_URL_RE.findall(html))
     return zip_links, github_links
+
+
+def extract_attachment_links(html: str) -> list[str]:
+    """Ссылки на вложения условия — файлы, которые открывает само решение (#1112).
+
+    Это `stepik.org/media/attachments/...`: `files.txt`, `data.csv` и прочее,
+    на что условие ссылается словами «вам доступен файл». Без них принятое
+    платформой решение падает локально ``FileNotFoundError``.
+
+    ``.zip`` отсюда исключён намеренно: архивы разбирает путь внешних тестов
+    (:func:`extract_external_test_links`), и скачивать их вторым способом
+    значило бы класть рядом с задачей сырой архив вместо тест-кейсов.
+
+    Схема проверяется тем же ``_is_fetchable``, что и у тестовых ссылок: HTML
+    приходит из сети, а результат уходит в загрузчик (issue #838).
+    """
+    seen: set[str] = set()
+    links: list[str] = []
+    for url in _ATTACHMENT_URL_RE.findall(html):
+        if url in seen or not _is_fetchable(url) or url.lower().endswith(".zip"):
+            continue
+        seen.add(url)
+        links.append(url)
+    return links
