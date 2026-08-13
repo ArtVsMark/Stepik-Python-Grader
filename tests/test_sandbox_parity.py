@@ -154,6 +154,9 @@ class TestSandboxParity:
         assert sandboxed == ["WA"]
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX-квоты: RLIMIT_CPU/SIGXCPU нет на Windows"
+)
 class TestCpuQuotaParity:
     """CPU-квота — backstop, а не второй таймаут (issue #986, PY-2-01/SBX-3-01)."""
 
@@ -187,6 +190,9 @@ class TestCpuQuotaParity:
         assert sandboxed.sandbox_violation is None
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX-квоты: RLIMIT_CPU/SIGXCPU нет на Windows"
+)
 class TestQuotaKillRecognition:
     """Убийство по квоте распознаётся в обеих формах кода возврата (issue #986)."""
 
