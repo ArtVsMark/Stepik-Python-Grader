@@ -52,7 +52,7 @@ import psutil
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.run_dir import ephemeral_run_dir
-from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
+from stepik_grader.core.runner import RunOutcome, RunSpec, materialize_spec
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
 
 __all__ = ["MacSandboxRunner", "create_backend"]
@@ -113,12 +113,12 @@ class MacSandboxRunner:
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
-            script_path = run_dir / "solution.py"
             profile_path = run_dir / "profile.sb"
             try:
-                script_path.write_bytes(spec_source_bytes(spec))
+                # issue #992: см. _linux — общая материализация spec.
+                script_path = materialize_spec(spec, run_dir)
                 profile_path.write_text(_build_profile(run_dir), encoding="utf-8")
-            except OSError as exc:
+            except (OSError, ValueError) as exc:
                 return RunOutcome(launch_error=str(exc))
 
             cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
