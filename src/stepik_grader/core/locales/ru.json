@@ -1,5 +1,7 @@
 {
+  "insights_source": "  Источник: {path} · прогонов в окне: {runs} из {window}",
   "path_not_found": "Путь не найден: {path}",
+  "profile_unknown_default_used": "  Профиля «{value}» нет — использую профиль {default}.",
   "solutions_not_found": "Решения не найдены в: {path}",
   "folder_not_found": "Папка не найдена: {path}",
   "file_read_failed": "Не удалось прочитать файл: {error}",

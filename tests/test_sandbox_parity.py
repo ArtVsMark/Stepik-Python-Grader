@@ -268,3 +268,68 @@ class TestSitePackagesIsolation:
         assert args[::2] == ["--tmpfs"] * (len(args) // 2)
         for path in args[1::2]:
             assert any(path.startswith(tree) for tree in trees), path
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="диагностика bwrap — Linux-backend")
+class TestBrokenBackendIsNotSolutionFailure:
+    """Отказ песочницы называется отказом песочницы (issue #986, SBX-4-01).
+
+    Сломанный bwrap — нет прав на user namespaces, урезанный контейнер — решение
+    не запускает вовсе, но выходит ненулевым кодом со своей диагностикой. Раньше
+    это было неотличимо от «решение упало»: верное решение получало `RE`, а в
+    качестве ошибки кода пользователю показывали `bwrap: Creating new namespace
+    failed`.
+    """
+
+    @staticmethod
+    def _fake_bwrap(tmp_path: pathlib.Path, *, stderr: str, code: int) -> pathlib.Path:
+        script = tmp_path / "fake-bwrap"
+        script.write_text(f'#!/bin/sh\necho "{stderr}" >&2\nexit {code}\n', encoding="utf-8")
+        script.chmod(0o755)
+        return script
+
+    def test_backend_failure_becomes_launch_error(self, tmp_path: pathlib.Path) -> None:
+        from stepik_grader.core.runner import RunSpec
+        from stepik_grader.core.sandbox._linux import LinuxSandboxRunner
+
+        fake = self._fake_bwrap(
+            tmp_path, stderr="bwrap: Creating new namespace failed: Operation not permitted", code=1
+        )
+
+        outcome = LinuxSandboxRunner(fake).run(
+            RunSpec(path=None, code=b"print(42)\n", stdin=None, timeout=5.0)
+        )
+
+        assert outcome.launch_error is not None
+        assert "bwrap" in outcome.launch_error
+        assert "не ошибка кода" in outcome.launch_error
+
+    def test_real_solution_crash_stays_a_crash(self) -> None:
+        """Падение решения не должно превратиться в «отказ песочницы»."""
+        from stepik_grader.core.runner import RunSpec
+
+        crashing = b"import sys\nsys.stderr.write('boom\\n')\nsys.exit(1)\n"
+
+        outcome = _sandbox_or_skip().run(RunSpec(path=None, code=crashing, stdin=None, timeout=5.0))
+
+        assert outcome.launch_error is None
+        assert outcome.returncode == 1
+
+    def test_solution_stderr_mimicking_bwrap_is_not_misread(self, tmp_path: pathlib.Path) -> None:
+        """Решение, печатающее «bwrap: …», всё равно считается решением.
+
+        Признаки берутся вместе: у настоящего отказа песочницы решение не
+        успевает ничего вывести в stdout.
+        """
+        from stepik_grader.core.runner import RunSpec
+
+        mimic = (
+            b"import sys\n"
+            b"print('vyvod resheniya')\n"
+            b"sys.stderr.write('bwrap: fake\\n')\n"
+            b"sys.exit(1)\n"
+        )
+
+        outcome = _sandbox_or_skip().run(RunSpec(path=None, code=mimic, stdin=None, timeout=5.0))
+
+        assert outcome.launch_error is None
