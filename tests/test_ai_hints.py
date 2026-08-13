@@ -30,9 +30,19 @@ def _cfg(**over: object) -> object:
 
 
 class _FakeResponse:
-    def __init__(self, *, json_data: object = None, raise_exc: Exception | None = None) -> None:
+    # issue #975: канал смотрит на `status_code`, чтобы отличить отказ
+    # провайдера (401/429/400) от «канал не настроен». Фейк несёт его явно;
+    # `raise_exc` оставлен для сценариев уровня сети (таймаут, обрыв).
+    def __init__(
+        self,
+        *,
+        json_data: object = None,
+        raise_exc: Exception | None = None,
+        status_code: int = 200,
+    ) -> None:
         self._json = json_data
         self._raise = raise_exc
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         if self._raise is not None:
@@ -341,7 +351,10 @@ class TestBaseUrlAllowlist:
             ai_base_url = "http://evil.example/v1"
             ai_model = "m"
 
-        assert ai_hints._post_chat(_Cfg(), [{"role": "user", "content": "x"}], "key") is None
+        assert ai_hints._post_chat(_Cfg(), [{"role": "user", "content": "x"}], "key") == (
+            None,
+            None,
+        )
         assert calls == [], "запрос ушёл на адрес, который должен быть отклонён"
 
 

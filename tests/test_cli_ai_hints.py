@@ -9,11 +9,13 @@ from __future__ import annotations
 import dataclasses
 import pathlib
 
+import pytest
 import requests
 
 from stepik_grader import cli
 from stepik_grader.cli import commands
 from stepik_grader.config import CONFIG
+from stepik_grader.core import ai_hints
 
 
 def _make_task(tmp_path: pathlib.Path, body: str, *, name: str = "sol.py") -> pathlib.Path:
@@ -43,6 +45,10 @@ def _configure(monkeypatch) -> None:
 
 
 class _Resp:
+    # issue #975: канал разбирает код ответа, чтобы отличить отказ провайдера
+    # от «не настроено», поэтому фейк обязан его нести.
+    status_code = 200
+
     def raise_for_status(self) -> None:
         pass
 
@@ -85,7 +91,9 @@ def test_ai_channel_failure_never_breaks_grading(tmp_path, monkeypatch, capsys) 
     cli.main(["--mode", "1", "--file", str(sol), "--ai-hints"])  # не должно кинуть
     out = capsys.readouterr().out
     assert "FAIL" in out  # вердикт напечатан
-    assert "AI-подсказка" not in out  # канал тихо пропущен
+    # issue #975: канал пропущен, но не молча — иначе «не работает» неотличимо
+    # от «выключено», и пользователь ищет причину в своих настройках.
+    assert "до провайдера не достучаться" in out
 
 
 def test_no_flag_no_ai_output(tmp_path, monkeypatch, capsys) -> None:
@@ -159,7 +167,11 @@ def test_ai_hints_respect_call_ceiling(tmp_path, monkeypatch, capsys) -> None:
 
     calls: list[object] = []
     monkeypatch.setattr(
-        commands.ai_hints, "explain_failure", lambda fc, config: calls.append(fc) or "подсказка"
+        commands.ai_hints,
+        "explain_failure_detailed",
+        lambda fc, config: (
+            calls.append(fc) or commands.ai_hints.AiHintOutcome(text="подсказка", reason=None)
+        ),
     )
 
     rows = [
@@ -184,7 +196,11 @@ def test_ai_hints_below_ceiling_are_all_shown(tmp_path, monkeypatch, capsys) -> 
 
     calls: list[object] = []
     monkeypatch.setattr(
-        commands.ai_hints, "explain_failure", lambda fc, config: calls.append(fc) or "подсказка"
+        commands.ai_hints,
+        "explain_failure_detailed",
+        lambda fc, config: (
+            calls.append(fc) or commands.ai_hints.AiHintOutcome(text="подсказка", reason=None)
+        ),
     )
 
     rows = [(tmp_path / "task1.py", {"cases": [{"passed": False, "verdict": "WA"}] * 3})]
@@ -192,3 +208,76 @@ def test_ai_hints_below_ceiling_are_all_shown(tmp_path, monkeypatch, capsys) -> 
 
     assert len(calls) == 3
     assert "потолок" not in capsys.readouterr().out
+
+
+class TestModelFamilies:
+    """issue #975 (TRE-1-01): payload обязан соответствовать семейству модели.
+
+    У o-серии, `gpt-5` и `deepseek-reasoner` контракт другой:
+    `max_completion_tokens` вместо `max_tokens`, температура не принимается.
+    Обычный payload они отвергают целиком (400) — и подсказки молча не работают
+    ровно у тех, кто включил самую свежую модель.
+    """
+
+    @pytest.mark.parametrize(
+        "model",
+        ["o1", "o3-mini", "gpt-5", "gpt-5.1", "gpt-5-mini", "deepseek-reasoner", "openai/o4-mini"],
+    )
+    def test_reasoning_families_recognised(self, model: str) -> None:
+        assert ai_hints._is_reasoning_model(model) is True
+
+    @pytest.mark.parametrize("model", ["gpt-4o", "llama3", "opus", "mistral", "gpt-3.5-turbo"])
+    def test_ordinary_models_keep_plain_payload(self, model: str) -> None:
+        """Обратная сторона: обычные модели не должны потерять `temperature`."""
+        assert ai_hints._is_reasoning_model(model) is False
+
+
+class TestProviderRefusalIsAudible:
+    """issue #975 (TRE-1-03): отказ провайдера отличим от выключенного канала."""
+
+    @staticmethod
+    def _outcome(monkeypatch, status: int) -> object:
+        class _Refusal:
+            status_code = status
+
+            def json(self) -> object:  # pragma: no cover — до разбора не доходит
+                return {}
+
+        monkeypatch.setattr(requests, "post", lambda url, **kw: _Refusal())
+        cfg = dataclasses.replace(CONFIG, ai_base_url="https://test.local/v1", ai_model="m")
+        ctx = ai_hints.FailureContext(verdict="WA", lang="ru")
+        return ai_hints.explain_failure_detailed(ctx, cfg)
+
+    @pytest.mark.parametrize(
+        "status,reason",
+        [
+            (401, "unauthorized"),
+            (403, "forbidden"),
+            (429, "rate_limited"),
+            (400, "bad_request"),
+            (500, "server_error"),
+            (418, "http_error"),
+        ],
+    )
+    def test_http_status_becomes_reason(self, monkeypatch, status: int, reason: str) -> None:
+        outcome = self._outcome(monkeypatch, status)
+
+        assert outcome.text is None
+        assert outcome.reason == reason
+
+    def test_unconfigured_channel_has_no_reason(self) -> None:
+        """Выключенный канал — не отказ: `reason` пуст, и жаловаться не на что."""
+        ctx = ai_hints.FailureContext(verdict="WA", lang="ru")
+
+        outcome = ai_hints.explain_failure_detailed(ctx, dataclasses.replace(CONFIG))
+
+        assert outcome.text is None and outcome.reason is None
+
+    def test_legacy_wrapper_still_returns_text(self, monkeypatch) -> None:
+        """`explain_failure` остаётся в `__all__` и отдаёт текст как раньше."""
+        monkeypatch.setattr(requests, "post", lambda url, **kw: _Resp())
+        cfg = dataclasses.replace(CONFIG, ai_base_url="https://test.local/v1", ai_model="m")
+
+        hint = ai_hints.explain_failure(ai_hints.FailureContext(verdict="WA", lang="ru"), cfg)
+
+        assert hint is not None and "прибавляешь 2" in hint

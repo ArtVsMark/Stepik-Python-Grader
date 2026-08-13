@@ -502,7 +502,9 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
 
 - `path` пустой → **400** `specify_path_file_or_folder`.
 - `mode` не `tests`/`bench`/`microbench` → **400** `invalid_run_mode`.
-- `path` вне workspace → **403** `path_outside_workspace`.
+- `path` вне workspace → **403** `path_outside_workspace`; `path` не `.py` →
+  **403** `source_not_a_solution` (ручка увозит содержимое файла провайдеру,
+  поэтому читает только решения).
 - Активных (нетерминальных) job'ов уже `CONFIG.max_active_runs` (дефолт 20,
   настройка сервера через `pyproject.toml`) → **429** `too_many_runs` (поле
   `limit`). Back-pressure общий для всех kind (tests/bench/
@@ -585,7 +587,8 @@ curl -X POST http://127.0.0.1:8000/api/v1/runs/<run_id>/cancel
 
 AI-объяснение упавшего кейса как async job (ADR-0003) —
 opt-in BYOK через OpenAI-совместимый endpoint. Возвращает `run_id`; результат
-(`{"hint": str|null, "configured": bool}`) — через `GET /api/v1/runs/<id>`.
+(`{"hint": str|null, "configured": bool, "reason": str|null}`) — через
+`GET /api/v1/runs/<id>`.
 Контекст (verdict/ввод-вывод/diff/ошибка + код решения) заземляет промпт общим
 core-хелпером `build_failure_context`.
 
@@ -604,8 +607,13 @@ core-хелпером `build_failure_context`.
 - `path` вне workspace → **403** `path_outside_workspace`.
 - Активных job'ов уже `CONFIG.max_active_runs` → **429** `too_many_runs`.
 - Провайдер не настроен (`ai_base_url`/`ai_model` пусты) → job завершается с
-  `{"hint": null, "configured": false}` (graceful skip; грейдинг не затрагивается,
-  в сеть ничего не уходит).
+  `{"hint": null, "configured": false, "reason": null}` (graceful skip; грейдинг
+  не затрагивается, в сеть ничего не уходит).
+- Провайдер отказал → `{"hint": null, "configured": true, "reason": "..."}`, где
+  `reason` — `unauthorized` (401), `forbidden` (403), `rate_limited` (429),
+  `bad_request` (400), `server_error` (5xx), `network` (сеть/таймаут) или
+  `empty` (пустой ответ). Без этого поля отказ провайдера неотличим от
+  выключенного канала: в обоих случаях приходит `hint: null`.
 - Успех → **202** `{"run_id": "...", "status": "queued"}`.
 
 ```
