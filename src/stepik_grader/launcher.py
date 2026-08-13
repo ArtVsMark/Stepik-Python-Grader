@@ -52,6 +52,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from stepik_grader.config import workspace_root
 from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
@@ -193,26 +194,34 @@ def _find_stepik_config(start: Path) -> Path | None:
 
 
 def default_workdir(cwd: Path | None = None) -> Path:
-    """Рабочая папка по умолчанию: настроенная папка задач, иначе cwd (issue #823).
+    """Рабочая папка по умолчанию: настроенная папка задач, иначе корень проекта.
 
-    Прежде окно всегда стартовало в cwd. Через Windows-ярлык это каталог
-    ярлыка или домашняя папка: задач там нет, а веб-интерфейс ещё и конфайнит
-    пути рабочей папкой — значит скачанные задачи давали 403, и первокурсник,
-    ради которого лаунчер и сделан, видел пустой интерфейс.
+    issue #823: прежде окно всегда стартовало в cwd. Через Windows-ярлык это
+    каталог ярлыка или домашняя папка: задач там нет, а веб-интерфейс ещё и
+    конфайнит пути рабочей папкой — значит скачанные задачи давали 403, и
+    первокурсник, ради которого лаунчер и сделан, видел пустой интерфейс.
 
     Выбирается папка **с** ``stepik_config.json``, если настроенный ``root_dir``
     лежит внутри неё (обычный случай — относительный ``StepikTasks``): так и
     задачи видны, и панель загрузчика продолжает находить свой конфиг. Если
     ``root_dir`` уводит наружу — берётся он сам: задачи важнее панели.
+
+    issue #1132: фолбэк — не голый cwd, а ``workspace_root()``, тот же корень
+    настроек, от которого резолвятся ``pyproject.toml`` и
+    ``.grader_settings.json`` (issue #1009). Прежний cwd означал, что запуск из
+    подпапки проекта открывал окно в подпапке, а не в проекте, — и лечило это
+    только наличие ``stepik_config.json``, то есть сценарий «задачи скачаны
+    загрузчиком». Своя папка с задачами, собранная руками, в него не попадала.
     """
     base = cwd if cwd is not None else Path.cwd()
+    fallback = workspace_root(base)
     config = _find_stepik_config(base)
     if config is None:
-        return base
+        return fallback
     try:
         data = json.loads(config.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return base
+        return fallback
     raw = str(data.get("root_dir") or "").strip() if isinstance(data, dict) else ""
     if not raw:
         return config.parent

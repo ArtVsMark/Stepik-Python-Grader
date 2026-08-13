@@ -516,6 +516,44 @@ class TestDefaultWorkdir:
     def test_without_config_falls_back_to_cwd(self, tmp_path: Path) -> None:
         assert launcher.default_workdir(tmp_path) == tmp_path
 
+    def test_without_config_starts_at_project_root(self, tmp_path: Path) -> None:
+        """issue #1132: запуск из подпапки проекта открывает окно в проекте.
+
+        Прежний фолбэк — голый cwd — означал, что окно стартует там, откуда его
+        позвали. Лечило это только наличие `stepik_config.json`, то есть
+        сценарий «задачи скачаны загрузчиком»; своя папка с задачами, собранная
+        руками, оставалась ни с чем: рабочая папка задаёт `--root`, то есть
+        периметр сервера, и промах даёт не пустой экран, а 403 на задачи.
+        """
+        (tmp_path / ".git").mkdir()  # маркер корня проекта, как у workspace_root
+        nested = tmp_path / "lesson1" / "step2"
+        nested.mkdir(parents=True)
+
+        assert launcher.default_workdir(nested) == tmp_path
+
+    def test_settings_file_marks_the_root_too(self, tmp_path: Path) -> None:
+        """Корень опознаётся и по `.grader_settings.json` — у пользователя pipx `.git` нет."""
+        (tmp_path / ".grader_settings.json").write_text("{}", encoding="utf-8")
+        nested = tmp_path / "tasks" / "01"
+        nested.mkdir(parents=True)
+
+        assert launcher.default_workdir(nested) == tmp_path
+
+    def test_config_still_wins_over_project_root(self, tmp_path: Path) -> None:
+        """`stepik_config.json` остаётся уточнением и по-прежнему сильнее фолбэка.
+
+        Иначе фикс #823 отменился бы: через ярлык cwd — каталог ярлыка, и
+        настроенная папка задач нужна именно там.
+        """
+        (tmp_path / ".git").mkdir()
+        tasks = tmp_path / "StepikTasks"
+        tasks.mkdir()
+        self._config(tmp_path, "StepikTasks")
+        nested = tmp_path / "a"
+        nested.mkdir()
+
+        assert launcher.default_workdir(nested) == tmp_path
+
     def test_relative_root_dir_keeps_config_folder(self, tmp_path: Path) -> None:
         """Задачи внутри — берём папку конфига: и задачи видны, и загрузчик цел."""
         (tmp_path / "StepikTasks").mkdir()
