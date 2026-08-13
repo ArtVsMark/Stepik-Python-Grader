@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """scripts/check_locale_guardrails.py — CI-guard локализации веб-API (issue #264).
 
-Три машинные защиты, чтобы каталог сообщений веб-слоя (``message_id`` →
+Пять машинных защит, чтобы каталог сообщений веб-слоя (``message_id`` →
 локализованный текст, см. ``web/i18n.py``) не разъезжался с фактическим
-использованием и между локалями:
+использованием, между локалями и с тем, что пользователь реально видит:
 
 1. **Полнота ``ru.json``.** Каждый ``message_id``, на который в ``web/*.py``
    ссылается вызов ``render_message(...)``/``message_fields(...)``, должен
@@ -17,6 +17,12 @@
    (issue #821): совпадение ключей ещё не значит, что перевод сделан —
    строка баннера сервера годами называла раздел «Подучить» по-русски внутри
    английского файла, где четыре соседних ключа звали его «Learn».
+4. **Ссылки ведут наружу.** Ни одна пользовательская строка не зовёт читать
+   путь внутри репозитория (issue #1005): при установке через ``pip``/``pipx``
+   ни ``docs/``, ни ``README`` на диске нет — подсказка ведёт в никуда.
+5. **Один стиль кавычек в ``en.json``.** Русские «ёлочки» соседствовали с
+   английскими “лапками”, причём один и тот же термин был закавычен обоими
+   способами; проверка на кириллицу этого не видит — кавычки не буквы.
 
 По образцу ``scripts/check_docs_guardrails.py`` (issue #173): чистый
 ``ast``/``json``/``pathlib``, без внешних зависимостей — быстро и
@@ -31,12 +37,15 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import sys
 from pathlib import Path
 
 __all__ = [
     "check_en_locale_has_no_cyrillic",
+    "check_en_locale_uses_one_quote_style",
     "check_en_ru_key_parity",
+    "check_locales_link_outside_the_repo",
     "check_ru_covers_referenced_ids",
     "collect_referenced_message_ids",
     "load_locale_keys",
@@ -190,12 +199,66 @@ def check_en_locale_has_no_cyrillic(errors: list[str]) -> None:
         print(f"en.json: no Cyrillic text across {len(values)} key(s).")
 
 
+def check_locales_link_outside_the_repo(errors: list[str]) -> None:
+    """Пользовательские строки не ссылаются на пути внутри репозитория (issue #1005).
+
+    Находки INS-5-02, LINK-1-05, READER-1-04: сообщения звали читать
+    ``docs/use/installation.md``, ``SECURITY.md``, ``README`` — файлы, которых
+    у поставившего через ``pip``/``pipx`` на диске нет вовсе. Подсказка,
+    ведущая в никуда, хуже её отсутствия: пользователь ищет несуществующее.
+
+    Правильный адрес — абсолютный URL (база объявлена в ``pyproject.toml``
+    полем ``Documentation``). Имена файлов, которые продукт **создаёт** сам
+    (``grader-progress.md``, ``.grader_history.db``), под запрет не подпадают:
+    они относятся к рабочей папке пользователя, а не к репозиторию.
+    """
+    marker = re.compile(
+        r"(?<!/)\b(?:docs/[\w./-]+|README(?:\.md)?|SECURITY\.md|CONTRIBUTING\.md|CHANGELOG\.md)\b"
+    )
+    offenders: list[str] = []
+    for lang in ("ru", "en"):
+        for key, text in sorted(load_locale_values(lang).items()):
+            # Внутри абсолютного URL тот же путь легален — он и есть решение.
+            without_urls = re.sub(r"https?://\S+", "", text)
+            for hit in marker.findall(without_urls):
+                offenders.append(f"{lang}.json:{key} → {hit}")
+    if offenders:
+        errors.append(
+            "пользовательские строки ссылаются на пути внутри репозитория "
+            "(при pip/pipx этих файлов нет — нужен абсолютный URL): " + ", ".join(offenders)
+        )
+    else:
+        print("Locale links: no repo-relative paths in ru.json/en.json user strings.")
+
+
+def check_en_locale_uses_one_quote_style(errors: list[str]) -> None:
+    """Английская локаль закавычивает термины одним способом (issue #1005, ED-2-06).
+
+    В ``en.json`` соседствовали русские «ёлочки» и английские “лапки”, причём
+    один и тот же термин Learn был закавычен обоими способами. Проверка на
+    кириллицу такое не ловит: сами кавычки буквами не являются.
+    """
+    guillemets = ("«", "»", "„", "‟")
+    bad = sorted(
+        key for key, text in load_locale_values("en").items() if any(q in text for q in guillemets)
+    )
+    if bad:
+        errors.append(
+            "core/locales/en.json uses Russian guillemets («») instead of English quotes (“”) "
+            "in key(s): " + ", ".join(bad)
+        )
+    else:
+        print("en.json: consistent English quotation marks.")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_ru_covers_referenced_ids(errors)
     check_en_ru_key_parity(errors)
     check_en_locale_has_no_cyrillic(errors)
+    check_locales_link_outside_the_repo(errors)
+    check_en_locale_uses_one_quote_style(errors)
 
     if errors:
         print("\nFAIL: locale guardrails violated:")

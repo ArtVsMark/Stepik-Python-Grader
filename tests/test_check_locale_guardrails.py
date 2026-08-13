@@ -199,3 +199,123 @@ def test_clean_en_locale_passes(monkeypatch, tmp_path: Path) -> None:
     errors: list[str] = []
     module.check_en_locale_has_no_cyrillic(errors)
     assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (INS-5-02, LINK-1-05, READER-1-04): ссылки ведут наружу
+#
+# Строки звали читать `docs/use/installation.md` и `README` — то есть файлы,
+# которых у поставившего через pip/pipx на диске нет вовсе. Подсказка в никуда
+# хуже её отсутствия: пользователь ищет несуществующее и решает, что сломан он.
+# ---------------------------------------------------------------------------
+
+
+def _locales(tmp_path: Path, ru: dict[str, str], en: dict[str, str]) -> Path:
+    """Подготовить пару локалей во временной папке и вернуть её путь."""
+    locales_dir = tmp_path / "locales"
+    locales_dir.mkdir()
+    (locales_dir / "ru.json").write_text(json.dumps(ru, ensure_ascii=False), encoding="utf-8")
+    (locales_dir / "en.json").write_text(json.dumps(en, ensure_ascii=False), encoding="utf-8")
+    return locales_dir
+
+
+def test_repo_relative_doc_path_is_caught(monkeypatch, tmp_path: Path) -> None:
+    """Тот самый дефект: сообщение зовёт в docs/, которых при pipx нет."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"auth": "Подробнее об OAuth: docs/use/installation.md"},
+            {"auth": "More about OAuth: docs/use/installation.md"},
+        ),
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert any("ru.json:auth" in e and "en.json:auth" in e for e in errors), errors
+
+
+def test_bare_readme_mention_is_caught(monkeypatch, tmp_path: Path) -> None:
+    """«см. README» — тот же тупик: файла у пользователя пакета нет."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"k": "см. README"}, {"k": "see README"})
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert any("README" in e for e in errors), errors
+
+
+def test_absolute_url_to_the_same_document_passes(monkeypatch, tmp_path: Path) -> None:
+    """Тот же путь внутри абсолютного URL — это и есть решение, не нарушение."""
+    module = _load_module()
+    url = "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/use/installation.md"
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(tmp_path, {"auth": f"OAuth: {url}"}, {"auth": f"OAuth: {url}"}),
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert errors == []
+
+
+def test_generated_file_name_is_not_a_repo_path(monkeypatch, tmp_path: Path) -> None:
+    """`grader-progress.md` продукт создаёт сам — запрет его не касается."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"exp": "Экспорт в grader-progress.md рядом с задачей"},
+            {"exp": "Export to grader-progress.md next to the task"},
+        ),
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (ED-2-06): один стиль кавычек в английской локали
+# ---------------------------------------------------------------------------
+
+
+def test_guillemets_in_en_locale_are_caught(monkeypatch, tmp_path: Path) -> None:
+    """Русские «ёлочки» в en.json — то, что проверка на кириллицу пропускает."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(tmp_path, {"k": "Раздел «Подучить»"}, {"k": "The «Learn» section"}),
+    )
+
+    errors: list[str] = []
+    module.check_en_locale_uses_one_quote_style(errors)
+
+    assert any("k" in e for e in errors), errors
+
+
+def test_english_quotes_pass(monkeypatch, tmp_path: Path) -> None:
+    """Английские “лапки” — принятый стиль, претензий нет."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(tmp_path, {"k": "Раздел «Подучить»"}, {"k": "The “Learn” section"}),
+    )
+
+    errors: list[str] = []
+    module.check_en_locale_uses_one_quote_style(errors)
+
+    assert errors == []
