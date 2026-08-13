@@ -23,6 +23,7 @@ Stepik-Python-Grader/
 │       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
 │       ├── atomic_io.py           # Utilities: atomic_write_json (temp+os.replace, leaf, ADR-0011)
 │       ├── db.py                  # Utilities: общий SQLite-коннектор connect/user_version/apply_schema (leaf, ADR-0011)
+│       ├── stdio_encoding.py      # Utilities: force_utf8_stdio — вывод точек входа в UTF-8 (leaf)
 │       ├── web/                   # Локальный веб-интерфейс (--serve)
 │       │   ├── __init__.py        # Публичный API пакета (реэкспорт для back-compat)
 │       │   ├── server.py          # Каркас HTTP-сервера (http.server): собирает хендлер из миксинов, статика
