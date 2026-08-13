@@ -1211,9 +1211,11 @@ class TestFacadeNamespaceContract:
         real = cli._build_arg_parser
         calls = []
 
-        def _spy():
+        def _spy(*args, **kwargs):
+            # issue #997: парсер собирается с языком (--lang читается предпроходом),
+            # поэтому шпион обязан пропускать аргументы дальше.
             calls.append(True)
-            return real()
+            return real(*args, **kwargs)
 
         monkeypatch.setattr(cli, "_build_arg_parser", _spy)
         cli.main(["--version"])
