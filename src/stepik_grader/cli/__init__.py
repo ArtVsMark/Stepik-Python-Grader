@@ -76,6 +76,7 @@ from stepik_grader.cli.options import (
     _resolve_record_stats,
     _resolve_use_cache,
     _resolve_verbosity,
+    peek_lang,
 )
 from stepik_grader.cli.prompts import EXPLICIT_YES
 
@@ -557,7 +558,10 @@ def main(argv: list[str] | None = None) -> ExitCode:
     """
     _force_utf8_stdio()
 
-    parser = _build_arg_parser()
+    # issue #997 (INS-5-03): язык нужен ДО сборки парсера — иначе тексты справки
+    # уже зафиксированы, и `--lang en --help` печатает русскую справку, то есть
+    # самая первая поверхность игнорирует выбор языка.
+    parser = _build_arg_parser(peek_lang(argv))
     args = parser.parse_args(argv)
 
     # issue #993: источник конфигурации фиксируется до всего остального —

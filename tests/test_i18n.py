@@ -14,6 +14,7 @@ import pathlib
 import pytest
 
 from stepik_grader import cli
+from stepik_grader.cli import options
 from stepik_grader.core.i18n import load_locale_messages
 
 
@@ -97,3 +98,67 @@ def test_t_raises_keyerror_on_unknown_key(monkeypatch) -> None:
     monkeypatch.setattr(cli, "_LANG", "en")
     with pytest.raises(KeyError):
         cli._t("no_such_key_anywhere")
+
+
+# ---------------------------------------------------------------------------
+# Справка следует --lang — issue #997 (INS-5-03)
+# ---------------------------------------------------------------------------
+
+
+class TestHelpFollowsLang:
+    """`--lang en --help` печатал целиком русскую справку.
+
+    Справка — первая поверхность, которую видит новый пользователь, и
+    единственная, до которой он доходит раньше всех остальных. Она игнорировала
+    выбор языка, потому что тексты были зашиты в код парсера.
+    """
+
+    def _help(self, capsys, argv: list[str]) -> str:
+        with pytest.raises(SystemExit):
+            cli.main([*argv, "--help"])
+        return capsys.readouterr().out
+
+    def test_english_help_has_no_russian(self, capsys):
+        out = self._help(capsys, ["--lang", "en"])
+
+        assert "Run mode" in out
+        assert not any("\u0400" <= ch <= "\u04ff" for ch in out), "в английской справке кириллица"
+
+    def test_russian_help_unchanged(self, capsys):
+        """Регрессия: без флага справка прежняя, русская."""
+        out = self._help(capsys, [])
+
+        assert "Режим запуска" in out
+        assert "Run mode" not in out
+
+    def test_epilog_follows_lang(self, capsys):
+        """Эпилог — тот же случай: он объясняет, как устроена задача."""
+        assert "How a task is laid out" in self._help(capsys, ["--lang", "en"])
+        assert "Как устроена задача" in self._help(capsys, [])
+
+    def test_peek_lang_reads_flag_before_parser(self):
+        assert options.peek_lang(["--lang", "en", "--mode", "1"]) == "en"
+        assert options.peek_lang(["--mode", "1"]) == options.DEFAULT_LANG
+
+    def test_peek_lang_ignores_unknown_value(self):
+        """Ругаться на неизвестный язык — работа основного парсера с choices."""
+        assert options.peek_lang(["--lang", "klingon"]) == options.DEFAULT_LANG
+
+    def test_unknown_lang_still_rejected_by_parser(self, capsys):
+        with pytest.raises(SystemExit):
+            cli.main(["--lang", "klingon", "--mode", "1"])
+
+    def test_help_keys_exist_for_every_flag(self):
+        """Гейт от дрейфа: новый флаг обязан принести ключ в обе локали."""
+        parser = options._build_arg_parser()
+        ru = options._help_texts("ru")
+        en = options._help_texts("en")
+        for action in parser._actions:
+            if not action.option_strings or action.dest == "help":
+                continue
+            long = next(
+                (o for o in action.option_strings if o.startswith("--")), action.option_strings[0]
+            )
+            key = "cli_help_" + long.lstrip("-").replace("-", "_")
+            assert key in ru, f"нет русского текста справки: {key}"
+            assert key in en, f"нет английского текста справки: {key}"
