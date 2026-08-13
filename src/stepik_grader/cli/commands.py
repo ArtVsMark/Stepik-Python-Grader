@@ -93,6 +93,26 @@ def _has_failures(cases: Sequence[CaseResult]) -> bool:
     return any(not c.get("passed") for c in cases)
 
 
+_STATUS_BY_EXIT: dict[ExitCode, str] = {
+    ExitCode.OK: "ok",
+    ExitCode.FAILURES: "fail",
+    ExitCode.NO_TESTS: "no_tests",
+}
+
+
+def _status_for(outcome: ExitCode) -> str:
+    """Машинный статус прогона (issue #997, MTX-4-04).
+
+    В текстовой таблице «0/0» печатается как ``NO TESTS``, а машинный вывод
+    отдавал ту же ситуацию как ``total: 0, failed: 0`` — то есть без единого
+    провала. Потребитель, читающий JSON, видел успех там, где не было ни одной
+    проверки: тесты не скачались, набор пуст, а CI зеленеет.
+
+    Значение то же, что кодирует код возврата, — они не могут разойтись.
+    """
+    return _STATUS_BY_EXIT.get(outcome, "fail")
+
+
 def _outcome_for_cases(cases: Sequence[CaseResult]) -> ExitCode:
     """Код исхода по набору кейсов (issue #936).
 
@@ -662,7 +682,12 @@ def _run_mode_1(
     outcome = _outcome_for_cases(result["cases"])
 
     if output == "json":
-        print(json.dumps({"file": str(solution), **result}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {"file": str(solution), "status": _status_for(outcome), **result},
+                ensure_ascii=False,
+            )
+        )
         return outcome
     if output in ("csv", "markdown"):
         rows = [
@@ -676,6 +701,19 @@ def _run_mode_1(
             }
             for i, c in enumerate(result["cases"], start=1)
         ]
+        if not rows:
+            # issue #997 (MTX-4-04): пустая таблица читалась как «всё хорошо».
+            # Одна строка со статусом честнее нуля строк.
+            rows = [
+                {
+                    "index": 0,
+                    "passed": False,
+                    "verdict": _status_for(outcome).upper(),
+                    "time": 0.0,
+                    "memory": 0.0,
+                    "error": ctx.t("no_test_cases_loaded"),
+                }
+            ]
         ctx.print_tabular(output, rows, ["index", "passed", "verdict", "time", "memory", "error"])
         return outcome
 
@@ -777,7 +815,18 @@ def _run_mode_2(
     outcome = _outcome_for_cases([c for _, result in rows for c in result["cases"]])
 
     if output == "json":
-        print(json.dumps({"results": {str(p): r for p, r in rows}}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "status": _status_for(outcome),
+                    "results": {
+                        str(p): {"status": _status_for(_outcome_for_cases(r["cases"])), **r}
+                        for p, r in rows
+                    },
+                },
+                ensure_ascii=False,
+            )
+        )
         return outcome
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **result} for path, result in rows]
