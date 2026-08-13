@@ -23,8 +23,10 @@
   ломает их молча;
 * **вывод прогона целиком в файле** — ``pytest | tail -8`` в фоне отбрасывает
   всё остальное, и шестиминутный прогон приходится повторять;
-* **запись в CHANGELOG** — строка в ``## Буфер`` требуется в каждом PR, но CI
-  этого не проверяет, значит проверка держалась на памяти.
+* **запись о изменении** — фрагмент ``changelog.d/<slug>.<секция>.md`` требуется
+  в каждом PR, но его наличие CI не проверяет, значит проверка держалась на
+  памяти (строка в ``## Буфер`` тоже принимается — ветки, начатые до перехода
+  на фрагменты, не должны краснеть на ровном месте).
 
 Запуск::
 
@@ -56,6 +58,7 @@ from collections.abc import Callable, Sequence
 
 __all__ = [
     "Check",
+    "added_changelog_fragments",
     "added_changelog_lines",
     "buffer_section",
     "changed_public_names",
@@ -195,8 +198,13 @@ def check_branch_not_taken(
     return Check(
         name="имя ветки свободно",
         ok=ok,
-        detail=f"{remote} — продолжение моей работы" if ok else f"{remote} ведёт кто-то ещё",
-        hint="возьмите другое имя ветки; в чужую ветку не пушить — сообщите её владельцу",
+        detail=f"{remote} — продолжение моей работы" if ok else f"{remote} разошлась с этой веткой",
+        hint=(
+            "проверьте, не ведёт ли её соседнее окно: в чужую ветку не пушить. "
+            "После squash-мержа своего же PR расхождение нормально — squash не "
+            "сохраняет прежнюю вершину предком"
+        ),
+        blocking=False,
     )
 
 
@@ -227,8 +235,21 @@ def added_changelog_lines(diff: str) -> list[str]:
     return added
 
 
+def added_changelog_fragments(git: GitRunner = _git) -> list[str]:
+    """Фрагменты ``changelog.d/``, добавленные этой веткой."""
+    return sorted(
+        path
+        for path in _changed_files(git)
+        if path.startswith("changelog.d/") and not path.endswith("README.md")
+    )
+
+
 def check_changelog_buffer(git: GitRunner = _git, *, changelog: str | None = None) -> Check:
-    """Запись в ``## Буфер`` обязательна в каждом PR, и CI её не проверяет.
+    """Запись о изменении обязательна в каждом PR, и CI её не проверяет.
+
+    Принимается любая из двух форм: файл-фрагмент в ``changelog.d/`` (основная,
+    не конфликтует между PR) или строка в ``## Буфер`` — так ветки, начатые до
+    перехода на фрагменты, не становятся красными на ровном месте.
 
     Требование мягкое ровно в одном случае: когда ветка не трогает ничего,
     кроме самого ``CHANGELOG.md`` — тогда проверять нечего.
@@ -237,6 +258,14 @@ def check_changelog_buffer(git: GitRunner = _git, *, changelog: str | None = Non
     meaningful = {path for path in changed if path != "CHANGELOG.md"}
     if not meaningful:
         return Check(name="запись в CHANGELOG", ok=True, detail="менять нечего")
+
+    fragments = added_changelog_fragments(git)
+    if fragments:
+        return Check(
+            name="запись в CHANGELOG",
+            ok=True,
+            detail=f"фрагмент(ы): {', '.join(path.split('/')[-1] for path in fragments)}",
+        )
 
     diff = git("diff", f"{_BASE}...HEAD", "--", "CHANGELOG.md")
     diff += "\n" + git("diff", "--", "CHANGELOG.md")
@@ -248,8 +277,10 @@ def check_changelog_buffer(git: GitRunner = _git, *, changelog: str | None = Non
     return Check(
         name="запись в CHANGELOG",
         ok=bool(landed),
-        detail=f"{len(landed)} запись(ей) в буфере" if landed else "новых строк в «## Буфер» нет",
-        hint='строка "- Fixed: что изменилось (#PR)" в «## Буфер (разобрать при релизе)»',
+        detail=f"{len(landed)} запись(ей) в буфере"
+        if landed
+        else "ни фрагмента, ни строки в буфере",
+        hint="файл changelog.d/<slug>.<секция>.md — одна строка текста записи (#PR)",
     )
 
 
@@ -381,12 +412,19 @@ def _read(path: pathlib.Path) -> str:
 
 
 def _changed_files(git: GitRunner = _git) -> set[str]:
-    """Файлы ветки против базы плюс рабочее дерево и индекс."""
+    """Файлы ветки против базы плюс рабочее дерево, индекс и НОВЫЕ файлы.
+
+    Неотслеживаемые считаются наравне: правка часто состоит ровно из новых
+    файлов (модуль с тестом, фрагмент changelog), и до ``git add`` они в
+    ``git diff`` не видны — проверка «запись о изменении есть» на этом молча
+    ошибалась.
+    """
     files: set[str] = set()
     for args in (
         ("diff", "--name-only", f"{_BASE}...HEAD"),
         ("diff", "--name-only"),
         ("diff", "--name-only", "--cached"),
+        ("ls-files", "--others", "--exclude-standard"),
     ):
         files |= {line for line in git(*args).splitlines() if line}
     return files
