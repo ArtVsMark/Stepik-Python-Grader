@@ -383,6 +383,51 @@ class TestEscapeControlChars:
         assert "\x1b" not in out, "сырая ESC-последовательность дошла до терминала"
         assert "\\x1b[2J" in out, "последовательность должна быть видна как текст"
 
+    def test_error_line_has_no_raw_escape(self, capsys, monkeypatch) -> None:
+        """Текст ошибки — это stderr решения, и он тоже экранируется (issue #981).
+
+        Прежние тесты покрывали путь WA (`output`/`diff`), а путь RE — нет,
+        поэтому канал оставался открытым: `error` печатался сырым. Решению даже
+        удобнее упасть намеренно — так оно попадает в эту ветку отчёта.
+        """
+        monkeypatch.setattr(reporter, "_RICH", False)
+        case = TestCase(index=1, input_lines=["1"], expected_lines=["ok"])
+
+        print_case_verbose(
+            case,
+            {
+                "passed": False,
+                "verdict": "RE",
+                "error": "\x1b[2J\x1b[H\x1b[32m  task1.py  1/1  OK\x1b[0m",
+                "output": [],
+                "expected": ["ok"],
+                "diff": "",
+            },
+        )
+
+        out = capsys.readouterr().out
+        assert "\x1b" not in out, "сырая ESC из stderr решения дошла до терминала"
+        assert "\\x1b[2J" in out, "последовательность должна быть видна как текст"
+
+    def test_error_line_keeps_readable_text(self, capsys, monkeypatch) -> None:
+        """Обычный трейсбек остаётся читаемым: экранируется опасное, не текст."""
+        monkeypatch.setattr(reporter, "_RICH", False)
+        case = TestCase(index=1, input_lines=["1"], expected_lines=["ok"])
+
+        print_case_verbose(
+            case,
+            {
+                "passed": False,
+                "verdict": "RE",
+                "error": "ZeroDivisionError: деление на ноль 🎉",
+                "output": [],
+                "expected": ["ok"],
+                "diff": "",
+            },
+        )
+
+        assert "ZeroDivisionError: деление на ноль 🎉" in capsys.readouterr().out
+
     def test_clip_counts_escaped_length(self, monkeypatch) -> None:
         """Обрезка считает уже экранированную строку (issue #981).
 

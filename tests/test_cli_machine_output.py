@@ -154,3 +154,62 @@ class TestMachineLabels:
         )
 
         assert commands._isolation_label() == "bubblewrap"
+
+
+# ---------------------------------------------------------------------------
+# Табличный вывод не исполняет управляющие последовательности — issue #981
+# ---------------------------------------------------------------------------
+
+
+class TestTabularOutputEscaping:
+    """csv/markdown печатаются в терминал, значит подчиняются тому же правилу.
+
+    Подробный отчёт экранировали ещё в первом заходе по #981, а табличные
+    форматы — нет: `error` там это stderr решения, и ANSI из упавшего решения
+    перерисовывал таблицу поверх напечатанного. JSON в это множество не входит —
+    `json.dumps` экранирует управляющие символы сам.
+    """
+
+    def _task_with_forging_solution(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        task = tmp_path / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text(
+            "import sys\n"
+            'sys.stderr.write("\\x1b[2J\\x1b[H\\x1b[32m  task1.py  1/1  OK\\x1b[0m")\n'
+            "sys.exit(1)\n",
+            encoding="utf-8",
+        )
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        return task
+
+    def test_csv_does_not_carry_raw_escape(self, tmp_path, monkeypatch, capsys):
+        """Решение падает с ANSI в stderr — в CSV не должно быть сырых ESC."""
+        task = self._task_with_forging_solution(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--output", "csv"])
+
+        out = capsys.readouterr().out
+        assert "\x1b" not in out, "сырая ESC из stderr решения дошла до терминала"
+        assert "\\x1b[2J" in out, "последовательность должна быть видна как текст"
+
+    def test_markdown_does_not_carry_raw_escape(self, tmp_path, monkeypatch, capsys):
+        """То же для markdown — формат другой, канал тот же."""
+        task = self._task_with_forging_solution(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--output", "markdown"])
+
+        assert "\x1b" not in capsys.readouterr().out
+
+    def test_json_keeps_original_text(self, tmp_path, monkeypatch, capsys):
+        """JSON остаётся машинным: экранирование делает сам json.dumps."""
+        task = self._task_with_forging_solution(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--output", "json"])
+
+        raw = capsys.readouterr().out
+        assert "\x1b" not in raw, "в тексте JSON сырых ESC быть не должно"
+        assert "\\u001b" in raw, "json.dumps экранирует управляющие символы сам"
