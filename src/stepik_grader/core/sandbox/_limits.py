@@ -7,7 +7,37 @@ backend'ы лениво (внутри функции), поэтому обрат
 
 from __future__ import annotations
 
-__all__ = ["SANDBOX_FALLBACK_MEMORY_MB", "sandbox_memory_mb"]
+import math
+
+__all__ = [
+    "SANDBOX_FALLBACK_MEMORY_MB",
+    "cpu_quota_seconds",
+    "sandbox_memory_mb",
+]
+
+# issue #986: запас поверх wall-таймаута. Часы и CPU-время расходятся: решение,
+# жгущее CPU в несколько потоков, тратит процессорных секунд больше, чем прошло
+# по часам.
+_CPU_QUOTA_SLACK_SECONDS = 1
+
+
+def cpu_quota_seconds(timeout: float, configured_max: float) -> int:
+    """CPU-квота изоляции для прогона с wall-таймаутом ``timeout`` (issue #986).
+
+    Квота обязана быть backstop'ом **под** таймаутом, а не жёстче него: иначе
+    изоляция убивает верное решение раньше, чем истекло разрешённое ему время.
+    Берётся максимум из «таймаут + запас» и настроенного потолка — настройка
+    остаётся нижней границей (защищает, когда таймаут крошечный), а длинный
+    прогон получает квоту не меньше своего таймаута.
+
+    Живёт здесь, а не в ``_posix_bootstrap`` (issue #927): формула чисто
+    арифметическая и нужна всем трём backend'ам, но Windows-backend POSIX-модуль
+    импортировать не может. Пока она лежала на POSIX-стороне, Windows считал
+    квоту от одной константы — и `--timeout 60` там не работал вовсе.
+    """
+    from_timeout = math.ceil(timeout) + _CPU_QUOTA_SLACK_SECONDS
+    return max(1, from_timeout, math.ceil(configured_max))
+
 
 # issue #986 (CANON-2-02): потолок памяти, когда его не задали нигде.
 #

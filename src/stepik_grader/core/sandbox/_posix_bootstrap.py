@@ -20,7 +20,7 @@ psutil-поллинг (см. ``core/runner.py._measure_peak_memory`` и
 
 from __future__ import annotations
 
-import math
+from stepik_grader.core.sandbox import _limits
 
 __all__ = ["build_bootstrap_argv", "cpu_quota_seconds"]
 
@@ -34,31 +34,14 @@ os.execv(sys.argv[1], sys.argv[1:])
 """
 
 
-# issue #986 (PY-2-01/SBX-3-01): запас CPU-квоты над wall-таймаутом. Квота — не
-# дублёр таймаута, а backstop: она обязана срабатывать ПОЗЖЕ него, иначе прогон,
-# который пользователь разрешил (`timeout_seconds = 30`), режется на 10-й
-# секунде — и не как TLE, а как невнятный сбой. Секунды хватает: wall-таймаут
-# считает то же самое время плюс накладные на запуск, поэтому при честном
-# зависании он приходит первым, а квота остаётся страховкой на случай, когда
-# решение жжёт CPU в несколько потоков быстрее, чем идут часы.
-_CPU_QUOTA_SLACK_SECONDS = 1
-
-
 def cpu_quota_seconds(timeout: float, configured_max: float) -> int:
-    """CPU-квота изоляции для прогона с wall-таймаутом ``timeout`` (issue #986).
+    """CPU-квота изоляции — тонкая обёртка над общей формулой (issue #927).
 
-    Раньше квота была константой из конфига и с таймаутом не сверялась: при
-    `timeout > квоты` изоляция убивала верное решение раньше, чем истекало
-    разрешённое ему время. Хуже того, убийство по квоте не распознавалось (см.
-    ``_posix_common``), и вердиктом становился `RE` — «решение упало», хотя
-    падала квота.
-
-    Берётся максимум из «таймаут + запас» и настроенного потолка: настройка
-    остаётся нижней границей (она защищает и когда таймаут крошечный), а
-    длинный прогон получает квоту не меньше своего таймаута.
+    Сама формула переехала в ``_limits`` вместе с Windows-backend'ом: она
+    нужна всем трём, а POSIX-модуль оттуда не импортируется. Имя оставлено —
+    на него ссылаются `_linux`/`_macos` и их тесты.
     """
-    from_timeout = math.ceil(timeout) + _CPU_QUOTA_SLACK_SECONDS
-    return max(1, from_timeout, math.ceil(configured_max))
+    return _limits.cpu_quota_seconds(timeout, configured_max)
 
 
 def build_bootstrap_argv(
