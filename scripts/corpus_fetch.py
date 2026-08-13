@@ -29,6 +29,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import sys
 from collections.abc import Iterator, Sequence
@@ -123,6 +124,56 @@ def iter_course_steps(
                     section_position=section_position,
                 )
 
+def build_course_inventory(course_id: int, steps: Sequence[CourseStep]) -> dict[str, Any]:
+    """Build the stable machine-readable course inventory."""
+    sections: dict[int, dict[str, Any]] = {}
+
+    for step in steps:
+        section = sections.setdefault(
+            step.section_id,
+            {
+                "id": step.section_id,
+                "title": step.section_title,
+                "position": step.section_position,
+                "lessons": [],
+                "_lessons": {},
+            },
+        )
+
+        lessons: dict[int, dict[str, Any]] = section["_lessons"]
+        lesson = lessons.get(step.lesson_id)
+
+        if lesson is None:
+            lesson = {
+                "id": step.lesson_id,
+                "title": step.title,
+                "steps": [],
+            }
+            lessons[step.lesson_id] = lesson
+            section["lessons"].append(lesson)
+
+        lesson["steps"].append(
+            {
+                "step_id": step.step_id,
+                "position": step.position,
+                "url": step.url,
+            }
+        )
+
+    result_sections = []
+    for section in sorted(
+        sections.values(),
+        key=lambda item: (item["position"], item["id"]),
+    ):
+        section.pop("_lessons")
+        result_sections.append(section)
+
+    return {
+        "course": {
+            "id": course_id,
+            "sections": result_sections,
+        }
+    }
 
 def _is_code_step(session: requests.Session, lesson_id: int, position: int) -> bool:
     """Проверить, что шаг — задача с кодом; сетевой сбой трактуется как «нет».
@@ -215,6 +266,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="только показать список шагов, ничего не скачивать"
     )
+
+    parser.add_argument(
+        "--inventory",
+        choices=("json",),
+        help="output course inventory in machine-readable JSON format",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -224,15 +281,41 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Не удалось авторизоваться: {exc}", file=sys.stderr)
         return 1
 
+    steps: list[CourseStep] | None = None
+
     if args.steps is not None:
+        if args.inventory is not None:
+            parser.error("--inventory requires --course")
+
         step_urls = read_step_urls(args.steps)
     else:
         try:
-            steps = list(iter_course_steps(session, args.course, code_only=not args.all_steps))
+            steps = list(
+                iter_course_steps(
+                    session,
+                    args.course,
+                    code_only=not args.all_steps,
+                )
+            )
         except (requests.RequestException, ValueError, KeyError) as exc:
-            print(f"Обход курса не удался: {type(exc).__name__}: {exc}", file=sys.stderr)
+            print(
+                f"Не удалось обойти курс: {type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
             return 1
+
         step_urls = [step.url for step in steps]
+
+        if args.inventory == "json":
+            print(
+                json.dumps(
+                    build_course_inventory(args.course, steps),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 0
+
         for step in steps:
             print(f"{step.url}  # {step.title}")
 
@@ -244,7 +327,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     if args.dry_run:
-        print(f"\nНайдено шагов: {len(step_urls)} (--dry-run, ничего не скачано)", file=sys.stderr)
+        print(
+            f"\nНайдено шагов: {len(step_urls)} "
+            f"(--dry-run, ничего не скачано)",
+            file=sys.stderr,
+        )
+
+        if steps is not None:
+            section_totals: dict[int, tuple[int, str]] = {}
+
+            for step in steps:
+                count, title = section_totals.get(
+                    step.section_id,
+                    (0, step.section_title),
+                )
+                section_totals[step.section_id] = (count + 1, title)
+
+            print("По секциям:", file=sys.stderr)
+            for section_id, (count, title) in sorted(
+                section_totals.items(),
+                key=lambda item: (
+                    next(
+                        s.section_position
+                        for s in steps
+                        if s.section_id == item[0]
+                    ),
+                    item[0],
+                ),
+            ):
+                print(
+                    f"  {section_id}: {title} — {count}",
+                    file=sys.stderr,
+                )
+
         return 0
 
     downloaded, errors = fetch_steps(session, step_urls, args.target)
