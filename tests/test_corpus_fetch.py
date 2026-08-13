@@ -66,7 +66,15 @@ class TestFetchSectionUnits:
 
 class TestCourseStep:
     def test_url_is_canonical_step_link(self) -> None:
-        step = _MODULE.CourseStep(lesson_id=571244, position=3, step_id=99, title="Урок")
+        step = _MODULE.CourseStep(
+    lesson_id=571244,
+    position=3,
+    step_id=99,
+    title="Урок",
+    section_id=1,
+    section_title="Section 1",
+    section_position=1,
+)
 
         assert step.url == "https://stepik.org/lesson/571244/step/3"
 
@@ -85,7 +93,14 @@ class TestIterCourseSteps:
         """Замокать цепочку обхода; ``code_steps`` — пары «урок, позиция» с кодом."""
         return [
             patch.object(_MODULE, "fetch_course_data", return_value={"sections": sections}),
-            patch.object(_MODULE, "fetch_section_data", side_effect=lambda _s, sid: {"id": sid}),
+            patch.object(_MODULE,
+    "fetch_section_data",
+    side_effect=lambda _s, sid: {
+        "id": sid,
+        "title": f"Section {sid}",
+        "position": sid,
+    },
+),
             patch.object(_MODULE, "fetch_section_units", side_effect=lambda _s, sid: units[sid]),
             patch.object(_MODULE, "fetch_lesson_data", side_effect=lambda _s, lid: lessons[lid]),
             patch.object(
@@ -223,7 +238,7 @@ class TestMain:
     def test_dry_run_lists_steps_without_downloading(
         self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        step = _MODULE.CourseStep(lesson_id=100, position=1, step_id=1001, title="Урок")
+        step = _MODULE.CourseStep(lesson_id=100, position=1, step_id=1001, title="Урок",section_id=1,section_title="Section 1",section_position=1,)
         with (
             self._patch_auth(),
             patch.object(_MODULE, "iter_course_steps", return_value=iter([step])),
@@ -260,7 +275,15 @@ class TestMain:
 
     def test_limit_caps_step_count(self, tmp_path: pathlib.Path) -> None:
         steps = [
-            _MODULE.CourseStep(lesson_id=100, position=i, step_id=1000 + i, title="Урок")
+            _MODULE.CourseStep(
+    lesson_id=100,
+    position=i,
+    step_id=1000 + i,
+    title="Урок",
+    section_id=1,
+    section_title="Section 1",
+    section_position=1,
+)
             for i in range(1, 6)
         ]
         with (
@@ -276,7 +299,15 @@ class TestMain:
     def test_errors_make_exit_nonzero(
         self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        step = _MODULE.CourseStep(lesson_id=100, position=1, step_id=1001, title="Урок")
+        step = _MODULE.CourseStep(
+    lesson_id=100,
+    position=1,
+    step_id=1001,
+    title="Урок",
+    section_id=1,
+    section_title="Section 1",
+    section_position=1,
+)
         with (
             self._patch_auth(),
             patch.object(_MODULE, "iter_course_steps", return_value=iter([step])),

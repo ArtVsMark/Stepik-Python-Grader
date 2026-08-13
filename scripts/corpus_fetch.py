@@ -65,19 +65,15 @@ _CODE_BLOCK_NAME = "code"
 
 @dataclass(frozen=True)
 class CourseStep:
-    """Шаг курса, пригодный для локальной проверки.
-
-    Attributes:
-        lesson_id: идентификатор урока.
-        position: позиция шага внутри урока (1-based, как в URL).
-        step_id: идентификатор шага.
-        title: название урока — для читаемого прогресса в консоли.
-    """
+    """Шаг курса, пригодный для локальной проверки."""
 
     lesson_id: int
     position: int
     step_id: int
     title: str
+    section_id: int
+    section_title: str
+    section_position: int
 
     @property
     def url(self) -> str:
@@ -104,6 +100,8 @@ def iter_course_steps(
     course = fetch_course_data(session, course_id)
     for section_id in course.get("sections") or []:
         section = fetch_section_data(session, int(section_id))
+        section_title = str(section.get("title") or f"section {section_id}")
+        section_position = int(section.get("position") or 0)
         for unit in fetch_section_units(session, int(section["id"])):
             lesson_id = unit.get("lesson")
             if lesson_id is None:
@@ -111,13 +109,18 @@ def iter_course_steps(
             lesson = fetch_lesson_data(session, int(lesson_id))
             title = str(lesson.get("title") or f"lesson {lesson_id}")
             for position, step_id in enumerate(lesson.get("steps") or [], start=1):
-                if code_only and not _is_code_step(session, int(lesson_id), position):
+                if code_only and not _is_code_step(
+                    session, int(lesson_id), position
+                ):
                     continue
                 yield CourseStep(
                     lesson_id=int(lesson_id),
                     position=position,
                     step_id=int(step_id),
                     title=title,
+                    section_id=int(section["id"]),
+                    section_title=section_title,
+                    section_position=section_position,
                 )
 
 
