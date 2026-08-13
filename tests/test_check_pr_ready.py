@@ -207,6 +207,45 @@ class TestReady:
         assert verdict.ready
 
 
+class TestExpectedSetSource:
+    """Эталон собирается только из прогонов, которые бывают и на PR."""
+
+    def test_workflow_without_pull_request_trigger_is_excluded(
+        self, module: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Прогон, который на PR не запускается, не должен числиться недостающим.
+
+        Живой случай: на `main` есть проверка от workflow с триггерами
+        `issue_comment`/`workflow_dispatch`. На PR её не бывает никогда, и в
+        эталоне она превращала гейт в вечно красный — а гейт, который краснеет
+        всегда, обходят.
+        """
+        (tmp_path / "ci.yml").write_text(
+            "name: CI\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n"
+            "jobs:\n  static:\n    runs-on: ubuntu-latest\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "claude.yml").write_text(
+            "name: Claude\non:\n  issue_comment:\n    types: [created]\n"
+            "jobs:\n  claude:\n    runs-on: ubuntu-latest\n",
+            encoding="utf-8",
+        )
+
+        assert module.workflows_running_on_pull_requests(tmp_path) == {"CI"}
+
+    def test_job_names_are_read(self, module: ModuleType) -> None:
+        """Имена джобов читаются из ответа `/actions/runs/{id}/jobs`."""
+        payload = {"jobs": [{"name": "static"}, {"name": "test (ubuntu-latest, 3.13, false)"}]}
+
+        assert module.job_names(payload) == {"static", "test (ubuntu-latest, 3.13, false)"}
+
+    def test_real_ci_workflow_is_recognised(self, module: ModuleType) -> None:
+        """На настоящих workflow проекта фильтр находит CI."""
+        real = pathlib.Path(__file__).parent.parent / ".github" / "workflows"
+
+        assert "CI" in module.workflows_running_on_pull_requests(real)
+
+
 class TestHelpers:
     """Мелочи разбора ответов REST."""
 

@@ -35,6 +35,7 @@ import dataclasses
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -48,8 +49,10 @@ __all__ = [
     "check_names",
     "default_fetch",
     "evaluate",
+    "job_names",
     "main",
     "pending_runs",
+    "workflows_running_on_pull_requests",
 ]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -182,18 +185,54 @@ def evaluate(
     )
 
 
-def _expected_names(fetch: Fetch, repo: str) -> set[str]:
-    """Эталонный набор — имена проверок последнего коммита ``main``.
+def job_names(jobs: dict[str, Any]) -> set[str]:
+    """Имена джобов из ответа ``/actions/runs/{id}/jobs``."""
+    listed = jobs.get("jobs", []) if isinstance(jobs, dict) else []
+    return {str(job.get("name", "")) for job in listed if job.get("name")}
 
-    Эталон берётся из живого состояния, а не из константы в коде: список
-    джобов меняется вместе с ``ci.yml``, а зашитое число устаревает молча.
+
+def workflows_running_on_pull_requests(workflows_dir: pathlib.Path) -> set[str]:
+    """Имена workflow'ов (`name:`), у которых есть триггер ``pull_request``.
+
+    Читается локально, а не через API: список триггеров живёт в репозитории и
+    меняется вместе с ним. Нужно, чтобы в эталон не попадали прогоны, которых
+    на PR не бывает по определению — иначе гейт краснеет всегда, а гейт,
+    который краснеет всегда, обходят.
     """
+    names: set[str] = set()
+    for path in sorted(workflows_dir.glob("*.yml")) + sorted(workflows_dir.glob("*.yaml")):
+        text = path.read_text(encoding="utf-8")
+        body, _, _ = text.partition("\njobs:")
+        if not re.search(r"^\s{2}pull_request:", body, re.MULTILINE):
+            continue
+        title = re.search(r"^name:\s*(.+)$", text, re.MULTILINE)
+        if title:
+            names.add(title.group(1).strip().strip("'\""))
+    return names
+
+
+def _expected_names(fetch: Fetch, repo: str, workflows_dir: pathlib.Path) -> set[str]:
+    """Эталонный набор — джобы тех прогонов ``main``, что бывают и на PR.
+
+    Эталон берётся из живого состояния, а не из константы в коде: список джобов
+    меняется вместе с ``ci.yml``, а зашитое число устаревает молча. Прогоны,
+    которые на PR не запускаются (у их workflow нет триггера ``pull_request``),
+    из эталона исключаются — иначе недостающим числится то, чего быть и не
+    должно.
+    """
+    allowed = workflows_running_on_pull_requests(workflows_dir)
     try:
-        head = fetch(f"repos/{repo}/commits/main")
-        sha = str(head.get("sha", ""))
+        sha = str(fetch(f"repos/{repo}/commits/main").get("sha", ""))
         if not sha:
             return set()
-        return check_names(fetch(f"repos/{repo}/commits/{sha}/check-runs?per_page=100"))
+        runs = fetch(f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")
+        names: set[str] = set()
+        for run in runs.get("workflow_runs", []):
+            if allowed and str(run.get("name", "")) not in allowed:
+                continue
+            jobs = fetch(f"repos/{repo}/actions/runs/{run.get('id')}/jobs?per_page=100")
+            names |= job_names(jobs)
+        return names
     except RuntimeError:
         return set()
 
@@ -218,7 +257,8 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         print(f"Не удалось опросить GitHub: {exc}", file=sys.stderr)
         return 1
 
-    verdict = evaluate(pull, workflow_runs, check_runs, _expected_names(call, args.repo))
+    expected = _expected_names(call, args.repo, _ROOT / ".github" / "workflows")
+    verdict = evaluate(pull, workflow_runs, check_runs, expected)
 
     if args.json:
         print(json.dumps(dataclasses.asdict(verdict), ensure_ascii=False))
