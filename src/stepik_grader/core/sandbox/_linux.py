@@ -36,7 +36,6 @@ site-packages venv'а НЕ пробрасываются, поэтому реше
 
 from __future__ import annotations
 
-import math
 import os
 import shutil
 import sys
@@ -45,7 +44,7 @@ from pathlib import Path
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.run_dir import ephemeral_run_dir
-from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
+from stepik_grader.core.runner import RunOutcome, RunSpec, materialize_spec
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
 
 __all__ = ["LinuxSandboxRunner", "create_backend"]
@@ -107,7 +106,10 @@ def _usrmerge_symlink_args() -> list[str]:
 
 
 def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
-    cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
+    # issue #986 (PY-2-01): квота выводится из wall-таймаута прогона, а не
+    # берётся константой — иначе разрешённый пользователем долгий прогон
+    # режется на середине.
+    cpu_seconds = _posix_bootstrap.cpu_quota_seconds(spec.timeout, CONFIG.sandbox_max_cpu_seconds)
     max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
     bootstrap = _posix_bootstrap.build_bootstrap_argv(
         sys.executable,
@@ -162,10 +164,11 @@ class LinuxSandboxRunner:
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
-            script_path = run_dir / "solution.py"
+            # issue #992: имя скрипта и файлы-спутники приходят из spec —
+            # в function-режиме обёртку нельзя класть под именем модуля решения.
             try:
-                script_path.write_bytes(spec_source_bytes(spec))
-            except OSError as exc:
+                script_path = materialize_spec(spec, run_dir)
+            except (OSError, ValueError) as exc:
                 return RunOutcome(launch_error=str(exc))
 
             argv = self._build_argv(spec, run_dir, script_path)

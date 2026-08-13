@@ -106,6 +106,7 @@ def _build_function_wrapper(
         function_name: имя функции для импорта.
     """
     abs_path = str(solution_path.resolve())
+    solution_file = solution_path.name
     safe_input = input_data.strip()
     safe_func = function_name
     module_stem = solution_path.stem
@@ -146,7 +147,14 @@ from datetime import date, time, datetime, timedelta
 from decimal import Decimal
 from fractions import Fraction
 
-sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
+# issue #992: каталог решения ищется рядом с обёрткой и только потом по
+# исходному пути. Под --sandbox путь хоста внутри изоляции не существует, а
+# решение кладётся рядом со скриптом; вне изоляции рядом ничего нет и работает
+# исходный путь. Одна и та же обёртка обязана исполняться в обоих режимах —
+# иначе изоляция становится вторым исполнителем со своим поведением.
+_here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(_here if (_here / {solution_file!r}).exists()
+                       else pathlib.Path({abs_path!r}).parent))
 
 # Импортируем функцию из файла решения
 from {module_stem} import {safe_func}
@@ -178,7 +186,7 @@ def _build_call_wrapper(solution_path: pathlib.Path, call_block: str) -> str:
     inspect.signature НЕ используется — аргументы заданы в самом блоке.
     """
     abs_path = str(solution_path.resolve())
-    solution_dir = str(pathlib.Path(abs_path).parent)
+    solution_file = solution_path.name
     module_name = pathlib.Path(abs_path).stem
 
     return f"""import sys
@@ -253,8 +261,15 @@ from functools import (  # noqa: F401
 from decimal import Decimal  # noqa: F401
 from fractions import Fraction  # noqa: F401
 
-sys.path.insert(0, {solution_dir!r})
-_spec = importlib.util.spec_from_file_location({module_name!r}, {abs_path!r})
+# issue #992: решение ищется рядом с обёрткой и только потом по исходному пути —
+# под --sandbox путь хоста внутри изоляции не существует (см. legacy-обёртку).
+import pathlib as _pathlib
+
+_here = _pathlib.Path(__file__).resolve().parent
+_beside = _here / {solution_file!r}
+_solution_path = str(_beside) if _beside.exists() else {abs_path!r}
+sys.path.insert(0, str(_pathlib.Path(_solution_path).parent))
+_spec = importlib.util.spec_from_file_location({module_name!r}, _solution_path)
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 # Импорт из решения идёт ПОСЛЕДНИМ — публичные имена решения
