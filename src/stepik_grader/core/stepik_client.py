@@ -25,7 +25,9 @@ import json as _json_mod
 import os
 import pathlib
 import secrets as secrets_module
+import socket
 import socketserver
+import sys
 import threading
 import time
 import webbrowser
@@ -152,6 +154,11 @@ _EXTERNAL_DOWNLOAD_CHUNK_BYTES = 256 * 1024
 # многократно переписанное решение, а цикл получает конец при залипшем
 # `has_next`.
 _SUBMISSIONS_MAX_PAGES = 50
+
+# Сколько id юнитов уходит в один запрос `ids[]` при обходе секции: страница
+# Stepik API — те же 20 записей, и запрос длиннее страницы вернул бы часть
+# юнитов молча.
+_UNITS_PAGE_LIMIT = 20
 
 HEADERS: dict[str, str] = {
     "User-Agent": (
@@ -559,8 +566,24 @@ class _OAuthHTTPServer(HTTPServer):
     нет, поэтому подставляем адрес как есть и стартуем мгновенно.
     """
 
+    # issue #997 (JRN-3A-04, продолжение): на Windows ``SO_REUSEADDR`` —
+    # который ``HTTPServer`` ставит по умолчанию — РАЗРЕШАЕТ второй bind на уже
+    # слушаемый порт. Проверено на этой машине: bind проходит, ошибки нет,
+    # браузерный колбэк уходит чужому слушателю, и вместо «порт занят»
+    # пользователь час ждёт таймаута «код не получен». Ровно та подмена
+    # причины, ради которой заводился OAuthCallbackPortBusy, — на главной
+    # платформе пользователя фикс не срабатывал. На POSIX SO_REUSEADDR
+    # перехватить активный listener не даёт и нужен против TIME_WAIT, поэтому
+    # там поведение прежнее.
+    allow_reuse_address = sys.platform != "win32"
+
     def server_bind(self) -> None:
         """Забиндить сокет, не спрашивая DNS об имени хоста."""
+        if sys.platform == "win32":
+            # Единственный флаг, при котором Windows отвечает WSAEADDRINUSE
+            # (10048) на занятый порт. Ставится ДО bind и несовместим с
+            # SO_REUSEADDR — потому тот и выключен выше.
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         socketserver.TCPServer.server_bind(self)
         host, port = self.server_address[:2]
         self.server_name = str(host)
@@ -1028,9 +1051,29 @@ def fetch_section_units(session: requests.Session, section_id: int) -> list[dict
     обход курса идёт в обратную сторону: курс → секции → юниты → уроки, и
     ``lesson_id`` как раз добывается из юнита (поле ``lesson``). Пустой список —
     не ошибка: секция без юнитов бывает у черновиков и скрытых модулей.
+
+    Юниты берутся **по списку id из самой секции**, а не фильтром
+    ``/api/units?section=``: на живом Stepik этот фильтр не отвечает вовсе —
+    ``ReadTimeout`` на 30 с, воспроизводится стабильно, с токеном и без,
+    независимо от ``page_size``. Соседние формы того же эндпоинта
+    (``ids[]``, ``?lesson=``) отвечают за секунду, на них обход и построен.
+    На моках дефект невидим — мок отвечает мгновенно любому фильтру, поэтому
+    обход курса «работал» в тестах и висел на первой же секции живьём.
+
+    Запрос идёт страницами по ``_UNITS_PAGE_LIMIT`` id: у Stepik страница
+    ограничена, и одним запросом на большую секцию юниты потерялись бы молча.
+    Порядок ответа приводится к порядку из секции — по нему идёт нумерация
+    задач при обходе курса.
     """
-    data = _cached_api_get(session, f"{API_HOST}/api/units", params={"section": section_id})
-    units: list[dict[str, Any]] = data.get("units", [])
+    section = fetch_section_data(session, section_id)
+    unit_ids = [int(unit_id) for unit_id in section.get("units") or []]
+    units: list[dict[str, Any]] = []
+    for start in range(0, len(unit_ids), _UNITS_PAGE_LIMIT):
+        chunk = unit_ids[start : start + _UNITS_PAGE_LIMIT]
+        data = _cached_api_get(session, f"{API_HOST}/api/units", params={"ids[]": chunk})
+        units.extend(data.get("units", []))
+    order = {unit_id: index for index, unit_id in enumerate(unit_ids)}
+    units.sort(key=lambda unit: order.get(int(unit.get("id", 0)), len(order)))
     return units
 
 

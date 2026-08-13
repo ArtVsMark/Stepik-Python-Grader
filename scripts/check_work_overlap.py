@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import pathlib
 import subprocess
 import sys
@@ -43,6 +44,14 @@ __all__ = [
     "main",
     "overlaps",
 ]
+
+# issue #1095: консоль Windows работает в cp1251/cp866, и `print` символов вне этой
+# кодировки роняет скрипт `UnicodeEncodeError` — не на экзотике, а на обычном
+# запуске в CI-джобе. Вывод переводится в UTF-8 явно; `errors="replace"` — чтобы
+# отсутствующий глиф испортил один символ, а не убил команду целиком.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _BASE = "origin/main"
@@ -153,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Пересечений нет: {len(mine)} файл(ов) этой ветки никто больше не трогает.")
         return 0
 
-    print("⚠️  Эти файлы уже меняют другие ветки — возможен конфликт при мерже:\n")
+    print("ВНИМАНИЕ: эти файлы уже меняют другие ветки — возможен конфликт при мерже:\n")
     for branch, shared in sorted(found.items()):
         print(f"  {branch}")
         for path in sorted(shared):
