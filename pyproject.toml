@@ -257,7 +257,14 @@ warn_return_any = true
 # issue #283). Точечная чистка мёртвых ignore — задача ruff RUF100 (issue #443).
 
 [tool.pytest.ini_options]
-addopts = "--cov=src --cov=scripts --cov-report=term-missing --cov-report=xml -v --tb=short"
+# issue #976: покрытие меряется по ПРОДУКТУ (`src/`). `scripts/` — разовые
+# тулзы мейнтейнера (генераторы бейджей, прогонный стенд, аудиты карточек):
+# больше половины их строк не вызывается ни одним шагом workflow, и их
+# присутствие в контуре заставляло писать тесты ради процента, а не ради
+# защиты продукта. Guard-скрипты, которые ДЕЙСТВИТЕЛЬНО защищают инварианты
+# (check_*_guardrails, preflight, check_pr_ready), покрыты собственными
+# тестами — они остаются и продолжают падать при регрессии.
+addopts = "--cov=src --cov-report=term-missing --cov-report=xml -v --tb=short"
 # issue #444: global per-test deadline (pytest-timeout). The suite is full of
 # real subprocesses/threads; a hung child (e.g. a regression of the runner
 # process-group / stdin-deadlock fixes, #418/#419) would otherwise hang the
