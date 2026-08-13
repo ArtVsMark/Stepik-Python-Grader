@@ -327,6 +327,32 @@ omit = [
     # pytester в tests/test_pytest_plugin.py). Измерять его coverage бессмысленно
     # — число было бы артефактом порядка загрузки, а не реальным пробелом.
     "src/stepik_grader/pytest_plugin.py",
+    # issue #976: разовые тулзы мейнтейнера — из измерения исключены, но
+    # `scripts/` в целом остаётся в контуре (инвариант issue #790 про релизный
+    # конвейер продолжает действовать).
+    #
+    # Граница между списками одна: **что ломается у пользователя, если скрипт
+    # сломан**. Гейты и конвейер (check_*, generate_*_badge, combine_coverage,
+    # extract_release_notes, preflight, check_pr_ready, collect_changelog) —
+    # ломают релиз или пропускают дефект в продукт, поэтому меряются. Файлы
+    # ниже запускает вручную мейнтейнер, их поломка видна ему же в тот же
+    # момент, и никакой пользователь её не увидит. Измерение заставляло писать
+    # под них тесты ради процента: 4349 из 7263 LOC `scripts/` (около 60%) не
+    # вызываются ни одним шагом workflow.
+    #
+    # Новый скрипт по умолчанию МЕРЯЕТСЯ — сюда он попадает только осознанно.
+    "scripts/audit_glossary_cards.py",
+    "scripts/check_contrast.py",
+    "scripts/check_work_overlap.py",
+    "scripts/corpus_fetch.py",
+    "scripts/corpus_mutations.py",
+    "scripts/corpus_run.py",
+    "scripts/corpus_sweep.py",
+    "scripts/generate_draft_cards.py",
+    "scripts/glossary_draft_pipeline.py",
+    "scripts/import_glossary_python.py",
+    "scripts/perf_baseline.py",
+    "scripts/skip_inventory.py",
     "tests/*",
     "conftest.py",
 ]

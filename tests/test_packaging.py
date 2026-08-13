@@ -149,6 +149,49 @@ def test_scripts_are_measured_by_coverage() -> None:
     assert "--cov=scripts" in tables["pytest"]["addopts"]
 
 
+def test_release_pipeline_scripts_are_not_omitted() -> None:
+    """issue #976 не отменяет issue #790: конвейер и гейты остаются измеряемыми.
+
+    Разовые тулзы мейнтейнера из измерения исключены — под них писались тесты
+    ради процента, а их поломку видит сам мейнтейнер в тот же момент. Но список
+    `omit` — ровно та «одна строка в конфиге, которая ничего не ломает», о
+    которой предупреждает тест выше: в него легко дописать `check_*` и тихо
+    обнулить защиту релиза. Поэтому конвейер перечислен поимённо.
+    """
+    omitted = set(_coverage_tables()["run"]["omit"])
+    protected = {
+        "scripts/check_docs_guardrails.py",
+        "scripts/check_locale_guardrails.py",
+        "scripts/check_version_consistency.py",
+        "scripts/check_wheel_contents.py",
+        "scripts/check_workflow_guardrails.py",
+        "scripts/combine_coverage.py",
+        "scripts/extract_release_notes.py",
+        "scripts/generate_ci_coveragerc.py",
+        "scripts/preflight.py",
+        "scripts/check_pr_ready.py",
+        "scripts/collect_changelog.py",
+    }
+
+    assert not (protected & omitted), sorted(protected & omitted)
+
+
+def test_omitted_scripts_exist() -> None:
+    """Список `omit` не разъезжается с деревом: переименованный файл — не защита.
+
+    Запись, потерявшая свой файл, ничего не исключает и живёт как мусор,
+    создавая ложное впечатление, что тулза выведена из измерения.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    stale = [
+        entry
+        for entry in _coverage_tables()["run"]["omit"]
+        if entry.startswith("scripts/") and not (root / entry).is_file()
+    ]
+
+    assert stale == [], stale
+
+
 def test_scripts_paths_alias_declared_for_cross_os_combine() -> None:
     """issue #790: у ``scripts/`` есть свой aliasing в ``[tool.coverage.paths]``.
 

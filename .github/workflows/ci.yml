@@ -498,15 +498,20 @@ jobs:
       # STEPIK_REQUIRE_SANDBOX_TESTS=1 превращает молчаливый skip Linux-песочницы
       # в жёсткое падение (test_linux_sandbox_not_silently_skipped проверяет
       # bwrap+netns). fork-bomb deselect'ится (см. коммент к job'у).
-      # --cov-fail-under=0: job гоняет только sandbox-тесты, общий % низкий — gate
-      # 85% (полный прогон) неприменим; нужны данные покрытия _linux.py для combine.
+      #
+      # issue #976: прежде здесь стоял `--cov-fail-under=0` — job гоняет только
+      # sandbox-тесты, и порог полного прогона был бы к ним неприменим. После
+      # issue #954 порога в конфиге нет вовсе (он задаётся флагом в шаге полного
+      # прогона), поэтому флаг стал избыточным: частичный прогон и без него
+      # выходит с нулевым кодом. Убран, чтобы не выглядел как «отключённый
+      # гейт» — читающий не должен гадать, что здесь подавлено.
       - name: Run full Linux sandbox tests (privileged, netns on)
         env:
           STEPIK_REQUIRE_SANDBOX_TESTS: "1"
         run: |
           pytest tests/test_sandbox_runner.py \
             --deselect "tests/test_sandbox_runner.py::TestLinuxSandboxRunner::test_fork_bomb_contained" \
-            --cov-fail-under=0 -p no:cacheprovider
+            -p no:cacheprovider
 
       - name: Rename coverage data for combine (#283/#420)
         run: mv .coverage .coverage.sandbox-linux
