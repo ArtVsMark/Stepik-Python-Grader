@@ -499,6 +499,7 @@ def _record_history_if_enabled(
     case_records: list[history.CaseRecord],
     *,
     task_key: str,
+    task_title: str | None = None,
     duration_s: float,
     solution_name: str | None = None,
     solution_hash: str | None = None,
@@ -517,6 +518,7 @@ def _record_history_if_enabled(
         mode,
         case_records,
         db_path=history_recording.default_history_db_path(),
+        task_title=task_title,
         source="web",
         task_key=task_key,
         solution_name=solution_name,
@@ -692,6 +694,7 @@ def _record_bench_history(
         mode,
         history_recording.cases_from_bench_results(results),
         task_key=_task_key(base, workspace),
+        task_title=base.name,
         duration_s=total_time,
     )
 
@@ -793,6 +796,7 @@ def grade_path(
                 1,
                 history_recording.cases_from_test_results(res["cases"]),
                 task_key=_task_key(sol.parent, workspace),
+                task_title=sol.parent.name,
                 solution_name=sol.name,
                 solution_hash=hash_solution(sol),
                 duration_s=res["total_time"],
@@ -805,6 +809,7 @@ def grade_path(
                 2,
                 history_recording.cases_from_test_results(all_cases),
                 task_key=_task_key(base, workspace),
+                task_title=base.name,
                 duration_s=total_time,
                 lint_records=_web_lint_records([s for s, _ in graded]) or None,
             )

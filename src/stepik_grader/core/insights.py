@@ -168,6 +168,9 @@ class TaskProgress:
     solved: bool
     total_runs: int
     seconds_to_first_ac: float | None = None
+    # issue #990: имя папки задачи. Ключ — идентификатор шага (`step:<id>`), его
+    # показывать нельзя: человек ищет задачу по названию, а не по номеру.
+    display_name: str | None = None
 
 
 def _is_bench_run(run: dict[str, Any]) -> bool:
@@ -234,6 +237,7 @@ def time_to_first_green(db_path: Path, *, limit: int = 1000) -> list[TaskProgres
         progress.append(
             TaskProgress(
                 task_key=row.get("task_key") or "",
+                display_name=row.get("display_name") or None,
                 attempts=int(attempts) if attempts is not None else total_runs,
                 solved=attempts is not None,
                 total_runs=total_runs,
