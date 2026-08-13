@@ -204,7 +204,10 @@ class TestCiTriggers:
         errors: list[str] = []
         _MODULE.check_ci_listens_to_ready_for_review(
             errors,
-            source="on:\n  pull_request:\n    types: [opened, ready_for_review]\n",
+            source=(
+                "on:\n  workflow_dispatch:\n"
+                "  pull_request:\n    types: [opened, ready_for_review]\n"
+            ),
         )
         assert errors == []
 
@@ -217,6 +220,17 @@ class TestCiTriggers:
         )
 
         assert any("ready_for_review" in error for error in errors), errors
+
+    def test_missing_manual_dispatch_is_caught(self) -> None:
+        """Без workflow_dispatch единственный способ перезапустить CI — холостой пуш."""
+        errors: list[str] = []
+
+        _MODULE.check_ci_listens_to_ready_for_review(
+            errors,
+            source="on:\n  pull_request:\n    types: [opened, ready_for_review]\n",
+        )
+
+        assert any("workflow_dispatch" in error for error in errors), errors
 
     def test_missing_pull_request_trigger_is_caught(self) -> None:
         errors: list[str] = []

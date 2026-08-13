@@ -189,6 +189,13 @@ def check_ci_listens_to_ready_for_review(errors: list[str], source: str | None =
         errors.append("ci.yml: нет триггера pull_request — проверки на PR не запускаются вовсе")
         return
 
+    if "workflow_dispatch:" not in source:
+        errors.append(
+            "ci.yml: нет триггера workflow_dispatch. Часть событий не превращается в "
+            "прогоны, и без кнопки ручного запуска единственный способ добудиться CI — "
+            "холостой пуш, то есть коммит-пустышка в ветке."
+        )
+
     if "ready_for_review" not in source:
         errors.append(
             "ci.yml: в types триггера pull_request нет ready_for_review. Дефолт GitHub — "

@@ -124,6 +124,7 @@ cli/__init__.py        ──→  cli/rendering.py  (реэкспорт _print_t
 cli/__init__.py        ──→  cli/interactive.py  (тонкие обёртки _interactive_menu/_ask_*/_pick_path_via_dialog/_prompt_path/_resolve_cli_path_or_error/_print_menu)
 cli/options.py         ──→  config.py  (CONFIG.use_cache в _resolve_use_cache; leaf — не импортирует cli/__init__.py)
 cli/options.py         ──→  core/user_settings.py  (персистентный тумблер истории в _resolve_record_history: одна лестница приоритета для режимов 1-4 и --serve)
+cli/options.py         ──→  core/i18n.py  (load_locale_messages: тексты --help берутся из каталога локалей, а не из литералов в парсере)
 cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/reporter.py, core/microbench_runner.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
