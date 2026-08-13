@@ -12,6 +12,7 @@ import textwrap
 
 import pytest
 
+from stepik_grader.core.test_loader import collect_grouped_files, find_all_solution_files
 from stepik_grader.grader import is_function_only_solution, is_solution_file
 
 # ===========================================================================
@@ -367,3 +368,85 @@ class TestIsFunctionStyle:
         from stepik_grader.downloader import _is_function_style
 
         assert _is_function_style("def broken(") is False
+
+
+# ---------------------------------------------------------------------------
+# Папка без task*.py не выглядит пустой — issue #997 (JRN-2-06, JRN-1-03)
+# ---------------------------------------------------------------------------
+
+
+class TestSolutionSearchFallback:
+    """Шаблон имени стал приоритетом, а не условием видимости.
+
+    Режим 1 грейдит файл с любым именем (`--file my_solution.py` работает), а
+    режимы 2/3/4 искали строго ``task*.py`` и на той же папке отвечали «решений
+    не найдено»: файл лежит перед глазами, инструмент говорит, что его нет.
+    """
+
+    def _py(self, folder: pathlib.Path, name: str) -> pathlib.Path:
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / name
+        path.write_text("print(1)\n", encoding="utf-8")
+        return path
+
+    def test_folder_without_pattern_is_not_empty(self, tmp_path):
+        self._py(tmp_path, "my_solution.py")
+
+        found = [p.name for p in find_all_solution_files(tmp_path)]
+
+        assert found == ["my_solution.py"]
+
+    def test_pattern_wins_when_present(self, tmp_path):
+        """Регрессия: пока есть task*.py, соседний utils.py не попадает в проверку."""
+        self._py(tmp_path, "task1_1.py")
+        self._py(tmp_path, "utils.py")
+
+        found = [p.name for p in find_all_solution_files(tmp_path)]
+
+        assert found == ["task1_1.py"]
+
+    def test_archive_never_becomes_a_solution(self, tmp_path):
+        """issue #1055: старые попытки не должны становиться конкурентами.
+
+        Без шаблона они были бы обычными .py — поэтому каталог отсекается явно.
+        """
+        self._py(tmp_path, "my_solution.py")
+        self._py(tmp_path / "submissions", "2024-03-01T12-00-05_wrong_1.py")
+
+        found = [p.name for p in find_all_solution_files(tmp_path)]
+
+        assert found == ["my_solution.py"]
+
+    def test_service_files_are_skipped(self, tmp_path):
+        self._py(tmp_path, "my_solution.py")
+        for name in ("test_solution.py", "conftest.py", "__init__.py", "setup.py"):
+            self._py(tmp_path, name)
+
+        found = [p.name for p in find_all_solution_files(tmp_path)]
+
+        assert found == ["my_solution.py"]
+
+    def test_hidden_and_venv_dirs_are_skipped(self, tmp_path):
+        self._py(tmp_path, "my_solution.py")
+        self._py(tmp_path / ".venv" / "lib", "something.py")
+        self._py(tmp_path / "__pycache__", "cached.py")
+
+        found = [p.name for p in find_all_solution_files(tmp_path)]
+
+        assert found == ["my_solution.py"]
+
+    def test_grouping_sees_the_same_files(self, tmp_path):
+        """Режимы 2 и 3/4 обязаны сходиться в том, что считать решением."""
+        self._py(tmp_path / "a", "my_solution.py")
+        self._py(tmp_path / "b", "task1_1.py")
+
+        grouped = collect_grouped_files(tmp_path)
+        flat = {p.name for p in find_all_solution_files(tmp_path)}
+
+        assert {p.name for files in grouped.values() for p in files} == flat
+
+    def test_empty_folder_stays_empty(self, tmp_path):
+        """Пустая папка — по-прежнему ноль решений, а не «что-нибудь»."""
+        (tmp_path / "notes.txt").write_text("hi", encoding="utf-8")
+
+        assert find_all_solution_files(tmp_path) == []

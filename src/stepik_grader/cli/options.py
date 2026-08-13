@@ -22,6 +22,7 @@ from stepik_grader import config
 from stepik_grader.config import COMPARE_MODES, CONFIG, CONFIG_FLAG
 from stepik_grader.core import user_settings
 from stepik_grader.core.i18n import load_locale_messages
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 # issue #997 (INS-5-03): язык нужен и парсеру, и предпроходу, который
 # узнаёт --lang до сборки парсера, — держим одним местом.
@@ -396,18 +397,12 @@ def _force_utf8_stdio() -> None:
     """Принудительно переключить stdout/stderr на UTF-8.
 
     Git Bash / cmd на Windows по умолчанию используют cp1251 — rich-вывод
-    (рамки таблиц, ✓/✗, кириллица) роняет процесс с UnicodeEncodeError.
-    ``errors="replace"`` гарантирует отсутствие краша даже на терминалах,
-    которые не могут отобразить конкретный символ. Убирает необходимость
-    в ручном ``PYTHONIOENCODING=utf-8`` от пользователя (issue #64).
+    (рамки таблиц, ✓/✗, кириллица) роняет процесс с UnicodeEncodeError
+    (issue #64).
 
-    No-op на потоках без ``reconfigure`` (например, перехваченных pytest
-    или уже находящихся в UTF-8).
+    Реализация переехала в leaf-модуль ``stepik_grader.stdio_encoding``
+    (issue #1108): приём понадобился всем точкам входа и скриптам стенда, а
+    жил здесь — в модуле, который тянет за собой половину CLI. Имя оставлено
+    в ``__all__`` как есть: на него ссылаются тесты и соседние скрипты.
     """
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is None:
-            continue
-        enc = (getattr(stream, "encoding", "") or "").lower()
-        if enc not in {"utf-8", "utf8"}:
-            reconfigure(encoding="utf-8", errors="replace")
+    force_utf8_stdio()

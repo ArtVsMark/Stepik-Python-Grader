@@ -31,6 +31,7 @@ from stepik_grader.core.diag_log import DIAGNOSTICS_DIR, configure_diagnostics, 
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.downloader import parse_stepik_step_url
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "OAUTH_TIMEOUT_SECONDS",
@@ -338,6 +339,8 @@ def main(argv: list[str] | None = None) -> int:
     триаж-инструмент не годился как автоматическая проверка: «всё сломано»
     выглядело для скрипта так же, как «всё в порядке».
     """
+    # issue #1108: до первой печати — отчёт несёт название шага из Stepik.
+    force_utf8_stdio()
     args = _build_parser().parse_args(argv)
     set_lang(args.lang)
     step_url = args.url or _ask("diag_prompt_url")

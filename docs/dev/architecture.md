@@ -74,6 +74,7 @@
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
 | `core/storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `atomic_io.py` (top-level) | Infrastructure / Utilities (leaf) | Общий атомарный JSON-писатель `atomic_write_json` (ADR-0011): temp в той же директории (`mkstemp`) + `os.replace`, опциональный `fsync`. Живёт вне `core/` намеренно — им пользуются и `core/user_settings`, и независимые от `core/` подпакеты (`glossary/`), без ребра `glossary → core`. Stdlib-only, project-импортов нет |
+| `stdio_encoding.py` (top-level) | Infrastructure / Utilities (leaf) | `force_utf8_stdio()` — переключение `stdout`/`stderr` на UTF-8 с `errors="replace"`. Консоль Windows работает в cp1251, и печать символа вне неё роняет процесс: падало и на строках локали, и на заголовках уроков из Stepik. Top-level по той же причине, что `atomic_io`/`db` — зовут все точки входа (`cli/`, `downloader`, `diagnostic_stepik`, `launcher`) и скрипты стенда, а прежнее место (`cli/options`) тянуло за собой половину CLI. Stdlib-only, project-импортов нет |
 | `db.py` (top-level) | Infrastructure / Utilities (leaf) | Общий SQLite-коннектор (ADR-0011): `connect` (PRAGMA WAL/FK/`busy_timeout` + callback-миграция + close-on-fail) и примитивы `user_version`/`set_user_version`/`apply_schema` (версия в базе выше ожидаемой — `SchemaTooNewError`, потомок `sqlite3.DatabaseError`, а не молчаливый no-op). Вынесен из `core/history`; им пользуются и `core/history`, и очередь пополнения глоссария (`glossary/json_provider`, SQLite/WAL). Top-level (как `atomic_io`), чтобы `glossary/` не тянул `core/`. Stdlib-only (`sqlite3`), project-импортов нет |
 | `core/stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostic_stepik.py` |
@@ -99,6 +100,12 @@
 ## Граф зависимостей
 
 Граф зависимостей — DAG без циклов (все модули живут в `src/stepik_grader/`):
+
+> **Одно ребро — одна строка, пояснение в скобках на той же строке.** Разбор
+> идёт построчно (`tests/test_import_dag.py`), и пояснение, перенесённое на
+> вторую строку, оставляет незакрытую скобку — ребро молча перестаёт
+> распознаваться, а гейт остаётся красным уже после правки. Форму держит
+> `test_graph_edges_fit_one_line`.
 
 ```
 downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
@@ -179,6 +186,7 @@ core/user_settings.py     ──→  atomic_io.py  (.grader_settings.json ато
 core/stats.py             ──→  atomic_io.py  (ротация .grader_stats.jsonl атомарной заменой)
 downloader.py / downloader_config.py / diagnostic_stepik.py  ──→  core/i18n.py  (сообщения мастера скачивания и диагностики на языке меню)
 core/history.py           ──→  db.py  (.grader_history.db через общий SQLite-коннектор; иначе stdlib-leaf)
+cli/options.py / downloader.py / diagnostic_stepik.py / launcher.py  ──→  stdio_encoding.py  (вывод в UTF-8 до первой печати; иначе консоль cp1251 роняет процесс)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
