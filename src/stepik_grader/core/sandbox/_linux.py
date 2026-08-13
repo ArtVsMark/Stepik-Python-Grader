@@ -193,6 +193,38 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     return argv
 
 
+# Собственная диагностика bwrap: он префиксует ею каждое своё сообщение об
+# ошибке («bwrap: Creating new namespace failed: Operation not permitted»).
+_BWRAP_ERROR_PREFIX = b"bwrap: "
+
+
+def _as_launch_error_if_bwrap_failed(outcome: RunOutcome) -> RunOutcome:
+    """Отличить отказ песочницы от падения решения (issue #986, SBX-4-01).
+
+    Сломанный ``bwrap`` — нет прав на user namespaces, ядро без нужной опции,
+    урезанный контейнер — не запускает решение вовсе, но выходит ненулевым кодом
+    со своей диагностикой в stderr. Дальше по цепочке это неотличимо от
+    «решение упало»: пользователь получал `RE` и текст `bwrap: Creating new
+    namespace failed` вместо трейсбека своего кода. Верное решение —
+    провалено, причина — не названа.
+
+    Признаки берём вместе: ненулевой код, пустой stdout решения и стартовая
+    строка stderr с префиксом самого bwrap. Порознь любой из них встречается и
+    у настоящего падения решения — например, решение может напечатать что
+    угодно в stderr, но не может сделать это ДО того, как его запустили.
+    """
+    if outcome.launch_error is not None or outcome.returncode == 0:
+        return outcome
+    if outcome.stdout or not outcome.stderr.startswith(_BWRAP_ERROR_PREFIX):
+        return outcome
+    detail = outcome.stderr.decode("utf-8", "replace").strip()
+    outcome.launch_error = (
+        f"песочница (bwrap) не смогла запустить решение: {detail}. "
+        "Решение не выполнялось — это отказ изоляции, а не ошибка кода."
+    )
+    return outcome
+
+
 class LinuxSandboxRunner:
     """``Runner`` изолирующий выполнение через bubblewrap на Linux."""
 
@@ -211,7 +243,7 @@ class LinuxSandboxRunner:
                 return RunOutcome(launch_error=str(exc))
 
             argv = self._build_argv(spec, run_dir, script_path)
-            return _posix_common.run_argv_with_limits(
+            outcome = _posix_common.run_argv_with_limits(
                 argv,
                 stdin=spec.stdin,
                 timeout=spec.timeout,
@@ -226,6 +258,7 @@ class LinuxSandboxRunner:
                 # RunSpec просто не доезжало до цикла ожидания.
                 cancel_event=spec.cancel_event,
             )
+            return _as_launch_error_if_bwrap_failed(outcome)
 
     def _build_argv(self, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
         return _build_bwrap_argv(self._bwrap, spec, run_dir, script_path)
