@@ -138,7 +138,7 @@ def test_runs_on_this_repository() -> None:
 
 @pytest.mark.parametrize("encoding", ["cp1251", "ascii"])
 def test_survives_narrow_console_encoding(encoding: str) -> None:
-    """Консоль без Юникода не роняет скрипт (issue #1094).
+    """Консоль без Юникода не роняет скрипт (issue #1095).
 
     Windows-джоб CI работает в cp1251/cp866, и `print` символа вне этой кодировки
     завершал скрипт `UnicodeEncodeError` — то есть инструмент, показывающий чужую
