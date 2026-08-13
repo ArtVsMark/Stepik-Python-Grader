@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import pathlib
 import subprocess
 import sys
@@ -133,3 +134,22 @@ def test_runs_on_this_repository() -> None:
     """Скрипт отрабатывает на настоящем репозитории проекта."""
     result = subprocess.run([sys.executable, str(_SCRIPT), "--all"], capture_output=True, text=True)
     assert result.returncode == 0
+
+
+@pytest.mark.parametrize("encoding", ["cp1251", "ascii"])
+def test_survives_narrow_console_encoding(encoding: str) -> None:
+    """Консоль без Юникода не роняет скрипт (issue #1094).
+
+    Windows-джоб CI работает в cp1251/cp866, и `print` символа вне этой кодировки
+    завершал скрипт `UnicodeEncodeError` — то есть инструмент, показывающий чужую
+    работу, сам падал на половине платформ. Проверяется через переменную
+    окружения: это тот же механизм, которым узкую кодировку задаёт Windows, и
+    ловится он только запуском настоящего процесса.
+    """
+    env = {**os.environ, "PYTHONIOENCODING": encoding}
+
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--all"], capture_output=True, text=True, env=env
+    )
+
+    assert result.returncode == 0, result.stderr
