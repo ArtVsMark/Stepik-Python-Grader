@@ -189,7 +189,7 @@ jobs:
       # гонялись девять раз на каждый прогон. Матрице остаётся то, ради чего
       # она существует: pytest на каждой платформе.
 
-      # issue #294: this job's OWN --cov-fail-under=85 gate (pyproject.toml)
+      # issue #294: this job's OWN --cov-fail-under=85 gate (see `Run tests`)
       # otherwise counts the OTHER two platforms' core/sandbox/ backend files
       # as permanently-uncovered (they're structurally unreachable here --
       # SandboxRunner.__init__ never imports them on this OS) -- measured as
@@ -212,7 +212,12 @@ jobs:
         # Пустая строка на ubuntu = «не требовать» (guard'ы само-гейтятся по env).
         env:
           STEPIK_REQUIRE_SANDBOX_TESTS: ${{ (matrix.os == 'macos-latest' || matrix.os == 'windows-latest') && '1' || '' }}
-        run: pytest -q --cov-config=.coveragerc.ci
+        # issue #954: порог покрытия задаётся ЗДЕСЬ, а не в pyproject.toml.
+        # В конфиге он применялся к любому запуску, включая частичный, и делал
+        # ложно-красным зелёный прогон одного файла. Здесь прогон заведомо
+        # полный, поэтому гейт осмыслен. Guard на присутствие флага —
+        # scripts/check_workflow_guardrails.py.
+        run: pytest -q --cov-config=.coveragerc.ci --cov-fail-under=85
 
       # issue #283: each OS job only ever exercises its OWN core/sandbox/
       # backend (_linux.py/_macos.py/_windows.py) — the other two always read

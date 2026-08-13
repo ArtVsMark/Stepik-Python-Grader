@@ -294,8 +294,9 @@ scripts = [
 # generates a CI-only `.coveragerc.ci` (scripts/generate_ci_coveragerc.py)
 # that layers on top of THIS list, omitting only the core/sandbox/ backend
 # files structurally unreachable on that job's own OS -- so that job's own
-# `fail_under` gate below isn't dragged down by platforms it can never
-# exercise (ubuntu measured ~86.1%, ~1pp margin, before this). The
+# `--cov-fail-under` gate (declared in the CI step, issue #954) isn't dragged
+# down by platforms it can never exercise (ubuntu measured ~86.1%, ~1pp
+# margin, before this). The
 # `coverage-combine` job (cross-OS aggregate, `--fail-under=90`) does NOT use
 # `.coveragerc.ci` and keeps reading this exact list, so the combined number
 # stays a true aggregate -- no sandbox file is omitted from every job at once.
@@ -320,7 +321,17 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 85
+# issue #954: порога здесь НЕТ намеренно. `addopts` включает `--cov`
+# безусловно, поэтому `fail_under` в конфиге превращал любой частичный прогон
+# (`pytest tests/test_packaging.py`, `pytest -k ...`) в ложно-красный: тесты
+# зелёные, покрытие пакета по паре файлов — 0%, код возврата 1. Читающий exit
+# code — контрибьютор, агент или скрипт — делает вывод «тесты упали» и чинит
+# несуществующую поломку.
+#
+# Гейт не отменён, а перенесён туда, где прогон заведомо полный: флаг
+# `--cov-fail-under` в шаге `Run tests` (.github/workflows/ci.yml) и
+# `--fail-under 90` в `coverage-combine`. Что порог не исчез из CI молча,
+# следит `scripts/check_workflow_guardrails.py`.
 exclude_lines = [
     "if __name__ == .__main__.:",
     "pragma: no cover",

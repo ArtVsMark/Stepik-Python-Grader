@@ -241,3 +241,45 @@ class TestCiTriggers:
 def test_repo_workflows_pass_guard() -> None:
     """Действующие workflow репозитория соответствуют инвариантам."""
     assert _MODULE.main() == 0
+
+
+class TestCoverageGateIsExplicit:
+    """Порог покрытия задан флагом в шаге прогона — и не исчезает молча (issue #954)."""
+
+    def test_missing_flag_is_caught(self) -> None:
+        """Без --cov-fail-under гейта покрытия нет вовсе."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(
+            errors, source="jobs:\n  test:\n    steps:\n      - run: pytest -q\n"
+        )
+
+        assert any("--cov-fail-under" in error for error in errors), errors
+
+    def test_lowered_threshold_is_caught(self) -> None:
+        """Тихое снижение порога — тот же «зелёный независимо от кода»."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(
+            errors, source="      - run: pytest -q --cov-fail-under=10\n"
+        )
+
+        assert any("ниже принятого порога" in error for error in errors), errors
+
+    def test_explicit_threshold_passes(self) -> None:
+        """Заявленный порог проходит проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(
+            errors, source="      - run: pytest -q --cov-fail-under=85\n"
+        )
+
+        assert errors == []
+
+    def test_real_ci_declares_the_gate(self) -> None:
+        """Guard-the-guard: настоящий ci.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(errors)
+
+        assert errors == []

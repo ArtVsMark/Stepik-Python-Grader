@@ -81,7 +81,10 @@ def test_main_writes_valid_coveragerc(tmp_path, monkeypatch) -> None:
     assert "src/stepik_grader/core/sandbox/_macos.py" in text
     assert "src/stepik_grader/core/sandbox/_posix_common.py" in text
     assert "src/stepik_grader/core/sandbox/_windows.py" not in text
-    assert "fail_under = 85" in text
+    assert "fail_under" not in text, (
+        "issue #954: порог задаётся флагом --cov-fail-under в шаге прогона. "
+        "В конфиге он применялся и к частичным запускам, делая их ложно-красными"
+    )
     assert "tests/*" in text  # base omit entry survives alongside the extra ones
 
 

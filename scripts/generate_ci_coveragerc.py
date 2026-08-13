@@ -91,8 +91,11 @@ def main() -> int:
         "omit =\n"
         f"    {omit_lines}\n"
         "\n"
+        # issue #954: порог не пишется сюда. Он живёт флагом `--cov-fail-under`
+        # в шаге прогона — там, где прогон заведомо полный. В конфиге он делал
+        # ложно-красным любой частичный запуск, потому что `--cov` включён в
+        # `addopts` безусловно.
         "[report]\n"
-        f"fail_under = {report_cfg['fail_under']}\n"
         "exclude_lines =\n"
         f"    {exclude_lines}\n"
     )

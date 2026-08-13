@@ -37,6 +37,7 @@ __all__ = [
     "GITHUB_RELEASE_JOB",
     "VERIFY_JOB",
     "check_ci_listens_to_ready_for_review",
+    "check_coverage_gate_is_explicit",
     "check_release_gates_match_promises",
     "check_release_pipeline",
     "extract_job",
@@ -46,6 +47,11 @@ __all__ = [
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _CI = _ROOT / ".github" / "workflows" / "ci.yml"
 _RELEASE = _ROOT / ".github" / "workflows" / "release.yml"
+
+# Порог per-OS гейта покрытия (issue #954). Держится синхронно с флагом
+# `--cov-fail-under` в шаге `Run tests`; cross-OS агрегат строже (90) и живёт
+# в `combine_coverage.py`.
+_MIN_COVERAGE_GATE = 85
 
 GITHUB_RELEASE_JOB = "github-release"
 VERIFY_JOB = "verify"
@@ -207,6 +213,43 @@ def check_ci_listens_to_ready_for_review(errors: list[str], source: str | None =
     print("ci.yml: pull_request слушает ready_for_review.")
 
 
+def check_coverage_gate_is_explicit(errors: list[str], source: str | None = None) -> None:
+    """Порог покрытия задан флагом в шаге прогона, а не только в конфиге.
+
+    issue #954: раньше порог жил в ``[tool.coverage.report] fail_under``, и
+    из-за безусловного ``--cov`` в ``addopts`` любой частичный прогон падал по
+    покрытию — зелёные тесты с кодом возврата 1. Порог перенесён в шаг CI, и
+    вот эта проверка следит, что перенос не превратился в отмену: без флага
+    гейт исчезает молча, а «молча исчезнувший guard» — ровно тот класс, ради
+    которого заведён подэпик #921.
+    """
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — гейт покрытия не проверен")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    match = re.search(r"--cov-fail-under=(\d+)", source)
+    if match is None:
+        errors.append(
+            "ci.yml: в прогоне матрицы нет --cov-fail-under. Порог убран из "
+            "pyproject.toml намеренно (issue #954: он делал ложно-красным любой "
+            "частичный прогон), поэтому без флага гейта покрытия нет вообще."
+        )
+        return
+
+    threshold = int(match.group(1))
+    if threshold < _MIN_COVERAGE_GATE:
+        errors.append(
+            f"ci.yml: --cov-fail-under={threshold} ниже принятого порога "
+            f"{_MIN_COVERAGE_GATE}. Снижать его молча нельзя — это и есть «guard, "
+            "который зелен независимо от кода»."
+        )
+        return
+
+    print(f"ci.yml: гейт покрытия задан явно (--cov-fail-under={threshold}).")
+
+
 def main() -> int:
     """Вернуть 0, если инварианты workflow держатся; 1 — если нарушены."""
     errors: list[str] = []
@@ -214,6 +257,7 @@ def main() -> int:
     check_release_pipeline(errors)
     check_release_gates_match_promises(errors)
     check_ci_listens_to_ready_for_review(errors)
+    check_coverage_gate_is_explicit(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
