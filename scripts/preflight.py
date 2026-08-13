@@ -32,14 +32,19 @@
     python scripts/preflight.py --branch-only  # только гигиена ветки, до начала работы
     python scripts/preflight.py --no-tests     # без pytest (правки только в докáх)
 
-Успешный полный прогон оставляет штамп ``.git/preflight-stamp.json`` с SHA
-проверенного коммита — по нему pre-push хук отличает «проверено» от «забыл».
+Успешный полный прогон оставляет штамп ``.git/preflight-stamp.json`` с отпечатком
+проверенного СОДЕРЖИМОГО рабочего дерева — по нему pre-push хук отличает
+«проверено» от «забыл». Привязка к содержимому, а не к ``HEAD``, намеренная:
+прогон всегда идёт до коммита, и штамп на SHA обесценивался бы ближайшим
+``git commit`` — то есть хук отклонял бы пуш ровно того состояния, которое сам
+же и проверил.
 """
 
 from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import os
 import pathlib
@@ -61,7 +66,8 @@ __all__ = [
     "lock_is_active",
     "main",
     "read_stamp",
-    "stamp_matches_head",
+    "stamp_is_current",
+    "worktree_fingerprint",
     "write_stamp",
 ]
 
@@ -306,11 +312,43 @@ def _acquire_lock(path: pathlib.Path, *, force: bool = False) -> bool:
     return True
 
 
-def write_stamp(root: pathlib.Path, sha: str, *, tests: bool) -> pathlib.Path:
-    """Записать штамп удачного прогона (``sha`` — проверенный коммит)."""
+def worktree_fingerprint(root: pathlib.Path, git: GitRunner = _git) -> str:
+    """Отпечаток СОДЕРЖИМОГО рабочего дерева: отслеживаемое плюс новые файлы.
+
+    Штамп привязан к содержимому, а не к ``HEAD``, потому что прогон всегда
+    идёт ДО коммита: привяжи его к SHA — и коммит тут же обесценит только что
+    сделанную проверку, а хук отклонит пуш ровно того состояния, которое
+    проверял. Гейт, который мешает при правильном порядке действий, обходят.
+
+    Новые, ещё не добавленные в индекс файлы учитываются наравне с
+    отслеживаемыми: чаще всего правка приезжает именно так — новым тестом рядом
+    с новым модулем.
+    """
+    listed = git("ls-files").splitlines()
+    listed += git("ls-files", "--others", "--exclude-standard").splitlines()
+    digest = hashlib.sha256()
+    for name in sorted(set(filter(None, listed))):
+        digest.update(name.encode("utf-8"))
+        try:
+            digest.update(hashlib.sha256((root / name).read_bytes()).digest())
+        except OSError:
+            digest.update(b"<missing>")
+    return digest.hexdigest()
+
+
+def write_stamp(
+    root: pathlib.Path, sha: str, *, tests: bool, fingerprint: str = ""
+) -> pathlib.Path:
+    """Записать штамп удачного прогона (``sha`` — коммит на момент прогона)."""
     path = root / _STAMP
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"sha": sha, "at": time.time(), "tests": tests}), encoding="utf-8")
+    payload = {
+        "sha": sha,
+        "at": time.time(),
+        "tests": tests,
+        "fingerprint": fingerprint or worktree_fingerprint(root),
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
     return path
 
 
@@ -323,10 +361,15 @@ def read_stamp(root: pathlib.Path) -> dict[str, object]:
     return loaded if isinstance(loaded, dict) else {}
 
 
-def stamp_matches_head(root: pathlib.Path, head: str) -> bool:
-    """Штамп относится ровно к текущему ``HEAD``, а не к предыдущему коммиту."""
+def stamp_is_current(root: pathlib.Path, git: GitRunner = _git) -> bool:
+    """Проверено ли ровно ЭТО содержимое рабочего дерева.
+
+    Коммит между прогоном и пушем штамп не обесценивает — содержимое то же.
+    Любая правка файла после прогона обесценивает: проверяли не это.
+    """
     stamp = read_stamp(root)
-    return bool(head) and stamp.get("sha") == head
+    recorded = stamp.get("fingerprint")
+    return bool(recorded) and recorded == worktree_fingerprint(root, git)
 
 
 def _read(path: pathlib.Path) -> str:
@@ -421,13 +464,12 @@ def _gate_push() -> int:
     if os.environ.get(_SKIP_ENV):
         print(f"{_SKIP_ENV}=1 — проверка пропущена осознанно.", file=sys.stderr)
         return 0
-    head = _git("rev-parse", "HEAD")
-    if stamp_matches_head(_ROOT, head):
+    if stamp_is_current(_ROOT):
         return 0
     stamp = read_stamp(_ROOT)
-    known = str(stamp.get("sha", ""))[:8] or "нет"
+    known = "штампа нет" if not stamp else "содержимое изменилось после прогона"
     print(
-        f"Пуш отклонён: коммит {head[:8]} не проверен (штамп: {known}).\n"
+        f"Пуш отклонён: {known}.\n"
         "Запустите: python scripts/preflight.py\n"
         f"Аварийный выход, если прогон негде сделать: {_SKIP_ENV}=1 git push ...",
         file=sys.stderr,

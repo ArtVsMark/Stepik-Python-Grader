@@ -293,21 +293,39 @@ class TestRunLockAndStamp:
         """Нет файла — нет блокировки."""
         assert not preflight.lock_is_active(tmp_path / "nothing.lock")
 
-    def test_stamp_belongs_to_exact_commit(
-        self, preflight: ModuleType, tmp_path: pathlib.Path
-    ) -> None:
-        """Штамп действителен для того коммита, на котором прогон прошёл."""
-        (tmp_path / ".git").mkdir()
-        preflight.write_stamp(tmp_path, "abc123", tests=True)
+    def test_stamp_covers_worktree_content(self, preflight: ModuleType, repo: pathlib.Path) -> None:
+        """Штамп действителен, пока содержимое рабочего дерева не менялось."""
+        preflight.write_stamp(repo, "abc123", tests=True)
 
-        assert preflight.stamp_matches_head(tmp_path, "abc123")
-        assert not preflight.stamp_matches_head(tmp_path, "def456")
+        assert preflight.stamp_is_current(repo)
 
-    def test_absent_stamp_never_matches(
-        self, preflight: ModuleType, tmp_path: pathlib.Path
+    def test_edit_after_run_invalidates_stamp(
+        self, preflight: ModuleType, repo: pathlib.Path
     ) -> None:
+        """Правка после прогона обесценивает штамп: проверяли не это."""
+        preflight.write_stamp(repo, "abc123", tests=True)
+
+        (repo / "module.py").write_text("x = 999\n", encoding="utf-8")
+
+        assert not preflight.stamp_is_current(repo)
+
+    def test_new_untracked_file_invalidates_stamp(
+        self, preflight: ModuleType, repo: pathlib.Path
+    ) -> None:
+        """Новый файл рядом — тоже непроверенное состояние.
+
+        Правка чаще всего приезжает именно так: новый модуль плюс новый тест,
+        ещё не добавленные в индекс.
+        """
+        preflight.write_stamp(repo, "abc123", tests=True)
+
+        (repo / "brand_new.py").write_text("y = 1\n", encoding="utf-8")
+
+        assert not preflight.stamp_is_current(repo)
+
+    def test_absent_stamp_never_matches(self, preflight: ModuleType, repo: pathlib.Path) -> None:
         """Без штампа пуш считается непроверенным."""
-        assert not preflight.stamp_matches_head(tmp_path, "abc123")
+        assert not preflight.stamp_is_current(repo)
 
 
 class TestPushGate:
@@ -317,20 +335,36 @@ class TestPushGate:
         """Нет штампа — нет пуша: ровно тот случай, когда «забыл прогнать»."""
         assert preflight._gate_push() == 1
 
-    def test_push_of_stamped_commit_passes(self, preflight: ModuleType, repo: pathlib.Path) -> None:
-        """Штамп текущего HEAD открывает пуш."""
-        head = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
-        ).stdout.strip()
-        preflight.write_stamp(repo, head, tests=True)
+    def test_push_of_checked_content_passes(
+        self, preflight: ModuleType, repo: pathlib.Path
+    ) -> None:
+        """Проверенное содержимое пушится."""
+        preflight.write_stamp(repo, "abc123", tests=True)
 
         assert preflight._gate_push() == 0
 
-    def test_stamp_of_previous_commit_does_not_count(
+    def test_commit_after_run_does_not_invalidate(
         self, preflight: ModuleType, repo: pathlib.Path
     ) -> None:
-        """Прогон был на прошлом коммите — значит нынешний не проверен."""
-        preflight.write_stamp(repo, "0" * 40, tests=True)
+        """Коммит между прогоном и пушем штамп НЕ обесценивает.
+
+        Дефект, найденный первым же живым применением: штамп привязывался к
+        `HEAD`, а прогон всегда идёт ДО коммита — то есть хук отклонял пуш ровно
+        того состояния, которое сам же и проверил. Гейт, который мешает при
+        правильном порядке действий, обходят на второй день.
+        """
+        (repo / "module.py").write_text("x = 42\n", encoding="utf-8")
+        preflight.write_stamp(repo, "irrelevant", tests=True)
+
+        _git(repo, "commit", "-am", "commit checked content")
+
+        assert preflight._gate_push() == 0
+
+    def test_edit_after_run_blocks_push(self, preflight: ModuleType, repo: pathlib.Path) -> None:
+        """А вот правка после прогона пуш закрывает."""
+        preflight.write_stamp(repo, "abc123", tests=True)
+
+        (repo / "module.py").write_text("x = 777\n", encoding="utf-8")
 
         assert preflight._gate_push() == 1
 

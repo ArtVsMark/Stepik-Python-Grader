@@ -50,6 +50,7 @@ __all__ = [
     "default_fetch",
     "evaluate",
     "job_names",
+    "latest_by_name",
     "main",
     "pending_runs",
     "workflows_running_on_pull_requests",
@@ -110,12 +111,35 @@ def check_names(check_runs: dict[str, Any]) -> set[str]:
     return {str(run.get("name", "")) for run in runs if run.get("name")}
 
 
+def latest_by_name(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Оставить по одной, самой свежей записи на каждое имя проверки/прогона.
+
+    ``ci.yml`` держит concurrency-группу и гасит устаревшие прогоны, а
+    перезапуск (снятие черновика, повторный пуш) создаёт вторую запись с тем же
+    именем на том же коммите. В ответе REST обе лежат рядом, и без этого отбора
+    отменённый предшественник держал бы PR красным вечно — то есть гейт врал бы
+    ровно там, где должен помогать.
+    """
+    freshest: dict[str, dict[str, Any]] = {}
+    for item in items:
+        name = str(item.get("name", ""))
+        current = freshest.get(name)
+        if current is None or _started(item) >= _started(current):
+            freshest[name] = item
+    return list(freshest.values())
+
+
+def _started(item: dict[str, Any]) -> tuple[str, int]:
+    """Ключ свежести: время старта, при равенстве — идентификатор."""
+    return str(item.get("started_at") or item.get("run_started_at") or ""), int(item.get("id") or 0)
+
+
 def pending_runs(workflow_runs: dict[str, Any]) -> list[str]:
     """Прогоны Actions, которые ещё не завершились (по ним джобы не созданы)."""
     runs = workflow_runs.get("workflow_runs", []) if isinstance(workflow_runs, dict) else []
     return [
         f"{run.get('name', 'workflow')} ({run.get('status')})"
-        for run in runs
+        for run in latest_by_name(runs)
         if run.get("status") != "completed"
     ]
 
@@ -139,7 +163,8 @@ def evaluate(
     if pull.get("mergeable") is False:
         reasons.append("GitHub сообщает о конфликте с базовой веткой")
 
-    runs = workflow_runs.get("workflow_runs", []) if isinstance(workflow_runs, dict) else []
+    raw_runs = workflow_runs.get("workflow_runs", []) if isinstance(workflow_runs, dict) else []
+    runs = latest_by_name(raw_runs)
     if not runs:
         reasons.append("для этого коммита нет ни одного прогона Actions — CI ещё не стартовал")
     still_running = pending_runs(workflow_runs)
@@ -153,7 +178,8 @@ def evaluate(
     if failed_runs:
         reasons.append("красные прогоны: " + ", ".join(sorted(failed_runs)))
 
-    listed = check_runs.get("check_runs", []) if isinstance(check_runs, dict) else []
+    raw_checks = check_runs.get("check_runs", []) if isinstance(check_runs, dict) else []
+    listed = latest_by_name(raw_checks)
     if not listed:
         reasons.append("список проверок пуст — это «не стартовало», а не «зелено»")
     unfinished = [

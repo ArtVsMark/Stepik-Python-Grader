@@ -207,6 +207,93 @@ class TestReady:
         assert verdict.ready
 
 
+class TestStaleRunsAreIgnored:
+    """Отменённый предшественник не должен держать PR красным вечно."""
+
+    def _pair(self, name: str, old: tuple[str, str], new: tuple[str, str]) -> dict[str, Any]:
+        """Две записи одного имени: старая и свежая (статус, заключение)."""
+        return {
+            "check_runs": [
+                {
+                    "name": name,
+                    "status": old[0],
+                    "conclusion": old[1],
+                    "started_at": "2026-08-13T12:47:35Z",
+                    "id": 1,
+                },
+                {
+                    "name": name,
+                    "status": new[0],
+                    "conclusion": new[1],
+                    "started_at": "2026-08-13T12:47:43Z",
+                    "id": 2,
+                },
+            ]
+        }
+
+    def test_cancelled_predecessor_does_not_block(self, module: ModuleType) -> None:
+        """Перезапуск оставляет на коммите две записи — судим по свежей.
+
+        Живой случай: `ci.yml` держит concurrency-группу, снятие черновика
+        погасило прогон ревью и тут же запустило новый. В ответе REST рядом
+        лежали `cancelled` в 12:47:35 и `success` в 12:47:43 — и гейт объявлял
+        PR красным навсегда.
+        """
+        checks = self._pair("claude-review", ("completed", "cancelled"), ("completed", "success"))
+
+        verdict = module.evaluate(
+            _pull(), _runs(("completed", "success")), checks, {"claude-review"}
+        )
+
+        assert verdict.ready, verdict.reasons
+
+    def test_fresh_failure_still_blocks(self, module: ModuleType) -> None:
+        """А если свежая запись красная — старый успех её не отменяет."""
+        checks = self._pair("static", ("completed", "success"), ("completed", "failure"))
+
+        verdict = module.evaluate(_pull(), _runs(("completed", "success")), checks, {"static"})
+
+        assert not verdict.ready
+        assert any("красные проверки" in reason for reason in verdict.reasons)
+
+    def test_stale_workflow_run_does_not_block(self, module: ModuleType) -> None:
+        """То же для прогонов Actions: отменённый предшественник не в счёт."""
+        workflow_runs = {
+            "workflow_runs": [
+                {
+                    "name": "CI",
+                    "status": "completed",
+                    "conclusion": "cancelled",
+                    "run_started_at": "2026-08-13T12:40:00Z",
+                    "id": 1,
+                },
+                {
+                    "name": "CI",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "run_started_at": "2026-08-13T12:47:00Z",
+                    "id": 2,
+                },
+            ]
+        }
+
+        verdict = module.evaluate(_pull(), workflow_runs, _checks(*_GREEN), _EXPECTED)
+
+        assert verdict.ready, verdict.reasons
+
+    def test_latest_by_name_keeps_one_per_name(self, module: ModuleType) -> None:
+        """Отбор оставляет по одной записи на имя — самую свежую."""
+        items = [
+            {"name": "a", "started_at": "2026-01-01T00:00:00Z", "id": 1},
+            {"name": "a", "started_at": "2026-01-02T00:00:00Z", "id": 2},
+            {"name": "b", "started_at": "2026-01-01T00:00:00Z", "id": 3},
+        ]
+
+        latest = module.latest_by_name(items)
+
+        assert sorted((item["name"], item["id"]) for item in latest) == [("a", 2), ("b", 3)]
+
+
 class TestExpectedSetSource:
     """Эталон собирается только из прогонов, которые бывают и на PR."""
 
