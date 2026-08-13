@@ -86,6 +86,42 @@ def _python_tree_binds() -> list[str]:
     return deduped
 
 
+def _site_packages_mask_args() -> list[str]:
+    """bwrap-аргументы, скрывающие ``site-packages`` грейдера внутри песочницы.
+
+    issue #986 (SEC-2-02/CANON-2-01). Изоляция монтирует дерево интерпретатора
+    целиком, а в venv внутри него лежат зависимости грейдера — решение видело
+    ``requests``/``psutil``/``rich`` и любой пакет, который окажется в окружении.
+    Заявлено ровно обратное: ``supports_project_imports = False`` в самом
+    backend'е и дважды SECURITY.md («биндится только интерпретатор+stdlib, не
+    venv site-packages»).
+
+    Вред не только в расхождении с обещанием. Решение, случайно опершееся на
+    сторонний пакет, проходит локально и падает `ImportError` на Stepik — то
+    есть грейдер выдаёт зелёное там, где проверка на самом деле не пройдена.
+
+    Каталог перекрывается пустой ``tmpfs``: stdlib живёт отдельно
+    (``sysconfig.get_path("stdlib")``, обычно под ``/usr``), поэтому
+    интерпретатор стартует как ни в чём не бывало. Пути вне примонтированных
+    деревьев пропускаем — bwrap отвергает ``--tmpfs`` на несуществующей точке.
+    """
+    trees = _python_tree_binds()
+    masked: list[str] = []
+    for key in ("purelib", "platlib"):
+        raw = sysconfig.get_paths().get(key)
+        if not raw:
+            continue
+        path = str(Path(raw).resolve())
+        inside_tree = any(path == tree or path.startswith(tree + os.sep) for tree in trees)
+        if inside_tree and path not in masked:
+            masked.append(path)
+
+    args: list[str] = []
+    for path in masked:
+        args += ["--tmpfs", path]
+    return args
+
+
 def _usrmerge_symlink_args() -> list[str]:
     """bwrap-аргументы, воссоздающие top-level usrmerge-симлинки внутри песочницы.
 
@@ -123,6 +159,9 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     argv = [str(bwrap)]
     for tree in _python_tree_binds():
         argv += ["--ro-bind", tree, tree]
+    # issue #986 (SEC-2-02): скрыть site-packages грейдера — ПОСЛЕ bind'ов дерева
+    # интерпретатора, иначе монтирование дерева перекрыло бы саму маску.
+    argv += _site_packages_mask_args()
     # issue #420: воссоздать usrmerge-симлинки (/lib64 -> /usr/lib64 и т.п.) ПОСЛЕ
     # bind'а /usr — иначе ELF-загрузчик решения не находится (см. helper).
     argv += _usrmerge_symlink_args()
