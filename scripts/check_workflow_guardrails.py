@@ -35,7 +35,9 @@ import sys
 
 __all__ = [
     "GITHUB_RELEASE_JOB",
+    "VERIFY_JOB",
     "check_ci_listens_to_ready_for_review",
+    "check_release_gates_match_promises",
     "check_release_pipeline",
     "extract_job",
     "main",
@@ -46,6 +48,7 @@ _CI = _ROOT / ".github" / "workflows" / "ci.yml"
 _RELEASE = _ROOT / ".github" / "workflows" / "release.yml"
 
 GITHUB_RELEASE_JOB = "github-release"
+VERIFY_JOB = "verify"
 
 # Job внутри `jobs:` — строка с двумя пробелами отступа и двоеточием на конце.
 _JOB_HEADER_RE = re.compile(r"^  (?P<name>[a-zA-Z0-9_-]+):\s*$")
@@ -132,6 +135,48 @@ def check_release_pipeline(errors: list[str], source: str | None = None) -> None
     print(f"release pipeline: job '{GITHUB_RELEASE_JOB}' проверен ({len(job)} строк).")
 
 
+def check_release_gates_match_promises(errors: list[str], source: str | None = None) -> None:
+    """Обещанное документацией обязано стоять гейтом ДО публикации (issue #988).
+
+    ``docs/dev/versioning.md`` обещает две вещи: «без ротации CHANGELOG релиз
+    падает» и «забытая запись под тег роняет релиз». Обе были неправдой. Guard
+    документации в релизе не запускался вовсе, а извлечение release notes жило в
+    job'е публикации GitHub Release — и PyPI, независимый от него по построению,
+    публиковался при любом состоянии CHANGELOG. Проверка стоит именно в
+    ``verify``: от него зависят оба публикующих job'а, поэтому обещание держится
+    для обоих путей сразу.
+    """
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — релизные гейты не проверены")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    verify = extract_job(source, VERIFY_JOB)
+    if not verify:
+        errors.append(
+            f"release.yml: job '{VERIFY_JOB}' не найден. Если его переименовали — обновите "
+            "VERIFY_JOB в этом скрипте, иначе релизные гейты перестанут проверяться молча."
+        )
+        return
+
+    verify_text = "\n".join(verify)
+    if "check_docs_guardrails.py" not in verify_text:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: нет запуска check_docs_guardrails.py. "
+            "docs/dev/versioning.md обещает, что без ротации CHANGELOG релиз падает — "
+            "обещание обязано быть гейтом."
+        )
+    if "extract_release_notes.py" not in verify_text:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: нет проверки release notes для тега. "
+            "docs/dev/versioning.md обещает, что забытая запись под тег роняет релиз, а "
+            "проверка в job'е публикации GitHub Release не мешает PyPI опубликоваться."
+        )
+
+    print(f"release gates: job '{VERIFY_JOB}' держит обещания документации.")
+
+
 def check_ci_listens_to_ready_for_review(errors: list[str], source: str | None = None) -> None:
     """CI обязан просыпаться при снятии черновика с PR (issue #988)."""
     if source is None:
@@ -160,6 +205,7 @@ def main() -> int:
     errors: list[str] = []
 
     check_release_pipeline(errors)
+    check_release_gates_match_promises(errors)
     check_ci_listens_to_ready_for_review(errors)
 
     if errors:

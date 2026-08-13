@@ -138,6 +138,65 @@ class TestExtractJob:
         assert _MODULE.extract_job(_HEALTHY_RELEASE, "нет-такого") == []
 
 
+_HEALTHY_GATES = """name: Release
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Documentation guardrails
+        run: python scripts/check_docs_guardrails.py
+      - name: Release notes exist
+        run: python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --out /dev/null
+
+  github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+"""
+
+
+class TestReleaseGatesMatchPromises:
+    """Обещанное документацией стоит гейтом до ЛЮБОЙ публикации (issue #988)."""
+
+    def test_healthy_gates_pass(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_gates_match_promises(errors, source=_HEALTHY_GATES)
+        assert errors == []
+
+    def test_missing_changelog_rotation_gate_is_caught(self) -> None:
+        """versioning.md обещает «без ротации CHANGELOG релиз падает» — это должно быть правдой."""
+        errors: list[str] = []
+
+        _MODULE.check_release_gates_match_promises(
+            errors, source=_HEALTHY_GATES.replace("check_docs_guardrails.py", "echo skip")
+        )
+
+        assert any("check_docs_guardrails" in error for error in errors), errors
+
+    def test_release_notes_gate_must_be_in_verify(self) -> None:
+        """Проверка в job'е публикации GitHub Release не мешает PyPI опубликоваться.
+
+        Оба публикующих job'а зависят от `verify` и независимы друг от друга по
+        построению — значит гейт обязан стоять в `verify`, иначе PyPI выйдет с
+        любым состоянием CHANGELOG.
+        """
+        errors: list[str] = []
+
+        _MODULE.check_release_gates_match_promises(
+            errors, source=_HEALTHY_GATES.replace("extract_release_notes.py", "echo skip")
+        )
+
+        assert any("release notes" in error for error in errors), errors
+
+    def test_renamed_verify_job_fails_loudly(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_gates_match_promises(
+            errors, source=_HEALTHY_GATES.replace("  verify:", "  preflight:")
+        )
+        assert any("не найден" in error for error in errors), errors
+
+
 class TestCiTriggers:
     """PR, созданный черновиком, обязан получать проверки."""
 

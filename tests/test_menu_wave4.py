@@ -659,3 +659,90 @@ def test_insights_flag_path_keeps_flag_wording() -> None:
     from stepik_grader.core.i18n import load_locale_messages
 
     assert "--history" in load_locale_messages("ru")["insights_no_data"]
+
+
+# ---------------------------------------------------------------------------
+# Меню говорит, что сделало — issue #997 (DES-2-08, JRN-1-05)
+# ---------------------------------------------------------------------------
+
+
+class TestProfileFallbackIsAnnounced:
+    """DES-2-08: неверный номер профиля не подменяется молча."""
+
+    def _ctx(self):
+        return cli._build_cli_context()
+
+    def test_bench_unknown_profile_says_so(self, monkeypatch, capsys):
+        monkeypatch.setattr("builtins.input", lambda *_a: "7")
+
+        repeats = interactive._ask_bench_profile(self._ctx())
+
+        out = capsys.readouterr().out
+        assert repeats == interactive._BENCH_PROFILES["2"]
+        assert "7" in out and "2" in out
+
+    def test_micro_unknown_profile_says_so(self, monkeypatch, capsys):
+        monkeypatch.setattr("builtins.input", lambda *_a: "9")
+
+        number = interactive._ask_micro_profile(self._ctx())
+
+        out = capsys.readouterr().out
+        assert number == interactive._MICRO_PROFILES["2"]
+        assert "9" in out
+
+    def test_valid_profile_is_silent(self, monkeypatch, capsys):
+        """Регрессия: правильный выбор не обрастает лишней строкой."""
+        ctx = self._ctx()
+        monkeypatch.setattr("builtins.input", lambda *_a: "3")
+
+        repeats = interactive._ask_bench_profile(ctx)
+
+        warning = ctx.t("profile_unknown_default_used", value="3", default="2")
+        assert repeats == interactive._BENCH_PROFILES["3"]
+        assert warning not in capsys.readouterr().out
+
+    def test_empty_input_keeps_default_without_warning(self, monkeypatch, capsys):
+        """Пустой ввод — это выбор дефолта, а не опечатка."""
+        ctx = self._ctx()
+        monkeypatch.setattr("builtins.input", lambda *_a: "")
+
+        repeats = interactive._ask_bench_profile(ctx)
+
+        warning = ctx.t("profile_unknown_default_used", value="", default="2")
+        assert repeats == interactive._BENCH_PROFILES["2"]
+        assert warning not in capsys.readouterr().out
+
+
+class TestInsightsNamesItsSource:
+    """JRN-1-05: раздел «Подучить» называет базу и окно, по которым считал."""
+
+    def test_source_line_printed_with_cards(self, tmp_path, monkeypatch, capsys):
+        from stepik_grader.core import history_recording, insights
+
+        db_path = tmp_path / "history.db"
+        card = insights.InsightCard(
+            key="runtime-error:KeyError",
+            category="failure",
+            status="active",
+            hits=3,
+            runs_considered=10,
+        )
+        monkeypatch.setattr(history_recording, "default_history_db_path", lambda *a, **k: db_path)
+        monkeypatch.setattr(insights, "learning_cards", lambda *a, **k: [card])
+
+        interactive._show_insights(cli._build_cli_context())
+
+        out = capsys.readouterr().out
+        assert str(db_path) in out, "не сказано, из какой базы взяты карточки"
+
+    def test_no_source_line_when_nothing_to_show(self, tmp_path, monkeypatch, capsys):
+        """Пустой раздел не должен обрастать технической шапкой."""
+        from stepik_grader.core import history_recording, insights
+
+        db_path = tmp_path / "history.db"
+        monkeypatch.setattr(history_recording, "default_history_db_path", lambda *a, **k: db_path)
+        monkeypatch.setattr(insights, "learning_cards", lambda *a, **k: [])
+
+        interactive._show_insights(cli._build_cli_context())
+
+        assert str(db_path) not in capsys.readouterr().out

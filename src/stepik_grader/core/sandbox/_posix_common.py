@@ -111,6 +111,19 @@ def build_minimal_env() -> dict[str, str]:
     }
 
 
+def _killed_by(returncode: int, sig: int) -> bool:
+    """Убит ли процесс сигналом ``sig`` (issue #986).
+
+    Две формы одного и того же: прямой потомок даёт отрицательный код
+    (``-SIGXCPU``), а процесс, запущенный через посредника вроде ``bwrap``, —
+    обычный ``128 + N``. Жёсткий ``RLIMIT_CPU`` шлёт ``SIGXCPU`` и следом
+    добивает ``SIGKILL``, поэтому оба варианта означают одно: квота исчерпана.
+    """
+    if returncode < 0:
+        return -returncode in {sig, signal.SIGKILL}
+    return returncode - 128 in {sig, signal.SIGKILL} if returncode > 128 else False
+
+
 def run_argv_with_limits(
     argv: list[str],
     *,
@@ -310,7 +323,14 @@ def run_argv_with_limits(
     # на каждой ОС матрицы отдельно и без ignore здесь падал бы на
     # windows-latest.
     returncode = proc.returncode
-    if returncode is not None and returncode < 0 and -returncode == signal.SIGXCPU:  # type: ignore[attr-defined]
+    # issue #986 (SBX-3-01): сигнал ищется и в положительном коде. Прямой потомок
+    # отдаёт убийство сигналом как отрицательный код, но под изоляцией мы ждём
+    # bwrap — он переживает своего ребёнка и транслирует его гибель обычным
+    # кодом `128 + N` (SIGXCPU → 152, добитый следом SIGKILL → 137). Проверка
+    # смотрела только на отрицательные, поэтому исчерпание CPU-квоты не
+    # распознавалось ВООБЩЕ: ни таймаута, ни нарушения — «ненулевой код», то
+    # есть RE, «решение упало». Падала квота, а отвечало решение.
+    if returncode is not None and _killed_by(returncode, signal.SIGXCPU):  # type: ignore[attr-defined]
         return RunOutcome(
             sandbox_violation="cpu",
             elapsed=elapsed,

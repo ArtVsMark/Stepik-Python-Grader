@@ -62,6 +62,13 @@ jobs:
       # PyPI неперезаписываема). Проверка на чистом stdlib, поэтому живёт здесь.
       - name: Workflow guardrails (issue #988)
         run: python scripts/check_workflow_guardrails.py
+      # issue #997: выдуманный абсолютный путь в argv теста работает с настоящим
+      # диском. `--root /some/dir` создал на машине разработчика C:\some\dir с
+      # .grader_settings.json, и тот файл через месяц уронил этот же тест —
+      # только локально: под Linux запись в корень / не проходит, поэтому здесь
+      # ловим причину статически, а не ждём следа. Тоже чистый stdlib (ast).
+      - name: Test isolation guardrails (issue #997)
+        run: python scripts/check_test_isolation.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
@@ -523,5 +530,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install . pip-audit
+      # issue #988 (REV-4-06): «краснеет в логах» — слишком слабый сигнал. Job
+      # объявлен continue-on-error, поэтому его провал не виден ни в статусе PR,
+      # ни в списке проверок: чтобы узнать про найденную CVE, надо было открыть
+      # лог именно этого job'а и дочитать его. Аннотация ::warning:: всплывает в
+      # сводке прогона и в интерфейсе PR — тот же не-блокирующий сигнал, но
+      # замеченный. Блокировать по-прежнему не блокируем осознанно: новая CVE в
+      # транзитивной зависимости не должна валить несвязанный чужой PR.
       - name: pip-audit (informational, non-blocking)
-        run: pip-audit --skip-editable
+        # Без пайпа намеренно: за `|` код возврата берётся от последней команды
+        # конвейера, и `pip-audit | tee` вернул бы успех даже на находке.
+        run: |
+          if ! pip-audit --skip-editable --progress-spinner=off; then
+            echo "::warning title=pip-audit::Найдена уязвимость в runtime-замыкании — см. лог job'а supply-chain и docs/dev/supply-chain.md"
+            exit 1
+          fi

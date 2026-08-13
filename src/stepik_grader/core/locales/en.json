@@ -1,6 +1,8 @@
 {
+  "insights_source": "  Source: {path} · runs in window: {runs} of {window}",
   "no_test_cases_loaded": "No test cases were loaded",
   "path_not_found": "Path not found: {path}",
+  "profile_unknown_default_used": "  No profile «{value}» — using profile {default}.",
   "solutions_not_found": "No solutions found in: {path}",
   "folder_not_found": "Folder not found: {path}",
   "file_read_failed": "Failed to read file: {error}",
