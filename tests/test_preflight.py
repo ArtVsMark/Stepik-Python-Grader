@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -179,6 +180,53 @@ class TestChangelogBuffer:
         _git(repo, "commit", "-am", "change code with changelog")
 
         assert preflight.check_changelog_buffer().ok
+
+    def test_survives_narrow_locale(self, repo: pathlib.Path, tmp_path: pathlib.Path) -> None:
+        """Узкая локаль не должна ломать сравнение русских строк.
+
+        `text=True` декодирует вывод git **локальной** кодировкой: на Windows
+        это cp1251/cp866, и русские строки диффа приезжают искажёнными — гейт
+        не падает, а врёт, что записи в CHANGELOG нет. Воспроизводится на Linux
+        через `LC_ALL=C` с отключённым UTF-8 mode: тот же механизм, которым
+        узкую кодировку задаёт Windows, и ловится он только запуском настоящего
+        процесса.
+        """
+        (repo / "module.py").write_text("x = 2\n", encoding="utf-8")
+        (repo / "CHANGELOG.md").write_text(
+            "# Changelog\n\n## Буфер (разобрать при релизе)\n\n"
+            "- Fixed: правка с кириллицей (#997)\n\n## [Unreleased]\n",
+            encoding="utf-8",
+        )
+        _git(repo, "commit", "-am", "change with cyrillic changelog")
+        probe = tmp_path / "probe.py"
+        probe.write_text(
+            "import importlib.util, pathlib, sys\n"
+            "spec = importlib.util.spec_from_file_location('_pf', sys.argv[1])\n"
+            "module = importlib.util.module_from_spec(spec)\n"
+            "sys.modules['_pf'] = module\n"
+            "spec.loader.exec_module(module)\n"
+            "module._ROOT = pathlib.Path(sys.argv[2])\n"
+            "check = module.check_changelog_buffer()\n"
+            "print('ok' if check.ok else 'buffer entry not found')\n"
+            "sys.exit(0 if check.ok else 1)\n",
+            encoding="utf-8",
+        )
+        env = {
+            **os.environ,
+            "LC_ALL": "C",
+            "LANG": "C",
+            "PYTHONUTF8": "0",
+            "PYTHONCOERCECLOCALE": "0",
+        }
+
+        result = subprocess.run(
+            [sys.executable, str(probe), str(_SCRIPT), str(repo)],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert result.returncode == 0, result.stdout + result.stderr
 
     def test_entry_outside_buffer_does_not_count(
         self, preflight: ModuleType, repo: pathlib.Path

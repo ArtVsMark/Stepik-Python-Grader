@@ -100,10 +100,21 @@ class Check:
 
 
 def _git(*args: str) -> str:
-    """``git`` в корне репозитория; пустая строка при любой ошибке."""
+    """``git`` в корне репозитория; пустая строка при любой ошибке.
+
+    Кодировка задана явно: ``text=True`` декодирует вывод локальной кодировкой
+    (на Windows это cp1251/cp866), и русские строки диффа приезжают искажёнными
+    — сравнение с текстом файла, прочитанным как UTF-8, тихо перестаёт
+    совпадать. Гейт при этом не падает, а **врёт**, что записи в CHANGELOG нет.
+    """
     try:
         return subprocess.check_output(
-            ["git", *args], cwd=_ROOT, text=True, stderr=subprocess.DEVNULL
+            ["git", *args],
+            cwd=_ROOT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stderr=subprocess.DEVNULL,
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         return ""
@@ -113,7 +124,13 @@ def _git_ok(*args: str) -> bool:
     """Истина, когда команда завершилась успешно (проверки вида ``--is-ancestor``)."""
     try:
         completed = subprocess.run(
-            ["git", *args], cwd=_ROOT, capture_output=True, text=True, check=False
+            ["git", *args],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
     except OSError:
         return False
@@ -339,7 +356,13 @@ def _run_stage(title: str, command: Sequence[str], log_dir: pathlib.Path) -> Che
     print(f"  … {title}: {' '.join(command)}")
     try:
         completed = subprocess.run(
-            list(command), cwd=_ROOT, capture_output=True, text=True, check=False
+            list(command),
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
     except OSError as exc:
         return Check(name=title, ok=False, detail=f"не удалось запустить: {exc}")
