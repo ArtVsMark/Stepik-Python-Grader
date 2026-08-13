@@ -313,3 +313,57 @@ def test_run_without_mode_counts_as_check() -> None:
     """Запись без поля mode (старые/синтетические данные) считается проверкой."""
     assert insights._is_bench_run({"cases": [{"verdict": "AC"}]}) is False
     assert insights._run_is_full_ac({"cases": [{"verdict": "AC"}]}) is True
+
+
+# ---------------------------------------------------------------------------
+# Окно «Подучить» масштабируется числом задач — issue #972 (PROD-2-05)
+# ---------------------------------------------------------------------------
+
+
+def test_other_task_progress_does_not_archive_your_error(tmp_path) -> None:
+    """Работа над другой задачей не убирает из «Подучить» неисправленную ошибку.
+
+    Сценарий из issue: задача A падает `KeyError`, затем студент делает три
+    чистых прогона задачи B. При окне в десять прогонов на всю базу карточка
+    уходила в архив и исчезала с глаз, хотя решение A не менялось и по-прежнему
+    падает. Окно осталось общим (ошибка осмысленна поперёк задач), но глубина
+    считается на задачу.
+    """
+    db = _db(tmp_path)
+    for _ in range(3):
+        history.record_run(
+            1,
+            [CaseRecord(1, "RE", failure_kind="runtime-error:KeyError", error_class="KeyError")],
+            db_path=db,
+            task_key="step:100",
+            task_title="zadacha-A",
+        )
+
+    for _ in range(3):
+        history.record_run(
+            1, [CaseRecord(1, "OK")], db_path=db, task_key="step:200", task_title="zadacha-B"
+        )
+
+    keys = [card.key for card in learning_cards(db)]
+
+    assert "runtime-error:KeyError" in keys
+
+
+def test_window_scales_with_task_count(tmp_path) -> None:
+    """Глубина окна — «n на задачу», а не n на всю базу."""
+    from stepik_grader.core.insights import _scaled_window
+
+    db = _db(tmp_path)
+    for task in range(4):
+        history.record_run(
+            1, [CaseRecord(1, "OK")], db_path=db, task_key=f"step:{task}", task_title=f"t{task}"
+        )
+
+    assert _scaled_window(db, per_task=10) == 40
+
+
+def test_window_never_below_single_task(tmp_path) -> None:
+    """Пустая или недоступная база не схлопывает окно в ноль."""
+    from stepik_grader.core.insights import _scaled_window
+
+    assert _scaled_window(tmp_path / "net-takogo-faila.db", per_task=10) == 10

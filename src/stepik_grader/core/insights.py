@@ -44,9 +44,19 @@ __all__ = [
 ]
 
 # Пороги затухания по умолчанию (переопределяются из [tool.stepik-grader]):
-DEFAULT_WINDOW_N = 10  # окно последних N прогонов
+DEFAULT_WINDOW_N = 10  # окно последних N прогонов НА ОДНУ активную задачу
 DEFAULT_ACTIVE_T = 2  # ключ активен при ≥T попаданиях в окне
 DEFAULT_CLEAN_K = 3  # ≥K чистых прогонов подряд → архив
+
+# issue #972 (PROD-2-05): сколько активных задач учитывать при расширении окна.
+# База истории одна на пользователя, поэтому окно «Подучить» общее: студент
+# учится вообще, а не в одной задаче, и карточка `KeyError` осмысленна поперёк
+# задач. Но при фиксированных десяти прогонах на всю базу три чистых прогона
+# СОСЕДНЕЙ задачи выталкивали неисправленную ошибку в архив — она исчезала из
+# «Подучить», хотя решение не менялось. Поэтому окно масштабируется числом
+# задач, по которым в базе вообще есть прогоны; потолок не даёт ему вырасти в
+# полное чтение истории на большой базе.
+_WINDOW_TASKS_CAP = 20
 
 CardStatus = Literal["active", "fading", "archived", "watch"]
 
@@ -300,6 +310,25 @@ def violated_rule_codes(db_path: Path, *, limit: int = DEFAULT_WINDOW_N) -> set[
     }
 
 
+def _scaled_window(db_path: Path, per_task: int) -> int:
+    """Глубина общего окна «Подучить»: ``per_task`` × число задач (issue #972).
+
+    Число задач берётся из агрегата ``task_progress`` — он монотонен и не
+    зависит от retention, поэтому не занижает окно у активного пользователя.
+    Потолок ``_WINDOW_TASKS_CAP`` не даёт окну выродиться в полное чтение
+    истории: на базе из сотни задач это была бы уже не выборка последних
+    прогонов, а полный скан на каждый вызов раздела.
+
+    Ошибка чтения агрегата — не повод падать: возвращаем прежнее окно
+    (``per_task``), как и при единственной задаче.
+    """
+    try:
+        tasks = len(history.read_task_progress(db_path, limit=_WINDOW_TASKS_CAP))
+    except Exception:  # pragma: no cover - best-effort, как весь модуль истории
+        tasks = 1
+    return per_task * max(1, min(tasks, _WINDOW_TASKS_CAP))
+
+
 def learning_cards(
     db_path: Path,
     *,
@@ -317,17 +346,30 @@ def learning_cards(
 
     Пустая история → ``[]`` (не ошибка). Ключи сортируются: сначала failure,
     потом lint, внутри — по ключу, для стабильного вывода.
+
+    **Окно общее, но масштабируется числом задач** (issue #972, PROD-2-05).
+    ``n`` — это глубина на ОДНУ активную задачу: база истории одна на
+    пользователя, и при фиксированных десяти прогонах на всю базу три чистых
+    прогона соседней задачи выталкивали неисправленную ошибку в архив. Карточка
+    исчезала из «Подучить», хотя решение не менялось. Окно осталось общим
+    намеренно — ошибка вроде ``KeyError`` осмысленна поперёк задач, — но теперь
+    его хватает, чтобы работа над одной задачей не стирала историю другой.
     """
-    runs = history.read_recent_runs(db_path, limit=n)
+    runs = history.read_recent_runs(db_path, limit=_scaled_window(db_path, n))
     if not runs:
         return []
     # read_recent_runs отдаёт новые первыми — разворачиваем в хронологию.
     chronological = list(reversed(runs))
 
     per_run_keys: list[set[str]] = []
+    per_run_task: list[str] = []
     category: dict[str, Literal["failure", "lint"]] = {}
     glossary_ref: dict[str, str | None] = {}
+    # issue #972 (PROD-2-05): задачи, в которых ключ вообще встречался. Затухание
+    # считается по ним, а не по всей базе — см. комментарий у `flags` ниже.
+    key_tasks: dict[str, set[str]] = {}
     for run in chronological:
+        per_run_task.append(str(run.get("task_key") or ""))
         keys: set[str] = set()
         for case in run.get("cases", []):
             fk = case.get("failure_kind")
@@ -341,10 +383,24 @@ def learning_cards(
                 keys.add(code)
                 category[code] = "lint"
         per_run_keys.append(keys)
+        for key in keys:
+            key_tasks.setdefault(key, set()).add(per_run_task[-1])
 
     cards: list[InsightCard] = []
     for key in sorted(category, key=lambda kk: (category[kk] != "failure", kk)):
-        flags = [key in run_keys for run_keys in per_run_keys]
+        # issue #972 (PROD-2-05): последовательность строится по прогонам ТЕХ
+        # задач, где ключ встречался. Карточка остаётся общей — ошибка вроде
+        # `KeyError` осмысленна поперёк задач, — но «чистая серия» набирается
+        # только там, где ошибка была. Иначе три чистых прогона СОСЕДНЕЙ задачи
+        # уводили в архив неисправленную ошибку: она исчезала из «Подучить»,
+        # хотя решение не менялось и по-прежнему падало. Размер окна тут не
+        # спасал — хвост окна всё равно оказывался чужим.
+        relevant = key_tasks.get(key, set())
+        flags = [
+            key in run_keys
+            for run_keys, task in zip(per_run_keys, per_run_task, strict=True)
+            if task in relevant
+        ]
         status = classify_status(flags, n=n, t=t, k=k)
         if status == "archived" and not include_archived:
             continue

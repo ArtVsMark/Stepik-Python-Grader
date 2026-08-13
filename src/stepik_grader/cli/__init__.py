@@ -573,6 +573,22 @@ def main(argv: list[str] | None = None) -> ExitCode:
     if args.root is not None:
         config.set_workspace_root(args.root)
 
+    # issue #997 (SET-3-03): лимиты правились только в pyproject.toml, которого
+    # у pipx-установки нет. Применяем ДО диспетчеризации — прогон, паспорт
+    # условий и ключ кэша должны видеть одно и то же значение.
+    overrides: dict[str, object] = {}
+    if args.timeout is not None:
+        if args.timeout <= 0:
+            parser.error(f"--timeout: ожидалось положительное число секунд — {args.timeout}")
+        overrides["timeout_seconds"] = args.timeout
+    if args.memory_limit is not None:
+        if args.memory_limit < 0:
+            parser.error(f"--memory-limit: ожидалось 0 или больше — {args.memory_limit}")
+        # 0 — «снять лимит»: в конфиге это None, а не ноль мегабайт.
+        overrides["max_memory_mb"] = args.memory_limit or None
+    if overrides:
+        config.override_config(**overrides)
+
     # issue #146: opt-in диагностический лог. --diagnostic → debug; иначе уровень
     # берётся из STEPIK_GRADER_LOG (по умолчанию выключено, файл не создаётся).
     configure_diagnostics("debug" if args.diagnostic else None)
