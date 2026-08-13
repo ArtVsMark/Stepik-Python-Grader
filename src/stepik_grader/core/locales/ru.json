@@ -1,4 +1,5 @@
 {
+  "no_test_cases_loaded": "Ни одного тест-кейса не загружено",
   "path_not_found": "Путь не найден: {path}",
   "solutions_not_found": "Решения не найдены в: {path}",
   "folder_not_found": "Папка не найдена: {path}",

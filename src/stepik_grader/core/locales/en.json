@@ -1,4 +1,5 @@
 {
+  "no_test_cases_loaded": "No test cases were loaded",
   "path_not_found": "Path not found: {path}",
   "solutions_not_found": "No solutions found in: {path}",
   "folder_not_found": "Folder not found: {path}",
