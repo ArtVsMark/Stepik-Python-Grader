@@ -118,6 +118,14 @@ jobs:
           fi
           twine check dist/*
 
+      # issue #953 (REL-3-06): `twine check` читает метаданные, но не содержимое.
+      # Сломанный glob в [tool.setuptools.package-data] он пропускает, и тесты
+      # тоже: они смотрят дерево ИСХОДНИКОВ через stepik_grader.__file__, а не
+      # собранный артефакт. Симптом у пользователя — `--serve` без редактора и
+      # шрифтов, узнаётся из жалобы, потому что версия в PyPI неперезаписываема.
+      - name: Verify wheel contents (issue #953)
+        run: python scripts/check_wheel_contents.py dist/*.whl
+
       - name: Upload dist artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -169,6 +177,11 @@ jobs:
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: dist/*
+          # issue #953 (REL-1-01): по умолчанию action при пустом glob просто
+          # публикует релиз БЕЗ файлов и остаётся зелёным. Именно так выглядел
+          # симптом «релиз опубликован, ассетов нет»: тег проставлен, страница
+          # видна, а скачать нечего. Пропажа ассетов обязана падать.
+          fail_on_unmatched_files: true
           body_path: release-notes.md
           # Автосписок остаётся приложением: action дописывает «Full changelog»
           # ниже body_path, поэтому полный перечень PR никуда не пропадает.
