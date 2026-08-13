@@ -239,6 +239,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "ai_grounding_k",  # issue #812: сколько карточек в заземлении промпта
         "ai_system_prompt",  # issue #812: свой системный промпт вместо встроенного
         "history_db_path",  # issue #818: где лежит база истории обучения
+        "compare_mode",  # issue #1111: stepik (как чекер платформы) или strict
     }
 
 
@@ -832,6 +833,34 @@ class TestRuntimeLimitFlags:
         capsys.readouterr()
 
         assert current_profile().max_memory_mb is None
+
+    def test_compare_flag_reaches_the_config(self, tmp_path, monkeypatch, capsys):
+        """`--compare strict` доезжает до конфига, а не остаётся в argparse (issue #1111)."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--compare", "strict"])
+        capsys.readouterr()
+
+        assert config.get_config().compare_mode == "strict"
+
+    def test_compare_defaults_to_stepik(self, tmp_path, monkeypatch, capsys):
+        """Без флага — режим платформы: он и есть дефолт продукта (issue #1111)."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py")])
+        capsys.readouterr()
+
+        assert config.get_config().compare_mode == "stepik"
+
+    def test_unknown_compare_mode_is_rejected(self, tmp_path, monkeypatch):
+        """Опечатка в режиме — отказ argparse, а не молчаливый откат на дефолт."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--compare", "strikt"])
 
     def test_non_positive_timeout_is_rejected(self, tmp_path, monkeypatch):
         """Опечатка не должна тихо превращаться в «без таймаута»."""

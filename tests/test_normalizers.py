@@ -10,6 +10,7 @@ from stepik_grader.core.normalizers import (
     normalize_whitespace,
     sort_lines,
     split_output_lines,
+    strip_trailing_blanks,
 )
 
 # ---------------------------------------------------------------------------
@@ -264,3 +265,53 @@ def test_split_output_lines_is_symmetric_for_file_and_stream() -> None:
 def test_floats_equal_with_precision(actual: str, expected: str, equal: bool, why: str) -> None:
     """Толерантность к записи float не стирает требование числа знаков (issue #940)."""
     assert floats_equal_with_precision(actual, expected) is equal, why
+
+
+# ---------------------------------------------------------------------------
+# issue #1111 — нормализация хвоста для режима сравнения `stepik`
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "lines,expected,why",
+    [
+        (["a ", "b\t"], ["a", "b"], "хвостовые пробелы и табы снимаются с каждой строки"),
+        (["a", "", ""], ["a"], "пустые строки в конце отбрасываются"),
+        ([""], [], "единственная пустая строка = отсутствие вывода"),
+        ([], [], "пустой список остаётся пустым"),
+        (["", "a"], ["", "a"], "пустая строка В НАЧАЛЕ значима"),
+        (["  *"], ["  *"], "ведущие пробелы значимы — ёлочки и отступы не ломаются"),
+        (["a b"], ["a b"], "внутренние пробелы не трогаются"),
+        (["   ", "x"], ["", "x"], "строка из одних пробелов схлопывается, но не исчезает"),
+    ],
+)
+def test_strip_trailing_blanks(lines: list[str], expected: list[str], why: str) -> None:
+    """Снимается ровно хвост: то, чего не различает чекер платформы (issue #1111)."""
+    assert strip_trailing_blanks(lines) == expected, why
+
+
+@pytest.mark.parametrize(
+    "code_point,name",
+    [
+        (0x0B, "вертикальная табуляция"),
+        (0x0C, "перевод страницы"),
+        (0xA0, "неразрывный пробел"),
+    ],
+)
+def test_strip_trailing_blanks_keeps_exotic_whitespace(code_point: int, name: str) -> None:
+    """Экзотические пробельные — ДАННЫЕ, а не хвост вывода (регрессия issue #843).
+
+    Голый ``str.rstrip()`` считает пробельными и ``\\x0b``/``\\x0c``, поэтому
+    первая версия #1111 срезала их — и мутация ``vertical_tab`` из каталога
+    корпуса получила AC вместо WA. Ровно тот ложный AC, который закрывал #843:
+    поймано прогоном стенда, а не ревью.
+    """
+    line = "a" + chr(code_point)
+    assert strip_trailing_blanks([line]) == [line], name
+
+
+def test_strip_trailing_blanks_does_not_mutate_input() -> None:
+    """Вход остаётся исходным: `output`/`expected` в отчёте показываются как есть."""
+    original = ["a ", ""]
+    strip_trailing_blanks(original)
+    assert original == ["a ", ""]

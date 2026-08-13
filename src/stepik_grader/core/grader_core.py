@@ -87,7 +87,11 @@ from stepik_grader.core.mode_detector import (
     _read_meta_function_name,
     is_function_only_solution,
 )
-from stepik_grader.core.normalizers import floats_equal_with_precision, split_output_lines
+from stepik_grader.core.normalizers import (
+    floats_equal_with_precision,
+    split_output_lines,
+    strip_trailing_blanks,
+)
 
 # issue #940: сравнение перешло на floats_equal_with_precision, но сам
 # `_normalize_output_line` остаётся реэкспортом для фасада grader.py (см. его
@@ -215,6 +219,25 @@ class BenchStats:
 # импортировали этот оркестратор ради одного вызова, и оба импорта приходилось
 # держать ленивыми, чтобы не собрать цикл. DAG-guard такие рёбра не видит — он
 # не спускается в тела функций, поэтому цикл существовал, а тест был зелёным.
+
+
+def _lines_for_compare(
+    actual_lines: list[str],
+    expected_lines: list[str],
+) -> tuple[list[str], list[str]]:
+    """Пара «факт, ожидание», приведённая к текущему режиму сравнения (issue #1111).
+
+    ``compare_mode="stepik"`` (по умолчанию) снимает то, чего не различает чекер
+    платформы: хвостовые пробелы строки и хвостовые пустые строки. Найдено
+    внешним эталоном — на реальной базе курса решения, принятые Stepik,
+    получали ``WA`` ровно на этих различиях.
+
+    ``compare_mode="strict"`` возвращает списки как есть: побайтовая построчная
+    сверка для тех, кому нужна именно она (авторы задач, прогонный корпус).
+    """
+    if get_config().compare_mode == "strict":
+        return actual_lines, expected_lines
+    return strip_trailing_blanks(actual_lines), strip_trailing_blanks(expected_lines)
 
 
 def _undecodable_output_result(
@@ -542,14 +565,20 @@ def _map_outcome_to_result(
     # `a<VT>b` в одну строку признавалось равным двум настоящим строкам — AC на
     # неверном решении.
     actual_lines = split_output_lines(stdout)
-    passed = actual_lines == case.expected_lines
-    if not passed and len(actual_lines) == len(case.expected_lines):
+    # issue #1111: режим сравнения. `stepik` (дефолт) не различает того, чего не
+    # различает чекер платформы — хвостовые пробелы строки и хвостовые пустые
+    # строки; `strict` сверяет побайтово. Нормализуются ОБЕ стороны, но только
+    # для решения «passed»: `output`/`expected`/`diff` остаются исходными, иначе
+    # студент увидел бы не свой вывод, а его причёсанную копию.
+    compare_actual, compare_expected = _lines_for_compare(actual_lines, case.expected_lines)
+    passed = compare_actual == compare_expected
+    if not passed and len(compare_actual) == len(compare_expected):
         # issue #940: толерантность к записи float сохранена, но она больше не
         # стирает незначащие нули ожидания: `12.30` против `12.3` — не «та же
         # величина», а невыполненное требование «до сотых».
         passed = all(
             floats_equal_with_precision(a, e)
-            for a, e in zip(actual_lines, case.expected_lines, strict=True)
+            for a, e in zip(compare_actual, compare_expected, strict=True)
         )
     diff_str = ""
     if not passed:

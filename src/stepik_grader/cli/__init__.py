@@ -590,6 +590,10 @@ def main(argv: list[str] | None = None) -> ExitCode:
             parser.error(f"--memory-limit: ожидалось 0 или больше — {args.memory_limit}")
         # 0 — «снять лимит»: в конфиге это None, а не ноль мегабайт.
         overrides["max_memory_mb"] = args.memory_limit or None
+    # issue #1111: режим сравнения вывода на один прогон. Значения проверяет
+    # argparse (`choices`), поэтому здесь только перенос в конфиг.
+    if args.compare is not None:
+        overrides["compare_mode"] = args.compare
     if overrides:
         config.override_config(**overrides)
 

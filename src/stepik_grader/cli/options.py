@@ -19,7 +19,7 @@ import pathlib
 import sys
 
 from stepik_grader import config
-from stepik_grader.config import CONFIG, CONFIG_FLAG
+from stepik_grader.config import COMPARE_MODES, CONFIG, CONFIG_FLAG
 from stepik_grader.core import user_settings
 from stepik_grader.core.i18n import load_locale_messages
 
@@ -225,6 +225,12 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         default=None,
         metavar="MB",
         help=t["cli_help_memory_limit"],
+    )
+    parser.add_argument(
+        "--compare",
+        choices=COMPARE_MODES,
+        default=None,
+        help=t["cli_help_compare"],
     )
     parser.add_argument(
         "--insights",
