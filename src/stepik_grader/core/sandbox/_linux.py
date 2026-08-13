@@ -45,7 +45,7 @@ from pathlib import Path
 from stepik_grader.config import CONFIG
 from stepik_grader.core.run_dir import ephemeral_run_dir
 from stepik_grader.core.runner import RunOutcome, RunSpec, materialize_spec
-from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
+from stepik_grader.core.sandbox import _limits, _posix_bootstrap, _posix_common
 
 __all__ = ["LinuxSandboxRunner", "create_backend"]
 
@@ -146,7 +146,9 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     # берётся константой — иначе разрешённый пользователем долгий прогон
     # режется на середине.
     cpu_seconds = _posix_bootstrap.cpu_quota_seconds(spec.timeout, CONFIG.sandbox_max_cpu_seconds)
-    max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
+    max_memory_bytes = (
+        _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb) * 1024 * 1024
+    )
     bootstrap = _posix_bootstrap.build_bootstrap_argv(
         sys.executable,
         str(script_path),
@@ -253,7 +255,9 @@ class LinuxSandboxRunner:
                 # серверного API под --sandbox молча игнорировался. CONFIG
                 # остаётся значением по умолчанию.
                 max_output_bytes=spec.max_output_bytes or CONFIG.sandbox_max_output_bytes,
-                max_memory_mb=float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024),
+                max_memory_mb=float(
+                    _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb)
+                ),
                 # issue #797: отмена работает и под изоляцией — раньше поле
                 # RunSpec просто не доезжало до цикла ожидания.
                 cancel_event=spec.cancel_event,

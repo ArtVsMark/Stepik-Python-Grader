@@ -333,3 +333,33 @@ class TestBrokenBackendIsNotSolutionFailure:
         outcome = _sandbox_or_skip().run(RunSpec(path=None, code=mimic, stdin=None, timeout=5.0))
 
         assert outcome.launch_error is None
+
+
+class TestSandboxMemoryFallback:
+    """Под изоляцией «без лимита» — это потолок, а не его отсутствие (issue #986)."""
+
+    def test_explicit_request_wins(self) -> None:
+        from stepik_grader.core.sandbox._limits import sandbox_memory_mb
+
+        assert sandbox_memory_mb(256, 512) == 256
+
+    def test_configured_value_is_next(self) -> None:
+        from stepik_grader.core.sandbox._limits import sandbox_memory_mb
+
+        assert sandbox_memory_mb(None, 512) == 512
+
+    def test_none_everywhere_falls_back_not_unlimited(self) -> None:
+        """`None` на всех уровнях даёт потолок изоляции, а не его снятие.
+
+        Документация обещает «`None` — без лимита», и для обычного прогона это
+        правда. Под изоляцией — нет: песочница без потолка памяти не изолирует,
+        а доводит машину до OOM. Раньше значение подставлялось молча четырьмя
+        копиями литерала, и расхождение с документом выглядело оплошностью.
+        """
+        from stepik_grader.core.sandbox._limits import (
+            SANDBOX_FALLBACK_MEMORY_MB,
+            sandbox_memory_mb,
+        )
+
+        assert sandbox_memory_mb(None, None) == SANDBOX_FALLBACK_MEMORY_MB
+        assert SANDBOX_FALLBACK_MEMORY_MB > 0
