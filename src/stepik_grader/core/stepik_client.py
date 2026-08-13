@@ -25,7 +25,9 @@ import json as _json_mod
 import os
 import pathlib
 import secrets as secrets_module
+import socket
 import socketserver
+import sys
 import threading
 import time
 import webbrowser
@@ -559,8 +561,24 @@ class _OAuthHTTPServer(HTTPServer):
     нет, поэтому подставляем адрес как есть и стартуем мгновенно.
     """
 
+    # issue #997 (JRN-3A-04, продолжение): на Windows ``SO_REUSEADDR`` —
+    # который ``HTTPServer`` ставит по умолчанию — РАЗРЕШАЕТ второй bind на уже
+    # слушаемый порт. Проверено на этой машине: bind проходит, ошибки нет,
+    # браузерный колбэк уходит чужому слушателю, и вместо «порт занят»
+    # пользователь час ждёт таймаута «код не получен». Ровно та подмена
+    # причины, ради которой заводился OAuthCallbackPortBusy, — на главной
+    # платформе пользователя фикс не срабатывал. На POSIX SO_REUSEADDR
+    # перехватить активный listener не даёт и нужен против TIME_WAIT, поэтому
+    # там поведение прежнее.
+    allow_reuse_address = sys.platform != "win32"
+
     def server_bind(self) -> None:
         """Забиндить сокет, не спрашивая DNS об имени хоста."""
+        if sys.platform == "win32":
+            # Единственный флаг, при котором Windows отвечает WSAEADDRINUSE
+            # (10048) на занятый порт. Ставится ДО bind и несовместим с
+            # SO_REUSEADDR — потому тот и выключен выше.
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         socketserver.TCPServer.server_bind(self)
         host, port = self.server_address[:2]
         self.server_name = str(host)
