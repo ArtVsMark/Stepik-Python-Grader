@@ -482,22 +482,6 @@ MUTATIONS: tuple[Mutation, ...] = (
         requires=_has_output,
     ),
     Mutation(
-        key="blank_line_append",
-        title="лишняя пустая строка в конце",
-        expected="WA",
-        checks="хвостовая пустая строка значима (сверх завершающего перевода)",
-        transform=_suffix("print()"),
-        requires=_has_output,
-    ),
-    Mutation(
-        key="trailing_space",
-        title="хвостовой пробел в каждой строке",
-        expected="WA",
-        checks="хвостовые пробелы значимы — сравнение построчно строгое",
-        transform=_prefix(_stdout_filter("text.replace('\\n', ' \\n')")),
-        requires=_has_output,
-    ),
-    Mutation(
         key="upper_case",
         title="ответ в верхнем регистре",
         expected="WA",
@@ -533,6 +517,33 @@ MUTATIONS: tuple[Mutation, ...] = (
         expected="AC",
         checks="CRLF-поток разбирается так же, как LF (кроссплатформенность)",
         transform=_prefix(_stdout_filter("text.replace('\\n', '\\r\\n')")),
+        requires=_has_output,
+    ),
+    # issue #1111: обе мутации ниже ждали `WA` — политика сравнения объявляла
+    # хвостовые пробелы значимыми. Внешний эталон её опроверг: на реальной базе
+    # курса решения, ПРИНЯТЫЕ Stepik, получали у нас WA ровно на этих
+    # различиях. Дефолтный режим `stepik` их прощает, побайтовая сверка живёт
+    # под `--compare strict` — там обе снова дают WA, и это проверяется
+    # отдельным тестом, а не каталогом (каталог гоняется в дефолте).
+    Mutation(
+        key="trailing_space",
+        title="хвостовой пробел в каждой строке",
+        expected="AC",
+        checks="режим stepik не различает хвостовые пробелы — как чекер платформы",
+        transform=_prefix(_stdout_filter("text.replace('\\n', ' \\n')")),
+        requires=_has_output,
+    ),
+    Mutation(
+        key="blank_line_append",
+        title="лишняя пустая строка в конце",
+        expected="AC",
+        checks="режим stepik не различает хвостовые пустые строки (в т.ч. «нет вывода» vs пустая)",
+        # Через stdout-фильтр, а не `_suffix("print()")`: у задач с функцией
+        # дописанный в конец файла `print()` исполняется при ИМПОРТЕ решения
+        # wrapper'ом, то есть кладёт пустую строку в НАЧАЛО вывода. Мутация
+        # тогда проверяла ведущую строку вместо хвостовой и давала WA на всех
+        # function-задачах — поймано прогоном по реальной базе (issue #1111).
+        transform=_prefix(_stdout_filter("text + '\\n'")),
         requires=_has_output,
     ),
     # Ниже — семейство `algorithmic` (issue #1057): ошибка в самом решении, а не

@@ -40,6 +40,7 @@
   "cli_help_lang": "Language of the menu and messages (default ru).",
   "cli_help_lint": "After checking modes 1/2 show the «Style» block — PEP 8 violations from ruff (requires extra: pip install stepik-python-grader[lint]). Does not affect the verdict.",
   "cli_help_memory_limit": "Memory limit for the solution in megabytes; 0 — no limit. Overrides [tool.stepik-grader] max_memory_mb for this run.",
+  "cli_help_compare": "How to compare output with the expectation: stepik — like the platform checker (trailing spaces and trailing blank lines are insignificant), strict — byte-for-byte, line by line. Overrides [tool.stepik-grader] compare_mode for this run.",
   "cli_help_mode": "Run mode (without --mode the interactive menu is shown).",
   "cli_help_no_root_confinement": "Disable checking request paths against --root — access to any path on disk, as before. An explicit opt-out by the user, not the default.",
   "cli_help_number": "Number of timeit calls for --mode 4 (default 1000).",
