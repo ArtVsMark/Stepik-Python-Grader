@@ -66,7 +66,17 @@ _CODE_BLOCK_NAME = "code"
 
 @dataclass(frozen=True)
 class CourseStep:
-    """Шаг курса, пригодный для локальной проверки."""
+    """Шаг курса, пригодный для локальной проверки.
+
+    Attributes:
+        lesson_id: идентификатор урока.
+        position: позиция шага внутри урока (1-based, как в URL).
+        step_id: идентификатор шага.
+        title: название урока — для читаемого прогресса в консоли.
+        section_id: идентификатор секции (главы) курса.
+        section_title: название секции — для сводки по главам.
+        section_position: позиция секции в курсе — задаёт порядок вывода.
+    """
 
     lesson_id: int
     position: int
@@ -110,9 +120,7 @@ def iter_course_steps(
             lesson = fetch_lesson_data(session, int(lesson_id))
             title = str(lesson.get("title") or f"lesson {lesson_id}")
             for position, step_id in enumerate(lesson.get("steps") or [], start=1):
-                if code_only and not _is_code_step(
-                    session, int(lesson_id), position
-                ):
+                if code_only and not _is_code_step(session, int(lesson_id), position):
                     continue
                 yield CourseStep(
                     lesson_id=int(lesson_id),
@@ -123,6 +131,7 @@ def iter_course_steps(
                     section_title=section_title,
                     section_position=section_position,
                 )
+
 
 def build_course_inventory(course_id: int, steps: Sequence[CourseStep]) -> dict[str, Any]:
     """Build the stable machine-readable course inventory."""
@@ -174,6 +183,7 @@ def build_course_inventory(course_id: int, steps: Sequence[CourseStep]) -> dict[
             "sections": result_sections,
         }
     }
+
 
 def _is_code_step(session: requests.Session, lesson_id: int, position: int) -> bool:
     """Проверить, что шаг — задача с кодом; сетевой сбой трактуется как «нет».
@@ -241,9 +251,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Скачать задачи курса Stepik в локальную базу для сквозного прогона."
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--course", type=int, help="идентификатор курса Stepik")
     source.add_argument(
-        "--steps", type=pathlib.Path, help="файл со списком URL шагов (по одному в строке)"
+        "--course",
+        type=int,
+        help="идентификатор курса Stepik",
+    )
+    source.add_argument(
+        "--steps",
+        type=pathlib.Path,
+        help="файл со списком URL шагов (по одному в строке)",
     )
     parser.add_argument(
         "--target",
@@ -257,36 +273,47 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=pathlib.Path("secrets.json"),
         help="путь к secrets.json с токеном Stepik",
     )
-    parser.add_argument("--limit", type=int, default=0, help="взять не больше N шагов (0 — все)")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="взять не больше N шагов (0 — все)",
+    )
     parser.add_argument(
         "--all-steps",
         action="store_true",
         help="не фильтровать по типу шага (по умолчанию только задачи с кодом)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="только показать список шагов, ничего не скачивать"
+        "--dry-run",
+        action="store_true",
+        help="только показать список шагов, ничего не скачивать",
     )
-
     parser.add_argument(
         "--inventory",
         choices=("json",),
-        help="output course inventory in machine-readable JSON format",
+        help="машинночитаемый инвентарь курса в JSON",
     )
     args = parser.parse_args(argv)
+
+    if args.inventory is not None and args.steps is not None:
+        parser.error("--inventory работает только с --course")
+    if args.inventory is not None and args.limit > 0:
+        parser.error("--inventory нельзя использовать вместе с --limit")
 
     try:
         secrets = load_secrets_dict(args.secrets)
         session = create_user_session(secrets, args.secrets)
     except (OSError, ValueError) as exc:
-        print(f"Не удалось авторизоваться: {exc}", file=sys.stderr)
+        print(
+            f"Не удалось авторизоваться: {exc}",
+            file=sys.stderr,
+        )
         return 1
 
     steps: list[CourseStep] | None = None
 
     if args.steps is not None:
-        if args.inventory is not None:
-            parser.error("--inventory requires --course")
-
         step_urls = read_step_urls(args.steps)
     else:
         try:
@@ -304,6 +331,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 1
 
+        if args.limit > 0:
+            steps = steps[: args.limit]
+
         step_urls = [step.url for step in steps]
 
         if args.inventory == "json":
@@ -319,41 +349,41 @@ def main(argv: Sequence[str] | None = None) -> int:
         for step in steps:
             print(f"{step.url}  # {step.title}")
 
-    if args.limit > 0:
+    if args.steps is not None and args.limit > 0:
         step_urls = step_urls[: args.limit]
 
     if not step_urls:
-        print("Нечего скачивать: список шагов пуст.", file=sys.stderr)
+        print(
+            "Нечего скачивать: список шагов пуст.",
+            file=sys.stderr,
+        )
         return 1
 
     if args.dry_run:
         print(
-            f"\nНайдено шагов: {len(step_urls)} "
-            f"(--dry-run, ничего не скачано)",
+            f"\nНайдено шагов: {len(step_urls)} (--dry-run, ничего не скачано)",
             file=sys.stderr,
         )
 
         if steps is not None:
-            section_totals: dict[int, tuple[int, str]] = {}
+            section_totals: dict[int, tuple[int, str, int]] = {}
 
             for step in steps:
-                count, title = section_totals.get(
+                count, title, position = section_totals.get(
                     step.section_id,
-                    (0, step.section_title),
+                    (0, step.section_title, step.section_position),
                 )
-                section_totals[step.section_id] = (count + 1, title)
+                section_totals[step.section_id] = (
+                    count + 1,
+                    title,
+                    position,
+                )
 
             print("По секциям:", file=sys.stderr)
-            for section_id, (count, title) in sorted(
+
+            for section_id, (count, title, _position) in sorted(
                 section_totals.items(),
-                key=lambda item: (
-                    next(
-                        s.section_position
-                        for s in steps
-                        if s.section_id == item[0]
-                    ),
-                    item[0],
-                ),
+                key=lambda item: (item[1][2], item[0]),
             ):
                 print(
                     f"  {section_id}: {title} — {count}",
@@ -363,7 +393,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     downloaded, errors = fetch_steps(session, step_urls, args.target)
-    print(f"\nСкачано шагов: {downloaded} из {len(step_urls)} → {args.target}", file=sys.stderr)
+    print(
+        f"\nСкачано шагов: {downloaded} из {len(step_urls)} → {args.target}",
+        file=sys.stderr,
+    )
     if errors:
         print(f"Ошибок: {len(errors)}", file=sys.stderr)
         for error in errors:
