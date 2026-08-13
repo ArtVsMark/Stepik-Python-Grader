@@ -94,6 +94,7 @@ from stepik_grader.downloader_config import (
     normalize_config_paths,
     slugify,
 )
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "CONFIG_FILE",
@@ -588,6 +589,10 @@ def run_cli(argv: list[str] | None = None) -> int:
     ``0`` — все заказанные шаги скачаны (или пользователь завершил ввод),
     ``1`` — не удалось прочитать конфиг, авторизоваться или обработать шаг.
     """
+    # issue #1108: до первой печати. Загрузчик показывает названия уроков из
+    # Stepik, а они бывают с эмодзи — в консоли cp1251 это роняло процесс
+    # раньше, чем пользователь видел хоть строку.
+    force_utf8_stdio()
     args = _build_parser().parse_args(argv)
     _, code = _download(args.lang, urls=args.url or None)
     return code

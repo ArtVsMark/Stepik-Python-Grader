@@ -66,6 +66,7 @@ from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
 from stepik_grader.core.tracer import trace_code
 from stepik_grader.glossary.detector import scan_code_concepts
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "MODULE_KEYS",
@@ -649,6 +650,8 @@ def _parse_modules(raw: str) -> list[str]:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Точка входа CLI: прогнать базу задач по выбранным группам подсистем."""
+    # issue #1108: отчёт печатает пути и названия реальных задач курса.
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description="Сквозной прогон подсистем грейдера по локальной базе задач."
     )

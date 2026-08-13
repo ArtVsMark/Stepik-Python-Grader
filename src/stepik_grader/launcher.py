@@ -52,6 +52,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from stepik_grader.stdio_encoding import force_utf8_stdio
+
 __all__ = [
     "DEFAULT_HOST",
     "DEFAULT_PORT",
@@ -822,6 +824,9 @@ def main() -> None:
     В headless-окружении/сборке без ``tkinter`` — не падает трейсбеком, а
     подсказывает эквивалентную CLI-команду и выходит с кодом 1.
     """
+    # issue #1108: подсказка про отсутствующий tkinter и статусы лаунчера идут
+    # в консоль — в cp1251 они не должны ронять процесс.
+    force_utf8_stdio()
     try:
         import tkinter
     except ImportError:
