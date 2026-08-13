@@ -101,6 +101,12 @@
 
 Граф зависимостей — DAG без циклов (все модули живут в `src/stepik_grader/`):
 
+> **Одно ребро — одна строка, пояснение в скобках на той же строке.** Разбор
+> идёт построчно (`tests/test_import_dag.py`), и пояснение, перенесённое на
+> вторую строку, оставляет незакрытую скобку — ребро молча перестаёт
+> распознаваться, а гейт остаётся красным уже после правки. Форму держит
+> `test_graph_edges_fit_one_line`.
+
 ```
 downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
 downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py, core/test_source_fetcher.py, core/step_content.py  (реэкспорт публичных имён)

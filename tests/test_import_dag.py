@@ -627,10 +627,15 @@ def _doc_token_to_module(token: str) -> str | None:
     return module.removesuffix(".__init__")
 
 
+def _graph_block() -> str:
+    """Текст fenced-блока «Граф зависимостей» из architecture.md."""
+    text = _ARCHITECTURE_MD.read_text(encoding="utf-8")
+    return text.split("## Граф зависимостей", 1)[1].split("```")[1]
+
+
 def _documented_edges() -> set[tuple[str, str]]:
     """Рёбра из fenced-блока «Граф зависимостей» в architecture.md."""
-    text = _ARCHITECTURE_MD.read_text(encoding="utf-8")
-    block = text.split("## Граф зависимостей", 1)[1].split("```")[1]
+    block = _graph_block()
     edges: set[tuple[str, str]] = set()
     for line in block.splitlines():
         if "──→" not in line:
@@ -667,6 +672,28 @@ def _all_import_edges() -> set[tuple[str, str]]:
 def test_documented_graph_is_parsed() -> None:
     """Guard-the-guard: блок графа читается и даёт десятки рёбер."""
     assert len(_documented_edges()) > 50
+
+
+def test_graph_edges_fit_one_line() -> None:
+    """Ребро записывается ОДНОЙ строкой — пояснение в скобках на той же строке.
+
+    Guard-the-guard на форму записи: `_documented_edges` вырезает пояснения
+    регуляркой `\\([^)]*\\)` построчно, поэтому скобка, перенесённая на вторую
+    строку, оставляет строку с незакрытой скобкой — и ребро молча перестаёт
+    распознаваться. Живой случай: ребро дописали, гейт остался красным, и
+    причина была не в графе, а в переносе.
+    """
+    broken = [
+        line.strip()
+        for line in _graph_block().splitlines()
+        if "──→" in line and line.count("(") != line.count(")")
+    ]
+    assert not broken, (
+        "docs/dev/architecture.md § «Граф зависимостей»: скобки не закрыты в той же "
+        "строке — разбор рёбер идёт построчно, и перенос пояснения ломает его молча:\n"
+        + "\n".join(f"  {line}" for line in broken)
+        + "\nЗапишите ребро одной строкой, пояснение — в скобках рядом."
+    )
 
 
 def test_documented_edges_exist_in_code() -> None:
