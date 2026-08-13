@@ -38,18 +38,21 @@ def _restore_lang():
 # ---------------------------------------------------------------------------
 
 
-def test_default_language_is_russian(capsys) -> None:
-    cli.main(["--mode", "1", "--file", "/no/such/file.py"])
+# Несуществующий файл берётся из tmp_path, а не выдумывается абсолютным путём:
+# ветка «файла нет» проверяется та же, но выдуманный путь — это настоящий диск
+# разработчика (прецедент — каталог C:\some\dir от `--root /some/dir`).
+def test_default_language_is_russian(capsys, tmp_path: pathlib.Path) -> None:
+    cli.main(["--mode", "1", "--file", str(tmp_path / "no_such_file.py")])
     assert "Файл не найден" in capsys.readouterr().out
 
 
-def test_lang_en_switches_to_english(capsys) -> None:
-    cli.main(["--mode", "1", "--file", "/no/such/file.py", "--lang", "en"])
+def test_lang_en_switches_to_english(capsys, tmp_path: pathlib.Path) -> None:
+    cli.main(["--mode", "1", "--file", str(tmp_path / "no_such_file.py"), "--lang", "en"])
     assert "File not found" in capsys.readouterr().out
 
 
-def test_lang_ru_explicit(capsys) -> None:
-    cli.main(["--mode", "1", "--file", "/no/such/file.py", "--lang", "ru"])
+def test_lang_ru_explicit(capsys, tmp_path: pathlib.Path) -> None:
+    cli.main(["--mode", "1", "--file", str(tmp_path / "no_such_file.py"), "--lang", "ru"])
     assert "Файл не найден" in capsys.readouterr().out
 
 

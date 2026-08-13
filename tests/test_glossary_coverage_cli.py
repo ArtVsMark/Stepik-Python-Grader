@@ -85,9 +85,11 @@ def test_main_restricts_modules_via_flag(tmp_path: pathlib.Path) -> None:
     assert non_exception_modules == {"math"}
 
 
-def test_main_invalid_cards_path_exits_with_error() -> None:
+def test_main_invalid_cards_path_exits_with_error(tmp_path: pathlib.Path) -> None:
+    # Несуществующий путь — из tmp_path: абсолютный литерал в argv адресует
+    # настоящий диск разработчика, даже когда тест ждёт отказа.
     with pytest.raises(SystemExit):
-        main(["--cards", "/definitely/does/not/exist.json"])
+        main(["--cards", str(tmp_path / "does_not_exist.json")])
 
 
 def test_main_unwritable_queue_warns_not_crashes(

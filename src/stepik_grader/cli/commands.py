@@ -414,6 +414,22 @@ __all__ = [
 ]
 
 
+def _history_base() -> pathlib.Path:
+    """База для ключа задачи в истории (issue #997, JRN-4A-02 / LNG-1-04).
+
+    Корень рабочего пространства, а не текущий каталог. Ключ считался от
+    ``cwd``, поэтому одна и та же задача получала разные ключи в зависимости от
+    того, откуда её запустили: из корня проекта — ``module1/04-slug``, из самой
+    папки задачи — ``04-slug``. В базе появлялись две строки на одну задачу,
+    «Прогресс» рисовал её дважды, TTFG считался по половине попыток, а лимит
+    retention фактически удваивался.
+
+    Web-слой этот шов уже прошёл (``web/viewmodels`` считает ключ от
+    ``--root``); здесь тот же корень, что резолвит конфиг и настройки.
+    """
+    return config.workspace_root()
+
+
 def _run_tests_maybe_cached(
     ctx: CliContext,
     solution: pathlib.Path,
@@ -632,7 +648,7 @@ def _run_mode_1(
             1,
             history_recording.cases_from_test_results(result["cases"]),
             db_path=history_recording.default_history_db_path(),
-            task_key=history.task_key_for(solution.parent, pathlib.Path.cwd()),
+            task_key=history.task_key_for(solution.parent.resolve(), _history_base()),
             task_title=solution.parent.name,
             solution_name=solution.name,
             solution_hash=hash_solution(solution),
@@ -752,7 +768,7 @@ def _run_mode_2(
                 2,
                 history_recording.cases_from_test_results(all_cases),
                 db_path=history_recording.default_history_db_path(),
-                task_key=history.task_key_for(directory, pathlib.Path.cwd()),
+                task_key=history.task_key_for(directory.resolve(), _history_base()),
                 task_title=directory.name,
                 duration_s=total_time,
                 lint=history_recording.lint_records_from_violations(all_violations) or None,
@@ -846,7 +862,7 @@ def _run_mode_3(
                 3,
                 history_recording.cases_from_bench_results(results),
                 db_path=history_recording.default_history_db_path(),
-                task_key=history.task_key_for(directory, pathlib.Path.cwd()),
+                task_key=history.task_key_for(directory.resolve(), _history_base()),
                 task_title=directory.name,
                 duration_s=total_time,
             )
@@ -1016,7 +1032,7 @@ def _run_mode_4(
                 4,
                 history_recording.cases_from_bench_results(all_bench_results),
                 db_path=history_recording.default_history_db_path(),
-                task_key=history.task_key_for(directory, pathlib.Path.cwd()),
+                task_key=history.task_key_for(directory.resolve(), _history_base()),
                 task_title=directory.name,
                 duration_s=total_time,
             )
