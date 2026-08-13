@@ -32,6 +32,7 @@
 | Что | Где | Формат |
 |---|---|---|
 | Параметры грейдинга (таймауты, память, пороги, кэш) | `pyproject.toml` → `[tool.stepik-grader]` | TOML, читается в `GraderConfig`/`CONFIG` |
+| Таймаут и лимит памяти на один запуск | флаги `--timeout SEC` / `--memory-limit MB` | перекрывают файл; работают без `pyproject.toml` (установка через pipx) |
 | Корневая папка задач и путь к `secrets.json` | `stepik_config.json` (в текущей папке) | JSON, пишется `downloader.py` |
 | OAuth-токены Stepik | `secrets.json` | JSON, пишется `storage.save_secrets()` (см. [installation.md](installation.md#работа-с-api-stepik-oauth)) |
 | Кэш результатов проверки | `.grader_cache/results.json` (в CWD) | JSON, opt-in (`--cache`) |
@@ -248,6 +249,22 @@ STEPIK_GRADER_API_HOST=http://127.0.0.1:8000 python -m stepik_grader.downloader
 TIMEOUT_SECONDS: float = 10.0  # секунд
 ```
 
+**Разово — флагом, без файла проекта:**
+
+```bash
+stepik-grader --mode 1 --file task.py --timeout 30
+```
+
+`--timeout SEC` перекрывает `timeout_seconds` на этот запуск. Флаг существует
+потому, что у установки через pipx `pyproject.toml` нет вовсе, а значит и
+единственного места, где лимит задавался, — тоже: поднять таймаут для одной
+тяжёлой задачи было нечем. Ноль и отрицательные значения отвергаются разбором
+аргументов: молча превратить опечатку в «без таймаута» опаснее, чем отказать.
+
+Новое значение видят все, кто зависит от условий прогона: шапка отчёта
+(«Условия прогона») печатает именно его, а ключ кэша считает по нему отпечаток —
+результат, снятый с другим таймаутом, считается промахом, а не переиспользуется.
+
 ### Microbench (режим 4)
 
 Замер режима 4 обёрнут фиксированным `subprocess.run(timeout=60)` вокруг всего
@@ -257,6 +274,14 @@ TIMEOUT_SECONDS: float = 10.0  # секунд
 ---
 
 ## Замер памяти дочернего процесса
+
+Лимит памяти решения задаётся полем `max_memory_mb` или флагом
+`--memory-limit MB` (перекрывает файл на один запуск, `0` — снять лимит):
+
+```bash
+stepik-grader --mode 1 --file task.py --memory-limit 256
+stepik-grader --mode 1 --file task.py --memory-limit 0     # без лимита
+```
 
 ```python
 MEASURE_CHILD_MEMORY: bool = True  # False — быстрее, но грубее

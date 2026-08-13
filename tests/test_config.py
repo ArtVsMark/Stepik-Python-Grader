@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import pathlib
 
 import pytest
 
+from stepik_grader import cli, config
 from stepik_grader.config import CONFIG, GraderConfig, load_config
+from stepik_grader.core.runprofile import current_profile
 
 
 def test_grader_config_defaults() -> None:
@@ -743,3 +746,101 @@ class TestConfigDeterminism:
         assert completed.returncode == 0, completed.stderr
         payload = json.loads(completed.stdout.strip().splitlines()[-1])
         assert [case["passed"] for case in payload["cases"]] == [True]
+
+
+# ---------------------------------------------------------------------------
+# Лимиты задаются из CLI — issue #997 (SET-3-03)
+# ---------------------------------------------------------------------------
+
+
+class TestRuntimeLimitFlags:
+    """--timeout / --memory-limit перекрывают pyproject.toml на один запуск.
+
+    Значения лимитов правились только в ``[tool.stepik-grader]``, а у
+    установки через pipx такого файла нет вовсе: единственным способом разово
+    поднять таймаут было «заведите проект».
+    """
+
+    def _slow_task(self, tmp_path: pathlib.Path, seconds: float) -> pathlib.Path:
+        task = tmp_path / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text(
+            f"import time\ntime.sleep({seconds})\nprint(int(input()) * 2)\n", encoding="utf-8"
+        )
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        return task
+
+    def _verdicts(self, capsys) -> list[str]:
+        payload = json.loads(capsys.readouterr().out)
+        return [case["verdict"] for case in payload["cases"]]
+
+    def test_timeout_flag_makes_slow_solution_fail(self, tmp_path, monkeypatch, capsys):
+        task = self._slow_task(tmp_path, 2.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(
+            [
+                "--mode",
+                "1",
+                "--file",
+                str(task / "task1_1.py"),
+                "--timeout",
+                "0.5",
+                "--output",
+                "json",
+            ]
+        )
+
+        assert self._verdicts(capsys) == ["TLE"]
+
+    def test_timeout_flag_lets_slow_solution_pass(self, tmp_path, monkeypatch, capsys):
+        """Тот же код с большим таймаутом проходит — флаг действительно применён."""
+        task = self._slow_task(tmp_path, 1.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(
+            [
+                "--mode",
+                "1",
+                "--file",
+                str(task / "task1_1.py"),
+                "--timeout",
+                "20",
+                "--output",
+                "json",
+            ]
+        )
+
+        assert self._verdicts(capsys) == ["AC"]
+
+    def test_timeout_is_visible_to_run_profile(self, tmp_path, monkeypatch, capsys):
+        """Паспорт условий и ключ кэша обязаны видеть то же значение."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--timeout", "7"])
+        capsys.readouterr()
+
+        assert current_profile().timeout_seconds == 7.0
+
+    def test_memory_limit_zero_means_unlimited(self, tmp_path, monkeypatch, capsys):
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--memory-limit", "0"])
+        capsys.readouterr()
+
+        assert current_profile().max_memory_mb is None
+
+    def test_non_positive_timeout_is_rejected(self, tmp_path, monkeypatch):
+        """Опечатка не должна тихо превращаться в «без таймаута»."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--timeout", "0"])
+
+    def test_override_config_rejects_unknown_field(self):
+        with pytest.raises(ValueError):
+            config.override_config(timeuot_seconds=1.0)
