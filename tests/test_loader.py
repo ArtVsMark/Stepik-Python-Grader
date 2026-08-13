@@ -214,12 +214,42 @@ class TestFindAllSolutionFiles:
         assert "task_2.py" in names
 
     def test_skips_non_solution_files(self, tmp_path: pathlib.Path) -> None:
-        """Игнорирует solution.py, README.md, __init__.py."""
-        (tmp_path / "solution.py").write_text("pass", encoding="utf-8")
+        """Игнорирует не-Python и служебные файлы, даже когда решений в папке нет."""
         (tmp_path / "README.md").write_text("", encoding="utf-8")
         (tmp_path / "__init__.py").write_text("", encoding="utf-8")
+        (tmp_path / "conftest.py").write_text("", encoding="utf-8")
+        (tmp_path / "test_something.py").write_text("", encoding="utf-8")
+        (tmp_path / "setup.py").write_text("", encoding="utf-8")
         result = find_all_solution_files(tmp_path)
         assert result == []
+
+    def test_last_submission_counts_when_no_task_files(self, tmp_path: pathlib.Path) -> None:
+        """`solution.py` — решение, когда шаблонных файлов рядом нет.
+
+        Его кладёт загрузчик: это последняя отправка ученика на Stepik, и
+        таблица файлов задачи в `docs/use/configuration.md` обещает, что она
+        участвует в сравнении решений. Прежний шаблон `task*.py` этому
+        противоречил — на папке, где решение лежит перед глазами, грейдер
+        отвечал «решений не найдено».
+        """
+        (tmp_path / "solution.py").write_text("pass", encoding="utf-8")
+
+        result = find_all_solution_files(tmp_path)
+
+        assert [p.name for p in result] == ["solution.py"]
+
+    def test_last_submission_yields_to_task_pattern(self, tmp_path: pathlib.Path) -> None:
+        """Рядом с `task*.py` последняя отправка в сравнение не попадает.
+
+        Иначе скачанная задача сравнивала бы рабочий файл с его же копией:
+        `solution.py` часто дословно повторяет отправленный `task1_1.py`.
+        """
+        (tmp_path / "task1_1.py").write_text("pass", encoding="utf-8")
+        (tmp_path / "solution.py").write_text("pass", encoding="utf-8")
+
+        result = find_all_solution_files(tmp_path)
+
+        assert [p.name for p in result] == ["task1_1.py"]
 
     def test_recursive_search(self, tmp_path: pathlib.Path) -> None:
         """Находит файлы в вложенных папках."""
