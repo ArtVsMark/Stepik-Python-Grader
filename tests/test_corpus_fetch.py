@@ -47,21 +47,86 @@ _MODULE = _load_module()
 class TestFetchSectionUnits:
     """`fetch_section_units` — связка «секция → уроки» для обхода курса."""
 
-    def test_returns_units_of_section(self) -> None:
+    def test_units_are_taken_by_ids_not_by_section_filter(self) -> None:
+        """Живой Stepik на ``?section=`` не отвечает — юниты берутся по ``ids[]``.
+
+        Тест закрепляет форму запроса, а не результат: на моках оба варианта
+        зелёные, и ровно поэтому дефект дожил до живого прогона.
+        """
         session = MagicMock()
-        with patch(
-            "stepik_grader.core.stepik_client._cached_api_get",
-            return_value={"units": [{"id": 1, "lesson": 10}, {"id": 2, "lesson": 11}]},
-        ) as mock_get:
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.fetch_section_data",
+                return_value={"id": 5, "units": [1, 2]},
+            ),
+            patch(
+                "stepik_grader.core.stepik_client._cached_api_get",
+                return_value={"units": [{"id": 1, "lesson": 10}, {"id": 2, "lesson": 11}]},
+            ) as mock_get,
+        ):
             units = fetch_section_units(session, 5)
 
         assert [u["lesson"] for u in units] == [10, 11]
-        assert mock_get.call_args.kwargs["params"] == {"section": 5}
+        assert mock_get.call_args.kwargs["params"] == {"ids[]": [1, 2]}
+        assert "section" not in mock_get.call_args.kwargs["params"]
+
+    def test_large_section_is_requested_page_by_page(self) -> None:
+        """Секция длиннее страницы API запрашивается частями, а не теряется молча."""
+        unit_ids = list(range(1, 46))
+        session = MagicMock()
+
+        def _page(_session: object, _url: str, params: dict[str, object]) -> dict[str, object]:
+            ids = params["ids[]"]
+            assert isinstance(ids, list)
+            return {"units": [{"id": uid, "lesson": 100 + uid} for uid in ids]}
+
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.fetch_section_data",
+                return_value={"id": 5, "units": unit_ids},
+            ),
+            patch(
+                "stepik_grader.core.stepik_client._cached_api_get",
+                side_effect=_page,
+            ) as mock_get,
+        ):
+            units = fetch_section_units(session, 5)
+
+        assert [len(call.kwargs["params"]["ids[]"]) for call in mock_get.call_args_list] == [
+            20,
+            20,
+            5,
+        ]
+        assert [u["id"] for u in units] == unit_ids
+
+    def test_order_follows_the_section_not_the_reply(self) -> None:
+        """Порядок юнитов задаёт секция: по нему нумеруются задачи при обходе."""
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.fetch_section_data",
+                return_value={"id": 5, "units": [7, 3, 9]},
+            ),
+            patch(
+                "stepik_grader.core.stepik_client._cached_api_get",
+                return_value={"units": [{"id": 9}, {"id": 7}, {"id": 3}]},
+            ),
+        ):
+            units = fetch_section_units(MagicMock(), 5)
+
+        assert [u["id"] for u in units] == [7, 3, 9]
 
     def test_empty_section_is_not_an_error(self) -> None:
         """Секция без юнитов (черновик, скрытый модуль) — пустой список, не исключение."""
-        with patch("stepik_grader.core.stepik_client._cached_api_get", return_value={}):
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.fetch_section_data",
+                return_value={"id": 5, "units": []},
+            ),
+            patch("stepik_grader.core.stepik_client._cached_api_get") as mock_get,
+        ):
             assert fetch_section_units(MagicMock(), 5) == []
+
+        mock_get.assert_not_called()
 
 
 class TestCourseStep:
