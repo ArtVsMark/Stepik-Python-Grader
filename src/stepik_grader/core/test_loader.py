@@ -78,16 +78,62 @@ def is_solution_file(file_name: str) -> bool:
     return bool(_SOLUTION_FILE_RE.fullmatch(file_name))
 
 
-def find_all_solution_files(directory: pathlib.Path) -> list[pathlib.Path]:
-    """Рекурсивно собрать все файлы-решения в ``directory`` (отсортировано)."""
-    scripts = []
+# Каталоги, которые не содержат решений по определению: архив прошлых отправок
+# (issue #1055), тест-кейсы, служебные и виртуальные окружения. Нужны обходу
+# ниже — он умеет брать файлы вне шаблона ``task*.py``, и без этого списка в
+# «решения» попали бы старые попытки из ``submissions/``.
+_NON_SOLUTION_DIRS = frozenset({"submissions", "tests", "__pycache__", "venv", "node_modules"})
 
-    for root, _, files in os.walk(directory):
+# Имена, которые никогда не являются решением ученика, даже когда шаблон снят.
+_SERVICE_FILE_RE = re.compile(r"(?:test_.*|.*_test|conftest|__init__|setup)\.py")
+
+
+def _is_hidden_or_service_dir(name: str) -> bool:
+    """Каталог, в который заходить не нужно: служебный, скрытый или venv."""
+    return name in _NON_SOLUTION_DIRS or name.startswith(".")
+
+
+def _walk_python_files(directory: pathlib.Path) -> list[tuple[pathlib.Path, str]]:
+    """Обойти ``directory``, отдав пары (папка, имя .py-файла).
+
+    Служебные каталоги отсекаются на входе, а не после сбора: иначе обход
+    ходил бы по ``.venv`` и ``__pycache__`` целиком ради результата, который
+    всё равно будет отброшен.
+    """
+    found: list[tuple[pathlib.Path, str]] = []
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if not _is_hidden_or_service_dir(d)]
         for file_name in files:
-            if is_solution_file(file_name):
-                scripts.append(pathlib.Path(root) / file_name)
+            if file_name.endswith(".py") and not _SERVICE_FILE_RE.fullmatch(file_name):
+                found.append((pathlib.Path(root), file_name))
+    return found
 
-    return sorted(scripts)
+
+def _solution_files_in(directory: pathlib.Path) -> list[tuple[pathlib.Path, str]]:
+    """Файлы-решения в ``directory``: сначала по шаблону, иначе — любые .py.
+
+    issue #997 (``JRN-2-06``, ``JRN-1-03``): режим 1 грейдит файл с любым именем
+    (``--file solution.py`` работает), а режимы 2/3/4 искали строго ``task*.py``
+    и на папке с ``my_solution.py`` отвечали «решений не найдено». Файл лежит
+    перед глазами, инструмент говорит, что его нет.
+
+    Шаблон не снят, а стал приоритетом: пока в папке есть ``task*.py``, поведение
+    ровно прежнее — соседний ``utils.py`` в проверку не попадёт. Расширенный
+    поиск включается только там, где иначе не нашлось бы **ничего**, то есть
+    вместо пустого ответа.
+    """
+    files = _walk_python_files(directory)
+    by_pattern = [(root, name) for root, name in files if is_solution_file(name)]
+    return by_pattern or files
+
+
+def find_all_solution_files(directory: pathlib.Path) -> list[pathlib.Path]:
+    """Рекурсивно собрать все файлы-решения в ``directory`` (отсортировано).
+
+    Приоритет — имена по шаблону ``task*.py``; если таких нет, берутся любые
+    ``.py`` кроме служебных (issue #997, см. :func:`_solution_files_in`).
+    """
+    return sorted(root / name for root, name in _solution_files_in(directory))
 
 
 def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Path]]:
@@ -104,11 +150,12 @@ def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Pat
     """
     grouped: dict[str, list[pathlib.Path]] = defaultdict(list)
 
-    for root, _, files in os.walk(directory):
-        for file_name in files:
-            if is_solution_file(file_name):
-                rel_folder = str(pathlib.Path(root).relative_to(directory, walk_up=True))
-                grouped[rel_folder].append(pathlib.Path(root) / file_name)
+    # Тот же приоритет, что и в find_all_solution_files: группировка обязана
+    # видеть ровно те же файлы, иначе режимы 2 и 3/4 разошлись бы в том, что
+    # считать решением.
+    for root, file_name in _solution_files_in(directory):
+        rel_folder = str(root.relative_to(directory, walk_up=True))
+        grouped[rel_folder].append(root / file_name)
 
     return dict(grouped)
 
