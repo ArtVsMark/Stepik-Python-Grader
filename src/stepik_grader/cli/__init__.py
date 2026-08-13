@@ -37,10 +37,15 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import json
 import os
 import pathlib
 import sys
 from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # только для аннотаций: insights грузится лениво
+    from stepik_grader.core.insights import InsightCard, TaskProgress
 
 from stepik_grader import config
 
@@ -180,6 +185,45 @@ def _t(key: str, /, **kwargs: object) -> str:
 # reporter готовыми строками — сам reporter про локали не знает и остаётся leaf'ом.
 # Единицы длительности («42с») намеренно не сюда: у них уже есть ключи
 # progress_export_unit_*, общие с HTML-экспортом прогресса (issue #823).
+INSIGHTS_SCHEMA = "stepik-grader/insights/1"
+
+
+def _insights_payload(
+    cards: list[InsightCard],
+    progress: list[TaskProgress],
+) -> dict[str, object]:
+    """Сводка «Подучить» в машинном виде (issue #997, VIS-1-03).
+
+    Схема версионирована (``schema``) — потребитель может отличить формат от
+    будущих изменений, как это уже сделано для экспорта прогресса. Пустая
+    история — не ошибка, а объект с пустыми списками: скрипту так проще, чем
+    отличать «данных нет» от «команда упала».
+    """
+    return {
+        "schema": INSIGHTS_SCHEMA,
+        "cards": [
+            {
+                "key": card.key,
+                "category": card.category,
+                "status": card.status,
+                "hits": card.hits,
+                "runs_considered": card.runs_considered,
+                "glossary_id": card.glossary_id,
+            }
+            for card in cards
+        ],
+        "tasks": [
+            {
+                "task_key": item.task_key,
+                "attempts": item.attempts,
+                "solved": item.solved,
+                "seconds_to_first_ac": item.seconds_to_first_ac,
+            }
+            for item in progress
+        ],
+    }
+
+
 def _insights_labels() -> dict[str, str]:
     """Подписи таблицы «Подучить» на текущем языке."""
     return {
@@ -606,16 +650,28 @@ def main(argv: list[str] | None = None) -> ExitCode:
         db_path = default_history_db_path()  # issue #818
         report = progress_export.build_progress_report(db_path)
         if report["total_runs"] == 0:
-            print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
+            # issue #997: под json пустая история — тоже JSON, иначе скрипт
+            # получает русскую прозу там, где ждёт объект.
+            if args.export_progress == "json":
+                print(json.dumps({"reason": "no_history_data", **report}, ensure_ascii=False))
+            else:
+                print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
             return ExitCode.OK
         fmt = args.export_progress
-        # issue #821: отчёт следует выбранному языку — раньше он всегда выходил
-        # русским, включая атрибут <html lang>, даже под `--lang en`.
-        rendered = (
-            progress_export.render_markdown(report, lang=_LANG)
-            if fmt == "md"
-            else progress_export.render_html(report, lang=_LANG)
-        )
+        # issue #997 (COM-1-07): json — машинный формат со стабильной схемой
+        # (`schema`, `tasks[].task_key/attempts/failure_kinds`). Прежде экспорт
+        # умел только md/html: чтобы свести прогресс по группе, преподавателю
+        # пришлось бы разбирать вёрстку отчёта.
+        if fmt == "json":
+            rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+        else:
+            # issue #821: отчёт следует выбранному языку — раньше он всегда выходил
+            # русским, включая атрибут <html lang>, даже под `--lang en`.
+            rendered = (
+                progress_export.render_markdown(report, lang=_LANG)
+                if fmt == "md"
+                else progress_export.render_html(report, lang=_LANG)
+            )
         out = pathlib.Path.cwd() / f"grader-progress.{fmt}"
         out.write_text(rendered, encoding="utf-8")
         print(_t("progress_exported", path=out))
@@ -634,6 +690,11 @@ def main(argv: list[str] | None = None) -> ExitCode:
             k=CONFIG.insights_clean_streak_k,
         )
         progress = insights.time_to_first_green(db_path)  # issue #431: TTFG
+        # issue #997 (VIS-1-03): --insights молча игнорировал --output, и
+        # единственным способом забрать сводку скриптом был парсинг таблиц rich.
+        if args.output == "json":
+            print(json.dumps(_insights_payload(cards, progress), ensure_ascii=False, indent=2))
+            return ExitCode.OK
         if not cards and not progress:
             print(_t("insights_no_data"))
         else:
