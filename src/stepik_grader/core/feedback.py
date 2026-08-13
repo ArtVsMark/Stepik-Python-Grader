@@ -315,21 +315,12 @@ def collect_environment(
     return "\n".join(lines)
 
 
-def collect_commit(*, cwd: Path | None = None, timeout: float = 5.0) -> str | None:
-    """`git log --oneline -1` рабочей копии или ``None``, если коммит не определить.
-
-    Заполняет поле `commit` формы: хеш + subject сразу привязывают отчёт к точке
-    истории, тогда как версия в «Окружении» несёт только хеш (``+g<hash>`` от
-    setuptools-scm) и молчит о том, git-клон это или установка через pip.
-
-    ``None`` — рабочая директория не git-репозиторий, git не установлен, вызов
-    завис или упал: обратная связь не должна ломаться из-за отсутствия git, поэтому
-    любая неудача здесь тихая (поле просто останется пустым в форме).
-    """
+def _git_output(args: list[str], cwd: Path, timeout: float) -> str | None:
+    """Вывод git-команды или ``None`` при любой неудаче (тихо, как и раньше)."""
     try:
         proc = subprocess.run(
-            ["git", "log", "--oneline", "-1"],
-            cwd=cwd if cwd is not None else Path.cwd(),
+            ["git", *args],
+            cwd=cwd,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -342,6 +333,42 @@ def collect_commit(*, cwd: Path | None = None, timeout: float = 5.0) -> str | No
     if proc.returncode != 0:
         return None
     return proc.stdout.strip() or None
+
+
+def _is_grader_checkout(cwd: Path, timeout: float) -> bool:
+    """Рабочая копия — клон самого грейдера, а не чужой проект (issue #964).
+
+    Признак — корень репозитория содержит ``src/stepik_grader/__init__.py``.
+    Проверять remote нельзя: у форка и зеркала он другой, а работа в них
+    законна.
+    """
+    top = _git_output(["rev-parse", "--show-toplevel"], cwd, timeout)
+    if not top:
+        return False
+    return (Path(top) / "src" / "stepik_grader" / "__init__.py").is_file()
+
+
+def collect_commit(*, cwd: Path | None = None, timeout: float = 5.0) -> str | None:
+    """`git log --oneline -1` **клона грейдера** или ``None`` (issue #964).
+
+    Заполняет поле `commit` формы: хеш + subject сразу привязывают отчёт к точке
+    истории, тогда как версия в «Окружении» несёт только хеш (``+g<hash>`` от
+    setuptools-scm) и молчит о том, git-клон это или установка через pip.
+
+    **Чужой репозиторий пропускается.** Раньше команда звалась в любой рабочей
+    директории, и прогон из рабочего проекта уводил в поле `commit` заголовок
+    постороннего коммита — «секретный проект заказчика: …», — а оттуда в
+    prefilled-URL **публичного** GitHub issue. Пустое поле честнее чужой тайны:
+    хеш грейдера всё равно виден в «Окружении».
+
+    ``None`` — не git-репозиторий, чужой репозиторий, git не установлен, вызов
+    завис или упал: обратная связь не должна ломаться из-за git, поэтому любая
+    неудача здесь тихая (поле просто останется пустым в форме).
+    """
+    directory = cwd if cwd is not None else Path.cwd()
+    if not _is_grader_checkout(directory, timeout):
+        return None
+    return _git_output(["log", "--oneline", "-1"], directory, timeout)
 
 
 def _build_url(kind: FeedbackKind, fields: dict[str, str]) -> str:

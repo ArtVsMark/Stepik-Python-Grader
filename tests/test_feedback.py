@@ -185,6 +185,45 @@ class TestCollectCommit:
         monkeypatch.setattr(feedback.subprocess, "run", _hang)
         assert feedback.collect_commit() is None
 
+    def test_foreign_repository_is_not_collected(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Чужой git молчит: его заголовок ушёл бы в ПУБЛИЧНЫЙ issue (issue #964).
+
+        Реальный прогон из рабочего репозитория возвращал
+        «секретный проект заказчика: …» — форма обращения ведёт на GitHub, и
+        пользователь опубликовал бы тайну своего работодателя, ничего не набирая.
+        """
+        alien = tmp_path / "alien"
+        alien.mkdir()
+        for args in (
+            ["init", "-q"],
+            ["config", "user.email", "t@example.com"],
+            ["config", "user.name", "T"],
+            ["commit", "-q", "--allow-empty", "-m", "секретный проект заказчика"],
+        ):
+            subprocess.run(["git", *args], cwd=alien, check=True, capture_output=True)
+
+        assert feedback.collect_commit(cwd=alien) is None
+
+    def test_marker_decides_not_the_remote(self, tmp_path: pathlib.Path) -> None:
+        """Признак «наш клон» — файл пакета, а не remote: форк и зеркало законны."""
+        clone = tmp_path / "fork"
+        (clone / "src" / "stepik_grader").mkdir(parents=True)
+        (clone / "src" / "stepik_grader" / "__init__.py").write_text("", encoding="utf-8")
+        for args in (
+            ["init", "-q"],
+            ["config", "user.email", "t@example.com"],
+            ["config", "user.name", "T"],
+            ["add", "-A"],
+            ["commit", "-q", "-m", "форк грейдера"],
+        ):
+            subprocess.run(["git", *args], cwd=clone, check=True, capture_output=True)
+
+        commit = feedback.collect_commit(cwd=clone)
+
+        assert commit is not None and "форк грейдера" in commit
+
     def test_commit_field_accepted_by_bug_and_task_forms(self) -> None:
         for kind in (feedback.FeedbackKind.BUG, feedback.FeedbackKind.TASK_PROBLEM):
             prepared = feedback.prepare_issue(kind, {"commit": "7a9d8e1 Merge pull request #741"})
