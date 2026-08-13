@@ -228,19 +228,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Показать сводку карточек «Подучить» (частые ошибки и их затухание) "
             "из накопленной истории прогонов и выйти. Требует включённую "
-            "--history."
+            "--history. Уважает --output json — сводку можно забрать скриптом."
         ),
     )
     parser.add_argument(
         "--export-progress",
-        choices=["md", "html"],
+        choices=["md", "html", "json"],
         default=None,
-        metavar="{md,html}",
+        metavar="{md,html,json}",
         help=(
             "Экспортировать агрегаты прогресса (попыток/времени до первого AC по "
             "задачам, счётчики вердиктов и типов падений — без исходников решений) из "
-            ".grader_history.db в самодостаточный файл grader-progress.md/.html и "
-            "выйти."
+            ".grader_history.db в самодостаточный файл grader-progress.md/.html/.json "
+            "и выйти. json — машинный формат со стабильной схемой: его сводят по "
+            "группе учеников без разбора вёрстки."
         ),
     )
     parser.add_argument(

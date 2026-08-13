@@ -71,8 +71,8 @@ from stepik_grader.core.runner import (
     RunSpec,
     _kill_process_tree,
     _write_stdin,
+    materialize_spec,
     sample_tree_rss,
-    spec_source_bytes,
 )
 
 __all__ = ["WindowsSandboxRunner", "create_backend"]
@@ -230,10 +230,10 @@ class WindowsSandboxRunner:
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
-            script_path = run_dir / "solution.py"
             try:
-                script_path.write_bytes(spec_source_bytes(spec))
-            except OSError as exc:
+                # issue #992: см. _linux — общая материализация spec.
+                script_path = materialize_spec(spec, run_dir)
+            except (OSError, ValueError) as exc:
                 return RunOutcome(launch_error=str(exc))
 
             interpreter_dir = str(Path(sys.executable).resolve().parent)

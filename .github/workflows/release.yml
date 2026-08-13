@@ -58,6 +58,20 @@ jobs:
       - name: Version consistency (issue #165)
         run: python scripts/check_version_consistency.py
 
+      # issue #988 (LINK-3-01/LINK-3-02): docs/dev/versioning.md обещает две
+      # вещи — «без ротации CHANGELOG релиз падает» и «забытая запись под тег
+      # роняет релиз». Обе были неправдой: guard документации в релизе не
+      # запускался вовсе, а извлечение release notes жило в job'е публикации
+      # GitHub Release — то есть PyPI, независимый от него по построению
+      # (issue #559), публиковался при любом состоянии CHANGELOG. Обещанное
+      # обязано быть гейтом, а гейт — стоять до ЛЮБОЙ публикации, поэтому обе
+      # проверки здесь, в `verify`, от которого зависят оба публикующих job'а.
+      - name: Documentation guardrails (CHANGELOG rotation budget)
+        run: python scripts/check_docs_guardrails.py
+
+      - name: Release notes for this tag exist (issue #834)
+        run: python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --out /dev/null
+
       # issue #294: тот же per-OS coverage-конфиг, что и в матрице CI — иначе
       # sandbox-backend'ы двух других ОС считаются непокрытыми и гейт покрытия
       # падает на ровном месте.

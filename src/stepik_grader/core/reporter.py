@@ -489,7 +489,11 @@ def print_progress_summary(progress: list[Any], *, labels: Mapping[str, str] | N
     lbl = _labels(_PROGRESS_LABELS, labels)
     rows = [
         (
-            p.task_key or lbl["no_task"],
+            # issue #990: показываем имя папки, а ключ (`step:<id>`) оставляем
+            # внутренним. Fallback на ключ — для задач, записанных до появления
+            # имени, и для папок, скачанных не downloader'ом: там ключ и есть
+            # имя папки.
+            p.display_name or p.task_key or lbl["no_task"],
             "✅" if p.solved else "…",
             str(p.attempts),
             _fmt_duration(p.seconds_to_first_ac, lbl),
