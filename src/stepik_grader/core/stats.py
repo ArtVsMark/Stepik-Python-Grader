@@ -108,8 +108,12 @@ def record_run(
     total_time: float,
     *,
     stats_path: pathlib.Path | None = None,
+    isolation: str | None = None,
 ) -> None:
     """Дописать одну запись о прогоне (issue #268).
+
+    ``isolation`` — уровень изоляции прогона (``"none"`` или имя backend'а
+    песочницы); ``None`` — поле не пишется, как в записях до issue #997.
 
     ``mode`` — 1..4 (номер режима CLI); ``verdicts`` — тальи по вердиктам
     (для режимов 1/2 — AC/WA/RE/TLE по кейсам, для 3/4 —
@@ -129,6 +133,10 @@ def record_run(
         "verdicts": verdicts,
         "total_time": total_time,
     }
+    if isolation is not None:
+        # issue #997 (SBX-5-04): по строке статистики нельзя было отличить
+        # прогон под --sandbox от обычного, а вердикты они дают разные.
+        entry["isolation"] = isolation
     try:
         with _WRITE_LOCK:
             _rotate_if_needed(path)

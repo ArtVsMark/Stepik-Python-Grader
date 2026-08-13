@@ -344,6 +344,7 @@ stepik-grader --init-vscode
 
 ```bash
 stepik-grader --mode 1 --file task.py --lang en        # меню/сообщения на английском (по умолчанию — ru)
+stepik-grader --lang en --help                         # и сама справка тоже на английском
 stepik-grader --mode 1 --file task.py --quiet           # без подробного diff (режим 1 по умолчанию verbose)
 stepik-grader --mode 2 --dir . --verbose                # с подробным diff по каждому кейсу (режим 2 по умолчанию quiet)
 stepik-grader --mode 1 --file task.py --output json     # машиночитаемый JSON вместо таблицы

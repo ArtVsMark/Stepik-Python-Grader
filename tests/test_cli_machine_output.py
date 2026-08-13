@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import pathlib
 
 from stepik_grader import cli
+from stepik_grader.cli import commands
 
 # ---------------------------------------------------------------------------
 # Машинный вывод несёт статус прогона — issue #997 (MTX-4-04)
@@ -69,3 +71,86 @@ class TestMachineOutputCarriesStatus:
         lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.strip()]
         assert len(lines) >= 2, "в CSV только заголовок — потребитель увидит успех"
         assert "NO_TESTS" in lines[-1]
+
+
+# ---------------------------------------------------------------------------
+# Пометки машинного вывода — issue #997 (SBX-5-04, JRN-2-03)
+# ---------------------------------------------------------------------------
+
+
+class TestMachineLabels:
+    """schema/mode/isolation рядом с результатом во ВСЕХ режимах.
+
+    Дополняет `status` (MTX-4-04, #1082): тот покрыл режимы 1/2, здесь —
+    режимы замера, ранние выходы и сами пометки.
+    """
+
+    def _task(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        task = tmp_path / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        return task
+
+    def _json(self, capsys) -> dict:
+        return json.loads(capsys.readouterr().out)
+
+    def test_every_mode_names_itself(self, tmp_path, monkeypatch, capsys):
+        """JRN-2-03: четыре формы результата без признака, по которому их различить."""
+        task = self._task(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        expected = {1: "grade", 2: "batch", 3: "benchmark", 4: "microbench"}
+
+        for mode, name in expected.items():
+            target = ["--file", str(task / "task1_1.py")] if mode == 1 else ["--dir", str(task)]
+            cli.main(["--mode", str(mode), *target, "--output", "json"])
+            payload = self._json(capsys)
+            assert payload["mode"] == name, f"режим {mode} не назвал себя"
+            assert payload["schema"] == commands.JSON_SCHEMA_VERSION
+            assert payload["isolation"] == "none"
+
+    def test_early_exit_is_labelled_without_mode(self, tmp_path, monkeypatch, capsys):
+        """Ранний выход помечен, но без mode: режим до отказа не начинался."""
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "2", "--dir", str(tmp_path / "nope"), "--output", "json"])
+
+        payload = self._json(capsys)
+        assert payload["status"] == "no_tests"
+        assert payload["isolation"] == "none"
+        assert "mode" not in payload
+
+    def test_benchmark_without_solutions_is_not_ok(self, tmp_path, monkeypatch, capsys):
+        """Пустой замер — не успех: сравнивать было нечего."""
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "3", "--dir", str(empty), "--output", "json"])
+
+        assert self._json(capsys)["status"] == "no_tests"
+
+    def test_stats_line_records_isolation(self, tmp_path, monkeypatch, capsys):
+        """SBX-5-04: по строке статистики не отличить прогон под --sandbox."""
+        task = self._task(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--stats"])
+        capsys.readouterr()
+
+        line = json.loads(
+            (tmp_path / ".grader_stats.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+        )
+        assert line["isolation"] == "none"
+
+    def test_isolation_label_follows_sandbox_backend(self, monkeypatch):
+        """Под песочницей метка — имя backend'а, а не «none»."""
+        profile = commands.current_profile()
+        monkeypatch.setattr(
+            commands,
+            "current_profile",
+            lambda: dataclasses.replace(profile, sandbox_backend="bubblewrap"),
+        )
+
+        assert commands._isolation_label() == "bubblewrap"
