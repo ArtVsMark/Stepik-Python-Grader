@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import json
 import pathlib
 import sqlite3
 import threading
@@ -600,6 +601,134 @@ def test_different_tasks_get_different_keys(tmp_path: Path) -> None:
 def test_task_key_survives_mismatched_anchors(tmp_path: Path) -> None:
     """Относительный путь против абсолютной базы — путь как есть, без падения."""
     assert history.task_key_for(Path("04-slug"), tmp_path) == "04-slug"
+
+
+# ---------------------------------------------------------------------------
+# Устойчивый ключ задачи — issue #990 (JRN-4A-01 / JRN-4B-02)
+# ---------------------------------------------------------------------------
+
+
+def _make_task(dir_path: Path, step_id: int | None) -> Path:
+    """Папка задачи; с ``meta.json``, если ``step_id`` задан."""
+    dir_path.mkdir(parents=True)
+    if step_id is not None:
+        (dir_path / "meta.json").write_text(
+            json.dumps({"step_id": step_id, "lesson_id": 1}), encoding="utf-8"
+        )
+    return dir_path
+
+
+def test_same_folder_name_in_different_courses_keeps_keys_apart(tmp_path: Path) -> None:
+    """Сценарий из issue: `~/курс-А/задача-3` и `~/курс-Б/задача-3` — разные задачи.
+
+    Пока ключом было имя папки, обе писались в одну строку истории: общий зачёт
+    и общее удаление. `--purge-history задача-3` из курса Б стирал и курс А.
+    """
+    first = _make_task(tmp_path / "курс-А" / "задача-3", step_id=111)
+    second = _make_task(tmp_path / "курс-Б" / "задача-3", step_id=222)
+
+    assert history.task_key_for(first, first) != history.task_key_for(second, second)
+
+
+def test_stable_key_survives_folder_rename(tmp_path: Path) -> None:
+    """Переименование папки не заводит вторую задачу: ключ держится за шаг."""
+    task = _make_task(tmp_path / "04-slug", step_id=42)
+    before = history.task_key_for(task, task)
+
+    renamed = task.rename(tmp_path / "четвёртая-задача")
+
+    assert history.task_key_for(renamed, renamed) == before
+
+
+def test_folder_without_meta_keeps_path_key(tmp_path: Path) -> None:
+    """Папка, скачанная не downloader'ом, ведёт себя как раньше — по пути."""
+    task = _make_task(tmp_path / "своя-задача", step_id=None)
+    assert history.task_key_for(task, task) == "своя-задача"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    ["{ битый json", json.dumps({"step_id": "42"}), json.dumps({}), json.dumps([1, 2])],
+)
+def test_unusable_meta_falls_back_to_path(tmp_path: Path, payload: str) -> None:
+    """Битый/чужой meta.json — не ошибка, а «устойчивого ключа нет»."""
+    task = _make_task(tmp_path / "задача", step_id=None)
+    (task / "meta.json").write_text(payload, encoding="utf-8")
+
+    assert history.task_key_for(task, task) == "задача"
+
+
+def test_display_name_is_stored_and_updated(tmp_path: Path) -> None:
+    """Имя папки хранится рядом с ключом и обновляется после переименования.
+
+    Ключ показывать нельзя — `step:42` человеку ничего не говорит, а в
+    «Прогрессе» задачу ищут по названию.
+    """
+    db = _db(tmp_path)
+    history.record_run(
+        1, [CaseRecord(1, "AC")], db_path=db, task_key="step:42", task_title="старое"
+    )
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="step:42", task_title="новое")
+
+    rows = history.read_task_progress(db)
+
+    assert [row["display_name"] for row in rows] == ["новое"]
+
+
+def test_display_name_survives_run_without_title(tmp_path: Path) -> None:
+    """Прогон без имени не обезличивает уже названную задачу."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="step:7", task_title="задача")
+
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="step:7", task_title=None)
+
+    assert history.read_task_progress(db)[0]["display_name"] == "задача"
+
+
+def test_migration_v2_to_v3_adds_display_name(tmp_path: Path) -> None:
+    """База схемы v2 домигрируется до v3, не потеряв накопленный агрегат.
+
+    Ступень 2→3 обязана идти ДО заполнения агрегата: backfill пишет через
+    `_bump_task_progress`, который уже знает про новую колонку. Обратный порядок
+    ронял домиграцию на «no such column», и из-за best-effort это выглядело как
+    молча пропавшая запись.
+    """
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t", task_title="задача")
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        conn.execute("ALTER TABLE task_progress DROP COLUMN display_name")
+        conn.execute("PRAGMA user_version = 2")
+        conn.commit()
+
+    assert history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t") is not None
+
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
+    assert [row["task_key"] for row in history.read_task_progress(db)] == ["t"]
+
+
+def test_purge_by_step_key_leaves_the_other_course_alone(tmp_path: Path) -> None:
+    """Удаление истории одной задачи не трогает одноимённую из другого курса.
+
+    Это исходная потеря данных из #990, проверенная целиком: две записи, удаление
+    по ключу одной, вторая обязана остаться.
+    """
+    db = tmp_path / "history.db"
+    first = _make_task(tmp_path / "курс-А" / "задача-3", step_id=111)
+    second = _make_task(tmp_path / "курс-Б" / "задача-3", step_id=222)
+    for task in (first, second):
+        history.record_run(
+            1,
+            [CaseRecord(1, "OK")],
+            db_path=db,
+            task_key=history.task_key_for(task, task),
+            solution_name="solution.py",
+        )
+
+    history.purge_history(db, task_key=history.task_key_for(first, first))
+
+    survivors = history.read_recent_runs(db)
+    assert [run["task_key"] for run in survivors] == [history.task_key_for(second, second)]
 
 
 # ---------------------------------------------------------------------------

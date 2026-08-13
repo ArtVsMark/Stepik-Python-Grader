@@ -420,11 +420,12 @@ stepik-grader --import-reference ./task_123 --import-top 3
 задача и OAuth-токен, см. [installation.md](installation.md)). Реализация —
 `core/stepik_reference.py`; в web — кнопка «Найти эталонное решение».
 
-### `--export-progress md|html`
+### `--export-progress md|html|json`
 
 ```bash
 stepik-grader --export-progress md      # → grader-progress.md
 stepik-grader --export-progress html    # → grader-progress.html
+stepik-grader --export-progress json    # → grader-progress.json (машинный формат)
 ```
 
 Экспортирует агрегаты прогресса из локальной истории (`.grader_history.db`):
@@ -434,6 +435,14 @@ stepik-grader --export-progress html    # → grader-progress.html
 телефона и следует системной теме: файлом делятся в мессенджере, а не только
 открывают на своём ноутбуке. Требует включённой истории (`--history`); пустая
 история — дружелюбное сообщение, не ошибка.
+
+`json` — тот же отчёт машинным форматом со стабильной схемой
+(`schema: "stepik-grader/progress/1"`, ключи `tasks[].task_key/attempts/solved`,
+`verdicts`, `failure_kinds`, `streak`, `badges`). Он существует ради сведе́ния
+прогресса по группе: несколько таких файлов складываются скриптом, тогда как из
+`md`/`html` те же числа пришлось бы выковыривать из вёрстки. На пустой истории
+приходит объект с `reason: "no_history_data"` — тоже JSON, чтобы скрипт не
+разбирал текст.
 
 ### `--cache` / `--clear-cache`
 
@@ -520,6 +529,7 @@ record_stats = true
 
 ```bash
 stepik-grader --insights                          # сводка карточек «Подучить» и выход
+stepik-grader --insights --output json            # та же сводка машинным форматом
 stepik-grader --mode 1 --file task.py --lint      # + блок «Стиль» (ruff) после проверки
 ```
 
@@ -527,6 +537,11 @@ stepik-grader --mode 1 --file task.py --lint      # + блок «Стиль» (r
 статусом затухания (активна/угасает/наблюдение) и ссылками на правила/глоссарий,
 затем завершает работу; на пустой истории — дружелюбная подсказка, exit 0. То же
 доступно пунктом «5. Подучить» интерактивного меню.
+
+С `--output json` та же сводка приходит объектом
+(`schema: "stepik-grader/insights/1"`, списки `cards` и `tasks`) — забрать её
+скриптом можно, не разбирая таблицы терминала. Пустая история и здесь остаётся
+JSON: списки просто пустые.
 
 `--lint` (режимы 1/2) после результатов показывает блок «Стиль» — нарушения
 PEP 8 от ruff (`⚐ E501 ×3 [строки …]` + однострочник правила из `rules/`).

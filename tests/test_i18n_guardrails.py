@@ -279,6 +279,9 @@ class _Progress:
     def __init__(self) -> None:
         self.task_key, self.solved, self.attempts = "", True, 4
         self.seconds_to_first_ac = 3600.0
+        # issue #990: имя папки задачи. Пустое — чтобы проверка «нет задачи»
+        # осталась той же: у безымянной задачи подпись берётся из локали.
+        self.display_name = None
 
 
 class _Violation:
