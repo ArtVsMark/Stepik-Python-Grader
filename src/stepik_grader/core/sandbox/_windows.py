@@ -74,6 +74,7 @@ from stepik_grader.core.runner import (
     materialize_spec,
     sample_tree_rss,
 )
+from stepik_grader.core.sandbox import _limits
 
 __all__ = ["WindowsSandboxRunner", "create_backend"]
 
@@ -246,7 +247,9 @@ class WindowsSandboxRunner:
                 # как в LocalRunner и POSIX-backend'ах.
                 "PYTHON_COLORS": "0",
             }
-            max_memory_mb = float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024)
+            max_memory_mb = float(
+                _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb)
+            )
             cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
 
             start = time.perf_counter()

@@ -52,7 +52,7 @@ import psutil
 from stepik_grader.config import CONFIG
 from stepik_grader.core.run_dir import ephemeral_run_dir
 from stepik_grader.core.runner import RunOutcome, RunSpec, materialize_spec
-from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
+from stepik_grader.core.sandbox import _limits, _posix_bootstrap, _posix_common
 
 __all__ = ["MacSandboxRunner", "create_backend"]
 
@@ -146,7 +146,9 @@ class MacSandboxRunner:
                 # серверного API под --sandbox молча игнорировался. CONFIG
                 # остаётся значением по умолчанию.
                 max_output_bytes=spec.max_output_bytes or CONFIG.sandbox_max_output_bytes,
-                max_memory_mb=float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024),
+                max_memory_mb=float(
+                    _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb)
+                ),
                 # issue #627: без явного env sandbox-exec наследовал весь
                 # os.environ грейдера (BYOK AI-ключ, а на сервере — env
                 # оператора). Linux чистит через --clearenv, Windows строит
