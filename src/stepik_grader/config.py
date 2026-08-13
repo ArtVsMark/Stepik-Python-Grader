@@ -51,6 +51,7 @@ __all__ = [  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
     "config_source",
     "get_config",
     "load_config",
+    "override_config",
     "reset_config_cache",
     "set_config_path",
     "set_workspace_root",
@@ -601,6 +602,27 @@ def get_config() -> GraderConfig:
     if _cached_config is None:
         _cached_config = load_config()
     return _cached_config
+
+
+def override_config(**fields: object) -> None:
+    """Переопределить поля конфигурации на время процесса (issue #997, SET-3-03).
+
+    Нужна CLI-флагам вроде ``--timeout``: значения лимитов задавались только
+    правкой ``pyproject.toml``, а у пользователя, поставившего грейдер через
+    pipx, такого файла попросту нет — единственный способ разово поднять
+    таймаут был «заведите проект».
+
+    Применяется поверх уже разрешённого конфига (файл читается как обычно), так
+    что флаг перекрывает файл, а не заменяет его целиком. Неизвестное имя поля —
+    ``ValueError``: молча проглоченная опечатка означала бы, что пользователь
+    думает, будто лимит поднят, а он прежний.
+    """
+    known = {f.name for f in dataclasses.fields(GraderConfig)}
+    unknown = set(fields) - known
+    if unknown:
+        raise ValueError(f"неизвестные поля конфигурации: {sorted(unknown)}")
+    global _cached_config
+    _cached_config = dataclasses.replace(get_config(), **fields)  # type: ignore[arg-type]
 
 
 def reset_config_cache() -> None:
