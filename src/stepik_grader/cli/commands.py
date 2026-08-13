@@ -100,6 +100,44 @@ _STATUS_BY_EXIT: dict[ExitCode, str] = {
 }
 
 
+JSON_SCHEMA_VERSION = 1
+
+_MODE_NAMES = {1: "grade", 2: "batch", 3: "benchmark", 4: "microbench"}
+
+
+def _isolation_label() -> str:
+    """Чем изолирован прогон: ``none`` или имя backend'а (issue #997, SBX-5-04).
+
+    Ни JSON, ни строка ``.grader_stats.jsonl`` не помечали изоляцию, а под
+    ``--sandbox`` вердикты другие: два прогона с разным уровнем изоляции
+    оставляли неразличимые артефакты, и CI-гейт «проверено в песочнице»
+    подтвердить было нечем.
+    """
+    return current_profile().sandbox_backend or "none"
+
+
+def _machine_labels(mode: int | None, outcome: ExitCode) -> dict[str, object]:
+    """Пометки, которыми машинный вывод описывает сам себя (issue #997).
+
+    ``schema``/``mode`` закрывают ``JRN-2-03``: четыре режима дают четыре разные
+    формы результата, а признака, по которому их различить, не было — парсер
+    угадывал по набору ключей. Полный конверт ``{"schema", "mode", "results"}``
+    был бы сменой корня, то есть ломающим изменением (result-contract.md
+    § Ожидания стабильности, п. 2), поэтому пометки едут рядом с существующими
+    ключами: старый потребитель их просто игнорирует.
+
+    ``mode is None`` — ранний выход: режим до отказа не начинался.
+    """
+    labels: dict[str, object] = {
+        "schema": JSON_SCHEMA_VERSION,
+        "status": _status_for(outcome),
+        "isolation": _isolation_label(),
+    }
+    if mode is not None:
+        labels["mode"] = _MODE_NAMES.get(mode, str(mode))
+    return labels
+
+
 def _status_for(outcome: ExitCode) -> str:
     """Машинный статус прогона (issue #997, MTX-4-04).
 
@@ -540,7 +578,16 @@ def _report_no_data(ctx: CliContext, output: str, message: str, *, reason: str) 
     им JSON значило бы ломать таблицу ради единообразия.
     """
     if output == "json":
-        print(json.dumps({"error": message, "reason": reason}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    **_machine_labels(None, ExitCode.NO_TESTS),
+                    "error": message,
+                    "reason": reason,
+                },
+                ensure_ascii=False,
+            )
+        )
         return
     print(message)
 
@@ -662,7 +709,12 @@ def _run_mode_1(
         # как полноценный прогон, причём с ``total_time`` из чужого,
         # закэшированного запуска. Строка выглядела как ещё одно измерение и
         # портила и счётчик прогонов, и любую статистику по времени.
-        stats.record_run(1, _verdict_counts_from_cases(result["cases"]), result["total_time"])
+        stats.record_run(
+            1,
+            _verdict_counts_from_cases(result["cases"]),
+            result["total_time"],
+            isolation=_isolation_label(),
+        )
     if record_history:
         history.record_run(
             1,
@@ -684,7 +736,7 @@ def _run_mode_1(
     if output == "json":
         print(
             json.dumps(
-                {"file": str(solution), "status": _status_for(outcome), **result},
+                {**_machine_labels(1, outcome), "file": str(solution), **result},
                 ensure_ascii=False,
             )
         )
@@ -796,6 +848,7 @@ def _run_mode_2(
                 2,
                 _verdict_counts_from_cases(measured_cases),
                 sum(result["total_time"] for result in measured),
+                isolation=_isolation_label(),
             )
         if record_history:
             # Агрегатный прогон режима 2 → объединённые нарушения всех решений
@@ -818,7 +871,7 @@ def _run_mode_2(
         print(
             json.dumps(
                 {
-                    "status": _status_for(outcome),
+                    **_machine_labels(2, outcome),
                     "results": {
                         str(p): {"status": _status_for(_outcome_for_cases(r["cases"])), **r}
                         for p, r in rows
@@ -905,7 +958,9 @@ def _run_mode_3(
         # mean × runs — приближённая оценка суммарного времени решения.
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
         if record_stats:
-            stats.record_run(3, _verdict_counts_from_bench(results), total_time)
+            stats.record_run(
+                3, _verdict_counts_from_bench(results), total_time, isolation=_isolation_label()
+            )
         if record_history:
             history.record_run(
                 3,
@@ -917,7 +972,17 @@ def _run_mode_3(
             )
 
     if output == "json":
-        print(json.dumps({"results": {str(p): d for p, d in results.items()}}, ensure_ascii=False))
+        # Бенчмарк не даёт вердиктов кейсов: статус — «прогон вообще состоялся».
+        bench_status = ExitCode.OK if results else ExitCode.NO_TESTS
+        print(
+            json.dumps(
+                {
+                    **_machine_labels(3, bench_status),
+                    "results": {str(p): d for p, d in results.items()},
+                },
+                ensure_ascii=False,
+            )
+        )
         return
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **data} for path, data in sorted(results.items())]
@@ -1075,7 +1140,12 @@ def _run_mode_4(
     if (record_stats or record_history) and all_bench_results:
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in all_bench_results.values())
         if record_stats:
-            stats.record_run(4, _verdict_counts_from_bench(all_bench_results), total_time)
+            stats.record_run(
+                4,
+                _verdict_counts_from_bench(all_bench_results),
+                total_time,
+                isolation=_isolation_label(),
+            )
         if record_history:
             history.record_run(
                 4,
@@ -1087,7 +1157,13 @@ def _run_mode_4(
             )
 
     if output == "json":
-        print(json.dumps({"groups": json_results}, ensure_ascii=False))
+        micro_status = ExitCode.OK if json_results else ExitCode.NO_TESTS
+        print(
+            json.dumps(
+                {**_machine_labels(4, micro_status), "groups": json_results},
+                ensure_ascii=False,
+            )
+        )
     elif output in ("csv", "markdown"):
         ctx.print_tabular(output, table_rows, _MODE4_FIELDS)
     elif printed_table:
