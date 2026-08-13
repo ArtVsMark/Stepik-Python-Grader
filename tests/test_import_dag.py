@@ -49,6 +49,10 @@ _LEAF_MODULES = (
     "stepik_grader.core.glossary",
     "stepik_grader.atomic_io",
     "stepik_grader.db",
+    # ``stdio_encoding`` (issue #1108) — по той же причине top-level: переключатель
+    # вывода на UTF-8 нужен всем точкам входа и скриптам стенда, а раньше жил в
+    # ``cli/options`` и тянул за собой половину CLI.
+    "stepik_grader.stdio_encoding",
 )
 
 

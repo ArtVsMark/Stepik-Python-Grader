@@ -45,6 +45,7 @@ from stepik_grader.core.stepik_client import (
     fetch_section_units,
     fetch_step_data,
 )
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "DEFAULT_TARGET",
@@ -183,6 +184,9 @@ def fetch_steps(
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Точка входа CLI: собрать локальную базу задач курса."""
+    # issue #1108: названия уроков приходят из Stepik и бывают с эмодзи —
+    # «Достижения курсов Поколения 🏆» роняло обход в консоли cp1251.
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description="Скачать задачи курса Stepik в локальную базу для сквозного прогона."
     )

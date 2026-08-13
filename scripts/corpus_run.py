@@ -41,6 +41,7 @@ from stepik_grader.core.grader_core import run_tests
 from stepik_grader.core.result import CaseResult, Verdict
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "BASELINE",
@@ -368,6 +369,8 @@ def _print_summary(outcomes: Sequence[CheckOutcome]) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Точка входа CLI: прогнать корпус и сообщить о расхождениях."""
+    # issue #1108: вывод несёт названия задач и diff'ы чужого вывода.
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description="Прогонный корпус: сверка вердиктов грейдера с ожидаемыми."
     )
