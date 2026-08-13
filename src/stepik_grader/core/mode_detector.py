@@ -301,7 +301,13 @@ def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str
     if test_dir.is_dir():
         for type_file in test_dir.glob("*.type"):
             # issue #792 (PY-03): не-UTF8 в .type не должен ронять детекцию.
-            raw = type_file.read_bytes().decode(ENCODING, errors="replace").strip()
+            #
+            # issue #987 (REV-1-02): BOM срезается отдельно — `strip()` его не
+            # трогает (U+FEFF не пробельный), и `﻿function` не совпадал
+            # с маркером. Здесь нельзя позвать `read_test_text`: он живёт в
+            # `test_loader`, который импортирует этот модуль, — общий хелпер
+            # замкнул бы DAG.
+            raw = type_file.read_bytes().decode(ENCODING, errors="replace").lstrip("﻿").strip()
             if raw == "function":
                 return "function"
 
