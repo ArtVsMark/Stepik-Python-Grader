@@ -189,14 +189,6 @@ class TestFetchAndMain:
 
         assert module.main([]) == 1
 
-    def test_cli_help_exits_zero_without_network(self) -> None:
-        result = subprocess.run(
-            [sys.executable, str(_SCRIPT), "--help"], capture_output=True, text=True
-        )
-
-        assert result.returncode == 0
-        assert "good first issue" in result.stdout
-
     def test_help_prints_on_a_single_byte_console(self) -> None:
         """Справка печатается под cp1252, а не падает вместо неё.
 
@@ -205,6 +197,13 @@ class TestFetchAndMain:
         ``UnicodeEncodeError`` — отказ, подменяющий собственной причиной ту, о
         которой спрашивали. Соседние гейты лечатся тем же ``_force_utf8_stdout``;
         тест держит его на месте и на Linux, где cp1252 задаётся переменной.
+
+        Проверяется КОД ВОЗВРАТА и отсутствие ошибки кодировки, а не текст:
+        содержимое справки сверяет соседний тест — прямым вызовом, без
+        подпроцесса. Перехват stdout дочернего процесса на Windows-раннерах
+        оказался ненадёжен (три job'а подряд отдали ``None`` вместо текста при
+        нулевом коде возврата), и сверять текст через него значит держать в
+        наборе проверку, которая падает не по своей теме.
         """
         result = subprocess.run(
             [sys.executable, str(_SCRIPT), "--help"],
@@ -215,5 +214,17 @@ class TestFetchAndMain:
             env={**os.environ, "PYTHONIOENCODING": "cp1252"},
         )
 
-        assert "UnicodeEncodeError" not in result.stderr, result.stderr
+        assert "UnicodeEncodeError" not in (result.stderr or ""), result.stderr
         assert result.returncode == 0, result.stderr
+
+    def test_help_names_the_label_and_the_repo_flag(self, capsys) -> None:
+        """Справка называет метку и флаги — без подпроцесса, значит стабильно везде."""
+        module = _load_module()
+
+        with pytest.raises(SystemExit) as exit_info:
+            module.main(["--help"])
+
+        assert exit_info.value.code == 0
+        printed = capsys.readouterr().out
+        assert "good first issue" in printed
+        assert "--repo" in printed
