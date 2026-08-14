@@ -1303,3 +1303,168 @@ class TestStartRemembersWithoutDisplay:
         launcher.LauncherApp._start(stub)
 
         assert launcher.remembered_launch_choice() == launcher.LaunchChoice()
+
+
+class TestProfilesInWindow:
+    """issue #1133 (шаг 2): профиль выбирается в окне, а не только флагом.
+
+    Ядро GUI-free: список имён, восстановление выбранного, применение профиля
+    к полям. Обработчики окна вызываются на заглушке — через настоящий tkinter
+    они проверялись бы лишь там, где есть дисплей, то есть ни в одном job'е.
+    """
+
+    class _Var:
+        def __init__(self, value: object = "") -> None:
+            self._value = value
+
+        def get(self) -> object:
+            return self._value
+
+        def set(self, value: object) -> None:
+            self._value = value
+
+    class _Box:
+        def __init__(self) -> None:
+            self.values: list[str] = []
+
+        def config(self, **kwargs: object) -> None:
+            self.values = list(kwargs.get("values", ()))  # type: ignore[arg-type]
+
+        def set(self, value: object) -> None:
+            self.value = value
+
+    @pytest.fixture
+    def workspace(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
+        return tmp_path
+
+    def _stub(self, workspace: Path):
+        stub = types.SimpleNamespace(
+            profile_var=self._Var(""),
+            port_var=self._Var("8000"),
+            workdir_var=self._Var(str(workspace)),
+            sandbox_var=self._Var(False),
+            lang_var=self._Var("ru"),
+            history_box=self._Box(),
+            profile_box=self._Box(),
+            _messages=launcher.load_ui_messages("ru"),
+            root=None,
+        )
+        stub._t = launcher.LauncherApp._t.__get__(stub)
+        stub._history_label = launcher.LauncherApp._history_label.__get__(stub)
+        stub._profile_values = launcher.LauncherApp._profile_values.__get__(stub)
+        stub._selected_profile_name = launcher.LauncherApp._selected_profile_name.__get__(stub)
+        stub._current_choice = launcher.LauncherApp._current_choice.__get__(stub)
+        stub._refresh_profiles = launcher.LauncherApp._refresh_profiles.__get__(stub)
+        stub.selected_record_history = lambda: None
+        stub.status: list[str] = []
+        stub._set_status = lambda text, error=False: stub.status.append(text)
+        return stub
+
+    def test_names_are_alphabetical(self, workspace: Path) -> None:
+        """Список читают глазами — «где-то в середине» худший способ искать своё."""
+        path = launcher.launcher_settings_path()
+        for name in ("яблоко", "берёза", "абрикос"):
+            launcher.save_launch_profile(path, name, launcher.LaunchChoice(port=8000))
+
+        assert launcher.profile_names() == ["абрикос", "берёза", "яблоко"]
+
+    def test_remembered_name_survives(self, workspace: Path) -> None:
+        launcher.save_launch_profile(
+            launcher.launcher_settings_path(), "как обычно", launcher.LaunchChoice(port=8001)
+        )
+        launcher.remember_profile_name("как обычно")
+
+        assert launcher.remembered_profile_name() == "как обычно"
+
+    def test_deleted_profile_is_not_shown_as_selected(self, workspace: Path) -> None:
+        """Имя, за которым уже ничего нет, показывать нельзя.
+
+        Профиль мог удалить второе окно или правка файла руками — тогда список
+        предлагал бы выбор, который ничего не восстанавливает.
+        """
+        path = launcher.launcher_settings_path()
+        launcher.save_launch_profile(path, "временный", launcher.LaunchChoice(port=8002))
+        launcher.remember_profile_name("временный")
+        launcher.delete_launch_profile(path, "временный")
+
+        assert launcher.remembered_profile_name() == ""
+
+    def test_selecting_profile_fills_the_fields(self, workspace: Path) -> None:
+        tasks = workspace / "tasks"
+        tasks.mkdir()
+        launcher.save_launch_profile(
+            launcher.launcher_settings_path(),
+            "с изоляцией",
+            launcher.LaunchChoice(sandbox=True, port=8123, lang="en", workdir=tasks),
+        )
+        stub = self._stub(workspace)
+        stub.profile_var.set("с изоляцией")
+
+        launcher.LauncherApp._on_profile_selected(stub)
+
+        assert stub.sandbox_var.get() is True
+        assert stub.port_var.get() == "8123"
+        assert stub.lang_var.get() == "en"
+        assert stub.workdir_var.get() == str(tasks)
+        assert launcher.remembered_profile_name() == "с изоляцией"
+
+    def test_custom_set_touches_nothing(self, workspace: Path) -> None:
+        """«Свой набор» — состояние, а не профиль: введённое им не стирается."""
+        stub = self._stub(workspace)
+        stub.port_var.set("9999")
+        stub.profile_var.set(stub._t("launcher_profile_custom"))
+
+        launcher.LauncherApp._on_profile_selected(stub)
+
+        assert stub.port_var.get() == "9999"
+
+    def test_current_choice_snapshots_the_form(self, workspace: Path) -> None:
+        stub = self._stub(workspace)
+        stub.port_var.set("8321")
+        stub.sandbox_var.set(True)
+
+        choice = stub._current_choice()
+
+        assert choice.port == 8321
+        assert choice.sandbox is True
+        assert choice.workdir == workspace
+
+    def test_invalid_port_does_not_break_the_snapshot(self, workspace: Path) -> None:
+        """Полуформа сохраняется без порта, а не падает: имя уже введено."""
+        stub = self._stub(workspace)
+        stub.port_var.set("не число")
+
+        assert stub._current_choice().port is None
+
+    def test_deleting_profile_keeps_form_intact(self, workspace: Path) -> None:
+        """Удаляют ЗАПИСЬ, а не текущий выбор — обнулять форму значит наказывать за уборку."""
+        path = launcher.launcher_settings_path()
+        launcher.save_launch_profile(path, "лишний", launcher.LaunchChoice(port=8004))
+        stub = self._stub(workspace)
+        stub.profile_var.set("лишний")
+        stub.port_var.set("8888")
+
+        launcher.LauncherApp._on_delete_profile(stub)
+
+        assert stub.port_var.get() == "8888"
+        assert launcher.profile_names() == []
+
+    def test_delete_without_selection_says_so(self, workspace: Path) -> None:
+        stub = self._stub(workspace)
+        stub.profile_var.set(stub._t("launcher_profile_custom"))
+
+        launcher.LauncherApp._on_delete_profile(stub)
+
+        assert any("выберите профиль" in text.lower() for text in stub.status), stub.status
+
+    def test_profile_list_starts_with_custom_entry(self, workspace: Path) -> None:
+        launcher.save_launch_profile(
+            launcher.launcher_settings_path(), "первый", launcher.LaunchChoice(port=8005)
+        )
+        stub = self._stub(workspace)
+
+        values = stub._profile_values()
+
+        assert values[0] == stub._t("launcher_profile_custom")
+        assert values[1:] == ["первый"]
