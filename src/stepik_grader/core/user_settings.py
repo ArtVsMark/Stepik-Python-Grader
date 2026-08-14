@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import Any
@@ -31,14 +31,20 @@ from typing import Any
 from stepik_grader.atomic_io import atomic_write_json, file_lock
 
 __all__ = [
+    "MAX_LAUNCH_PROFILES",
+    "MAX_PROFILE_NAME_LEN",
     "SETTINGS_FILE_NAME",
     "LaunchChoice",
+    "ProfileLimitError",
     "UserSettings",
     "default_settings_path",
+    "delete_launch_profile",
     "load_settings",
     "save_fields",
+    "save_launch_profile",
     "save_settings",
     "settings_field_names",
+    "valid_profile_name",
 ]
 
 SETTINGS_FILE_NAME = ".grader_settings.json"
@@ -68,11 +74,11 @@ class LaunchChoice:
     def to_json(self) -> dict[str, object]:
         """Представление для ``.grader_settings.json`` (только заданные поля)."""
         payload: dict[str, object] = {}
-        for field in dataclass_fields(self):
-            value = getattr(self, field.name)
+        for choice_field in dataclass_fields(self):
+            value = getattr(self, choice_field.name)
             if value is None:
                 continue
-            payload[field.name] = str(value) if isinstance(value, Path) else value
+            payload[choice_field.name] = str(value) if isinstance(value, Path) else value
         return payload
 
     @classmethod
@@ -110,6 +116,53 @@ def _as_launch(value: object) -> LaunchChoice | None:
     return LaunchChoice.from_json(value)
 
 
+# issue #1133 (шаг 2): сколько именованных профилей помещается в файл настроек
+# и какой длины бывает имя. Ограничения не про «правильное» число, а про то,
+# что файл настроек не должен неограниченно расти от кода, который его пишет:
+# профиль заводится в один клик, а чистить его пользователь будет руками.
+MAX_LAUNCH_PROFILES = 20
+MAX_PROFILE_NAME_LEN = 64
+
+
+def valid_profile_name(name: object) -> bool:
+    """Годится ли строка как имя профиля (issue #1133).
+
+    Имя показывается в списке окна и приходит из файла, который правят руками,
+    поэтому проверяется здесь, а не в UI: пустое имя нельзя выбрать, слишком
+    длинное ломает раскладку, а управляющие символы делают список
+    нечитаемым — вплоть до подделки соседних строк переводом каретки.
+    """
+    if not isinstance(name, str):
+        return False
+    stripped = name.strip()
+    if not stripped or len(stripped) > MAX_PROFILE_NAME_LEN:
+        return False
+    return all(ch.isprintable() for ch in stripped)
+
+
+def _as_profiles(value: object) -> dict[str, LaunchChoice]:
+    """Разобрать словарь профилей; негодные записи отбрасываются поштучно."""
+    if not isinstance(value, dict):
+        return {}
+    profiles: dict[str, LaunchChoice] = {}
+    for name, raw in value.items():
+        if not valid_profile_name(name):
+            continue
+        choice = LaunchChoice.from_json(raw)
+        if choice is None:
+            continue
+        profiles[name.strip()] = choice
+        if len(profiles) >= MAX_LAUNCH_PROFILES:
+            break
+    return profiles
+
+
+def _as_profile_name(value: object) -> str | None:
+    if isinstance(value, str) and valid_profile_name(value):
+        return value.strip()
+    return None
+
+
 # issue #1133 (LNCH-3-05): единственный список полей файла настроек. Раньше их
 # перечисляли руками в четырёх местах (dataclass, чтение, `save_fields`,
 # `save_settings`), и поле, забытое в одном из них, МОЛЧА не сохранялось —
@@ -122,6 +175,8 @@ _FIELD_READERS: dict[str, Callable[[object], object]] = {
     "ai_hint_consent_endpoint": _as_str,
     "onboarding_seen": _as_bool,
     "last_launch": _as_launch,
+    "launch_profiles": _as_profiles,
+    "last_profile": _as_profile_name,
 }
 
 
@@ -134,6 +189,8 @@ def _to_json(value: object) -> object:
     """Значение поля в JSON-представлении (``LaunchChoice`` — вложенным объектом)."""
     if isinstance(value, LaunchChoice):
         return value.to_json()
+    if isinstance(value, dict):
+        return {name: _to_json(item) for name, item in value.items()}
     if isinstance(value, Path):
         return str(value)
     return value
@@ -179,6 +236,11 @@ class UserSettings:
     ai_hint_consent_endpoint: str | None = None
     onboarding_seen: bool | None = None
     last_launch: LaunchChoice | None = None
+    # issue #1133 (шаг 2): именованные профили запуска и последний выбранный.
+    # Пустой словарь, а не None: «профилей нет» и «поле не задано» для списка
+    # выбора — одно и то же, и отдельное состояние только плодило бы проверки.
+    launch_profiles: dict[str, LaunchChoice] = field(default_factory=dict)
+    last_profile: str | None = None
 
 
 def default_settings_path(root: Path | None = None) -> Path:
@@ -277,6 +339,64 @@ def save_fields(path: Path, **fields: object) -> None:
             else:
                 data[name] = _to_json(value)
         atomic_write_json(path, data, fsync=False)
+
+
+class ProfileLimitError(ValueError):
+    """Профилей уже столько, сколько файл настроек согласен хранить (#1133)."""
+
+
+def save_launch_profile(path: Path, name: str, choice: LaunchChoice) -> None:
+    """Сохранить именованный профиль запуска (issue #1133, шаг 2).
+
+    Профиль — это выбор, которому дали имя: «как обычно», «с изоляцией»,
+    «проверить чужой код». Один контрол вместо пяти, и тот же набор доступен
+    из CLI, а не только в окне.
+
+    Read-modify-write идёт под общей блокировкой (issue #1136): файл делят
+    веб, меню и лаунчер, и сохранение профиля не должно уносить их ключи.
+    Перезапись профиля с тем же именем разрешена — это «обновить», а не
+    «завести второй».
+
+    Raises:
+        ValueError: имя не годится (пустое, слишком длинное, с управляющими
+            символами) — молча подменять его нельзя, пользователь ищет в
+            списке ровно то, что ввёл.
+        ProfileLimitError: лимит профилей исчерпан, а имя новое.
+    """
+    if not valid_profile_name(name):
+        raise ValueError(f"негодное имя профиля: {name!r}")
+    key = name.strip()
+    with file_lock(path):
+        data = _read_raw(path)
+        profiles = _as_profiles(data.get("launch_profiles"))
+        if key not in profiles and len(profiles) >= MAX_LAUNCH_PROFILES:
+            raise ProfileLimitError(
+                f"профилей уже {len(profiles)} (максимум {MAX_LAUNCH_PROFILES}) — "
+                "удалите ненужный, чтобы завести новый"
+            )
+        profiles[key] = choice
+        data["launch_profiles"] = _to_json(profiles)
+        atomic_write_json(path, data, fsync=False)
+
+
+def delete_launch_profile(path: Path, name: str) -> bool:
+    """Удалить профиль; ``False`` — такого не было (issue #1133).
+
+    Снимает и ``last_profile``, если удалён именно он: ссылка на исчезнувший
+    профиль показывала бы в окне имя, которое ничего не восстанавливает.
+    """
+    key = name.strip()
+    with file_lock(path):
+        data = _read_raw(path)
+        profiles = _as_profiles(data.get("launch_profiles"))
+        if key not in profiles:
+            return False
+        del profiles[key]
+        data["launch_profiles"] = _to_json(profiles)
+        if _as_profile_name(data.get("last_profile")) == key:
+            data.pop("last_profile", None)
+        atomic_write_json(path, data, fsync=False)
+        return True
 
 
 def save_settings(settings: UserSettings, path: Path) -> None:
