@@ -294,6 +294,8 @@
   "plugin_case_header": "Тест-кейс #{index}  [{verdict}]",
   "plugin_error": "Ошибка: {error}",
   "plugin_expected": "Ожидалось:",
+  "plugin_missing_tests_header": "решений без tests/: {count}",
+  "plugin_tests_not_found": "Каталог tests/ не найден: решение {solution} не проверялось",
   "profile_requires_serve": "--profile применяется только вместе с --serve: профиль описывает запуск веб-интерфейса.",
   "profile_unknown": "профиль не найден: {name}. Доступные: {known}",
   "profile_unknown_default_used": "  Профиля «{value}» нет — использую профиль {default}.",

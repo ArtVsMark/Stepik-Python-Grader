@@ -294,6 +294,8 @@
   "plugin_case_header": "Test case #{index}  [{verdict}]",
   "plugin_error": "Error: {error}",
   "plugin_expected": "Expected:",
+  "plugin_missing_tests_header": "solutions without tests/: {count}",
+  "plugin_tests_not_found": "No tests/ directory: solution {solution} was never checked",
   "profile_requires_serve": "--profile only applies together with --serve: a profile describes how the web interface starts.",
   "profile_unknown": "profile not found: {name}. Available: {known}",
   "profile_unknown_default_used": "  No profile “{value}” — using profile {default}.",
