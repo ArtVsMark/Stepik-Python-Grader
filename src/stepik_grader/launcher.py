@@ -59,9 +59,12 @@ from typing import Any
 from stepik_grader.config import workspace_root
 from stepik_grader.core.user_settings import (
     LaunchChoice,
+    ProfileLimitError,
     default_settings_path,
+    delete_launch_profile,
     load_settings,
     save_fields,
+    save_launch_profile,
 )
 from stepik_grader.stdio_encoding import force_utf8_stdio
 
@@ -81,13 +84,17 @@ __all__ = [
     "default_workdir",
     "detect_lang",
     "initial_launch_values",
+    "launch_choice_from_profile",
     "load_ui_messages",
     "main",
     "next_free_port",
     "our_server_on",
     "port_available",
+    "profile_names",
     "remember_launch_choice",
+    "remember_profile_name",
     "remembered_launch_choice",
+    "remembered_profile_name",
     "resolve_version",
     "serve_without_gui",
 ]
@@ -499,6 +506,33 @@ def remembered_launch_choice() -> LaunchChoice:
     return load_settings(launcher_settings_path()).last_launch or LaunchChoice()
 
 
+def profile_names() -> list[str]:
+    """Имена сохранённых профилей по алфавиту (issue #1133).
+
+    Порядок именно алфавитный, а не порядок создания: список читают глазами, и
+    «где-то в середине» — худший способ искать своё имя.
+    """
+    return sorted(load_settings(launcher_settings_path()).launch_profiles)
+
+
+def remembered_profile_name() -> str:
+    """Профиль, выбранный в прошлый раз; пустая строка — «свой набор».
+
+    Пустая строка, а не ``None``: значение уходит прямо в ``StringVar`` окна, а
+    там отсутствие выбора и есть пустая строка.
+    """
+    settings = load_settings(launcher_settings_path())
+    name = settings.last_profile or ""
+    # Профиль мог быть удалён другим окном или правкой файла — не показываем
+    # имя, за которым уже ничего нет.
+    return name if name in settings.launch_profiles else ""
+
+
+def launch_choice_from_profile(name: str) -> LaunchChoice | None:
+    """Сохранённый выбор по имени профиля; ``None`` — профиля нет."""
+    return load_settings(launcher_settings_path()).launch_profiles.get(name.strip())
+
+
 @dataclass(frozen=True)
 class LaunchDefaults:
     """С чем открывается окно: запомненное, где есть, иначе обычные дефолты."""
@@ -549,6 +583,12 @@ def initial_launch_values(
         # самое, что выключено (ADR-0012).
         record_history=remembered.record_history,
     )
+
+
+def remember_profile_name(name: str) -> None:
+    """Запомнить, какой профиль выбран сейчас (issue #1133, best-effort)."""
+    with contextlib.suppress(OSError, ValueError):
+        save_fields(launcher_settings_path(), last_profile=name.strip() or None)
 
 
 def remember_launch_choice(choice: LaunchChoice) -> None:
@@ -873,6 +913,9 @@ class LauncherApp:
         # Значение подставляется после создания Combobox — оно из каталога.
         self.history_var = tk.StringVar(value="")
         self.command_var = tk.StringVar(value="")
+        # issue #1133: имя выбранного профиля. Пустая строка — «свой набор»:
+        # состояние, в котором поля не соответствуют ни одному сохранённому.
+        self.profile_var = tk.StringVar(value=remembered_profile_name())
         self.workdir_var.trace_add("write", lambda *_: self._refresh_tasks_found())
         for var in (self.port_var, self.sandbox_var, self.workdir_var, self.history_var):
             var.trace_add("write", lambda *_: self._refresh_command_preview())
@@ -887,8 +930,32 @@ class LauncherApp:
         # sandbox_var False = «простой» (LocalRunner, без изоляции), True = «с
         # изоляцией» (SandboxRunner). Режим изоляции задаётся ТОЛЬКО здесь/в CLI,
         # никогда из живого веб-сервера (он ставится process-global до старта).
+        # issue #1133 (шаг 2): профиль — первая строка окна намеренно. Он ЗАДАЁТ
+        # остальные поля, и стоя ниже он бы стирал только что введённое: человек
+        # заполняет форму, потом применяет профиль — и его ввод исчезает.
+        ttk.Label(frame, text=self._t("launcher_profile")).grid(
+            row=0, column=0, sticky="w", pady=(0, 8)
+        )
+        self.profile_box = ttk.Combobox(
+            frame,
+            textvariable=self.profile_var,
+            state="readonly",
+            width=24,
+            values=self._profile_values(),
+        )
+        self.profile_box.grid(row=0, column=1, sticky="w", pady=(0, 8))
+        self.profile_box.bind("<<ComboboxSelected>>", lambda _event: self._on_profile_selected())
+        self.profile_save_btn = ttk.Button(
+            frame, text=self._t("launcher_profile_save"), command=self._on_save_profile
+        )
+        self.profile_save_btn.grid(row=0, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
+        self.profile_delete_btn = ttk.Button(
+            frame, text=self._t("launcher_profile_delete"), command=self._on_delete_profile
+        )
+        self.profile_delete_btn.grid(row=1, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
+
         ttk.Label(frame, text=self._t("launcher_mode_heading")).grid(
-            row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
+            row=2, column=0, columnspan=3, sticky="w", pady=(0, 4)
         )
         self.radio_simple = ttk.Radiobutton(
             frame,
@@ -896,14 +963,14 @@ class LauncherApp:
             variable=self.sandbox_var,
             value=False,
         )
-        self.radio_simple.grid(row=1, column=0, columnspan=3, sticky="w")
+        self.radio_simple.grid(row=3, column=0, columnspan=3, sticky="w")
         self.radio_sandbox = ttk.Radiobutton(
             frame,
             text=self._t("launcher_mode_sandbox"),
             variable=self.sandbox_var,
             value=True,
         )
-        self.radio_sandbox.grid(row=2, column=0, columnspan=3, sticky="w")
+        self.radio_sandbox.grid(row=4, column=0, columnspan=3, sticky="w")
 
         # issue #1131 (LNCH-1-02): последствие выбора названо в точке выбора.
         # «С изоляцией» отключает пошаговый трейс (core/tracer.py) — раньше
@@ -911,13 +978,13 @@ class LauncherApp:
         self.sandbox_note = ttk.Label(
             frame, text=self._t("launcher_mode_sandbox_note"), wraplength=420, justify="left"
         )
-        self.sandbox_note.grid(row=3, column=0, columnspan=3, sticky="w", pady=(0, 12))
+        self.sandbox_note.grid(row=5, column=0, columnspan=3, sticky="w", pady=(0, 12))
 
         # issue #1131 (LNCH-1-01): запись истории — тумблер, а не молчаливый
         # дефолт. Это настройка приватности: решения студента ложатся в
         # локальную базу, и отказаться от этого он должен уметь до старта.
         ttk.Label(frame, text=self._t("launcher_history")).grid(
-            row=4, column=0, sticky="w", pady=(0, 8)
+            row=6, column=0, sticky="w", pady=(0, 8)
         )
         self.history_box = ttk.Combobox(
             frame,
@@ -930,7 +997,7 @@ class LauncherApp:
                 self._t("launcher_history_off"),
             ],
         )
-        self.history_box.grid(row=4, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.history_box.grid(row=6, column=1, columnspan=2, sticky="w", pady=(0, 8))
         # issue #1133: запомненный выбор восстанавливается; «не выбирал»
         # (``None``) — это отдельное значение «унаследовать», а не «выключено».
         self.history_box.set(self._history_label(initial.record_history))
@@ -938,7 +1005,7 @@ class LauncherApp:
         # issue #1131 (LNCH-2-05): язык выбирается на старте и доезжает до
         # браузера — до этого фикса страница всегда открывалась на русском.
         ttk.Label(frame, text=self._t("launcher_lang")).grid(
-            row=5, column=0, sticky="w", pady=(0, 8)
+            row=7, column=0, sticky="w", pady=(0, 8)
         )
         self.lang_box = ttk.Combobox(
             frame,
@@ -947,31 +1014,31 @@ class LauncherApp:
             width=12,
             values=list(_SUPPORTED_LANGS),
         )
-        self.lang_box.grid(row=5, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.lang_box.grid(row=7, column=1, columnspan=2, sticky="w", pady=(0, 8))
         self.lang_box.bind("<<ComboboxSelected>>", lambda _event: self._on_lang_changed())
 
         # Порт
         ttk.Label(frame, text=self._t("launcher_port")).grid(
-            row=6, column=0, sticky="w", pady=(0, 8)
+            row=8, column=0, sticky="w", pady=(0, 8)
         )
         self.port_entry = ttk.Entry(frame, textvariable=self.port_var, width=10)
-        self.port_entry.grid(row=6, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.port_entry.grid(row=8, column=1, columnspan=2, sticky="w", pady=(0, 8))
 
         # Рабочая папка
         ttk.Label(frame, text=self._t("launcher_workdir")).grid(
-            row=7, column=0, sticky="w", pady=(0, 8)
+            row=9, column=0, sticky="w", pady=(0, 8)
         )
         self.workdir_entry = ttk.Entry(frame, textvariable=self.workdir_var)
-        self.workdir_entry.grid(row=7, column=1, sticky="ew", pady=(0, 8))
+        self.workdir_entry.grid(row=9, column=1, sticky="ew", pady=(0, 8))
         self.browse_btn = ttk.Button(
             frame, text=self._t("launcher_browse"), command=self._browse_dir
         )
-        self.browse_btn.grid(row=7, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
+        self.browse_btn.grid(row=9, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
 
         # Сколько задач видно в выбранной папке (issue #823): промах виден здесь,
         # а не после открытия пустого веб-интерфейса.
         self.tasks_label = ttk.Label(frame, textvariable=self.tasks_var)
-        self.tasks_label.grid(row=8, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self.tasks_label.grid(row=10, column=1, columnspan=2, sticky="w", pady=(0, 8))
         self._refresh_tasks_found()
 
         # issue #1131 (LNCH-1-07): что именно включится — видно ДО нажатия.
@@ -981,25 +1048,25 @@ class LauncherApp:
         self.command_label = ttk.Label(
             frame, textvariable=self.command_var, wraplength=420, justify="left"
         )
-        self.command_label.grid(row=9, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        self.command_label.grid(row=11, column=0, columnspan=3, sticky="w", pady=(0, 8))
         self._refresh_command_preview()
 
         # Действие + открыть в браузере
         self.action_btn = ttk.Button(frame, text=self._t("launcher_start"), command=self._on_action)
-        self.action_btn.grid(row=10, column=0, sticky="w")
+        self.action_btn.grid(row=12, column=0, sticky="w")
         self.open_btn = ttk.Button(
             frame,
             text=self._t("launcher_open_browser"),
             command=self._open_browser,
             state="disabled",
         )
-        self.open_btn.grid(row=10, column=1, columnspan=2, sticky="e")
+        self.open_btn.grid(row=12, column=1, columnspan=2, sticky="e")
 
         # Статус
         self.status_label = ttk.Label(
             frame, textvariable=self.status_var, wraplength=420, justify="left"
         )
-        self.status_label.grid(row=11, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        self.status_label.grid(row=13, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
         self._poll()
 
@@ -1095,6 +1162,101 @@ class LauncherApp:
         if free is None:
             return self._t("launcher_port_busy", port=port)
         return self._t("launcher_port_busy_free", port=port, free=free)
+
+    def _profile_values(self) -> list[str]:
+        """Пункты списка профилей: «свой набор» первым, затем имена."""
+        return [self._t("launcher_profile_custom"), *profile_names()]
+
+    def _refresh_profiles(self, *, selected: str = "") -> None:
+        """Перечитать список профилей из файла и выставить выбранный пункт."""
+        self.profile_box.config(values=self._profile_values())
+        self.profile_var.set(selected or self._t("launcher_profile_custom"))
+
+    def _selected_profile_name(self) -> str:
+        """Имя выбранного профиля; пустая строка — пункт «свой набор»."""
+        chosen = self.profile_var.get().strip()
+        return "" if chosen == self._t("launcher_profile_custom") else chosen
+
+    def _current_choice(self) -> LaunchChoice:
+        """Снимок полей окна как ``LaunchChoice`` (issue #1133)."""
+        raw_port = self.port_var.get().strip()
+        return LaunchChoice(
+            sandbox=self.sandbox_var.get(),
+            record_history=self.selected_record_history(),
+            lang=self.lang_var.get(),
+            port=int(raw_port) if raw_port.isdigit() else None,
+            workdir=Path(self.workdir_var.get().strip() or "."),
+        )
+
+    def _on_profile_selected(self) -> None:
+        """Выбран профиль — его значения заполняют поля окна.
+
+        «Свой набор» ничего не подставляет: это состояние «поля не совпадают ни
+        с одним сохранённым», и трогать введённое им нельзя.
+        """
+        name = self._selected_profile_name()
+        if not name:
+            return
+        choice = launch_choice_from_profile(name)
+        if choice is None:  # удалён другим окном, пока это было открыто
+            self._set_status(self._t("launcher_profile_gone", name=name), error=True)
+            self._refresh_profiles()
+            return
+        values = initial_launch_values(choice)
+        self.sandbox_var.set(values.sandbox)
+        self.history_box.set(self._history_label(values.record_history))
+        self.lang_var.set(values.lang)
+        self.port_var.set(str(values.port))
+        self.workdir_var.set(str(values.workdir))
+        remember_profile_name(name)
+        self._set_status(self._t("launcher_profile_applied", name=name))
+
+    def _on_save_profile(self) -> None:
+        """Сохранить текущие поля под именем (спросив его)."""
+        from tkinter import simpledialog
+
+        suggested = self._selected_profile_name()
+        name = simpledialog.askstring(
+            self._t("launcher_profile_save"),
+            self._t("launcher_profile_name_prompt"),
+            initialvalue=suggested,
+            parent=self.root,
+        )
+        if name is None:  # отмена диалога — не ошибка
+            return
+        try:
+            save_launch_profile(launcher_settings_path(), name, self._current_choice())
+        except ProfileLimitError:
+            self._set_status(self._t("launcher_profile_limit"), error=True)
+            return
+        except ValueError:
+            self._set_status(self._t("launcher_profile_bad_name"), error=True)
+            return
+        except OSError as exc:
+            self._set_status(self._t("launcher_profile_save_failed", error=exc), error=True)
+            return
+        remember_profile_name(name.strip())
+        self._refresh_profiles(selected=name.strip())
+        self._set_status(self._t("launcher_profile_saved", name=name.strip()))
+
+    def _on_delete_profile(self) -> None:
+        """Удалить выбранный профиль (поля окна остаются как есть).
+
+        Поля намеренно не сбрасываются: пользователь удаляет ЗАПИСЬ, а не свой
+        текущий выбор — обнулять форму значило бы наказывать за уборку.
+        """
+        name = self._selected_profile_name()
+        if not name:
+            self._set_status(self._t("launcher_profile_pick_first"), error=True)
+            return
+        try:
+            deleted = delete_launch_profile(launcher_settings_path(), name)
+        except OSError as exc:
+            self._set_status(self._t("launcher_profile_save_failed", error=exc), error=True)
+            return
+        self._refresh_profiles()
+        key = "launcher_profile_deleted" if deleted else "launcher_profile_gone"
+        self._set_status(self._t(key, name=name), error=not deleted)
 
     def _history_label(self, value: bool | None) -> str:
         """Подпись пункта «запись истории» по значению (обратное к выбору, #1133)."""
