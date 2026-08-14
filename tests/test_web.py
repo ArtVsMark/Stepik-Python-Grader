@@ -1010,6 +1010,35 @@ class TestHttpHandler:
             assert body[:4] == b"wOF2"  # WOFF2 magic number
             assert len(body) > 1000
 
+    def test_onboarding_checkbox_has_no_hardcoded_state(self) -> None:
+        """issue #934: галка «не показывать» не объявлена checked в разметке.
+
+        Статический `checked` врал о сохранённой настройке: пользователь снимал
+        галку, прося показывать окно дальше, а при следующем открытии она снова
+        стояла отмеченной — и первое же закрытие отправляло `seen=true`, отменяя
+        его выбор. Состояние выставляет JS из `data-onboarding-seen`.
+        """
+        import re
+
+        markup = re.search(r'<input[^>]*id="onboarding-dont-show"[^>]*>', web_server._INDEX_HTML)
+
+        assert markup, "чекбокс онбординга пропал из разметки"
+        assert "checked" not in markup.group(0)
+
+    def test_onboarding_script_reads_saved_state(self) -> None:
+        """И вторая половина: JS обязан прочитать состояние, а не только не врать.
+
+        Без этой проверки уборка `checked` из разметки перевернула бы дефект в
+        другую сторону — галка всегда пустая, и авто-показ не выключался бы
+        никогда.
+        """
+        app_js = (pathlib.Path(web_server.__file__).parent / "static" / "app.js").read_text(
+            encoding="utf-8"
+        )
+
+        assert "onboardingSeen" in app_js
+        assert "dontShow.checked = seen" in app_js
+
     def test_index_html_has_no_external_resource_links(self) -> None:
         """Регрессия issue #260: страница не должна грузить ни один ресурс с
         внешнего домена (Google Fonts CDN был единственным источником) —

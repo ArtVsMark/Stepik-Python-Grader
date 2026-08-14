@@ -530,8 +530,12 @@
       <p><strong data-i18n="onboarding.download_title">Скачивание задач — по желанию.</strong> <span class="onboarding-desc" data-i18n="onboarding.download_body">Проверять решения можно без входа. Чтобы скачивать задачи со Stepik по URL, нужен OAuth (secrets.json).</span></p>
     </div>
 
+    <!-- issue #934: без статического checked. Состояние выставляет initOnboarding()
+         из data-onboarding-seen: разметка, утверждающая «отмечено», врала о
+         сохранённой настройке, и следующий же «закрыть» отключал авто-показ,
+         который пользователь только что попросил оставить. -->
     <label class="onboarding-dont-show">
-      <input type="checkbox" id="onboarding-dont-show" checked>
+      <input type="checkbox" id="onboarding-dont-show">
       <span data-i18n="onboarding.dont_show">Не открывать это окно автоматически при следующем запуске</span>
     </label>
     <div class="onboarding-actions">
