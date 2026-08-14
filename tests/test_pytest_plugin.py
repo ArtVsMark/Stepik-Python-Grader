@@ -83,14 +83,83 @@ def test_grader_mode_ignores_non_solution_files(pytester: pytest.Pytester) -> No
     assert result.ret == pytest.ExitCode.NO_TESTS_COLLECTED
 
 
-def test_grader_mode_solution_without_tests_yields_nothing(
+def test_grader_mode_solution_without_tests_is_named_not_silent(
     pytester: pytest.Pytester,
 ) -> None:
-    """task.py без соседней tests/ → файл собран, но 0 item'ов, без падения."""
+    """task.py без соседней tests/ → решение НАЗВАНО, а не исчезает (issue #974).
+
+    Прежний тест закреплял молчание как норму: «0 item'ов, без падения». Но
+    пропавший каталог tests/ — обычное следствие мерджа или неполной выкладки,
+    и pytest сообщал лишь «collected N items», где N молча меньше числа
+    решений. Из зелёного прогона нельзя было понять, что задача не проверялась.
+    """
     (pytester.path / "task.py").write_text("print('hi')\n", encoding="utf-8")
+
     result = pytester.runpytest("--grader-mode")
-    result.assert_outcomes()
-    assert result.ret == pytest.ExitCode.NO_TESTS_COLLECTED
+
+    assert result.ret == pytest.ExitCode.NO_TESTS_COLLECTED, (
+        "мягкий режим не должен ломать чужие прогоны"
+    )
+    result.stdout.fnmatch_lines(["*решений без tests/: 1*", "*task.py*"])
+
+
+def test_grader_strict_turns_missing_tests_into_a_failure(
+    pytester: pytest.Pytester,
+) -> None:
+    """Под --grader-strict пропавшие tests/ валят прогон (issue #974).
+
+    Ровно тот случай, ради которого гейт и ставят в CI: не «нечего проверять»,
+    а «проверить не удалось».
+    """
+    (pytester.path / "task.py").write_text("print('hi')\n", encoding="utf-8")
+
+    result = pytester.runpytest("--grader-mode", "--grader-strict")
+
+    result.assert_outcomes(failed=1)
+    assert result.ret != 0
+    result.stdout.fnmatch_lines(["*task.py*"])
+
+
+def test_grader_strict_names_the_solution_in_the_failure(
+    pytester: pytest.Pytester,
+) -> None:
+    """В отчёте видно ИМЯ решения, а не трассировка плагина."""
+    (pytester.path / "task7.py").write_text("print('hi')\n", encoding="utf-8")
+
+    result = pytester.runpytest("--grader-mode", "--grader-strict")
+
+    result.stdout.fnmatch_lines(["*task7.py*не проверялось*"])
+
+
+def test_missing_tests_do_not_hide_solutions_that_have_them(
+    pytester: pytest.Pytester,
+) -> None:
+    """Соседние решения с tests/ проверяются как обычно.
+
+    Главный риск правки: заметив пропажу, не потерять остальное — ради этого
+    гейт и существует.
+    """
+    _make_solution(pytester.path, "print(int(input()) + 1)\n", [("1\n", "2\n")])
+    # В отдельном каталоге: резолвер ищет tests/ рядом с решением, и сосед
+    # в той же папке подхватил бы чужие тесты — «одиноким» он бы не был.
+    lonely = pytester.path / "lonely"
+    lonely.mkdir()
+    (lonely / "task_9.py").write_text("print('hi')\n", encoding="utf-8")
+
+    result = pytester.runpytest("--grader-mode")
+
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*решений без tests/: 1*"])
+
+
+def test_strict_mode_reads_the_ini_option(pytester: pytest.Pytester) -> None:
+    """Строгий режим включается и из ini — как остальные настройки плагина."""
+    (pytester.path / "task.py").write_text("print('hi')\n", encoding="utf-8")
+    pytester.makeini("[pytest]\ngrader_mode = true\ngrader_strict = true\n")
+
+    result = pytester.runpytest()
+
+    result.assert_outcomes(failed=1)
 
 
 def test_grader_mode_mixed_pass_and_fail(pytester: pytest.Pytester) -> None:
