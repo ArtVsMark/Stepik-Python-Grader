@@ -843,9 +843,13 @@ def preflight_solution(
     самим замером, но лишь по факту первого запуска и с сырым traceback вместо
     внятной причины.
 
-    Возвращает ``{"ok", "passed", "total", "verdict", "cancelled"}``:
+    Возвращает ``{"ok", "passed", "total", "verdict", "case", "cancelled"}``:
     ``ok=True`` — решение допускается к замеру;
     ``verdict`` — первый непрошедший вердикт (``WA``/``RE``/``TLE``) или ``""``;
+    ``case`` — НОМЕР этого кейса, начиная с 1 (``0``, если провала нет,
+    issue #1005/``MTX-3-05``): режимы 1/2 в отчёте кейс называют, а 3/4
+    говорили только «не прошёл проверку» — воспроизвести падение было не с
+    чего, хотя номер известен здесь же;
     ``cancelled`` — прогон прерван (``cancel_event``), решение не оценено.
     Текст для пользователя формирует UI-слой: тут только факты, без локали.
 
@@ -867,7 +871,16 @@ def preflight_solution(
     )
     cases = result.get("cases", [])
     cancelled = any(case.get("verdict") == "CANCELLED" for case in cases)
-    bad = next((case for case in cases if case.get("verdict") not in ("AC", "CANCELLED")), None)
+    # Номер кейса — его позиция в наборе (1-based): собственного поля с номером
+    # у кейса нет, порядок и есть нумерация, как в отчётах режимов 1/2.
+    bad_no, bad = next(
+        (
+            (index, case)
+            for index, case in enumerate(cases, 1)
+            if case.get("verdict") not in ("AC", "CANCELLED")
+        ),
+        (0, None),
+    )
     total = int(result.get("total", 0))
     passed = int(result.get("passed", 0))
     return {
@@ -875,6 +888,7 @@ def preflight_solution(
         "passed": passed,
         "total": total,
         "verdict": str(bad.get("verdict", "")) if bad else "",
+        "case": bad_no,
         "cancelled": cancelled,
     }
 
