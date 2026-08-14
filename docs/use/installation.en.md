@@ -286,7 +286,7 @@ Fill in your own values:
 > Leave `access_token`, `refresh_token`, and `expires_at`
 > blank on the first run — the script will populate them automatically via `storage.save_secrets()`.
 
-> Next — [downloading the task data](grader-workflow.md#task-download-step).
+> Next — [downloading the task data](grader-workflow.md#шаг-скачивания-задачи).
 
 ### Resilience to network failures
 
