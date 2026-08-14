@@ -89,6 +89,7 @@ __all__ = [
     "remember_launch_choice",
     "remembered_launch_choice",
     "resolve_version",
+    "serve_without_gui",
 ]
 
 DEFAULT_HOST = "127.0.0.1"
@@ -303,6 +304,22 @@ def _print(text: str) -> None:
         print(text)
 
 
+def _print_err(text: str) -> None:
+    """То же, но в stderr — единственный канал headless-ветки (issue #1134).
+
+    Точка входа объявлена в ``[project.gui-scripts]``, а такой скрипт на Windows
+    запускается через ``pythonw.exe`` **без консоли**: писать в ``stdout``
+    буквально некуда. ``stderr`` переживает больше сценариев (перенаправление в
+    файл, запуск из терминала, ``2>&1``), но и он не гарантирован — поэтому
+    headless-ветка не ограничивается сообщением, а делает работу и отдаёт
+    осмысленный код возврата.
+    """
+    if _RICH and _console is not None:
+        Console(stderr=True).print(text, markup=False)
+    else:
+        print(text, file=sys.stderr)
+
+
 def build_server_command(
     port: int,
     *,
@@ -405,6 +422,64 @@ def next_free_port(start: int, *, host: str = DEFAULT_HOST, attempts: int = 20) 
         if port_available(candidate, host=host):
             return candidate
     return None
+
+
+def serve_without_gui(
+    messages: dict[str, str],
+    *,
+    lang: str | None = None,
+    port: int = DEFAULT_PORT,
+    workdir: Path | None = None,
+) -> int:
+    """Поднять веб-интерфейс без окна и вернуть код возврата (issue #1134).
+
+    Прежде отсутствие дисплея или ``tkinter`` заканчивалось советом набрать
+    ``python -m stepik_grader --serve`` — командой, которую лаунчер знает
+    целиком и может выполнить сам. Хуже: на Windows gui-script идёт через
+    ``pythonw.exe`` без консоли, поэтому совет уходил в никуда, а пользователь
+    видел молча закрывшееся окно.
+
+    Порт выбирается тем же способом, что и в окне: занят чужим — берётся
+    ближайший свободный (``next_free_port``); занят НАШИМ сервером с прошлого
+    запуска — второй не поднимается, печатается адрес уже работающего и
+    возвращается ``0``. Свободного порта не нашлось — ``1``: это уже не та
+    ситуация, в которой можно угадать за пользователя.
+
+    Args:
+        messages: каталог локали для сообщений (окно ещё не создано).
+        lang: язык интерфейса сервера; ``None`` — «не выбирал» (ADR-0012).
+        port: желаемый порт; занятый заменяется ближайшим свободным.
+        workdir: рабочая папка сервера; ``None`` — ``default_workdir()``.
+
+    Returns:
+        Код возврата дочернего процесса сервера, ``0`` (сервер уже работал)
+        или ``1`` (свободный порт не найден).
+    """
+
+    def _t(key: str, **params: object) -> str:
+        template = messages.get(key, key)
+        return template.format(**params) if params else template
+
+    if our_server_on(port):
+        _print_err(_t("launcher_headless_already_running", url=f"http://{DEFAULT_HOST}:{port}/"))
+        return 0
+
+    chosen = port if port_available(port) else next_free_port(port)
+    if chosen is None:
+        _print_err(_t("launcher_headless_no_free_port", port=port))
+        return 1
+
+    command = build_server_command(
+        chosen,
+        sandbox=False,
+        workdir=workdir if workdir is not None else default_workdir(),
+        lang=lang,
+    )
+    _print_err(_t("launcher_headless_starting", url=f"http://{DEFAULT_HOST}:{chosen}/"))
+    # Дочерний процесс держит консоль до Ctrl+C — как и `--serve`, запущенный
+    # руками. Код возврата пробрасывается: молчаливый 0 при упавшем сервере
+    # был бы тем же самым «сообщение вместо действия», от которого уходим.
+    return subprocess.call(command)
 
 
 def launcher_settings_path() -> Path:
@@ -941,6 +1016,13 @@ class LauncherApp:
             self.tasks_var.set(self._t("launcher_workdir_missing"))
             return
         tasks, with_tests = count_tasks(workdir)
+        # issue #1134: «Найдено задач: 0» — конец пути для первокурсника, ради
+        # которого лаунчер и сделан: он не знает, что задачи сюда попадают
+        # загрузчиком, и не понимает, промахнулся ли папкой. Ноль — не счёт, а
+        # развилка, поэтому вместо цифры показывается следующий шаг.
+        if tasks == 0:
+            self.tasks_var.set(self._t("launcher_tasks_found_zero"))
+            return
         # issue #1018: пока все задачи с тестами — прежняя короткая строка;
         # расхождение показывается явно, иначе «задач 3» при нуле проверяемых
         # выглядит как обещание, которого интерфейс не выполнит.
@@ -1247,8 +1329,11 @@ def main(argv: list[str] | None = None) -> None:
     работать там, где дисплея нет вовсе, а неизвестный флаг — отвергаться, а не
     игнорироваться (issue #1135).
 
-    В headless-окружении/сборке без ``tkinter`` — не падает трейсбеком, а
-    подсказывает эквивалентную CLI-команду и выходит с кодом 1.
+    В headless-окружении/сборке без ``tkinter`` окно не создаётся, но работа
+    делается: веб-интерфейс поднимается сам (``serve_without_gui``, issue
+    #1134). Раньше здесь печатался совет набрать ту же команду руками — а на
+    Windows gui-script идёт через ``pythonw.exe`` без консоли, и совет уходил
+    в никуда. Код возврата — от дочернего сервера, а не жёсткая единица.
     """
     # issue #1108: подсказка про отсутствующий tkinter и статусы лаунчера идут
     # в консоль — в cp1251 они не должны ронять процесс.
@@ -1264,16 +1349,14 @@ def main(argv: list[str] | None = None) -> None:
     try:
         import tkinter
     except ImportError:
-        _print(_t("launcher_cli_no_tkinter"))
-        _print(f"    {sys.executable} -m stepik_grader --serve")
-        raise SystemExit(1) from None
+        _print_err(_t("launcher_cli_no_tkinter"))
+        raise SystemExit(serve_without_gui(messages, lang=args.lang)) from None
 
     try:
         app = create_app(lang=args.lang)
     except tkinter.TclError:
-        _print(_t("launcher_cli_headless"))
-        _print(f"    {sys.executable} -m stepik_grader --serve")
-        raise SystemExit(1) from None
+        _print_err(_t("launcher_cli_headless"))
+        raise SystemExit(serve_without_gui(messages, lang=args.lang)) from None
 
     app.run()
 
