@@ -208,6 +208,8 @@
   "launcher_open_browser": "Открыть в браузере",
   "launcher_port": "Порт:",
   "launcher_port_busy": "Порт {port} занят — выберите другой",
+  "launcher_port_busy_free": "Порт {port} занят. Ближайший свободный — {free}.",
+  "launcher_port_busy_ours": "Порт {port} занят — похоже, это уже запущенный веб-интерфейс. Нажмите «Открыть в браузере» или остановите его.",
   "launcher_port_invalid": "Некорректный порт — введите число 1–65535",
   "launcher_port_range": "Порт вне диапазона 1–65535",
   "launcher_start": "Запустить",
