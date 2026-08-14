@@ -721,3 +721,53 @@ def test_nested_badge_links_are_checked_for_relative_targets(tmp_path, monkeypat
 
     assert len(errors) == 1
     assert "docs/dev/glossary.md" in errors[0]
+
+
+def test_conflict_markers_are_flagged(tmp_path, monkeypatch) -> None:
+    """Незаконченное слияние в документации — нарушение (issue #1165).
+
+    Такое уже уезжало в main и жило там несколько PR: ссылки резолвились,
+    бюджет строк соблюдался, индексы были полны — а раздел про лаунчер читатель
+    видел дважды, вперемешку с «HEAD» и «origin/main».
+    """
+    module = _load_module()
+    opening, middle, closing = "<" * 7, "=" * 7, ">" * 7
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text(
+        f"Абзац\n{opening} HEAD\nмоя версия\n{middle}\nчужая версия\n{closing} origin/main\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_no_conflict_markers(errors)
+
+    assert len(errors) == 1
+    assert "docs/guide.md" in errors[0].replace(os.sep, "/")
+    assert "строка 2" in errors[0]
+
+
+def test_setext_heading_underline_is_not_a_conflict(tmp_path, monkeypatch) -> None:
+    """Подчёркивание заголовка «=======» — валидный Markdown, а не конфликт.
+
+    Поэтому средний маркер сам по себе ничего не значит: ловим только открытие
+    и закрытие, у которых после знаков идёт имя ревизии.
+    """
+    module = _load_module()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text("Заголовок\n=======\n\nТекст\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_no_conflict_markers(errors)
+
+    assert errors == []
+
+
+def test_conflict_marker_check_passes_on_repo() -> None:
+    """На актуальном репозитории маркеров нет."""
+    errors: list[str] = []
+
+    _load_module().check_no_conflict_markers(errors)
+
+    assert errors == []

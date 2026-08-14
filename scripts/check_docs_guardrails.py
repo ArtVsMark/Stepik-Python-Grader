@@ -86,6 +86,7 @@ __all__ = [
     "check_issue_tail_policy",
     "check_link_captions",
     "check_markdown_links",
+    "check_no_conflict_markers",
     "check_pypi_readme_is_absolute",
     "check_readme_budget",
     "check_showcase_metrics",
@@ -685,6 +686,38 @@ def check_pypi_readme_is_absolute(errors: list[str]) -> None:
     print(f"PyPI readme: {name} has no relative links or images.")
 
 
+def check_no_conflict_markers(errors: list[str]) -> None:
+    """В документации нет незаконченного слияния (issue #1165).
+
+    Маркеры конфликта — единственный вид поломки, который в Markdown проходит
+    все остальные гейты: ссылки резолвятся, бюджет строк соблюдён, индексы
+    полны, а раздел про лаунчер при этом показан читателю дважды, вперемешку с
+    ``HEAD`` и ``origin/main``. В ``.py`` то же самое ловит ruff — там это
+    синтаксическая ошибка; у документации такого рубежа не было.
+
+    Прецедент: описание окна лаунчера уехало в ``main`` с маркерами и прожило
+    там несколько PR — ни один прогон CI не возразил.
+    """
+    opening, closing = "<" * 7, ">" * 7
+    files = collect_markdown_files()
+    found = 0
+    for md in files:
+        hits = [
+            number
+            for number, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1)
+            if line.startswith((f"{opening} ", f"{closing} "))
+        ]
+        if hits:
+            found += 1
+            where = ", ".join(f"строка {number}" for number in hits[:5])
+            errors.append(
+                f"{md.relative_to(_ROOT)}: маркеры конфликта слияния ({where}) — "
+                "слияние не доведено до конца, читателю показаны обе версии текста."
+            )
+    if not found:
+        print(f"Merge conflicts: none across {len(files)} Markdown file(s).")
+
+
 def _force_utf8_stdout() -> None:
     """Печатать UTF-8 независимо от кодовой страницы консоли.
 
@@ -703,6 +736,7 @@ def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     _force_utf8_stdout()
     errors: list[str] = []
+    check_no_conflict_markers(errors)
     check_readme_budget(errors)
     check_pypi_readme_is_absolute(errors)
     check_markdown_links(errors)
