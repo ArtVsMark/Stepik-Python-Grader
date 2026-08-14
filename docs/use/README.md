@@ -6,7 +6,7 @@
 | Хочу… | Документ |
 |---|---|
 | Установить (pipx или из исходников), настроить OAuth к Stepik, продиагностировать окружение | [installation.md](installation.md) |
-| Install guide for english | [installation.en.md](installation.en.md) |
+| Installation guide in English | [installation.en.md](installation.en.md) |
 | Запустить проверку: режимы 1–4, интерактивное меню, CLI-флаги, скачивание задачи со Stepik, интеграция с VS Code / PyCharm | [grader-workflow.md](grader-workflow.md) |
 | Открыть веб-интерфейс: `stepik-grader --serve` или окно-лаунчер `stepik-grader-gui` | [grader-workflow.md § Веб-интерфейс](grader-workflow.md#веб-интерфейс---serve) |
 | Разобраться в разделах веб-интерфейса: «Проверка решений», «Загрузчик задач», «Глоссарий», «Правила (PEP)», «Подучить», «Песочница», раскладка окна, клавиатура и тёмная тема | [web-interface.md](web-interface.md) |
