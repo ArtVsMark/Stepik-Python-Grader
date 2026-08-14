@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import pathlib
 import threading
+import time
 
 import pytest
 
@@ -169,3 +170,97 @@ def test_atomic_write_is_thread_safe_across_distinct_targets(tmp_path: pathlib.P
         assert data["writer"] == i
         assert data["n"] == 24  # последняя запись цикла
         assert data["payload"] == list(range(50))  # полная валидная версия
+
+
+# ---------------------------------------------------------------------------
+# issue #1136 (LNCH-3-06) — межпроцессная блокировка записи
+# ---------------------------------------------------------------------------
+
+
+def test_file_lock_yields_true_and_creates_sidecar(tmp_path: pathlib.Path) -> None:
+    """Лок берётся и живёт в файле-спутнике, а не в самой цели.
+
+    Цель заменяется через `os.replace`, то есть меняет inode: блокировка,
+    взятая на прежнем inode, после замены не значит ничего.
+    """
+    target = tmp_path / "settings.json"
+
+    with atomic_io.file_lock(target) as acquired:
+        assert acquired is True
+        assert (tmp_path / ("settings.json" + atomic_io.LOCK_SUFFIX)).exists()
+
+
+def test_file_lock_serialises_two_threads(tmp_path: pathlib.Path) -> None:
+    """Второй войти внутрь не может, пока первый не вышел."""
+    target = tmp_path / "settings.json"
+    order: list[str] = []
+    first_inside = threading.Event()
+
+    def slow() -> None:
+        with atomic_io.file_lock(target):
+            order.append("first-in")
+            first_inside.set()
+            time.sleep(0.3)
+            order.append("first-out")
+
+    def fast() -> None:
+        first_inside.wait(timeout=5)
+        with atomic_io.file_lock(target):
+            order.append("second-in")
+
+    threads = [threading.Thread(target=slow), threading.Thread(target=fast)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert order == ["first-in", "first-out", "second-in"]
+
+
+def test_file_lock_gives_up_after_timeout_but_still_runs(tmp_path: pathlib.Path) -> None:
+    """Не дождались — блок исполняется без блокировки, а не отменяется.
+
+    Отказать в сохранении хуже потерянного обновления: пользователь решил бы,
+    что настройка не работает вовсе.
+    """
+    target = tmp_path / "settings.json"
+    ran: list[bool] = []
+
+    with atomic_io.file_lock(target):
+        thread_result: list[bool] = []
+
+        def contender() -> None:
+            with atomic_io.file_lock(target, timeout=0.05) as acquired:
+                thread_result.append(acquired)
+                ran.append(True)
+
+        thread = threading.Thread(target=contender)
+        thread.start()
+        thread.join(timeout=5)
+
+    assert ran == [True], "блок не исполнился без блокировки"
+    assert thread_result == [False], "лок отдан как взятый, хотя занят"
+
+
+def test_file_lock_survives_unwritable_directory(tmp_path: pathlib.Path) -> None:
+    """Спутник создать негде — работаем как раньше, без блокировки."""
+    target = tmp_path / "no-such-dir" / "settings.json"
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise OSError("read-only")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(atomic_io.os, "open", refuse)
+        with atomic_io.file_lock(target) as acquired:
+            assert acquired is False
+
+
+def test_file_lock_releases_on_exception(tmp_path: pathlib.Path) -> None:
+    """Исключение внутри блока не оставляет лок взятым навсегда."""
+    target = tmp_path / "settings.json"
+
+    with pytest.raises(RuntimeError), atomic_io.file_lock(target):
+        raise RuntimeError("сбой во время записи")
+
+    with atomic_io.file_lock(target) as acquired:
+        assert acquired is True, "лок не освобождён после исключения"
