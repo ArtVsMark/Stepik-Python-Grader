@@ -13,8 +13,8 @@
 - [Verifying the installation — web interface](#verifying-the-installation--web-interface)
 - [Dependencies](#dependencies)
 - [Working with the Stepik API (OAuth)](#working-with-the-stepik-api-oauth)
-- [Troubleshooting](#troubleshooting)
-- [Troubleshooting the development environment (pytest, Windows)](#troubleshooting-the-development-environment-pytest-windows)
+- [Diagnostics](#diagnostics)
+- [Development environment diagnostics (pytest, Windows)](#development-environment-diagnostics-pytest-windows)
 
 ---
 
