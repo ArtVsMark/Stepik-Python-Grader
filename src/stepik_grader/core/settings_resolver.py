@@ -35,12 +35,18 @@ from stepik_grader import config
 from stepik_grader.core.user_settings import default_settings_path, load_settings, save_fields
 
 __all__ = [
+    "ADVANCED_GROUPS",
+    "ADVANCED_SETTINGS",
     "USER_TUNABLE_SETTINGS",
+    "AdvancedSetting",
     "SettingView",
+    "advanced_settings",
     "apply_user_run_settings",
+    "coerce_value",
     "describe_setting",
     "reset_setting",
     "set_user_run_setting",
+    "setting_spec",
 ]
 
 Origin = Literal["default", "pyproject", "user"]
@@ -200,3 +206,115 @@ def reset_setting(name: str, root: Path | None = None) -> None:
     # значении, и повторно, и результат обязан быть один и тот же.
     values.pop(name, None)
     save_fields(path, run_settings=values)
+
+
+@dataclasses.dataclass(frozen=True)
+class AdvancedSetting:
+    """Как показать настройку во вкладке «Дополнительно» (issue #1136).
+
+    ``kind`` — тип контрола (``bool``/``int``/``float``/``choice``/``text``),
+    ``group`` — блок вкладки, ``unsafe`` — требует явного подтверждения перед
+    тем, как станет доступной, ``nullable`` — пустое поле означает осмысленное
+    «не ограничивать / не задано», а не ошибку ввода.
+
+    Описание живёт в ядре, а не в окне: по нему строятся контролы, и ровно оно
+    отвечает на вопрос «какие настройки вообще предъявляем». Список в GUI
+    означал бы, что проверить его состав можно только глазами и только там, где
+    есть дисплей.
+    """
+
+    name: str
+    kind: str
+    group: str
+    choices: tuple[str, ...] = ()
+    unsafe: bool = False
+    nullable: bool = False
+
+
+# Порядок = порядок показа. Группы и состав — из постановки #1136: вердикт,
+# обучение, поведение прогона, AI, небезопасное. Тюнинг (encoding, пороги
+# микробенча, пути глоссария) сюда не входит и остаётся в pyproject.toml.
+#
+# `record_history` намеренно отсутствует, хотя и разрешён пользователю: он
+# уже стоит на главной вкладке лаунчера как настройка приватности (issue
+# #1131). Два контрола на одно значение расходятся ровно тогда, когда человек
+# правит один и смотрит на другой.
+ADVANCED_SETTINGS: tuple[AdvancedSetting, ...] = (
+    AdvancedSetting("compare_mode", "choice", "verdict", choices=("stepik", "strict")),
+    AdvancedSetting("timeout_seconds", "float", "verdict"),
+    AdvancedSetting("max_memory_mb", "int", "verdict", nullable=True),
+    AdvancedSetting("insights_window_n", "int", "learning"),
+    AdvancedSetting("insights_active_threshold_t", "int", "learning"),
+    AdvancedSetting("insights_clean_streak_k", "int", "learning"),
+    AdvancedSetting("use_cache", "bool", "run"),
+    AdvancedSetting("record_stats", "bool", "run"),
+    AdvancedSetting("job_workers", "int", "run"),
+    AdvancedSetting("max_active_runs", "int", "run"),
+    AdvancedSetting("ai_base_url", "text", "ai", nullable=True),
+    AdvancedSetting("ai_model", "text", "ai", nullable=True),
+    AdvancedSetting("ai_max_hints", "int", "ai"),
+    AdvancedSetting("ai_grounding_k", "int", "ai"),
+    # Квоты песочницы — за подтверждением: они меняют то, что именно
+    # ограничивает изоляция, а «подкрутил и забыл» здесь стоит дороже, чем в
+    # любом другом блоке вкладки.
+    AdvancedSetting("sandbox_max_cpu_seconds", "float", "unsafe", unsafe=True),
+    AdvancedSetting("sandbox_max_processes", "int", "unsafe", unsafe=True),
+    AdvancedSetting("sandbox_max_output_bytes", "int", "unsafe", unsafe=True),
+)
+
+ADVANCED_GROUPS: tuple[str, ...] = ("verdict", "learning", "run", "ai", "unsafe")
+
+
+def advanced_settings(group: str | None = None) -> tuple[AdvancedSetting, ...]:
+    """Описания контролов вкладки; ``group`` — только один блок (issue #1136)."""
+    if group is None:
+        return ADVANCED_SETTINGS
+    return tuple(item for item in ADVANCED_SETTINGS if item.group == group)
+
+
+def setting_spec(name: str) -> AdvancedSetting:
+    """Описание контрола по имени настройки (issue #1136).
+
+    Raises:
+        ValueError: настройки нет во вкладке.
+    """
+    for item in ADVANCED_SETTINGS:
+        if item.name == name:
+            return item
+    raise ValueError(f"настройка недоступна пользователю: {name}")
+
+
+def coerce_value(name: str, raw: object) -> object:
+    """Привести ввод контрола к типу настройки (issue #1136).
+
+    Поле ввода отдаёт строку, а ``config.validate_values`` проверяет тип —
+    без приведения ``"12"`` было бы отвергнуто как строка там, где ждут число.
+    Пустая строка у ``nullable``-настройки означает ``None`` («без лимита», «не
+    задано»), а не ноль: ноль эти поля не принимают вовсе.
+
+    Raises:
+        ValueError: имя не из вкладки или ввод не разобрался как число —
+            отказ здесь, а не молчаливая подстановка дефолта, иначе опечатка
+            в поле выглядела бы как принятое значение.
+    """
+    spec = setting_spec(name)
+    if not isinstance(raw, str):
+        return raw
+    text = raw.strip()
+    if not text:
+        if spec.nullable:
+            return None
+        raise ValueError(f"{name}: пустое значение недопустимо")
+    if spec.kind == "int":
+        try:
+            return int(text)
+        except ValueError as exc:
+            raise ValueError(f"{name}: ожидается целое число, получено {text!r}") from exc
+    if spec.kind == "float":
+        try:
+            return float(text.replace(",", "."))
+        except ValueError as exc:
+            raise ValueError(f"{name}: ожидается число, получено {text!r}") from exc
+    if spec.kind == "bool":
+        return text.lower() in {"1", "true", "yes", "да", "вкл"}
+    return text

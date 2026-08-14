@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import functools
 import json
 import locale
 import os
@@ -57,6 +58,7 @@ from pathlib import Path
 from typing import Any
 
 from stepik_grader.config import workspace_root
+from stepik_grader.core import settings_resolver
 from stepik_grader.core.user_settings import (
     LaunchChoice,
     ProfileLimitError,
@@ -920,10 +922,18 @@ class LauncherApp:
         for var in (self.port_var, self.sandbox_var, self.workdir_var, self.history_var):
             var.trace_add("write", lambda *_: self._refresh_command_preview())
 
-        frame = ttk.Frame(root, padding=16)
-        frame.grid(row=0, column=0, sticky="nsew")
+        # issue #1136: две вкладки вместо одного экрана. «Запуск» — то, что
+        # выбирают каждый раз; «Дополнительно» — то, что до сих пор правилось
+        # только в pyproject.toml, которого у поставившего через pipx нет вовсе.
+        # Разделение, а не общий список: иначе редкие настройки прогона отжимают
+        # вниз кнопку «Запустить», ради которой окно и открывают.
+        self.notebook = ttk.Notebook(root)
+        self.notebook.grid(row=0, column=0, sticky="nsew")
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
+
+        frame = ttk.Frame(self.notebook, padding=16)
+        self.notebook.add(frame, text=self._t("launcher_tab_run"))
         frame.columnconfigure(1, weight=1)
 
         # Как запустить сервер — явный выбор варианта (issue #661: вместо галки).
@@ -1068,7 +1078,238 @@ class LauncherApp:
         )
         self.status_label.grid(row=13, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
+        self._build_advanced_tab()
+
         self._poll()
+
+    # -- вкладка «Дополнительно» (issue #1136) --------------------------------
+
+    def _build_advanced_tab(self) -> None:
+        """Построить вкладку настроек прогона по описаниям из ядра.
+
+        Контролы не перечислены здесь руками: их состав задаёт
+        ``settings_resolver.ADVANCED_SETTINGS``, и проверить его можно тестом,
+        а не глазами на машине с дисплеем.
+        """
+        from tkinter import ttk
+
+        self.setting_vars: dict[str, Any] = {}
+        self.setting_state_vars: dict[str, Any] = {}
+        self.setting_labels: dict[str, Any] = {}
+        self.setting_hints: dict[str, Any] = {}
+        self.setting_buttons: dict[str, list[Any]] = {}
+        self.setting_widgets: dict[str, Any] = {}
+        self._group_labels: dict[str, Any] = {}
+
+        outer = ttk.Frame(self.notebook, padding=16)
+        self.notebook.add(outer, text=self._t("launcher_tab_advanced"))
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(1, weight=1)
+
+        self.advanced_intro = ttk.Label(
+            outer, text=self._t("settings_intro"), wraplength=520, justify="left"
+        )
+        self.advanced_intro.grid(row=0, column=0, sticky="w", pady=(0, 12))
+
+        # Семнадцать настроек по три строки каждая в окно не помещаются, поэтому
+        # вкладка прокручивается: без этого нижние блоки существовали бы только
+        # для тех, у кого высокий монитор.
+        canvas = self._tk.Canvas(outer, highlightthickness=0, borderwidth=0)
+        canvas.grid(row=1, column=0, sticky="nsew")
+        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        scrollbar.grid(row=1, column=1, sticky="ns")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        body = ttk.Frame(canvas)
+        window = canvas.create_window((0, 0), window=body, anchor="nw")
+        body.bind("<Configure>", lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        body.columnconfigure(1, weight=1)
+
+        row = 0
+        for group in settings_resolver.ADVANCED_GROUPS:
+            items = settings_resolver.advanced_settings(group)
+            if not items:
+                continue
+            heading = ttk.Label(body, text=self._t(f"settings_group_{group}"))
+            heading.grid(row=row, column=0, columnspan=4, sticky="w", pady=(12, 4))
+            self._group_labels[group] = heading
+            row += 1
+            if group == "unsafe":
+                row = self._build_unsafe_gate(body, row)
+            for item in items:
+                row = self._build_setting_row(body, item, row)
+
+    def _build_unsafe_gate(self, body: Any, row: int) -> int:
+        """Предупреждение и галка, открывающая правку квот песочницы (issue #1136)."""
+        from tkinter import ttk
+
+        self.unsafe_warning = ttk.Label(
+            body, text=self._t("settings_unsafe_warning"), wraplength=500, justify="left"
+        )
+        self.unsafe_warning.grid(row=row, column=0, columnspan=4, sticky="w", pady=(0, 4))
+        self.unsafe_var = self._tk.BooleanVar(value=False)
+        self.unsafe_check = ttk.Checkbutton(
+            body,
+            text=self._t("settings_unsafe_unlock"),
+            variable=self.unsafe_var,
+            command=self._on_unsafe_toggled,
+        )
+        self.unsafe_check.grid(row=row + 1, column=0, columnspan=4, sticky="w", pady=(0, 8))
+        return row + 2
+
+    def _build_setting_row(self, body: Any, item: Any, row: int) -> int:
+        """Подпись, контрол, кнопки и строка происхождения одной настройки."""
+        from tkinter import ttk
+
+        name = item.name
+        label = ttk.Label(body, text=self._t(f"setting_{name}"))
+        label.grid(row=row, column=0, sticky="w", pady=(0, 2))
+        self.setting_labels[name] = label
+
+        view = settings_resolver.describe_setting(name)
+        if item.kind == "bool":
+            var: Any = self._tk.BooleanVar(value=bool(view.value))
+            control: Any = ttk.Checkbutton(body, variable=var)
+        elif item.kind == "choice":
+            var = self._tk.StringVar(value=self._setting_display(view.value))
+            control = ttk.Combobox(
+                body, textvariable=var, state="readonly", width=16, values=list(item.choices)
+            )
+        else:
+            var = self._tk.StringVar(value=self._setting_display(view.value))
+            control = ttk.Entry(body, textvariable=var, width=24)
+        control.grid(row=row, column=1, sticky="w", pady=(0, 2))
+        self.setting_vars[name] = var
+        self.setting_widgets[name] = control
+
+        # partial, а не lambda с дефолтным аргументом: замыкание по переменной
+        # цикла отдало бы всем кнопкам последнее имя.
+        apply_btn = ttk.Button(
+            body,
+            text=self._t("settings_apply"),
+            command=functools.partial(self._apply_setting, name),
+        )
+        apply_btn.grid(row=row, column=2, sticky="e", padx=(8, 0))
+        reset_btn = ttk.Button(
+            body,
+            text=self._t("settings_reset"),
+            command=functools.partial(self._reset_setting, name),
+        )
+        reset_btn.grid(row=row, column=3, sticky="e", padx=(8, 0))
+        self.setting_buttons[name] = [apply_btn, reset_btn]
+
+        hint_text = self._t(f"setting_{name}_hint")
+        if item.nullable:
+            hint_text = f"{hint_text} ({self._t('settings_empty_means_none')})"
+        hint = ttk.Label(body, text=hint_text, wraplength=480, justify="left")
+        hint.grid(row=row + 1, column=0, columnspan=4, sticky="w")
+        self.setting_hints[name] = hint
+
+        state_var = self._tk.StringVar(value="")
+        self.setting_state_vars[name] = state_var
+        state_label = ttk.Label(body, textvariable=state_var, wraplength=480, justify="left")
+        state_label.grid(row=row + 2, column=0, columnspan=4, sticky="w", pady=(0, 10))
+        self._refresh_setting_state(name)
+
+        if item.unsafe:
+            control.config(state="disabled")
+            apply_btn.config(state="disabled")
+        return row + 3
+
+    def _setting_display(self, value: object) -> str:
+        """Значение настройки в поле ввода; ``None`` — пустая строка."""
+        return "" if value is None else str(value)
+
+    def _setting_state_text(self, view: Any) -> str:
+        """Строка «сейчас … (откуда). По умолчанию …» под контролом.
+
+        Происхождение показывается всегда, а не только у изменённого:
+        персистентная настройка липкая, и через месяц её автор не помнит, чей
+        это выбор — его собственный, проекта или дефолт (ADR-0012).
+        """
+        return self._t(
+            "settings_state",
+            value=self._setting_display(view.value) or "—",
+            origin=self._t(f"settings_origin_{view.origin}"),
+            default=self._setting_display(view.default) or "—",
+        )
+
+    def _refresh_setting_state(self, name: str) -> None:
+        """Перечитать настройку из файла и обновить строку под контролом."""
+        view = settings_resolver.describe_setting(name)
+        self.setting_state_vars[name].set(self._setting_state_text(view))
+        self.setting_vars[name].set(
+            bool(view.value)
+            if isinstance(self.setting_vars[name].get(), bool)
+            else self._setting_display(view.value)
+        )
+
+    def _apply_setting(self, name: str) -> None:
+        """Сохранить значение контрола; негодное — отвергнуть словами.
+
+        Проверяет то же ``config.validate_values``, что и ``pyproject.toml``:
+        сохранить негодное значение значило бы показать в окне одно, а прогнать
+        с другим.
+        """
+        try:
+            value = settings_resolver.coerce_value(name, self.setting_vars[name].get())
+            settings_resolver.set_user_run_setting(name, value)
+        except (ValueError, OSError) as exc:
+            self._set_status(self._t("settings_invalid", error=exc), error=True)
+            # Контрол возвращается к тому, что записано: иначе в поле осталось
+            # бы отвергнутое значение, и следующий взгляд принял бы его за
+            # действующее.
+            self._refresh_setting_state(name)
+            return
+        self._refresh_setting_state(name)
+        self._set_status(self._t("settings_saved", name=self._t(f"setting_{name}"), value=value))
+
+    def _reset_setting(self, name: str) -> None:
+        """Убрать пользовательское значение — вернуть унаследованное."""
+        try:
+            settings_resolver.reset_setting(name)
+        except OSError as exc:
+            self._set_status(self._t("settings_invalid", error=exc), error=True)
+            return
+        self._refresh_setting_state(name)
+        view = settings_resolver.describe_setting(name)
+        self._set_status(
+            self._t(
+                "settings_reset_done",
+                name=self._t(f"setting_{name}"),
+                value=self._setting_display(view.value) or "—",
+            )
+        )
+
+    def _on_unsafe_toggled(self) -> None:
+        """Галка подтверждения открывает и закрывает правку квот песочницы."""
+        state = "normal" if self.unsafe_var.get() else "disabled"
+        for item in settings_resolver.advanced_settings("unsafe"):
+            widget = self.setting_widgets[item.name]
+            widget.config(state="readonly" if state == "normal" and item.choices else state)
+            self.setting_buttons[item.name][0].config(state=state)
+
+    def _retranslate_advanced(self) -> None:
+        """Перевести подписи вкладки после смены языка (issue #1135)."""
+        self.notebook.tab(0, text=self._t("launcher_tab_run"))
+        self.notebook.tab(1, text=self._t("launcher_tab_advanced"))
+        self.advanced_intro.config(text=self._t("settings_intro"))
+        self.unsafe_warning.config(text=self._t("settings_unsafe_warning"))
+        self.unsafe_check.config(text=self._t("settings_unsafe_unlock"))
+        for group, label in self._group_labels.items():
+            label.config(text=self._t(f"settings_group_{group}"))
+        for item in settings_resolver.advanced_settings():
+            name = item.name
+            self.setting_labels[name].config(text=self._t(f"setting_{name}"))
+            hint_text = self._t(f"setting_{name}_hint")
+            if item.nullable:
+                hint_text = f"{hint_text} ({self._t('settings_empty_means_none')})"
+            self.setting_hints[name].config(text=hint_text)
+            for button, key in zip(
+                self.setting_buttons[name], ("settings_apply", "settings_reset"), strict=True
+            ):
+                button.config(text=self._t(key))
+            self._refresh_setting_state(name)
 
     def _t(self, key: str, **params: object) -> str:
         """Подпись по ключу каталога; пропавший ключ показывается как есть."""
@@ -1319,6 +1560,7 @@ class LauncherApp:
             ]
         )
         self.history_box.set(self._t("launcher_history_inherit"))
+        self._retranslate_advanced()
         self._refresh_tasks_found()
         self._refresh_command_preview()
 
@@ -1401,13 +1643,26 @@ class LauncherApp:
             self._set_status(self._t("launcher_status_stopped"))
 
     def _set_inputs_enabled(self, enabled: bool) -> None:
-        """Блокировать порт/папку/sandbox во время работы сервера."""
+        """Блокировать порт/папку/sandbox/настройки во время работы сервера."""
         state = "normal" if enabled else "disabled"
         self.port_entry.config(state=state)
         self.workdir_entry.config(state=state)
         self.browse_btn.config(state=state)
         self.radio_simple.config(state=state)
         self.radio_sandbox.config(state=state)
+        # issue #1136: настройки прогона дочерний сервер читает ОДИН раз, на
+        # старте. Оставить их живыми на работающем сервере значило бы принимать
+        # правку, которая ничего не меняет до перезапуска, — та самая тихо не
+        # сработавшая настройка, против которой вкладка и сделана.
+        for item in settings_resolver.advanced_settings():
+            unlocked = enabled and (not item.unsafe or self.unsafe_var.get())
+            control_state = "normal" if unlocked else "disabled"
+            self.setting_widgets[item.name].config(
+                state="readonly" if unlocked and item.choices else control_state
+            )
+            self.setting_buttons[item.name][0].config(state=control_state)
+            self.setting_buttons[item.name][1].config(state="normal" if enabled else "disabled")
+        self.unsafe_check.config(state=state)
 
     def _set_status(self, text: str, *, error: bool = False) -> None:
         """Обновить статус-строку (красный цвет при ошибке)."""
