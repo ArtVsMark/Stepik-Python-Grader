@@ -329,10 +329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
         except (requests.RequestException, ValueError, KeyError) as exc:
-            print(
-                f"Не удалось обойти курс: {type(exc).__name__}: {exc}",
-                file=sys.stderr,
-            )
+            print(f"Обход курса не удался: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 1
 
         if args.limit > 0:
