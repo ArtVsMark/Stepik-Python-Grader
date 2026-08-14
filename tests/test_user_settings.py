@@ -342,6 +342,8 @@ def test_save_settings_writes_every_known_field(tmp_path: Path) -> None:
         ai_hint_consent_endpoint="http://localhost:11434",
         onboarding_seen=True,
         last_launch=user_settings.LaunchChoice(sandbox=True, port=8123),
+        launch_profiles={"с изоляцией": user_settings.LaunchChoice(sandbox=True)},
+        last_profile="с изоляцией",
     )
 
     user_settings.save_settings(settings, path)
@@ -349,6 +351,7 @@ def test_save_settings_writes_every_known_field(tmp_path: Path) -> None:
     written = json.loads(path.read_text(encoding="utf-8"))
     assert set(written) == user_settings.settings_field_names()
     assert written["last_launch"] == {"sandbox": True, "port": 8123}
+    assert written["launch_profiles"] == {"с изоляцией": {"sandbox": True}}
 
 
 def test_concurrent_writers_keep_each_others_keys(
@@ -411,3 +414,126 @@ def test_lock_failure_does_not_block_saving(
     save_fields(path, record_history=True)
 
     assert load_settings(path).record_history is True
+
+
+# ---------------------------------------------------------------------------
+# issue #1133 (шаг 2) — именованные профили запуска
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchProfiles:
+    """Профиль — это выбор, которому дали имя: один контрол вместо пяти."""
+
+    def test_saved_profile_comes_back(self, tmp_path: Path) -> None:
+        path = tmp_path / SETTINGS_FILE_NAME
+        choice = user_settings.LaunchChoice(sandbox=True, port=8123, lang="en")
+
+        user_settings.save_launch_profile(path, "с изоляцией", choice)
+
+        assert user_settings.load_settings(path).launch_profiles == {"с изоляцией": choice}
+
+    def test_same_name_updates_instead_of_duplicating(self, tmp_path: Path) -> None:
+        path = tmp_path / SETTINGS_FILE_NAME
+        user_settings.save_launch_profile(path, "как обычно", user_settings.LaunchChoice(port=8000))
+        user_settings.save_launch_profile(path, "как обычно", user_settings.LaunchChoice(port=9000))
+
+        profiles = user_settings.load_settings(path).launch_profiles
+        assert list(profiles) == ["как обычно"]
+        assert profiles["как обычно"].port == 9000
+
+    def test_profile_does_not_touch_other_keys(self, tmp_path: Path) -> None:
+        """Файл общий с вебом и меню — их ключи профиль не трогает."""
+        path = tmp_path / SETTINGS_FILE_NAME
+        save_fields(path, ai_hint_consent=True, record_history=False)
+
+        user_settings.save_launch_profile(path, "быстрый", user_settings.LaunchChoice(port=8080))
+
+        restored = user_settings.load_settings(path)
+        assert restored.ai_hint_consent is True
+        assert restored.record_history is False
+        assert "быстрый" in restored.launch_profiles
+
+    def test_delete_removes_profile_and_reports_it(self, tmp_path: Path) -> None:
+        path = tmp_path / SETTINGS_FILE_NAME
+        user_settings.save_launch_profile(path, "лишний", user_settings.LaunchChoice(port=8081))
+
+        assert user_settings.delete_launch_profile(path, "лишний") is True
+        assert user_settings.delete_launch_profile(path, "лишний") is False
+        assert user_settings.load_settings(path).launch_profiles == {}
+
+    def test_delete_clears_last_profile_pointing_at_it(self, tmp_path: Path) -> None:
+        """Ссылка на удалённый профиль показывала бы имя, которое ничего не даёт."""
+        path = tmp_path / SETTINGS_FILE_NAME
+        user_settings.save_launch_profile(path, "текущий", user_settings.LaunchChoice(port=8082))
+        save_fields(path, last_profile="текущий")
+
+        user_settings.delete_launch_profile(path, "текущий")
+
+        assert user_settings.load_settings(path).last_profile is None
+
+    def test_delete_keeps_last_profile_pointing_elsewhere(self, tmp_path: Path) -> None:
+        path = tmp_path / SETTINGS_FILE_NAME
+        user_settings.save_launch_profile(path, "первый", user_settings.LaunchChoice(port=8083))
+        user_settings.save_launch_profile(path, "второй", user_settings.LaunchChoice(port=8084))
+        save_fields(path, last_profile="второй")
+
+        user_settings.delete_launch_profile(path, "первый")
+
+        assert user_settings.load_settings(path).last_profile == "второй"
+
+    @pytest.mark.parametrize("name", ["", "   ", "\n", "имя\nс переводом", "x" * 65])
+    def test_bad_names_are_refused(self, tmp_path: Path, name: str) -> None:
+        """Молча подменять имя нельзя: пользователь ищет в списке ровно своё.
+
+        Перевод строки отдельным случаем — им можно подделать соседнюю строку
+        списка, а не только испортить раскладку.
+        """
+        with pytest.raises(ValueError):
+            user_settings.save_launch_profile(
+                tmp_path / SETTINGS_FILE_NAME, name, user_settings.LaunchChoice()
+            )
+
+    def test_limit_is_enforced_for_new_names_only(self, tmp_path: Path) -> None:
+        """Лимит бережёт файл от роста, но не мешает обновлять существующий."""
+        path = tmp_path / SETTINGS_FILE_NAME
+        for index in range(user_settings.MAX_LAUNCH_PROFILES):
+            user_settings.save_launch_profile(
+                path, f"профиль {index}", user_settings.LaunchChoice(port=8000 + index)
+            )
+
+        with pytest.raises(user_settings.ProfileLimitError):
+            user_settings.save_launch_profile(path, "лишний", user_settings.LaunchChoice())
+
+        # Существующий по-прежнему перезаписывается — это «обновить», не «завести».
+        user_settings.save_launch_profile(path, "профиль 0", user_settings.LaunchChoice(port=9999))
+        assert user_settings.load_settings(path).launch_profiles["профиль 0"].port == 9999
+
+    def test_broken_entries_are_dropped_one_by_one(self, tmp_path: Path) -> None:
+        """Один испорченный профиль не уносит соседние."""
+        path = tmp_path / SETTINGS_FILE_NAME
+        path.write_text(
+            json.dumps(
+                {
+                    "launch_profiles": {
+                        "хороший": {"sandbox": True},
+                        "": {"port": 1},
+                        "мусор": "строка вместо объекта",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        profiles = user_settings.load_settings(path).launch_profiles
+
+        assert list(profiles) == ["хороший"]
+
+    def test_last_profile_survives_roundtrip(self, tmp_path: Path) -> None:
+        path = tmp_path / SETTINGS_FILE_NAME
+        save_fields(path, last_profile="как обычно")
+
+        assert user_settings.load_settings(path).last_profile == "как обычно"
+
+    def test_absent_profiles_are_empty_dict_not_none(self, tmp_path: Path) -> None:
+        """«Профилей нет» и «поле не задано» для списка выбора — одно и то же."""
+        assert user_settings.load_settings(tmp_path / SETTINGS_FILE_NAME).launch_profiles == {}
