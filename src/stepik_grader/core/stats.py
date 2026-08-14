@@ -38,7 +38,7 @@ from typing import Any
 
 from stepik_grader.atomic_io import atomic_write_text
 
-__all__ = ["STATS_FILE_NAME", "purge_stats", "read_summary", "record_run"]
+__all__ = ["STATS_FILE_NAME", "purge_stats", "read_summary", "record_run", "stats_path"]
 
 STATS_FILE_NAME = ".grader_stats.jsonl"
 _MAX_BYTES = 1 * 1024 * 1024  # 1 MiB — ротация (оставить новую половину строк)
@@ -56,6 +56,16 @@ _WRITE_LOCK = threading.Lock()
 
 def _default_path() -> pathlib.Path:
     return pathlib.Path.cwd() / STATS_FILE_NAME
+
+
+def stats_path(path: pathlib.Path | None = None) -> pathlib.Path:
+    """Путь к журналу статистики (issue #1005).
+
+    Публичен, потому что о файле приходится ГОВОРИТЬ: сообщение про
+    нечитаемый журнал бесполезно без имени файла, который предлагается
+    удалить, а вызывающему знать про приватный ``_default_path`` незачем.
+    """
+    return path or _default_path()
 
 
 def _rotate_if_needed(path: pathlib.Path) -> None:
@@ -163,6 +173,13 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
     при крэше, ручное редактирование) просто пропускается, не роняя чтение
     остальных строк — тот же принцип graceful degradation, что у
     ``GraderCache._load()``.
+
+    Число пропущенных строк возвращается в ``skipped`` (issue #1005,
+    ``FZZ-5-06``): пропуск сам по себе правильный, но молчаливый. Журнал,
+    испорченный целиком, давал ``total_runs=0`` и сообщение «статистика
+    выключена или ещё не накопилась» — то есть ровно ту причину, которой нет:
+    записи были, их просто не удалось прочитать, и починить это можно было
+    только удалением файла, о котором никто не сказал.
     """
     path = stats_path or _default_path()
     by_mode: dict[int, int] = {}
@@ -170,6 +187,7 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
     verdict_totals: dict[str, int] = {}
     total_runs = 0
     total_time = 0.0
+    skipped = 0
 
     if path.is_file():
         try:
@@ -189,14 +207,20 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
             try:
                 entry = json.loads(stripped)
             except json.JSONDecodeError:
+                skipped += 1
                 continue
             if not isinstance(entry, dict):
+                skipped += 1
                 continue
 
             mode = entry.get("mode")
             if isinstance(mode, int):
                 by_mode[mode] = by_mode.get(mode, 0) + 1
                 total_runs += 1
+            else:
+                # Запись разобралась как JSON, но без режима она в сводку не
+                # попадает ничем — для пользователя это такая же потеря.
+                skipped += 1
 
             os_name = entry.get("os")
             if isinstance(os_name, str):
@@ -218,6 +242,7 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
         "by_os": by_os,
         "verdict_totals": verdict_totals,
         "total_time": total_time,
+        "skipped": skipped,
     }
 
 
