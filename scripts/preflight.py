@@ -53,6 +53,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable, Sequence
 
@@ -108,6 +109,46 @@ class Check:
     blocking: bool = True
 
 
+# issue #1149: сколько ждём САМ запуск `git`. Здоровый спавн укладывается в
+# миллисекунды; порог отличает «подвисло навсегда» от «система под нагрузкой».
+_GIT_LAUNCH_TIMEOUT_S = 20.0
+
+
+def _run_guarded[T](call: Callable[[], T]) -> T | None:
+    """Выполнить ``call`` с дедлайном, покрывающим и ЗАПУСК процесса (issue #1149).
+
+    ``timeout=`` у ``subprocess`` покрывает ожидание уже стартовавшего процесса,
+    а подвиснуть можно раньше — в ``Popen.__init__``, на чтении errpipe после
+    fork/exec. Ровно так гейт и висел на macOS + Python 3.14, пока pytest не
+    снимал прогон по своему таймауту.
+
+    Приём тот же, что в ``core/spawn.py`` (там канон и подробное объяснение), но
+    продублирован намеренно: ``preflight.py`` обязан работать и тогда, когда сам
+    пакет не установлен или сломан — импорт из него превратил бы гейт в
+    заложника проверяемого кода.
+
+    Returns:
+        Результат вызова или ``None``, если он не уложился в дедлайн.
+    """
+    outcome: list[T | BaseException] = []
+
+    def _worker() -> None:
+        try:
+            outcome.append(call())
+        except BaseException as exc:  # переносим в вызывающий поток как есть
+            outcome.append(exc)
+
+    thread = threading.Thread(target=_worker, daemon=True, name="preflight-git")
+    thread.start()
+    thread.join(_GIT_LAUNCH_TIMEOUT_S)
+    if thread.is_alive() or not outcome:
+        return None
+    result = outcome[0]
+    if isinstance(result, BaseException):
+        raise result
+    return result
+
+
 def _git(*args: str) -> str:
     """``git`` в корне репозитория; пустая строка при любой ошибке.
 
@@ -115,8 +156,12 @@ def _git(*args: str) -> str:
     (на Windows это cp1251/cp866), и русские строки диффа приезжают искажёнными
     — сравнение с текстом файла, прочитанным как UTF-8, тихо перестаёт
     совпадать. Гейт при этом не падает, а **врёт**, что записи в CHANGELOG нет.
+
+    Зависший запуск (issue #1149) даёт пустую строку — тот же исход, что у
+    любого другого сбоя ``git``, вместо бесконечного ожидания.
     """
-    try:
+
+    def _call() -> str:
         return subprocess.check_output(
             ["git", *args],
             cwd=_ROOT,
@@ -125,6 +170,9 @@ def _git(*args: str) -> str:
             errors="replace",
             stderr=subprocess.DEVNULL,
         ).strip()
+
+    try:
+        return _run_guarded(_call) or ""
     except (OSError, subprocess.CalledProcessError):
         return ""
 
