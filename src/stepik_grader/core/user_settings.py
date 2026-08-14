@@ -5,10 +5,13 @@
 Отдельный от ``config.py`` слой. ``config.GraderConfig`` — ``frozen=True`` и
 читается ТОЛЬКО из секции ``[tool.stepik-grader]`` в ``pyproject.toml`` (конфиг
 проекта, который pipx-ученик не редактирует). Этот модуль хранит настройки,
-переключаемые прямо из интерактивного меню (например тумблер записи истории,
-issue #430), в файле ``.grader_settings.json`` в рабочей директории — рядом с
-``.grader_history.db``/``.grader_stats.jsonl``, к которым эти настройки и
-относятся.
+переключаемые прямо из интерактивного меню, из браузера и из окна лаунчера
+(например тумблер записи истории, issue #430).
+
+Где лежит файл — решает :func:`default_settings_path`: по умолчанию общий
+``~/.stepik-grader/settings.json`` (тот же скоуп, что у единой базы истории,
+issue #948), но существующий папочный ``.grader_settings.json`` продолжает
+выигрывать, а ``STEPIK_GRADER_SETTINGS`` перекрывает оба.
 
 Приоритет для меню (issue #430): user-state (этот файл) → ``pyproject.toml``
 (``CONFIG.record_history``) → дефолт ``False``. ``record_history is None``
@@ -22,6 +25,7 @@ issue #430), в файле ``.grader_settings.json`` в рабочей дире�
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from dataclasses import fields as dataclass_fields
@@ -33,7 +37,10 @@ from stepik_grader.atomic_io import atomic_write_json, file_lock
 __all__ = [
     "MAX_LAUNCH_PROFILES",
     "MAX_PROFILE_NAME_LEN",
+    "SETTINGS_ENV_VAR",
     "SETTINGS_FILE_NAME",
+    "USER_SETTINGS_DIR",
+    "USER_SETTINGS_FILE",
     "LaunchChoice",
     "ProfileLimitError",
     "UserSettings",
@@ -44,10 +51,20 @@ __all__ = [
     "save_launch_profile",
     "save_settings",
     "settings_field_names",
+    "user_settings_path",
     "valid_profile_name",
 ]
 
 SETTINGS_FILE_NAME = ".grader_settings.json"
+
+# issue #948: общий файл настроек пользователя — в том же каталоге, что и
+# единая база истории (``~/.stepik-grader/``), которой часть этих настроек и
+# управляет. Переменная окружения перекрывает оба пути: ею пользуются тесты
+# (в том числе запускающие грейдер подпроцессом) и тот, кому нужно держать
+# настройки не в домашней папке — по образцу ``STEPIK_GRADER_HISTORY_DB``.
+USER_SETTINGS_DIR = ".stepik-grader"
+USER_SETTINGS_FILE = "settings.json"
+SETTINGS_ENV_VAR = "STEPIK_GRADER_SETTINGS"
 
 
 @dataclass(frozen=True)
@@ -272,20 +289,52 @@ class UserSettings:
     run_settings: dict[str, object] = field(default_factory=dict)
 
 
-def default_settings_path(root: Path | None = None) -> Path:
-    """Путь к файлу настроек внутри корня настроек (issue #430, #984).
+def user_settings_path() -> Path:
+    """Единый файл настроек пользователя — ``~/.stepik-grader/settings.json`` (#948).
 
-    Мирит семантику с ``history_recording.default_history_db_path()``:
-    настройка живёт там же, где база истории, которой она управляет.
+    Тот же каталог, что и у единой базы истории
+    (``history_recording.user_history_db_path``): настройка живёт в одном скоупе
+    с тем, чем управляет.
+    """
+    return Path.home() / USER_SETTINGS_DIR / USER_SETTINGS_FILE
+
+
+def default_settings_path(root: Path | None = None) -> Path:
+    """Путь к файлу настроек (issue #430, #984, #948).
+
+    Порядок: переменная окружения ``STEPIK_GRADER_SETTINGS`` → папочный
+    ``.grader_settings.json`` в корне настроек, **если он уже существует** →
+    общий ``~/.stepik-grader/settings.json``.
 
     ``root`` — корень настроек прогона (``config.workspace_root()``): CLI
     передаёт его явно, чтобы читать тот же файл, что и веб, который якорится на
     ``--root``. Прежде CLI жёстко брал ``cwd``, и один запуск имел два разных
     корня настроек. Параметр, а не импорт ``config``: модуль остаётся
     leaf'ом с единственным ребром на ``atomic_io``, а знание о ``--root``
-    живёт в слое, который его и разбирает. ``None`` — прежнее поведение (cwd).
+    живёт в слое, который его и разбирает.
+
+    issue #948 (ARCH-3-04): докстринг обещал паритет с базой истории, но после
+    #818 база стала единой (``~/.stepik-grader/history.db``), а файл настроек
+    остался папочным — и папочная настройка управляла глобальным файлом.
+    Студент включал запись истории в каталоге одной задачи и считал, что она
+    включена везде; прогоны из соседней папки не попадали в «Прогресс» без
+    единого сообщения. Обратная сторона хуже: явное «выключить» не выключало
+    запись в ту же общую базу из другой папки — это уже вопрос приватности
+    локальных данных.
+
+    Существующий папочный файл продолжает выигрывать, поэтому накопленные
+    раскладки (и `.grader_settings.json` как маркер корня проекта) работают
+    как раньше — тот же приём, что у ``find_existing_history_db`` с легаси-БД.
+    Миграции нет намеренно: перенос файла — решение пользователя, а не побочный
+    эффект обновления.
     """
-    return (root or Path.cwd()) / SETTINGS_FILE_NAME
+    override = os.environ.get(SETTINGS_ENV_VAR)
+    if override:
+        return Path(override)
+    legacy = (root or Path.cwd()) / SETTINGS_FILE_NAME
+    if legacy.is_file():
+        return legacy
+    return user_settings_path()
 
 
 def load_settings(path: Path) -> UserSettings:

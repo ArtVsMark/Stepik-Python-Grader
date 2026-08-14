@@ -25,8 +25,17 @@ from stepik_grader.core.user_settings import (
 )
 
 
-def test_default_settings_path_uses_cwd(tmp_path: Path, monkeypatch) -> None:
+def test_existing_folder_file_wins(tmp_path: Path, monkeypatch) -> None:
+    """Накопленная папочная раскладка продолжает работать (issue #948).
+
+    ``.grader_settings.json`` рядом с задачами — это ещё и маркер корня
+    проекта, поэтому существующий файл остаётся хозяином положения: обновление
+    грейдера не должно уводить настройки из-под ног.
+    """
+    monkeypatch.delenv(user_settings.SETTINGS_ENV_VAR, raising=False)
     monkeypatch.chdir(tmp_path)
+    (tmp_path / user_settings.SETTINGS_FILE_NAME).write_text("{}", encoding="utf-8")
+
     assert user_settings.default_settings_path() == tmp_path / user_settings.SETTINGS_FILE_NAME
 
 
@@ -36,13 +45,61 @@ def test_default_settings_path_follows_given_root(tmp_path: Path, monkeypatch) -
     Прежде CLI жёстко брал ``cwd``, а веб — ``--root``: один запуск имел два
     разных корня настроек, и тумблеры (история, согласие на AI) расходились.
     """
+    monkeypatch.delenv(user_settings.SETTINGS_ENV_VAR, raising=False)
     nested = tmp_path / "task"
     nested.mkdir()
     monkeypatch.chdir(nested)
+    (tmp_path / user_settings.SETTINGS_FILE_NAME).write_text("{}", encoding="utf-8")
 
     assert (
         user_settings.default_settings_path(tmp_path) == tmp_path / user_settings.SETTINGS_FILE_NAME
     )
+
+
+def test_without_folder_file_settings_are_user_wide(tmp_path: Path, monkeypatch) -> None:
+    """Без папочного файла настройки общие — как и база истории (issue #948).
+
+    Тумблер записи истории управляет ГЛОБАЛЬНОЙ ``~/.stepik-grader/history.db``
+    (#818), а сам жил в папке: включил в каталоге одной задачи — из соседней
+    прогоны в «Прогресс» не попадали, и наоборот, выключил в одной — из другой
+    писалось в ту же общую базу.
+    """
+    monkeypatch.delenv(user_settings.SETTINGS_ENV_VAR, raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    assert user_settings.default_settings_path() == user_settings.user_settings_path()
+    assert user_settings.user_settings_path().parent.name == user_settings.USER_SETTINGS_DIR
+
+
+def test_env_var_overrides_both(tmp_path: Path, monkeypatch) -> None:
+    """``STEPIK_GRADER_SETTINGS`` сильнее папочного файла — как у истории (issue #948)."""
+    chosen = tmp_path / "elsewhere" / "settings.json"
+    monkeypatch.setenv(user_settings.SETTINGS_ENV_VAR, str(chosen))
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / user_settings.SETTINGS_FILE_NAME).write_text("{}", encoding="utf-8")
+
+    assert user_settings.default_settings_path() == chosen
+
+
+def test_toggle_in_one_folder_is_seen_from_another(tmp_path: Path, monkeypatch) -> None:
+    """Главный сценарий issue #948: включил в каталоге A — видно из каталога B.
+
+    До фикса запись уходила в ``A/.grader_settings.json``, и из B настройка
+    читалась как «не переопределена»: прогоны молча не писались в общую базу.
+    """
+    home = tmp_path / "home"
+    monkeypatch.delenv(user_settings.SETTINGS_ENV_VAR, raising=False)
+    monkeypatch.setattr(user_settings.Path, "home", staticmethod(lambda: home))
+    folder_a = tmp_path / "course" / "a"
+    folder_b = tmp_path / "course" / "b"
+    folder_a.mkdir(parents=True)
+    folder_b.mkdir(parents=True)
+
+    monkeypatch.chdir(folder_a)
+    save_fields(user_settings.default_settings_path(), record_history=True)
+
+    monkeypatch.chdir(folder_b)
+    assert load_settings(user_settings.default_settings_path()).record_history is True
 
 
 def test_load_absent_returns_defaults(tmp_path: Path) -> None:

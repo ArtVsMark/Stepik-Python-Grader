@@ -180,7 +180,10 @@ class _Handler(_ApiRoutesMixin):
             # директории»), читаем его тут и инжектим в data-onboarding-seen.
             onboarding_seen = (
                 user_settings.load_settings(
-                    self.server.workspace / user_settings.SETTINGS_FILE_NAME
+                    # issue #948: путь резолвится общей функцией — иначе страница
+                    # читала бы папочный файл, когда всё остальное уже перешло на
+                    # общий ~/.stepik-grader/settings.json.
+                    user_settings.default_settings_path(self.server.workspace)
                 ).onboarding_seen
                 is True
             )

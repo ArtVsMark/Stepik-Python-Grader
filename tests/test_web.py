@@ -934,7 +934,7 @@ class TestHttpHandler:
 
         user_settings.save_settings(
             user_settings.UserSettings(onboarding_seen=True),
-            tmp_path / user_settings.SETTINGS_FILE_NAME,
+            user_settings.default_settings_path(tmp_path),
         )
         url = server_factory(tmp_path)
         _, body = _get(url + "/")
@@ -952,7 +952,9 @@ class TestHttpHandler:
         )
         assert status == 200
         assert (
-            user_settings.load_settings(tmp_path / user_settings.SETTINGS_FILE_NAME).onboarding_seen
+            user_settings.load_settings(
+                user_settings.default_settings_path(tmp_path)
+            ).onboarding_seen
             is True
         )
 
@@ -962,7 +964,7 @@ class TestHttpHandler:
         """issue #660: снятая галка «не показывать» (POST false) возвращает авто-показ."""
         from stepik_grader.core import user_settings
 
-        settings_path = tmp_path / user_settings.SETTINGS_FILE_NAME
+        settings_path = user_settings.default_settings_path(tmp_path)
         user_settings.save_settings(user_settings.UserSettings(onboarding_seen=True), settings_path)
         url = server_factory(tmp_path)
         status, _ = _post(
@@ -3455,7 +3457,9 @@ class TestAiHintApi:
         status1, resp1 = _post(server + "/api/v1/hint", first)
         assert status1 == 202
         _poll_run(server, json.loads(resp1)["run_id"])
-        settings_file = tmp_path / ".grader_settings.json"
+        from stepik_grader.core import user_settings
+
+        settings_file = user_settings.default_settings_path(tmp_path)
         assert settings_file.exists()
         assert json.loads(settings_file.read_text(encoding="utf-8"))["ai_hint_consent"] is True
         # Второй запрос БЕЗ поля consent — согласие уже запомнено сервером.

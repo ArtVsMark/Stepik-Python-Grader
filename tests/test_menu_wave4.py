@@ -172,7 +172,7 @@ def test_web_menu_item_respects_explicit_off(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.chdir(tmp_path)
     user_settings.save_settings(
         user_settings.UserSettings(record_history=False),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     called: list[dict] = []
     monkeypatch.setattr(web, "run_server", lambda **k: called.append(k))
@@ -222,13 +222,13 @@ def test_history_toggle_on_persists(tmp_path: Path, monkeypatch, capsys) -> None
     cli._interactive_menu()
     out = capsys.readouterr().out
     assert "enabled" in out
-    settings = user_settings.load_settings(tmp_path / user_settings.SETTINGS_FILE_NAME)
+    settings = user_settings.load_settings(user_settings.default_settings_path(tmp_path))
     assert settings.record_history is True
 
 
 def test_history_toggle_off_persists(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    path = user_settings.default_settings_path(tmp_path)
     user_settings.save_settings(user_settings.UserSettings(record_history=True), path)
     inputs = iter(["7", "0"])
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
@@ -248,7 +248,7 @@ def test_history_toggle_does_not_resurrect_revoked_consent(
     диск весь снапшот, включая ``ai_hint_consent: true``.
     """
     monkeypatch.chdir(tmp_path)
-    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    path = user_settings.default_settings_path(tmp_path)
     path.write_text(
         json.dumps({"ai_hint_consent": True, "ai_hint_consent_endpoint": "http://ai"}),
         encoding="utf-8",
@@ -334,7 +334,7 @@ def test_no_nudge_when_history_on(tmp_path: Path, monkeypatch, capsys) -> None:
     sol = _make_solution(tmp_path)
     user_settings.save_settings(
         user_settings.UserSettings(record_history=True),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     monkeypatch.setattr(cli, "run_tests", lambda *a, **k: _failing_result())
     inputs = iter(["1", str(sol), "0"])
@@ -494,7 +494,7 @@ def test_no_success_nudge_when_history_on(tmp_path: Path, monkeypatch, capsys) -
     sol = _make_solution(tmp_path)
     user_settings.save_settings(
         user_settings.UserSettings(record_history=True),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: False)
     inputs = iter(["1", str(sol), "1", str(sol), "1", str(sol), "0"])
