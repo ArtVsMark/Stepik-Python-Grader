@@ -401,6 +401,18 @@ def _print_ai_limit_notice(limit: int) -> None:
     print(_t("ai_hints_capped", limit=limit))
 
 
+def _print_ai_failure(reason: str) -> None:
+    """Сказать, ПОЧЕМУ подсказки нет (issue #975).
+
+    Ключ причины приходит из ``ai_hints`` (`unauthorized`, `rate_limited`,
+    `bad_request`, `network`…). Незнакомая причина показывается общей строкой:
+    новый код провайдера не должен возвращать канал к молчанию.
+    """
+    known = {"unauthorized", "forbidden", "rate_limited", "bad_request", "network", "server_error"}
+    key = f"ai_error_{reason}" if reason in known else "ai_error_unknown"
+    print(_t(key, reason=reason))
+
+
 def _print_ai_hints(
     rows: Sequence[tuple[pathlib.Path, SolutionResult]], *, lang: str = "ru"
 ) -> None:
@@ -427,11 +439,18 @@ def _print_ai_hints(
                 _print_ai_limit_notice(limit)
                 return
             fc = build_failure_context(case, code=code, lang=lang)
-            hint = ai_hints.explain_failure(fc, config)
+            outcome = ai_hints.explain_failure_detailed(fc, config)
             shown += 1
-            if hint:
+            if outcome.text:
                 header = _t("ai_hint_case_header", solution=solution.name, index=index)
-                print(f"{header}\n{hint}")
+                print(f"{header}\n{outcome.text}")
+            elif outcome.reason:
+                # issue #975: отказ провайдера обязан быть слышен. Молчание
+                # выглядело как «подсказки выключены», и пользователь искал
+                # причину в своих настройках, а не в ответе 401/429. Дальше не
+                # идём: следующий кейс упрётся в тот же отказ.
+                _print_ai_failure(outcome.reason)
+                return
 
 
 def _print_ai_hints_bench(
@@ -458,9 +477,12 @@ def _print_ai_hints_bench(
         code = _read_solution_code(path)
         case = {"verdict": str(data.get("verdict") or "RE"), "error": str(data.get("error", ""))}
         fc = build_failure_context(case, code=code, lang=lang)
-        hint = ai_hints.explain_failure(fc, config)
-        if hint:
-            print(f"\n· {_rel(path, base)}:\n{hint}")
+        outcome = ai_hints.explain_failure_detailed(fc, config)
+        if outcome.text:
+            print(f"\n· {_rel(path, base)}:\n{outcome.text}")
+        elif outcome.reason:
+            _print_ai_failure(outcome.reason)
+            return
 
 
 __all__ = [
