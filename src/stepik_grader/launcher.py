@@ -73,6 +73,8 @@ __all__ = [
     "detect_lang",
     "load_ui_messages",
     "main",
+    "next_free_port",
+    "our_server_on",
     "port_available",
     "resolve_version",
 ]
@@ -351,6 +353,46 @@ def port_available(port: int, *, host: str = DEFAULT_HOST) -> bool:
         except OSError:
             return False
     return True
+
+
+def our_server_on(port: int, *, host: str = DEFAULT_HOST, timeout: float = 1.0) -> bool:
+    """Стоит ли на ``port`` наш собственный веб-интерфейс (issue #1134).
+
+    Занятый порт чаще всего означает не чужую программу, а наш же сервер с
+    прошлого запуска — и тогда правильное действие не «смени порт», а «открой
+    его». Отличаем по маркеру, который страница несёт всегда:
+    ``data-sandbox`` инжектится сервером в HTML (issue #565).
+
+    Любая сетевая ошибка — «не наш»: лаунчер не должен падать из-за пробы, а
+    ошибочное «наш» хуже ошибочного «чужой» (открыли бы чужую страницу).
+    """
+    import http.client
+
+    conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    try:
+        conn.request("GET", "/")
+        response = conn.getresponse()
+        if response.status != 200:
+            return False
+        return b"data-sandbox" in response.read(4096)
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        conn.close()
+
+
+def next_free_port(start: int, *, host: str = DEFAULT_HOST, attempts: int = 20) -> int | None:
+    """Ближайший свободный порт начиная со ``start`` (issue #1134).
+
+    Лаунчер умеет проверять порты — значит на «порт занят» он обязан предлагать
+    конкретный следующий, а не заставлять пользователя угадывать. ``None``, если
+    все ``attempts`` подряд заняты: гадать дальше бессмысленно, там что-то
+    системное.
+    """
+    for candidate in range(start, min(start + attempts, 65536)):
+        if port_available(candidate, host=host):
+            return candidate
+    return None
 
 
 class ServerState(Enum):
@@ -829,7 +871,7 @@ class LauncherApp:
             self._set_status(self._t("launcher_workdir_missing"), error=True)
             return
         if not port_available(port, host=self.controller.host):
-            self._set_status(self._t("launcher_port_busy", port=port), error=True)
+            self._set_status(self._port_busy_hint(port), error=True)
             return
         self.controller.start(
             port,
@@ -838,6 +880,22 @@ class LauncherApp:
             lang=self.lang_var.get(),
             record_history=self.selected_record_history(),
         )
+
+    def _port_busy_hint(self, port: int) -> str:
+        """Что сказать про занятый порт: действие вместо тупика (issue #1134).
+
+        Прежде было «порт занят, выберите другой» — при том что лаунчер умеет
+        проверять порты сам, а чаще всего на этом порту стоит наш же сервер с
+        прошлого запуска, и нужное действие вовсе не «смени порт».
+        """
+        if our_server_on(port, host=self.controller.host):
+            self._last_url = f"http://{self.controller.host}:{port}"
+            self.open_btn.config(state="normal")
+            return self._t("launcher_port_busy_ours", port=port)
+        free = next_free_port(port + 1, host=self.controller.host)
+        if free is None:
+            return self._t("launcher_port_busy", port=port)
+        return self._t("launcher_port_busy_free", port=port, free=free)
 
     def selected_record_history(self) -> bool | None:
         """Выбор по записи истории: ``True``/``False``/``None`` — «унаследовать».

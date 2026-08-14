@@ -876,3 +876,71 @@ class TestDetectLangFallback:
         monkeypatch.setenv("LC_ALL", "ru_RU.UTF-8")
 
         assert launcher.detect_lang() == "en"
+
+
+# ---------------------------------------------------------------------------
+# issue #1134 — занятый порт перестал быть тупиком
+#
+# «Порт занят, выберите другой» — при том что лаунчер умеет проверять порты, а
+# чаще всего на порту стоит наш же сервер с прошлого запуска, и нужное действие
+# не «смени порт», а «открой его».
+# ---------------------------------------------------------------------------
+
+
+class TestNextFreePort:
+    def test_skips_busy_port(self) -> None:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind((DEFAULT_HOST, 0))
+            sock.listen()
+            busy = sock.getsockname()[1]
+
+            assert launcher.next_free_port(busy) != busy
+
+    def test_returns_start_when_free(self) -> None:
+        free = _free_port()
+        assert launcher.next_free_port(free) == free
+
+    def test_none_when_nothing_free_in_window(self, monkeypatch) -> None:
+        """Все кандидаты заняты — гадать дальше бессмысленно, там системное."""
+        monkeypatch.setattr(launcher, "port_available", lambda *a, **kw: False)
+
+        assert launcher.next_free_port(9000, attempts=3) is None
+
+
+class TestOurServerOn:
+    def test_false_for_closed_port(self) -> None:
+        """Сетевая ошибка — «не наш»: проба не должна ронять лаунчер."""
+        assert launcher.our_server_on(_free_port(), timeout=0.2) is False
+
+    def test_false_for_foreign_listener(self) -> None:
+        """Чужой слушатель на порту нашим сервером не считается."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind((DEFAULT_HOST, 0))
+            sock.listen()
+            port = sock.getsockname()[1]
+
+            assert launcher.our_server_on(port, timeout=0.3) is False
+
+    def test_true_when_page_carries_our_marker(self) -> None:
+        """Наш сервер узнаётся по маркеру, который страница несёт всегда."""
+        import threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        class _Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # имя задано базовым классом BaseHTTPRequestHandler
+                body = b'<body data-sandbox="false" data-record-history="true">'
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args: object) -> None:
+                pass
+
+        httpd = HTTPServer((DEFAULT_HOST, 0), _Handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            assert launcher.our_server_on(httpd.server_address[1], timeout=2.0) is True
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
