@@ -28,7 +28,7 @@ from dataclasses import fields as dataclass_fields
 from pathlib import Path
 from typing import Any
 
-from stepik_grader.atomic_io import atomic_write_json
+from stepik_grader.atomic_io import atomic_write_json, file_lock
 
 __all__ = [
     "SETTINGS_FILE_NAME",
@@ -266,13 +266,17 @@ def save_fields(path: Path, **fields: object) -> None:
     unknown = set(fields) - settings_field_names()
     if unknown:
         raise ValueError(f"неизвестные поля настроек: {sorted(unknown)}")
-    data = _read_raw(path)
-    for name, value in fields.items():
-        if value is None:
-            data.pop(name, None)
-        else:
-            data[name] = _to_json(value)
-    atomic_write_json(path, data, fsync=False)
+    # issue #1136 (LNCH-3-06): read-modify-write целиком под блокировкой —
+    # иначе соседний писатель (веб против лаунчера, меню против веба) успевает
+    # прочитать то же состояние и вернуть на диск версию без чужого ключа.
+    with file_lock(path):
+        data = _read_raw(path)
+        for name, value in fields.items():
+            if value is None:
+                data.pop(name, None)
+            else:
+                data[name] = _to_json(value)
+        atomic_write_json(path, data, fsync=False)
 
 
 def save_settings(settings: UserSettings, path: Path) -> None:
@@ -290,13 +294,21 @@ def save_settings(settings: UserSettings, path: Path) -> None:
     уникальный ``mkstemp``; ``fsync=False`` — настройки редки и не критичны,
     достаточно атомарности замены.
     """
+    with file_lock(path):
+        _save_settings_locked(settings, path)
+
+
+def _save_settings_locked(settings: UserSettings, path: Path) -> None:
+    """Тело :func:`save_settings` под уже взятой блокировкой (issue #1136).
+
+    Поля берутся из общего списка (issue #1005/``LNCH-3-05``), а не
+    перечисляются здесь руками. Ручное перечисление и было тем самым дефектом:
+    ``last_launch`` добавили в модель, чтение и ``save_fields`` — а сюда
+    забыли, и снапшот молча терял память окна лаунчера.
+    """
     payload: dict[str, object] = _read_raw(path)
-    if settings.record_history is not None:
-        payload["record_history"] = settings.record_history
-    if settings.ai_hint_consent is not None:
-        payload["ai_hint_consent"] = settings.ai_hint_consent
-    if settings.ai_hint_consent_endpoint is not None:
-        payload["ai_hint_consent_endpoint"] = settings.ai_hint_consent_endpoint
-    if settings.onboarding_seen is not None:
-        payload["onboarding_seen"] = settings.onboarding_seen
+    for name in settings_field_names():
+        value = getattr(settings, name)
+        if value is not None:
+            payload[name] = _to_json(value)
     atomic_write_json(path, payload, fsync=False)

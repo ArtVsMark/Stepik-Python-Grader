@@ -8,10 +8,13 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from pathlib import Path
 
 import pytest
 
+from stepik_grader import atomic_io
 from stepik_grader.core import user_settings
 from stepik_grader.core.user_settings import (
     SETTINGS_FILE_NAME,
@@ -318,3 +321,93 @@ def test_launch_choice_ignores_wrong_types_field_by_field(tmp_path: Path) -> Non
     assert restored.port is None  # bool портом не считается
     assert restored.lang is None
     assert restored.workdir is None
+
+
+# ---------------------------------------------------------------------------
+# issue #1136 (LNCH-3-06) — два писателя одного файла не теряют чужие ключи
+# ---------------------------------------------------------------------------
+
+
+def test_save_settings_writes_every_known_field(tmp_path: Path) -> None:
+    """Снапшот сохраняет ВСЕ поля модели, а не те, что вспомнили руками.
+
+    `last_launch` появился в модели, в чтении и в `save_fields`, но в
+    `save_settings` его забыли — память окна лаунчера молча не доезжала до
+    диска. Ровно тот дефект, о котором предупреждала находка LNCH-3-05.
+    """
+    path = tmp_path / ".grader_settings.json"
+    settings = UserSettings(
+        record_history=True,
+        ai_hint_consent=True,
+        ai_hint_consent_endpoint="http://localhost:11434",
+        onboarding_seen=True,
+        last_launch=user_settings.LaunchChoice(sandbox=True, port=8123),
+    )
+
+    user_settings.save_settings(settings, path)
+
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert set(written) == user_settings.settings_field_names()
+    assert written["last_launch"] == {"sandbox": True, "port": 8123}
+
+
+def test_concurrent_writers_keep_each_others_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Веб и лаунчер пишут один файл — ключи обоих остаются на месте.
+
+    Атомарная запись спасает от усечённого файла, но не от потерянного
+    обновления: цикл «прочитать всё → заменить одно поле → записать всё» у двух
+    писателей пересекается.
+
+    Окно гонки расширено намеренно — паузой после чтения, — иначе тест зависел
+    бы от планировщика: вживую он ронял чужой ключ примерно в каждом десятом
+    прогоне, то есть «зелёный» ничего не доказывал бы. С паузой без блокировки
+    потеря гарантирована, а с блокировкой второй писатель ждёт освобождения и
+    читает уже обновлённое состояние.
+    """
+    path = tmp_path / ".grader_settings.json"
+    save_fields(path, onboarding_seen=True)
+    real_read_raw = user_settings._read_raw
+
+    def slow_read_raw(target: Path) -> dict[str, object]:
+        data = real_read_raw(target)
+        time.sleep(0.2)
+        return data
+
+    monkeypatch.setattr(user_settings, "_read_raw", slow_read_raw)
+    barrier = threading.Barrier(2)
+
+    def writer(field: str, value: object) -> None:
+        barrier.wait()
+        save_fields(path, **{field: value})
+
+    threads = [
+        threading.Thread(target=writer, args=("record_history", False)),
+        threading.Thread(target=writer, args=("ai_hint_consent", True)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    restored = load_settings(path)
+    assert restored.onboarding_seen is True, "ключ, записанный до гонки, затёрт"
+    assert restored.record_history is False, "запись первого писателя потеряна"
+    assert restored.ai_hint_consent is True, "запись второго писателя потеряна"
+
+
+def test_lock_failure_does_not_block_saving(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Блокировка недоступна — запись всё равно идёт (best-effort).
+
+    Отказать в сохранении было бы хуже потерянного обновления: пользователь
+    решил бы, что настройка не работает вовсе.
+    """
+    path = tmp_path / ".grader_settings.json"
+    monkeypatch.setattr(atomic_io, "_try_acquire", lambda _fd: False)
+
+    save_fields(path, record_history=True)
+
+    assert load_settings(path).record_history is True
