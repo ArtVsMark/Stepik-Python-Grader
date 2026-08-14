@@ -536,6 +536,7 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | Дерево файлов | [docs/dev/project-structure.md](docs/dev/project-structure.md) |
 | Версии, отличия от оригинала | [docs/use/versions.md](docs/use/versions.md) |
 | Политика версионирования, код-стайл, workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| **Безопасность: threat model, куда уходят данные, гарантии `--sandbox` по ОС** | [SECURITY.md](SECURITY.md) |
 | Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Режим ответов: полный шаблон 18 ролей, критерий приёмки новой роли | [docs/agent/roles.md](docs/agent/roles.md) |
 | Веб: разделы интерфейса / контракты веб-слоя / HTTP API / замыслы | [docs/use/web-interface.md](docs/use/web-interface.md), [docs/dev/web-contracts.md](docs/dev/web-contracts.md), [docs/dev/api.md](docs/dev/api.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md) |
