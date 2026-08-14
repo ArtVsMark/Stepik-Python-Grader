@@ -638,11 +638,25 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     после «✗ Test 7: WA», — на каких данных сломалось, а раньше за этим
     приходилось уходить из терминала в ``tests/`` и сопоставлять нумерацию
     вручную. Все три значения и diff обрезаются (DESC-02).
+
+    issue #965 (MET-1-01): обещание докстринга держалось только для WA. Ветка
+    ``error`` печатала ``[ERROR]`` и делала ``return``, поэтому при RE и TLE —
+    там, где «на каких данных сломалось» нужнее всего, — вход не показывался
+    вовсе. Теперь он печатается ДО разбора причины, то есть при любом провале.
+    Для TLE добавлены ``Expected``/``Actual``: решение не уложилось в лимит, и
+    видно, чего от него ждали и что оно успело напечатать. Для RE после текста
+    ошибки печать заканчивается: ``output`` там пуст по построению
+    (``grader_core._fail_result``), а diff не строился.
     """
     result = TestResult.from_dict(r)
     icon = "✓" if result.passed else "✗"
     color = "green" if result.passed else "red"
     _cprint(f"  {icon} Test {case.index}: {result.verdict}", style=color)
+    if result.passed:
+        return
+
+    stdin = " | ".join(case.input_lines) or "(empty)"
+    _cprint(f"    Input:    {_clip_value(stdin)}", style="dim")
 
     if result.error:
         # issue #981: текст ошибки — это stderr решения целиком
@@ -658,15 +672,12 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
         entry = resolve_error_hint(result.error)
         if entry is not None:
             _cprint(f"    💡 {entry.exception}: {entry.hint}", style="yellow")
-        return
-    if result.passed:
-        return
+        if result.verdict != "TLE":
+            return
 
-    # WA: вход кейса + компактное сравнение expected vs actual + diff.
-    stdin = " | ".join(case.input_lines) or "(empty)"
+    # WA (и TLE): компактное сравнение expected vs actual + diff, если он есть.
     expected = " | ".join(result.expected) or "(empty)"
     actual = " | ".join(result.output) or "(empty)"
-    _cprint(f"    Input:    {_clip_value(stdin)}", style="dim")
     _cprint(f"    Expected: {_clip_value(expected)}")
     _cprint(f"    Actual:   {_clip_value(actual)}")
     if result.diff:
