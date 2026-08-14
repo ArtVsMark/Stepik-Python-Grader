@@ -3222,6 +3222,144 @@ class TestAiHintApi:
 
     _HINT = "🤖 AI-подсказка: попробуй прибавить 1"
 
+    # ------------------------------------------------------------------
+    # issue #931 — согласие привязано к получателю, как в CLI
+    # ------------------------------------------------------------------
+
+    def test_consent_is_bound_to_the_recipient(self, server, monkeypatch) -> None:
+        """Согласие дано адресу A → при адресе B снова 403, код не уходит.
+
+        Инвариант #812 в CLI соблюдался, а веб читал один флаг и игнорировал
+        `ai_hint_consent_endpoint`: согласие, данное локальному ollama, молча
+        распространялось на любой адрес, попавший в конфиг позже. А конфиг
+        приезжает вместе с чужой папкой задач.
+
+        Получатель подменяется в адаптере, а не через `override_config`: в
+        наборе живут ДВА экземпляра модуля `config` (после теста переимпорта),
+        и переопределение попадало не в тот, который видит сервер, — тест
+        проходил в одиночку и падал в полном прогоне. Что адрес читается из
+        конфига, проверяет отдельный тест ниже.
+        """
+        from stepik_grader.web import settings_adapter
+
+        called: list[int] = []
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: called.append(1) or AiHintOutcome(text=self._HINT, reason=None),
+        )
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        body = json.dumps(
+            {"verdict": "WA", "actual": "6", "expected": "5", "consent": True}
+        ).encode()
+
+        monkeypatch.setattr(
+            settings_adapter, "ai_consent_recipient", lambda: "http://localhost:11434"
+        )
+        status, _ = _post(server + "/api/v1/hint", body)
+        assert status == 202, "согласие получателю A не принято"
+
+        # Пользователь сменил провайдера в конфиге.
+        monkeypatch.setattr(settings_adapter, "ai_consent_recipient", lambda: "https://third-party")
+        no_consent = json.dumps({"verdict": "WA", "actual": "6", "expected": "5"}).encode()
+        status, resp = _post(server + "/api/v1/hint", no_consent)
+
+        assert status == 403
+        assert json.loads(resp)["message_id"] == "consent_required"
+        assert len(called) == 1, "код ушёл новому получателю без согласия"
+
+    def test_consent_for_new_recipient_can_be_granted(self, server, monkeypatch) -> None:
+        """Повторный вопрос закрывается обычным consent:true — тупика нет."""
+        from stepik_grader.web import settings_adapter
+
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        body = json.dumps(
+            {"verdict": "WA", "actual": "6", "expected": "5", "consent": True}
+        ).encode()
+
+        monkeypatch.setattr(
+            settings_adapter, "ai_consent_recipient", lambda: "http://localhost:11434"
+        )
+        _post(server + "/api/v1/hint", body)
+        monkeypatch.setattr(settings_adapter, "ai_consent_recipient", lambda: "https://another")
+        status, _ = _post(server + "/api/v1/hint", body)
+
+        assert status == 202
+
+    def test_recipient_comes_from_the_configured_provider(self, monkeypatch) -> None:
+        """`ai_consent_recipient` — это адрес провайдера без пути (issue #812).
+
+        Путь отбрасывается: согласие даётся серверу, а не маршруту на нём.
+        """
+        from stepik_grader.web import settings_adapter
+
+        monkeypatch.setattr(
+            settings_adapter,
+            "get_config",
+            lambda: type("C", (), {"ai_base_url": "http://localhost:11434/v1"})(),
+        )
+
+        assert settings_adapter.ai_consent_recipient() == "http://localhost:11434"
+
+    # ------------------------------------------------------------------
+    # issue #933 — согласие отзывается из интерфейса, а не только из терминала
+    # ------------------------------------------------------------------
+
+    def test_consent_can_be_revoked_through_settings(self, server, monkeypatch) -> None:
+        """Отозвали в вебе → следующая подсказка снова спрашивает.
+
+        Отозвать согласие можно было только командой CLI и только в текущей
+        папке: согласие, которое нельзя отозвать там, где ты находишься,
+        согласием не является.
+        """
+        from stepik_grader.web import settings_adapter
+
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        monkeypatch.setattr(
+            settings_adapter, "ai_consent_recipient", lambda: "http://localhost:11434"
+        )
+        granted = json.dumps(
+            {"verdict": "WA", "actual": "6", "expected": "5", "consent": True}
+        ).encode()
+
+        assert _post(server + "/api/v1/hint", granted)[0] == 202
+
+        status, resp = _post(
+            server + "/api/v1/settings", json.dumps({"ai_hint_consent": False}).encode()
+        )
+        assert status == 200
+        assert json.loads(resp)["ai_consent"] is False
+
+        without = json.dumps({"verdict": "WA", "actual": "6", "expected": "5"}).encode()
+        status, resp = _post(server + "/api/v1/hint", without)
+
+        assert status == 403
+        assert json.loads(resp)["message_id"] == "consent_required"
+
+    def test_settings_endpoint_does_not_grant_consent(self, server) -> None:
+        """Дать согласие через настройки нельзя — только отозвать.
+
+        Выдача идёт своим путём, где рядом показано, кому уйдут данные, и
+        привязывается к получателю; «включить» в общем списке настроек обошло
+        бы и то, и другое.
+        """
+        status, resp = _post(
+            server + "/api/v1/settings", json.dumps({"ai_hint_consent": True}).encode()
+        )
+
+        assert status == 200
+        assert json.loads(resp)["ai_consent"] is False
+
     def test_hint_requires_consent_nothing_sent(self, server, monkeypatch) -> None:
         """Без согласия → 403 consent_required; провайдер НЕ вызывается (в сеть 0)."""
         called: list[int] = []

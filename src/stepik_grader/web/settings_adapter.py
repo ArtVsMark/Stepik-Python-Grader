@@ -16,6 +16,8 @@ from __future__ import annotations
 import contextlib
 import pathlib
 
+from stepik_grader.config import get_config
+from stepik_grader.core.ai_hints import consent_endpoint
 from stepik_grader.core.user_settings import (
     SETTINGS_FILE_NAME,
     UserSettings,
@@ -23,7 +25,14 @@ from stepik_grader.core.user_settings import (
     save_fields,
 )
 
-__all__ = ["read_settings", "set_flag"]
+__all__ = [
+    "ai_consent_recipient",
+    "grant_ai_consent",
+    "has_ai_consent",
+    "read_settings",
+    "revoke_ai_consent",
+    "set_flag",
+]
 
 
 def _path_for(workspace: pathlib.Path) -> pathlib.Path:
@@ -50,3 +59,68 @@ def set_flag(workspace: pathlib.Path, name: str, value: bool) -> UserSettings:
             # то, что параллельно переключили в интерактивном меню.
             save_fields(_path_for(workspace), **{name: value})
     return settings
+
+
+def ai_consent_recipient() -> str:
+    """Кому сейчас уйдут данные — ``scheme://host[:port]`` или пусто (issue #931).
+
+    Адрес берётся из активного конфига ЗДЕСЬ, а не в роутере: слой маршрутов
+    ходит только в адаптеры и viewmodels (ADR-0010), и импорт ``core``/``config``
+    в него нарушил бы это правило — гейт `test_router_reaches_core_only_through_adapters`
+    поймал ровно такую попытку.
+    """
+    return consent_endpoint(get_config().ai_base_url)
+
+
+def has_ai_consent(workspace: pathlib.Path, endpoint: str | None = None) -> bool:
+    """Дано ли согласие на отправку кода ИМЕННО ЭТОМУ получателю (issue #931).
+
+    Веб проверял только факт согласия, игнорируя ``ai_hint_consent_endpoint``,
+    который CLI сверяет строго. Значит согласие, данное локальному ollama,
+    молча распространялось на любой адрес, попавший в конфиг позже, — а конфиг
+    приезжает вместе с чужой папкой задач. Документация при этом обещает
+    «сменился получатель — спросят заново», и в CLI это работало.
+
+    Пустой ``endpoint`` — адрес провайдера неизвестен (не задан в конфиге):
+    привязывать не к чему, поэтому решает один флаг, как до issue #812.
+    Ужесточать здесь нельзя — иначе согласие стало бы невозможно ни дать, ни
+    проверить там, где адрес не объявлен, а данные всё равно могут уйти через
+    настроенный иным способом канал.
+    """
+    recipient = ai_consent_recipient() if endpoint is None else endpoint
+    settings = read_settings(workspace)
+    if settings.ai_hint_consent is not True:
+        return False
+    if not recipient:
+        return True
+    return settings.ai_hint_consent_endpoint == recipient
+
+
+def grant_ai_consent(workspace: pathlib.Path, endpoint: str | None = None) -> bool:
+    """Зафиксировать согласие для конкретного получателя; ``False`` — некому.
+
+    Пишутся ОБА поля, когда получатель известен: флаг без адреса — это прежнее
+    глобальное согласие, которое #812 и убирал. Если адрес не объявлен,
+    записывается только флаг: сохранять пустую строку как «получателя» значило
+    бы позже сверять согласие с несуществующим адресом.
+    """
+    recipient = ai_consent_recipient() if endpoint is None else endpoint
+    fields: dict[str, object] = {"ai_hint_consent": True}
+    if recipient:
+        fields["ai_hint_consent_endpoint"] = recipient
+    with contextlib.suppress(OSError):
+        save_fields(_path_for(workspace), **fields)
+    return True
+
+
+def revoke_ai_consent(workspace: pathlib.Path) -> bool:
+    """Отозвать согласие; ``True`` — оно было (issue #933).
+
+    Стираются оба ключа: оставшийся ``ai_hint_consent_endpoint`` без флага
+    выглядел бы как «согласие на этот адрес», и следующая проверка совпадения
+    получателя читала бы след отозванного решения.
+    """
+    had = read_settings(workspace).ai_hint_consent is True
+    with contextlib.suppress(OSError):
+        save_fields(_path_for(workspace), ai_hint_consent=None, ai_hint_consent_endpoint=None)
+    return had

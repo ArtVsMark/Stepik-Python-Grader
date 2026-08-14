@@ -29,7 +29,6 @@ import pathlib
 import sys
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
-from urllib.parse import urlparse
 
 from stepik_grader import config, rules
 from stepik_grader.cli.context import CliContext
@@ -258,17 +257,6 @@ def _print_lint_blocks(
         print_lint_block(violations, rules_provider=provider, labels=labels)
 
 
-def consent_endpoint(base_url: str | None) -> str:
-    """Получатель согласия — ``scheme://host[:port]`` без пути (issue #812).
-
-    Путь (``/v1``) отбрасывается: согласие даётся серверу, а не конкретному
-    маршруту на нём, иначе смена ``/v1`` на ``/v1beta`` спрашивала бы заново без
-    всякой пользы. Порт же значим — на другом порту другой сервис.
-    """
-    parsed = urlparse((base_url or "").strip())
-    return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
-
-
 def _ensure_ai_consent(base_url: str | None = None) -> bool:
     """Явное согласие на отправку кода ЭТОМУ AI-провайдеру (issue #630/#812).
 
@@ -294,7 +282,7 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
     """
     settings_path = user_settings.default_settings_path(config.workspace_root())
     settings = user_settings.load_settings(settings_path)
-    endpoint = consent_endpoint(base_url)
+    endpoint = ai_hints.consent_endpoint(base_url)
     if settings.ai_hint_consent is True and settings.ai_hint_consent_endpoint == endpoint:
         return True
 

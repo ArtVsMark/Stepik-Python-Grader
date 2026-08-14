@@ -649,9 +649,13 @@ function _requestAiConsent() {
   });
 }
 
-// POST /api/v1/hint + опрос /api/v1/runs/<id>. Возвращает {hint, configured} |
-// null (сеть/ошибка/таймаут). consent:true шлём всегда, когда дошли сюда —
-// сервер идемпотентно фиксирует согласие (403 без него — страховка).
+// POST /api/v1/hint + опрос /api/v1/runs/<id>. Возвращает {hint, configured},
+// {consentRequired: true} либо null (сеть/ошибка/таймаут).
+//
+// issue #931: 403 больше не сваливается в общую «ошибку». Согласие привязано к
+// получателю, и сервер отвечает 403, когда адрес провайдера сменился с того, на
+// который согласие давали. Для пользователя это не сбой, а вопрос, который
+// нужно задать заново — иначе он видит «не удалось» и не понимает, почему.
 async function _submitHint(payload) {
   let runId;
   try {
@@ -660,6 +664,7 @@ async function _submitHint(payload) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (resp.status === 403) return { consentRequired: true };
     if (resp.status !== 202) return null;
     runId = (await resp.json()).run_id;
   } catch {
@@ -690,7 +695,20 @@ async function explainFailureWithAi(payload, outEl) {
   }
   outEl.hidden = false;
   outEl.innerHTML = '<p class="msg-neutral">' + esc(t("ai.hint_loading")) + "</p>";
-  const res = await _submitHint({ ...payload, consent: true, lang: state.lang });
+  let res = await _submitHint({ ...payload, consent: true, lang: state.lang });
+  // issue #931: получатель сменился — спрашиваем заново, ровно один раз.
+  // Локальный флаг сбрасываем: он помнил согласие на ПРЕЖНИЙ адрес и иначе
+  // молчал бы при каждом следующем запросе.
+  if (res && res.consentRequired) {
+    localStorage.removeItem(_AI_CONSENT_KEY);
+    const again = await _requestAiConsent();
+    if (!again) {
+      outEl.hidden = true;
+      return;
+    }
+    res = await _submitHint({ ...payload, consent: true, lang: state.lang });
+    if (res && res.consentRequired) res = null;
+  }
   if (!res) {
     outEl.innerHTML = '<p class="msg">' + esc(t("ai.hint_error")) + "</p>";
     return;

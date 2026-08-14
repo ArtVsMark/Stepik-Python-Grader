@@ -38,7 +38,13 @@ from stepik_grader.web.i18n import message_fields
 from stepik_grader.web.insights_adapter import insights_cards, progress_report
 from stepik_grader.web.reference_adapter import import_reference
 from stepik_grader.web.rules_adapter import rules_get, rules_search
-from stepik_grader.web.settings_adapter import read_settings, set_flag
+from stepik_grader.web.settings_adapter import (
+    grant_ai_consent,
+    has_ai_consent,
+    read_settings,
+    revoke_ai_consent,
+    set_flag,
+)
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
@@ -751,12 +757,18 @@ class _ApiRoutesMixin(_GuardMixin):
         """POST /api/v1/settings (issue #660) — write-through UI-настроек в
         ``.grader_settings.json``.
 
-        Тело: ``{"onboarding_seen"?: bool}`` → ``200 {"ok": true}``. Пишутся только
-        явно переданные bool-поля. Клиент шлёт ``true`` при закрытии стартового
-        экрана с отмеченной галкой «не показывать» (чтобы он не всплывал снова) и
-        ``false``, если галку сняли (вернуть авто-показ при следующем запуске).
-        ``ai_hint_consent`` идёт своим consent-путём (``/api/v1/hint``), а не сюда —
-        у него отдельная приватностная семантика.
+        Тело: ``{"onboarding_seen"?: bool, "ai_hint_consent"?: false}`` →
+        ``200 {"ok": true, "ai_consent": bool}``. Пишутся только явно переданные
+        поля. Клиент шлёт ``onboarding_seen: true`` при закрытии стартового
+        экрана с отмеченной галкой «не показывать» и ``false``, если галку сняли.
+
+        ``ai_hint_consent`` принимается ТОЛЬКО как ``false`` — отзыв (issue
+        #933). Дать согласие здесь нельзя: выдача идёт своим путём
+        (``/api/v1/hint``), где рядом показано, кому именно уйдут данные, и
+        привязывается к получателю. Отзыв же обязан быть доступен оттуда, где
+        пользователь находится: до этого отозвать согласие можно было только
+        командой в терминале и только в текущей папке — согласие, которое
+        нельзя отозвать привычным способом, согласием не является.
         """
         res = self._guard_and_read_body(parsed)
         if res is None:
@@ -765,7 +777,14 @@ class _ApiRoutesMixin(_GuardMixin):
         value = body.get("onboarding_seen")
         if isinstance(value, bool):
             set_flag(self.server.workspace, "onboarding_seen", value)
-        self._send(200, "application/json; charset=utf-8", _json({"ok": True}))
+        if body.get("ai_hint_consent") is False:
+            revoke_ai_consent(self.server.workspace)
+        settings = read_settings(self.server.workspace)
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"ok": True, "ai_consent": settings.ai_hint_consent is True}),
+        )
 
     def _handle_stepik_submit(self, parsed: Any) -> None:
         """POST /api/stepik/submit (issue #683) — отправить решение режима 1 на Stepik.
@@ -851,10 +870,15 @@ class _ApiRoutesMixin(_GuardMixin):
         lang, body = res
 
         # Consent-гейт — синхронно, ДО любого обращения к провайдеру (приватность).
-        granted = read_settings(self.server.workspace).ai_hint_consent is True
+        #
+        # issue #931: согласие сверяется С ПОЛУЧАТЕЛЕМ, а не только по факту.
+        # Прежде веб читал один флаг и игнорировал `ai_hint_consent_endpoint`,
+        # который CLI сверяет строго, — согласие, данное локальному ollama,
+        # молча распространялось на любой адрес, попавший в конфиг позже. А
+        # конфиг приезжает вместе с чужой папкой задач.
+        granted = has_ai_consent(self.server.workspace)
         if body.get("consent") is True and not granted:
-            set_flag(self.server.workspace, "ai_hint_consent", True)
-            granted = True
+            granted = grant_ai_consent(self.server.workspace)
         if not granted:
             self._send(
                 403,
