@@ -85,7 +85,7 @@ from stepik_grader.core.test_source_fetcher import (
 from stepik_grader.core.test_source_fetcher import (
     download_zip_tests as _download_zip_tests,
 )
-from stepik_grader.core.tests_writer import save_tests
+from stepik_grader.core.tests_writer import backup_dir_for, reset_tests_dir, save_tests
 from stepik_grader.downloader_config import (
     DEFAULT_ROOT_DIR,  # noqa: F401 — back-compat реэкспорт
     STEPIK_OAUTH_APPS_URL,
@@ -198,6 +198,20 @@ def _is_blank_or_missing(path: pathlib.Path) -> bool:
         return not path.read_bytes().strip()
     except OSError:
         return False
+
+
+def _report_tests_backup(tests_dir: pathlib.Path) -> None:
+    """Освободить ``tests/`` под новый набор и сказать, что спасено (issue #951).
+
+    ``reset_tests_dir`` переносит прежнее содержимое в ``tests.bak/`` вместо
+    удаления, но молчащий перенос ничем не лучше молчащего удаления: студент
+    видит, что его контрпримеров в ``tests/`` больше нет, и не знает, что они
+    рядом. Число берётся из возврата функции — повторный сброс внутри
+    ``save_tests`` найдёт каталог уже пустым и вернёт 0.
+    """
+    moved = reset_tests_dir(tests_dir)
+    if moved:
+        _print(_t("dl_tests_backed_up", count=moved, path=backup_dir_for(tests_dir)))
 
 
 def _warn_if_stale_tests(task_dir: pathlib.Path) -> None:
@@ -350,6 +364,11 @@ def save_task_files(
     # 2. HTML-таблица
     tests = extract_tests_from_html(text)
     if tests:
+        # issue #951: очистка каталога уносит и дописанные вручную кейсы. Отсюда
+        # копия в tests.bak/ — и строка о ней: спасённое, о котором не сказали,
+        # для пользователя неотличимо от потерянного. Повторный сброс внутри
+        # save_tests найдёт каталог уже пустым и ничего не сделает.
+        _report_tests_backup(task_dir / "tests")
         count = save_tests(task_dir, tests)
         _print(_t("dl_table_extracted", count=count))
         return count, "html_table"

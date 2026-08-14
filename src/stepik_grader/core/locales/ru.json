@@ -126,6 +126,7 @@
   "dl_step_url_prompt": "URL шага",
   "dl_submissions_saved": "  📝 История отправок: {count} шт. → {path}",
   "dl_table_extracted": "  📋 Извлечено тестов из таблицы: {count}",
+  "dl_tests_backed_up": "  🗂 Прежнее содержимое tests/ ({count} шт.) перенесено в {path} — дописанные вручную кейсы не потеряны",
   "dl_tests_not_found": "  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены",
   "dl_zip_downloaded": "  📦 Скачано тестов из ZIP: {count}",
   "dl_zip_found": "  📦 Найдена ZIP-ссылка: {url}",

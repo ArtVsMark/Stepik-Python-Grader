@@ -10,7 +10,12 @@ import pathlib
 
 import pytest
 
-from stepik_grader.core.tests_writer import save_tests, write_testblock_tests
+from stepik_grader.core.tests_writer import (
+    backup_dir_for,
+    reset_tests_dir,
+    save_tests,
+    write_testblock_tests,
+)
 
 
 class TestSaveTests:
@@ -99,3 +104,99 @@ class TestReDownloadCleansStale:
 
         assert (link / "1").read_text() == "i1"
         assert not (link / "stale").exists()  # устаревшее очищено сквозь симлинк
+
+
+class TestBackupOfPreviousTests:
+    """issue #951: перескачивание не уничтожает дописанные вручную кейсы.
+
+    Очистка каталога сама по себе осмысленна (issue #394) — устаревшие файлы
+    дают тихий неверный вердикт. Но удаление шло без разбора и без копии, а
+    отличить свой ``5.clue`` от сгенерированного прошлым скачиванием по имени
+    невозможно: имена совпадают ровно потому, что формат один. Поэтому прежнее
+    содержимое переносится в ``tests.bak/``, а не стирается.
+    """
+
+    def test_manual_cases_survive_redownload(self, tmp_path: pathlib.Path) -> None:
+        """Сценарий из постановки: дописанные кейсы доступны после save_tests."""
+        save_tests(tmp_path, [("i1", "o1", "stdin")])
+        tdir = tmp_path / "tests"
+        (tdir / "input_4.txt").write_text("своё", encoding="utf-8")
+        (tdir / "expected_4.txt").write_text("ожидание", encoding="utf-8")
+        (tdir / "5.clue").write_text("контрпример", encoding="utf-8")
+
+        save_tests(tmp_path, [("j1", "p1", "stdin")])  # «обновлю условие»
+
+        backup = backup_dir_for(tdir)
+        assert (backup / "input_4.txt").read_text(encoding="utf-8") == "своё"
+        assert (backup / "expected_4.txt").read_text(encoding="utf-8") == "ожидание"
+        assert (backup / "5.clue").read_text(encoding="utf-8") == "контрпример"
+        assert (tdir / "1").read_text(encoding="utf-8") == "j1"  # новый набор на месте
+
+    def test_second_redownload_keeps_the_manual_copy(self, tmp_path: pathlib.Path) -> None:
+        """Копия не затирается следующим перескачиванием.
+
+        Самый обидный сценарий: кейсы спаслись в ``tests.bak/``, а второе
+        подряд скачивание положило бы туда только что сгенерированный набор —
+        и спасённое исчезло бы шагом позже. Первая вытесненная версия
+        сохраняется.
+        """
+        save_tests(tmp_path, [("i1", "o1", "stdin")])
+        tdir = tmp_path / "tests"
+        (tdir / "1.clue").write_text("моя правка", encoding="utf-8")
+
+        save_tests(tmp_path, [("j1", "p1", "stdin")])
+        save_tests(tmp_path, [("k1", "q1", "stdin")])
+
+        assert (backup_dir_for(tdir) / "1.clue").read_text(encoding="utf-8") == "моя правка"
+
+    def test_backup_survives_format_switch(self, tmp_path: pathlib.Path) -> None:
+        """Смена формата тоже проходит через копию — очистка та же самая."""
+        save_tests(tmp_path, [("i1", "o1", "stdin")])
+        tdir = tmp_path / "tests"
+
+        write_testblock_tests(tdir, {1: ("10", "20")})
+
+        assert (tdir / "input.txt").exists()
+        assert (backup_dir_for(tdir) / "1").read_text(encoding="utf-8") == "i1"
+
+    def test_reset_reports_how_many_files_were_saved(self, tmp_path: pathlib.Path) -> None:
+        """Число перенесённых возвращается — вызывающая сторона его показывает."""
+        tdir = tmp_path / "tests"
+        tdir.mkdir()
+        for name in ("1", "1.clue", "мой_кейс.txt"):
+            (tdir / name).write_text("x", encoding="utf-8")
+
+        assert reset_tests_dir(tdir) == 3
+        assert reset_tests_dir(tdir) == 0  # каталог уже пуст — повтор ничего не делает
+
+    def test_nested_directories_are_moved_too(self, tmp_path: pathlib.Path) -> None:
+        """Свой подкаталог внутри tests/ — тоже работа пользователя."""
+        tdir = tmp_path / "tests"
+        (tdir / "мои_кейсы").mkdir(parents=True)
+        (tdir / "мои_кейсы" / "note.md").write_text("заметка", encoding="utf-8")
+
+        save_tests(tmp_path, [("i1", "o1", "stdin")])
+
+        assert (backup_dir_for(tdir) / "мои_кейсы" / "note.md").read_text(
+            encoding="utf-8"
+        ) == "заметка"
+
+    def test_unwritable_backup_still_clears_the_dir(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Копия — не обязательство: если перенос невозможен, набор всё равно пишется.
+
+        Иначе скачивание падало бы там, где раньше проходило: read-only рядом с
+        задачей, чужие права, заблокированный файл. Свежий набор важнее копии.
+        """
+        save_tests(tmp_path, [("i1", "o1", "stdin")])
+        tdir = tmp_path / "tests"
+
+        def refuse_move(*_args: object, **_kwargs: object) -> None:
+            raise OSError("нет прав на запись рядом с задачей")
+
+        monkeypatch.setattr("stepik_grader.core.tests_writer.shutil.move", refuse_move)
+
+        save_tests(tmp_path, [("j1", "p1", "stdin")])  # без исключения
+
+        assert (tdir / "1").read_text(encoding="utf-8") == "j1"
