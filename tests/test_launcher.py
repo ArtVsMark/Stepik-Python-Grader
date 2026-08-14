@@ -246,10 +246,36 @@ class TestMainGraceful:
         assert exc.value.code == 1
         assert "--serve" in capsys.readouterr().out
 
+    def test_headless_branch_runs_without_real_tkinter(self, monkeypatch, capsys) -> None:
+        """Та же headless-ветка, но БЕЗ настоящего tkinter — значит и в облаке.
+
+        Соседний тест начинается с `importorskip("tkinter")`, поэтому там, где
+        tkinter не собран (облачная сессия), он скипается — и три раза подряд
+        расхождение сигнатур ловили только раннеры CI. Здесь tkinter подменён
+        заглушкой: проверяется поведение ветки, а не GUI.
+        """
+        import types
+
+        monkeypatch.setitem(sys.modules, "tkinter", types.SimpleNamespace(TclError=RuntimeError))
+
+        def _raise(**_kwargs: object) -> None:
+            raise RuntimeError("no display")
+
+        monkeypatch.setattr(launcher, "create_app", _raise)
+
+        with pytest.raises(SystemExit) as exc:
+            launcher.main([])
+
+        assert exc.value.code == 1
+        assert "--serve" in capsys.readouterr().out
+
     def test_headless_tclerror_prints_cli_hint_and_exits(self, monkeypatch, capsys) -> None:
         tk = pytest.importorskip("tkinter")
 
-        def _raise() -> LauncherApp:
+        # issue #1135: main() зовёт create_app(lang=...), поэтому заглушка
+        # обязана принимать kwargs — иначе тест падает TypeError вместо
+        # проверки самой headless-ветки.
+        def _raise(**_kwargs: object) -> LauncherApp:
             raise tk.TclError("no display")
 
         monkeypatch.setattr(launcher, "create_app", _raise)
