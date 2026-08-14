@@ -1,0 +1,1 @@
+Задачи с меткой `good first issue` заводятся на двух языках — русская версия и перевод под заголовком `## In English`; правило в CONTRIBUTING.md, проверка — `scripts/check_good_first_issues_bilingual.py` (#1170)
