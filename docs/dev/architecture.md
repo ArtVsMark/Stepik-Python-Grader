@@ -41,7 +41,7 @@
 | `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `web/grading.run_spec` (активный `Runner`, а не `core/runner.LocalRunner` напрямую — ADR-0010; под `--serve --sandbox` это `SandboxRunner`); раздел «Песочница»; потребитель — `web/runs.py` |
 | `web/i18n.py` | Application / Web | `message_id`-каталог веб-API: `resolve_lang`/`message_fields`/`render_message`; рендер поверх `core/i18n.load_locale_messages` (локали в `core/locales/<lang>.json`, **не** `web/locales/`); импортирует `core/i18n.py` — не leaf |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
-| `launcher.py` | Application / GUI | GUI-лаунчер веб-интерфейса без командной строки: tkinter-окно (выбор запуска простой/с изоляцией `--sandbox`, порт, папка, Запустить/Остановить, статус) поднимает `--serve` **отдельным процессом**; gui-script `stepik-grader-gui`. Из проекта тянет только `stdio_encoding` и `config.workspace_root` (общий корень настроек — окно стартует там же, где его видят CLI и веб) — ядро грейдера в процесс окна не импортируется |
+| `launcher.py` | Application / GUI | GUI-лаунчер веб-интерфейса без командной строки: tkinter-окно (выбор запуска простой/с изоляцией `--sandbox`, порт, папка, Запустить/Остановить, статус) поднимает `--serve` **отдельным процессом**; gui-script `stepik-grader-gui`. Из проекта тянет только `stdio_encoding`, `config.workspace_root` (общий корень настроек — окно стартует там же, где его видят CLI и веб) и `core/user_settings` (память выбора между запусками) — ядро грейдера в процесс окна не импортируется |
 | `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`): запуск тест-кейсов грейдера как pytest-тестов |
 | `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/`: ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
 | `core/glossary.py` | Infrastructure / Utilities (leaf) | Компактная встроенная карта исключений (`GlossaryEntry.anchor`, ~28 записей) для error cards при RE; адрес карточки — якорь своего глоссария, ссылок наружу нет; leaf-модуль, отдельная сущность от пакета `glossary/` |
@@ -199,6 +199,7 @@ web/runs.py            ──→  core/diag_log.py  (traceback упавшей jo
 core/error_glossary.py ──→  core/glossary.py, glossary/json_provider.py  (bundled JSON → компактная карта fallback, лениво; glossary/ не тянет core/, ацикл)
 ide.py                 (только stdlib — генерация конфигов VS Code; project-импортов нет)
 launcher.py            ──→  config.py  (workspace_root: та же папка проекта, что у CLI и веба — иначе у окна свой корень)
+launcher.py            ──→  core/user_settings.py  (память окна между запусками: тот же .grader_settings.json, что у меню и веба — свой формат хранения был бы вторым источником истины; ADR-0012)
 launcher.py            (в остальном stdlib + tkinter/subprocess — поднимает --serve отдельным процессом; ядро грейдера в процесс окна не тянет)
 diagnostic_stepik.py ──→  core/stepik_client.py
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
