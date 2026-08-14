@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import pathlib
+import sys
+import time
 
 import pytest
 
@@ -99,9 +101,31 @@ class TestRedact:
         assert "supersecretvalue12345" not in out
         assert "***redacted***" in out
 
-    def test_short_value_not_registered(self) -> None:
-        diag_log.register_secret("short")  # < 8 символов — не маскируем (шум)
-        assert diag_log.redact("value short here") == "value short here"
+    def test_very_short_value_not_registered(self) -> None:
+        diag_log.register_secret("ok")  # короче MIN_SECRET_LEN — не маскируем (шум)
+        assert diag_log.redact("value ok here") == "value ok here"
+
+    def test_short_but_plausible_secret_is_registered(self) -> None:
+        """issue #999 (SEC-3-06): порог в восемь символов отсекал настоящие ключи.
+
+        Зарегистрированное значение защищено, начиная с ``MIN_SECRET_LEN``;
+        вызывающий больше не остаётся с ложной уверенностью, что секрет
+        замаскирован.
+        """
+        diag_log.register_secret("s3cr")
+
+        assert "s3cr" not in diag_log.redact("ключ s3cr в тексте")
+
+    def test_rejected_short_secret_leaves_a_trace(self, tmp_path: pathlib.Path) -> None:
+        """Отказ виден в логе — длиной, но без самого значения."""
+        diag_log.configure_diagnostics("debug", log_dir=tmp_path)
+
+        diag_log.register_secret("ab")
+        logging.getLogger("stepik_grader").handlers[0].flush()
+
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "не зарегистрирован" in out
+        assert "ab" not in out.split("не зарегистрирован")[1], "значение попало в лог"
 
     def test_plain_text_untouched(self) -> None:
         assert diag_log.redact("обычное сообщение без секретов") == "обычное сообщение без секретов"
@@ -340,3 +364,147 @@ class TestFailuresReachTheLog:
         out = (tmp_path / "grader.log").read_text(encoding="utf-8")
         assert "Traceback (most recent call last)" in out
         assert "abc.def-ghi_123" not in out
+
+
+# ---------------------------------------------------------------------------
+# issue #999: живучесть канала диагностики — OPS-1-04, OPS-1-05, OPS-1-06
+#
+# Диагностика включается тогда, когда у пользователя уже что-то не работает.
+# Канал, который в этот момент роняет прогон, растёт без границы или начинается
+# с середины, помогает разбору хуже, чем его отсутствие.
+# ---------------------------------------------------------------------------
+
+
+class TestDiagnosticsResilience:
+    def test_unavailable_directory_does_not_raise(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OPS-1-04: недоступный каталог отключает лог, а не роняет прогон.
+
+        Попытка РАЗОБРАТЬСЯ в проблеме не должна добавлять вторую: `--log debug`
+        на диске «только чтение» прежде выбрасывал OSError прямо из настройки.
+        """
+
+        def refuse(*args: object, **kwargs: object) -> None:
+            raise OSError(13, "Permission denied")
+
+        monkeypatch.setattr(pathlib.Path, "mkdir", refuse)
+
+        with pytest.warns(UserWarning, match="диагностический лог не включён"):
+            enabled = diag_log.configure_diagnostics("debug", log_dir=tmp_path / "nope")
+
+        assert enabled is False
+
+    def test_disabled_logger_stays_quiet_after_failure(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """После отказа логгер не пишет никуда — а не остаётся полунастроенным."""
+
+        def refuse(*args: object, **kwargs: object) -> None:
+            raise OSError(28, "No space left on device")
+
+        monkeypatch.setattr(pathlib.Path, "mkdir", refuse)
+        with pytest.warns(UserWarning):
+            diag_log.configure_diagnostics("debug", log_dir=tmp_path / "nope")
+
+        diag_log.get_logger("test").error("сообщение после отказа")
+
+        assert not (tmp_path / "nope").exists()
+
+    def test_log_file_rotates(self, tmp_path: pathlib.Path) -> None:
+        """OPS-1-05: у файла есть потолок, дальше уходит в архив.
+
+        Под `--serve --log debug` запись идёт на каждый запрос: без ротации
+        «включил и забыл» означало гигабайты на диске пользователя.
+        """
+        monkey_max = 2_000
+        original = diag_log.LOG_MAX_BYTES
+        try:
+            diag_log.LOG_MAX_BYTES = monkey_max
+            diag_log.configure_diagnostics("debug", log_dir=tmp_path)
+            log = diag_log.get_logger("test")
+            for i in range(200):
+                log.info("строка номер %d, добираем объём до потолка ротации", i)
+            logging.getLogger("stepik_grader").handlers[0].flush()
+        finally:
+            diag_log.LOG_MAX_BYTES = original
+
+        assert (tmp_path / "grader.log").stat().st_size <= monkey_max * 2
+        assert (tmp_path / "grader.log.1").exists(), "архив не создан — ротации нет"
+
+    def test_run_header_is_written_first(self, tmp_path: pathlib.Path) -> None:
+        """OPS-1-06: лог начинается с версии, ОС, Python и команды.
+
+        Именно это первым спрашивают у пользователя, приславшего лог.
+        """
+        diag_log.configure_diagnostics("info", log_dir=tmp_path)
+        logging.getLogger("stepik_grader").handlers[0].flush()
+
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "грейдер" in out
+        assert "Python" in out
+        assert "команда:" in out
+
+    def test_run_header_arguments_are_redacted(self, tmp_path: pathlib.Path) -> None:
+        """Токен из командной строки не попадает в шапку: фильтр стоит на хендлере."""
+        original = sys.argv
+        try:
+            sys.argv = ["stepik-grader", "--ai-api-key=sk-live-abcdef123456"]
+            diag_log.configure_diagnostics("info", log_dir=tmp_path)
+            logging.getLogger("stepik_grader").handlers[0].flush()
+        finally:
+            sys.argv = original
+
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "sk-live-abcdef123456" not in out
+        assert "***redacted***" in out
+
+
+class TestCliFlagForm:
+    """issue #999: секрет в форме CLI-флага — с дефисами и с префиксом.
+
+    Найдено тестом шапки прогона: она печатает `sys.argv`, и `--ai-api-key=…`
+    прошёл мимо редакции, потому что список ключей записан с подчёркиваниями.
+    Форма живая — именно так задаётся ключ AI-провайдера.
+    """
+
+    @pytest.mark.parametrize(
+        "text,why",
+        [
+            ("--ai-api-key=sk-live-SECRETV", "флаг с дефисами и префиксом"),
+            ("--api-key=sk-live-SECRETV", "флаг без префикса"),
+            ("--access-token=sk-live-SECRETV", "составной ключ через дефис"),
+            ("stepik_access_token=sk-live-SECRETV", "префикс пространства имён"),
+        ],
+    )
+    def test_flag_form_is_redacted(self, text: str, why: str) -> None:
+        out = diag_log.redact(text)
+
+        assert "sk-live-SECRETV" not in out, why
+        assert "***redacted***" in out
+
+    def test_prefix_is_kept_for_diagnosis(self) -> None:
+        """Сохраняется, ЧТО за ключ: без имени флага запись бесполезна для разбора."""
+        out = diag_log.redact("--ai-api-key=sk-live-SECRETV")
+
+        assert out.startswith("--ai-api-key=")
+
+
+def test_redaction_stays_linear_on_long_text() -> None:
+    """Редакция не должна дорожать быстрее объёма (issue #999).
+
+    Первая редакция правки про CLI-флаги ставила перед ключом `[\\w-]*`, и это
+    давало КВАДРАТИЧНЫЙ рост: тысяча символов — 0.05 с, десять тысяч — 4.7 с,
+    сто тысяч не дождались вовсе. Прогон набора вставал на `test_feedback`,
+    который редактирует собранное окружение целиком.
+
+    Порог щедрый (полсекунды на 200k) — тест ловит смену ПОРЯДКА стоимости, а
+    не разницу в проценты, и потому не флейкует на медленном раннере.
+    """
+    text = "a" * 200_000
+
+    started = time.perf_counter()
+    diag_log.redact(text)
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 0.5, f"редакция 200k символов заняла {elapsed:.2f} с — стоимость нелинейна"
