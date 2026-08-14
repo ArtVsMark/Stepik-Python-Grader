@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Девять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+Десять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
 файлами не протухли ни целью, ни подписью, документация не расползлась мимо направлений, индексы не
 отставали от состава каталогов, а объясняющие документы и пользовательские
 строки интерфейса не превратились в журнал работ (эпик #167 «README как
@@ -58,6 +58,12 @@
    Гейт на доках держал ноль, а самая читаемая поверхность — справка — годами
    печатала «Issue #51 D-01» и «Эпик #80 Tier 1»: выписка из трекера вместо
    объяснения флага.
+10. **Merge conflict markers (#1164).** В Markdown нет маркеров незаконченного
+   слияния. Единственная поломка, которую проходили все девять защит выше
+   разом: ссылки резолвятся, бюджет соблюдён, индексы полны — а раздел про
+   лаунчер читатель видит дважды, вперемешку с ``HEAD`` и ``origin/main``. В
+   ``.py`` то же самое ловит ruff (там это ``SyntaxError``), у документации
+   такого рубежа не было.
 
 Никаких внешних зависимостей: чистый ``ast``/``json``/``re`` + ``pathlib``,
 детерминированно и кроссплатформенно (Windows/Linux/macOS).
@@ -86,6 +92,7 @@ __all__ = [
     "check_issue_tail_policy",
     "check_link_captions",
     "check_markdown_links",
+    "check_no_conflict_markers",
     "check_pypi_readme_is_absolute",
     "check_readme_budget",
     "check_showcase_metrics",
@@ -685,6 +692,38 @@ def check_pypi_readme_is_absolute(errors: list[str]) -> None:
     print(f"PyPI readme: {name} has no relative links or images.")
 
 
+def check_no_conflict_markers(errors: list[str]) -> None:
+    """В документации нет незаконченного слияния (#1164).
+
+    Маркеры конфликта — единственный вид поломки, который в Markdown проходит
+    все остальные гейты: ссылки резолвятся, бюджет строк соблюдён, индексы
+    полны, а раздел про лаунчер при этом показан читателю дважды, вперемешку с
+    ``HEAD`` и ``origin/main``. В ``.py`` то же самое ловит ruff — там это
+    синтаксическая ошибка; у документации такого рубежа не было.
+
+    Прецедент: описание окна лаунчера уехало в ``main`` с маркерами и прожило
+    там несколько PR — ни один прогон CI не возразил.
+    """
+    opening, closing = "<" * 7, ">" * 7
+    files = collect_markdown_files()
+    found = 0
+    for md in files:
+        hits = [
+            number
+            for number, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1)
+            if line.startswith((f"{opening} ", f"{closing} "))
+        ]
+        if hits:
+            found += 1
+            where = ", ".join(f"строка {number}" for number in hits[:5])
+            errors.append(
+                f"{md.relative_to(_ROOT)}: маркеры конфликта слияния ({where}) — "
+                "слияние не доведено до конца, читателю показаны обе версии текста."
+            )
+    if not found:
+        print(f"Merge conflicts: none across {len(files)} Markdown file(s).")
+
+
 def _force_utf8_stdout() -> None:
     """Печатать UTF-8 независимо от кодовой страницы консоли.
 
@@ -703,6 +742,7 @@ def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     _force_utf8_stdout()
     errors: list[str] = []
+    check_no_conflict_markers(errors)
     check_readme_budget(errors)
     check_pypi_readme_is_absolute(errors)
     check_markdown_links(errors)
