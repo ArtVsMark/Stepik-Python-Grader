@@ -1736,7 +1736,7 @@ class TestSandboxAndHistoryToggle:
         monkeypatch.chdir(tmp_path)
         user_settings.save_settings(
             user_settings.UserSettings(record_history=False),
-            tmp_path / user_settings.SETTINGS_FILE_NAME,
+            user_settings.default_settings_path(tmp_path),
         )
         captured: list[dict[str, object]] = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: captured.append(kwargs))

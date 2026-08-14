@@ -290,7 +290,10 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
         print(f"\n{_t('ai_skipped_consent_required')}")
         return False
 
-    print("\n" + _t("ai_consent_notice", settings_file=user_settings.SETTINGS_FILE_NAME))
+    # issue #948: имя файла — не константа: настройки живут в общем
+    # ~/.stepik-grader/settings.json, если папочного файла нет. Согласие на
+    # отправку кода наружу — не то место, где можно назвать не тот файл.
+    print("\n" + _t("ai_consent_notice", settings_file=settings_path))
     if endpoint:
         print(_t("ai_consent_recipient", endpoint=endpoint))
     try:

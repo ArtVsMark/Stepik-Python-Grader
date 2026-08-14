@@ -102,7 +102,7 @@ def e2e_server(tmp_path: Path) -> Iterator[str]:
     # проверяют основные потоки, где онбординг только мешал бы.
     user_settings.save_settings(
         user_settings.UserSettings(onboarding_seen=True),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     httpd = web_server._GraderServer(
         ("127.0.0.1", 0), web_server._Handler, workspace=tmp_path, confine=True

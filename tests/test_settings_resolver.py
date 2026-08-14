@@ -16,7 +16,7 @@ import pytest
 
 from stepik_grader import config
 from stepik_grader.core import settings_resolver
-from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+from stepik_grader.core.user_settings import default_settings_path, load_settings
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +33,7 @@ def _isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _write_user_settings(root: Path, **values: object) -> None:
-    (root / SETTINGS_FILE_NAME).write_text(
+    default_settings_path(root).write_text(
         json.dumps({"run_settings": values}, ensure_ascii=False), encoding="utf-8"
     )
 
@@ -163,7 +163,7 @@ class TestSetAndReset:
     def test_set_writes_and_applies(self, _isolated_config: Path) -> None:
         settings_resolver.set_user_run_setting("timeout_seconds", 30.0)
 
-        stored = load_settings(_isolated_config / SETTINGS_FILE_NAME).run_settings
+        stored = load_settings(default_settings_path(_isolated_config)).run_settings
         assert stored == {"timeout_seconds": 30.0}
         settings_resolver.apply_user_run_settings()
         assert config.get_config().timeout_seconds == 30.0
@@ -173,7 +173,7 @@ class TestSetAndReset:
         with pytest.raises(ValueError):
             settings_resolver.set_user_run_setting("timeout_seconds", -5)
 
-        assert load_settings(_isolated_config / SETTINGS_FILE_NAME).run_settings == {}
+        assert load_settings(default_settings_path(_isolated_config)).run_settings == {}
 
     def test_set_refuses_setting_outside_the_list(self, _isolated_config: Path) -> None:
         with pytest.raises(ValueError):
@@ -183,7 +183,7 @@ class TestSetAndReset:
         settings_resolver.set_user_run_setting("timeout_seconds", 30.0)
         settings_resolver.set_user_run_setting("max_memory_mb", 256)
 
-        stored = load_settings(_isolated_config / SETTINGS_FILE_NAME).run_settings
+        stored = load_settings(default_settings_path(_isolated_config)).run_settings
         assert stored == {"timeout_seconds": 30.0, "max_memory_mb": 256}
 
     def test_reset_removes_the_key_not_freezes_it(self, _isolated_config: Path) -> None:
@@ -197,7 +197,7 @@ class TestSetAndReset:
 
         settings_resolver.reset_setting("timeout_seconds")
 
-        raw = json.loads((_isolated_config / SETTINGS_FILE_NAME).read_text(encoding="utf-8"))
+        raw = json.loads((default_settings_path(_isolated_config)).read_text(encoding="utf-8"))
         assert raw["run_settings"] == {}
         config.reset_config_cache()
         settings_resolver.apply_user_run_settings()
@@ -208,7 +208,7 @@ class TestSetAndReset:
         settings_resolver.reset_setting("timeout_seconds")
         settings_resolver.reset_setting("timeout_seconds")
 
-        assert load_settings(_isolated_config / SETTINGS_FILE_NAME).run_settings == {}
+        assert load_settings(default_settings_path(_isolated_config)).run_settings == {}
 
     def test_reset_keeps_neighbours(self, _isolated_config: Path) -> None:
         settings_resolver.set_user_run_setting("timeout_seconds", 30.0)
@@ -216,7 +216,7 @@ class TestSetAndReset:
 
         settings_resolver.reset_setting("timeout_seconds")
 
-        stored = load_settings(_isolated_config / SETTINGS_FILE_NAME).run_settings
+        stored = load_settings(default_settings_path(_isolated_config)).run_settings
         assert stored == {"max_memory_mb": 256}
 
 

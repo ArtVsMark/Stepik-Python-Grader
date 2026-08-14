@@ -1553,14 +1553,14 @@ class TestAdvancedTabHandlers:
         return stub
 
     def test_applied_value_reaches_the_settings_file(self, workspace: Path) -> None:
-        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+        from stepik_grader.core.user_settings import default_settings_path, load_settings
 
         stub = self._stub()
         stub.setting_vars["timeout_seconds"].set("30")
 
         stub._apply_setting("timeout_seconds")
 
-        stored = load_settings(workspace / SETTINGS_FILE_NAME).run_settings
+        stored = load_settings(default_settings_path(workspace)).run_settings
         assert stored == {"timeout_seconds": 30.0}
 
     def test_applied_value_is_reported_by_its_human_name(self, workspace: Path) -> None:
@@ -1574,14 +1574,14 @@ class TestAdvancedTabHandlers:
         assert launcher.load_ui_messages("ru")["setting_job_workers"] in text
 
     def test_rejected_value_is_not_saved(self, workspace: Path) -> None:
-        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+        from stepik_grader.core.user_settings import default_settings_path, load_settings
 
         stub = self._stub()
         stub.setting_vars["job_workers"].set("0")  # конфиг требует >= 1
 
         stub._apply_setting("job_workers")
 
-        assert load_settings(workspace / SETTINGS_FILE_NAME).run_settings == {}
+        assert load_settings(default_settings_path(workspace)).run_settings == {}
         assert stub.status[-1][1] is True
 
     def test_rejected_value_leaves_the_control_showing_what_is_stored(
@@ -1602,17 +1602,19 @@ class TestAdvancedTabHandlers:
 
     def test_empty_memory_limit_is_saved_as_no_limit(self, workspace: Path) -> None:
         """Пусто у nullable-поля — осмысленный выбор «без лимита», а не ошибка ввода."""
-        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+        from stepik_grader.core.user_settings import default_settings_path, load_settings
 
         stub = self._stub()
         stub.setting_vars["max_memory_mb"].set("")
 
         stub._apply_setting("max_memory_mb")
 
-        assert load_settings(workspace / SETTINGS_FILE_NAME).run_settings == {"max_memory_mb": None}
+        assert load_settings(default_settings_path(workspace)).run_settings == {
+            "max_memory_mb": None
+        }
 
     def test_reset_removes_the_key(self, workspace: Path) -> None:
-        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+        from stepik_grader.core.user_settings import default_settings_path, load_settings
 
         stub = self._stub()
         stub.setting_vars["timeout_seconds"].set("30")
@@ -1620,7 +1622,7 @@ class TestAdvancedTabHandlers:
 
         stub._reset_setting("timeout_seconds")
 
-        assert load_settings(workspace / SETTINGS_FILE_NAME).run_settings == {}
+        assert load_settings(default_settings_path(workspace)).run_settings == {}
         assert stub.setting_vars["timeout_seconds"].get() == "10.0"
 
     def test_state_line_names_the_origin(self, workspace: Path) -> None:
