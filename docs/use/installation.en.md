@@ -182,7 +182,7 @@ there is no execution isolation — run only your own solutions. Sections, flags
 > and `stepik-grader`, a GUI launcher—`stepik-grader-gui`—is available after installation
 > (on Windows, this is a shortcut without a console window; alternatively, use `python -m stepik_grader.launcher`):
 > a window for selecting the server mode, port, and working directory. See details in
-> [grader-workflow.md](grader-workflow.md#web-interface---serve).
+> [grader-workflow.md](grader-workflow.md#веб-интерфейс---serve).
 
  ---
 
