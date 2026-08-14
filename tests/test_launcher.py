@@ -240,19 +240,49 @@ class TestMainGraceful:
         # None в sys.modules → `import tkinter` бросает ImportError.
         monkeypatch.setitem(sys.modules, "tkinter", None)
         with pytest.raises(SystemExit) as exc:
-            launcher.main()
+            # issue #1135: main() разбирает argv, поэтому список обязателен —
+            # иначе argparse увидит аргументы самого pytest.
+            launcher.main([])
+        assert exc.value.code == 1
+        assert "--serve" in capsys.readouterr().out
+
+    def test_headless_branch_runs_without_real_tkinter(self, monkeypatch, capsys) -> None:
+        """Та же headless-ветка, но БЕЗ настоящего tkinter — значит и в облаке.
+
+        Соседний тест начинается с `importorskip("tkinter")`, поэтому там, где
+        tkinter не собран (облачная сессия), он скипается — и три раза подряд
+        расхождение сигнатур ловили только раннеры CI. Здесь tkinter подменён
+        заглушкой: проверяется поведение ветки, а не GUI.
+        """
+        import types
+
+        monkeypatch.setitem(sys.modules, "tkinter", types.SimpleNamespace(TclError=RuntimeError))
+
+        def _raise(**_kwargs: object) -> None:
+            raise RuntimeError("no display")
+
+        monkeypatch.setattr(launcher, "create_app", _raise)
+
+        with pytest.raises(SystemExit) as exc:
+            launcher.main([])
+
         assert exc.value.code == 1
         assert "--serve" in capsys.readouterr().out
 
     def test_headless_tclerror_prints_cli_hint_and_exits(self, monkeypatch, capsys) -> None:
         tk = pytest.importorskip("tkinter")
 
-        def _raise() -> LauncherApp:
+        # issue #1135: main() зовёт create_app(lang=...), поэтому заглушка
+        # обязана принимать kwargs — иначе тест падает TypeError вместо
+        # проверки самой headless-ветки.
+        def _raise(**_kwargs: object) -> LauncherApp:
             raise tk.TclError("no display")
 
         monkeypatch.setattr(launcher, "create_app", _raise)
         with pytest.raises(SystemExit) as exc:
-            launcher.main()
+            # issue #1135: как и в тесте выше — main() разбирает argv, поэтому
+            # без явного списка argparse увидит аргументы самого pytest.
+            launcher.main([])
         assert exc.value.code == 1
         assert "--serve" in capsys.readouterr().out
 
@@ -755,6 +785,97 @@ def test_stop_during_readiness_leaves_terminal_state(monkeypatch) -> None:
         assert _wait_state(controller, ServerState.STOPPED)
     finally:
         controller.stop()
+
+
+# ---------------------------------------------------------------------------
+# issue #1135 — `stepik-grader-gui` ведёт себя как команда
+#
+# `pip install` ставит ДВЕ команды, но вторая не отвечала на `--help`, молча
+# игнорировала любой аргумент и не давала выбрать язык окна. Всё это работает
+# до создания окна, поэтому проверяется и там, где дисплея нет вовсе.
+# ---------------------------------------------------------------------------
+
+
+class TestLauncherCliSurface:
+    def test_help_exits_zero_without_opening_window(self, capsys) -> None:
+        """`--help` печатает назначение и выходит с 0, не трогая tkinter."""
+        with pytest.raises(SystemExit) as exc:
+            launcher.main(["--help"])
+
+        assert exc.value.code == 0
+        out = capsys.readouterr().out
+        assert "stepik-grader-gui" in out
+        assert "--lang" in out
+
+    def test_version_prints_package_version(self, capsys) -> None:
+        with pytest.raises(SystemExit) as exc:
+            launcher.main(["--version"])
+
+        assert exc.value.code == 0
+        assert launcher.resolve_version() in capsys.readouterr().out
+
+    def test_unknown_flag_is_rejected_not_ignored(self, capsys) -> None:
+        """Прежде любой аргумент молча игнорировался и просто открывалось окно."""
+        with pytest.raises(SystemExit) as exc:
+            launcher.main(["--no-such-flag"])
+
+        assert exc.value.code != 0
+        assert "unrecognized" in capsys.readouterr().err
+
+    def test_lang_flag_is_parsed(self) -> None:
+        parser = launcher.build_arg_parser(launcher.load_ui_messages("ru"))
+
+        assert parser.parse_args(["--lang", "en"]).lang == "en"
+        assert parser.parse_args([]).lang is None  # «не выбирал» — не «ru»
+
+    def test_lang_flag_reaches_the_window(self, monkeypatch) -> None:
+        """`--lang en` доезжает до окна, а не теряется в разборе аргументов.
+
+        `tkinter` подменяется заглушкой: в облачном окне его нет вовсе, а
+        проверяется здесь не GUI, а передача выбора от argparse к окну.
+        """
+        import types
+
+        monkeypatch.setitem(sys.modules, "tkinter", types.SimpleNamespace(TclError=RuntimeError))
+        seen: list[str | None] = []
+
+        class _App:
+            def run(self) -> None:
+                pass
+
+        def fake_create_app(**kwargs: object) -> _App:
+            seen.append(kwargs.get("lang"))  # type: ignore[arg-type]
+            return _App()
+
+        monkeypatch.setattr(launcher, "create_app", fake_create_app)
+
+        launcher.main(["--lang", "en"])
+
+        assert seen == ["en"]
+
+
+class TestDetectLangFallback:
+    """issue #1135 (LNCH-1-04): русский fallback — заявленное поведение, а не миф."""
+
+    def test_unknown_locale_falls_back_to_russian(self, monkeypatch) -> None:
+        """`LANG=C` — обычное дело в CI, контейнерах и по ssh."""
+        monkeypatch.delenv(launcher.LANG_ENV_VAR, raising=False)
+        for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+            monkeypatch.setenv(var, "C")
+
+        assert launcher.detect_lang() == "ru"
+
+    def test_english_locale_still_gives_english(self, monkeypatch) -> None:
+        monkeypatch.delenv(launcher.LANG_ENV_VAR, raising=False)
+        monkeypatch.setenv("LC_ALL", "en_US.UTF-8")
+
+        assert launcher.detect_lang() == "en"
+
+    def test_env_var_wins_over_locale(self, monkeypatch) -> None:
+        monkeypatch.setenv(launcher.LANG_ENV_VAR, "en")
+        monkeypatch.setenv("LC_ALL", "ru_RU.UTF-8")
+
+        assert launcher.detect_lang() == "en"
 
 
 # ---------------------------------------------------------------------------
