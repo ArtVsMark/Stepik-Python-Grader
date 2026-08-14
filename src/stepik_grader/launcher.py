@@ -1121,8 +1121,13 @@ class LauncherApp:
         canvas.configure(yscrollcommand=scrollbar.set)
         body = ttk.Frame(canvas)
         window = canvas.create_window((0, 0), window=body, anchor="nw")
-        body.bind("<Configure>", lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        # Оба обработчика применяют новое значение ТОЛЬКО если оно изменилось.
+        # Безусловная запись зацикливает событийный цикл: смена scrollregion (или
+        # ширины окна canvas) вызывает перерисовку, та даёт новый `<Configure>`,
+        # и `update()` не возвращается. Поймано на macOS в CI — тест окна висел
+        # до таймаута; на Linux не видно, там нет дисплея и тест скипается.
+        body.bind("<Configure>", lambda _event: self._sync_scrollregion(canvas))
+        canvas.bind("<Configure>", lambda event: self._sync_body_width(canvas, window, event.width))
         body.columnconfigure(1, weight=1)
 
         row = 0
@@ -1138,6 +1143,25 @@ class LauncherApp:
                 row = self._build_unsafe_gate(body, row)
             for item in items:
                 row = self._build_setting_row(body, item, row)
+
+    def _sync_scrollregion(self, canvas: Any) -> None:
+        """Обновить область прокрутки, только если она реально изменилась.
+
+        Условие — не оптимизация: ``canvas.configure(scrollregion=...)``
+        планирует перерисовку, перерисовка рождает новый ``<Configure>``, и
+        безусловная запись замыкает цикл событий насмерть.
+        """
+        region = canvas.bbox("all")
+        if not region:
+            return
+        wanted = " ".join(str(value) for value in region)
+        if str(canvas.cget("scrollregion")) != wanted:
+            canvas.configure(scrollregion=wanted)
+
+    def _sync_body_width(self, canvas: Any, window: Any, width: int) -> None:
+        """Растянуть содержимое по ширине canvas — тоже только при изменении."""
+        if str(canvas.itemcget(window, "width")) != str(width):
+            canvas.itemconfigure(window, width=width)
 
     def _build_unsafe_gate(self, body: Any, row: int) -> int:
         """Предупреждение и галка, открывающая правку квот песочницы (issue #1136)."""

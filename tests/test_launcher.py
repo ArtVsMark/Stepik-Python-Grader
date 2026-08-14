@@ -1872,3 +1872,74 @@ class TestAdvancedTabIsBuilt:
             messages["settings_empty_means_none"]
             not in built.setting_hints["job_workers"].kwargs["text"]
         )
+
+
+class TestScrollLoopIsBroken:
+    """issue #1136: прокрутка вкладки не зацикливает событийный цикл.
+
+    Дефект пойман CI на macOS: `tk_window.update()` в соседнем тесте не
+    возвращался, потому что обработчик `<Configure>` безусловно писал
+    `scrollregion`, запись рождала новый `<Configure>`, и так по кругу. На
+    Linux этого не видно — дисплея нет, тесты окна скипаются, — поэтому
+    проверка сделана на заглушке и работает везде.
+    """
+
+    class _Canvas:
+        """Canvas, считающий ЗАПИСИ: цикл — это когда пишут при неизменном значении."""
+
+        def __init__(self) -> None:
+            self.scrollregion = ""
+            self.item_width = ""
+            self.writes = 0
+
+        def bbox(self, _what: str) -> tuple[int, int, int, int]:
+            return (0, 0, 100, 200)
+
+        def cget(self, name: str) -> str:
+            return self.scrollregion if name == "scrollregion" else ""
+
+        def configure(self, **kwargs: object) -> None:
+            if "scrollregion" in kwargs:
+                self.scrollregion = str(kwargs["scrollregion"])
+                self.writes += 1
+
+        def itemcget(self, _window: object, _name: str) -> str:
+            return self.item_width
+
+        def itemconfigure(self, _window: object, **kwargs: object) -> None:
+            if "width" in kwargs:
+                self.item_width = str(kwargs["width"])
+                self.writes += 1
+
+    def test_scrollregion_is_written_once_not_on_every_configure(self) -> None:
+        canvas = self._Canvas()
+        stub = types.SimpleNamespace()
+        sync = LauncherApp._sync_scrollregion.__get__(stub)
+
+        for _ in range(5):
+            sync(canvas)
+
+        assert canvas.writes == 1, "повторная запись при неизменной области — это и есть цикл"
+        assert canvas.scrollregion == "0 0 100 200"
+
+    def test_body_width_is_written_once_per_change(self) -> None:
+        canvas = self._Canvas()
+        stub = types.SimpleNamespace()
+        sync = LauncherApp._sync_body_width.__get__(stub)
+
+        for _ in range(4):
+            sync(canvas, object(), 640)
+        sync(canvas, object(), 800)
+
+        assert canvas.writes == 2, "ширина пишется на каждое изменение, а не на каждое событие"
+        assert canvas.item_width == "800"
+
+    def test_empty_bbox_is_not_written(self) -> None:
+        """Пустой canvas (ещё нет содержимого) не должен ничего писать."""
+        canvas = self._Canvas()
+        canvas.bbox = lambda _what: None  # type: ignore[assignment,return-value]
+        stub = types.SimpleNamespace()
+
+        LauncherApp._sync_scrollregion.__get__(stub)(canvas)
+
+        assert canvas.writes == 0
