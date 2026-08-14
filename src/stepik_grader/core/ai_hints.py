@@ -36,6 +36,7 @@ __all__ = [
     "AiHintOutcome",
     "FailureContext",
     "base_url_is_allowed",
+    "consent_endpoint",
     "env_name_is_allowed",
     "explain_failure",
     "explain_failure_detailed",
@@ -347,6 +348,22 @@ def _post_chat(
         return None, "network"
     text = str(content or "").strip()
     return (text or None), None
+
+
+def consent_endpoint(base_url: str | None) -> str:
+    """Получатель согласия — ``scheme://host[:port]`` без пути (issue #812).
+
+    Путь (``/v1``) отбрасывается: согласие даётся серверу, а не конкретному
+    маршруту на нём, иначе смена ``/v1`` на ``/v1beta`` спрашивала бы заново без
+    всякой пользы. Порт же значим — на другом порту другой сервис.
+
+    Живёт здесь, а не в ``cli/commands.py`` (issue #931): согласие сверяют обе
+    поверхности, и веб не может импортировать CLI — слой маршрутов ходит только
+    в адаптеры и ``core`` (ADR-0010). Прежнее место оставило веб без сверки
+    получателя вовсе.
+    """
+    parsed = urlparse((base_url or "").strip())
+    return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
 
 
 def explain_failure_detailed(ctx: FailureContext, config: object) -> AiHintOutcome:
