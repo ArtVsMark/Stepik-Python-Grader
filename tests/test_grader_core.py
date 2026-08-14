@@ -17,7 +17,7 @@ import warnings
 import pytest
 
 from stepik_grader import grader
-from stepik_grader.core import mode_detector
+from stepik_grader.core import grader_core, mode_detector
 
 # ---------------------------------------------------------------------------
 # _is_python_code_block  (parametrized — replaces 4 separate test functions)
@@ -1048,3 +1048,46 @@ class TestWrapperBuilderLegacyBlock:
         result = run_tests(solution, tests_dir)
 
         assert result["passed"] == 1, result
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (MTX-3-05) — режимы 3/4 называют номер провалившегося кейса
+# ---------------------------------------------------------------------------
+
+
+def test_preflight_reports_number_of_first_failing_case(tmp_path: pathlib.Path) -> None:
+    """Пре-флайт возвращает НОМЕР первого провала, а не только его вердикт.
+
+    Режимы 1/2 в отчёте кейс называют, а 3/4 говорили лишь «не прошёл
+    проверку»: воспроизвести падение было не с чего, хотя номер известен ровно
+    здесь. Третий кейс, а не первый — иначе тест прошёл бы и на заглушке,
+    возвращающей единицу.
+    """
+    solution = tmp_path / "task.py"
+    solution.write_text("n = int(input())\nprint(n if n < 5 else n + 100)\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    for number, (given, expected) in enumerate([("1", "1"), ("2", "2"), ("7", "7")], start=1):
+        (tests_dir / str(number)).write_text(given, encoding="utf-8")
+        (tests_dir / f"{number}.clue").write_text(expected, encoding="utf-8")
+
+    report = grader_core.preflight_solution(solution, tests_dir, timeout=10)
+
+    assert report["ok"] is False
+    assert report["verdict"] == "WA"
+    assert report["case"] == 3
+
+
+def test_preflight_case_is_zero_when_everything_passes(tmp_path: pathlib.Path) -> None:
+    """Провала нет — номера тоже нет: ноль читается как «называть нечего»."""
+    solution = tmp_path / "task.py"
+    solution.write_text("print(input())\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "1").write_text("ok", encoding="utf-8")
+    (tests_dir / "1.clue").write_text("ok", encoding="utf-8")
+
+    report = grader_core.preflight_solution(solution, tests_dir, timeout=10)
+
+    assert report["ok"] is True
+    assert report["case"] == 0

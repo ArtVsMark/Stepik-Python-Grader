@@ -2089,8 +2089,13 @@ class TestRunsApiCancel:
         assert create_status == 202
         run_id = json.loads(create_body)["run_id"]
 
-        assert wait_until(pidfile.exists, timeout=10.0), "child process never started"
-        pid = int(pidfile.read_text().strip())
+        # Wait for the *content*, not just the file: `write_text` creates the
+        # file first and fills it after, so `exists()` goes true while the file
+        # is still empty and `int("")` blows up. Seen as a real CI failure, not
+        # a hypothetical -- once per few hundred runs, on an unrelated PR.
+        raw_pid = wait_until(lambda: pidfile.read_text().strip() if pidfile.exists() else "")
+        assert raw_pid, "child process never started"
+        pid = int(raw_pid)
 
         cancel_status, cancel_body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
         assert cancel_status == 200

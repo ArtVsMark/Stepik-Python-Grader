@@ -23,7 +23,9 @@ gui-script ``stepik-grader-gui``). Небольшое tkinter-окно: выбо
 состояния и переиспользует уже готовый CLI-путь (флаги ``--serve/--sandbox/
 --port/--root/--lang/--history`` и honest-fail на недоступном backend'е через
 ``SandboxUnavailableError``). Из проекта модуль тянет только
-``stdio_encoding`` и ``config.workspace_root`` (общий корень настроек) —
+``stdio_encoding``, ``config.workspace_root`` (общий корень настроек) и
+``core/user_settings`` (память выбора между запусками, issue #1133: свой формат
+хранения был бы вторым источником истины рядом с меню и вебом, ADR-0012) —
 ядро грейдера в процесс окна не импортируется.
 
 ``tkinter`` импортируется ЛЕНИВО (внутри GUI-путей), поэтому GUI-free ядро
@@ -55,12 +57,19 @@ from pathlib import Path
 from typing import Any
 
 from stepik_grader.config import workspace_root
+from stepik_grader.core.user_settings import (
+    LaunchChoice,
+    default_settings_path,
+    load_settings,
+    save_fields,
+)
 from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "DEFAULT_HOST",
     "DEFAULT_PORT",
     "LANG_ENV_VAR",
+    "LaunchDefaults",
     "LauncherApp",
     "ServerController",
     "ServerState",
@@ -71,11 +80,14 @@ __all__ = [
     "create_app",
     "default_workdir",
     "detect_lang",
+    "initial_launch_values",
     "load_ui_messages",
     "main",
     "next_free_port",
     "our_server_on",
     "port_available",
+    "remember_launch_choice",
+    "remembered_launch_choice",
     "resolve_version",
     "serve_without_gui",
 ]
@@ -470,6 +482,92 @@ def serve_without_gui(
     return subprocess.call(command)
 
 
+def launcher_settings_path() -> Path:
+    """Файл настроек, в котором живёт память окна (issue #1133).
+
+    Якорь — папка, вычисленная ``default_workdir()`` при СТАРТЕ, а не та, что
+    выбрана в окне: иначе смена рабочей папки уводила бы память в другой файл,
+    и следующий запуск открывал бы окно с нуля — ровно то, что issue и чинит.
+    Расположение файла — ADR-0012: настройки, выбираемые в лаунчере, живут в
+    ``.grader_settings.json`` рядом с историей, которой они управляют.
+    """
+    return default_settings_path(default_workdir())
+
+
+def remembered_launch_choice() -> LaunchChoice:
+    """Прочитать сохранённый выбор окна; нет файла или мусор — пустой выбор."""
+    return load_settings(launcher_settings_path()).last_launch or LaunchChoice()
+
+
+@dataclass(frozen=True)
+class LaunchDefaults:
+    """С чем открывается окно: запомненное, где есть, иначе обычные дефолты."""
+
+    port: int
+    sandbox: bool
+    workdir: Path
+    lang: str
+    record_history: bool | None
+
+
+def initial_launch_values(
+    remembered: LaunchChoice,
+    *,
+    lang_flag: str | None = None,
+    fallback_dir: Path | None = None,
+) -> LaunchDefaults:
+    """Начальные значения полей окна по запомненному выбору (issue #1133).
+
+    Отдельно от ``LauncherApp.__init__``, потому что это единственная часть
+    восстановления, где есть решения: приоритет флага, откат исчезнувшей папки,
+    отличие «не выбирал» от «выключено». В конструкторе окна её проверял бы
+    только тот, у кого есть дисплей, — то есть никто из CI.
+
+    Args:
+        remembered: сохранённый выбор (пустой, если окно ещё не запускали).
+        lang_flag: язык из ``--lang``; сильнее запомненного — флаг это решение
+            «на сейчас», а память лишь предлагает прошлое.
+        fallback_dir: чем заменить отсутствующую/исчезнувшую папку; по
+            умолчанию ``default_workdir()``.
+
+    Returns:
+        ``LaunchDefaults`` — ровно то, что подставляется в поля окна.
+    """
+    fallback = fallback_dir if fallback_dir is not None else default_workdir()
+    workdir = remembered.workdir
+    # Исчезнувшая папка (внешний диск, переезд проекта) откатывается к дефолту:
+    # окно, открытое на несуществующем пути, показало бы ноль задач и повод
+    # думать, что пропали они, а не папка.
+    if workdir is None or not workdir.is_dir():
+        workdir = fallback
+    return LaunchDefaults(
+        port=remembered.port or DEFAULT_PORT,
+        sandbox=bool(remembered.sandbox),
+        workdir=workdir,
+        lang=lang_flag or remembered.lang or detect_lang(),
+        # `None` — «не выбирал», отдельное значение «унаследовать»: не то же
+        # самое, что выключено (ADR-0012).
+        record_history=remembered.record_history,
+    )
+
+
+def remember_launch_choice(choice: LaunchChoice) -> None:
+    """Сохранить выбор окна, не тронув остальные ключи файла (issue #1133).
+
+    Пишется одним полем через ``save_fields``: файл общий с веб-интерфейсом и
+    интерактивным меню, а те могли изменить его, пока окно было открыто.
+    Запись целого снапшота вернула бы на диск их состояние часовой давности —
+    включая отозванное согласие на отправку кода AI-провайдеру. Гонку двух
+    одновременных писателей это не закрывает (``LNCH-3-06``), но окно сузилось
+    до времени одной записи.
+
+    Best-effort: неудачная запись памяти окна не должна мешать запуску сервера,
+    ради которого пользователь сюда и пришёл.
+    """
+    with contextlib.suppress(OSError, ValueError):
+        save_fields(launcher_settings_path(), last_launch=choice)
+
+
 class ServerState(Enum):
     """Состояние управляемого процесса web-сервера для UI-лаунчера."""
 
@@ -745,19 +843,25 @@ class LauncherApp:
         self._opened_url = ""
         self._last_url = ""
         self._poll_id: str | None = None
+        # issue #1133: окно открывается там, где его закрыли. Раньше каждый
+        # запуск начинался с нуля — и пользователь, работающий с изоляцией,
+        # включал её заново каждый раз, пока однажды не забывал. Тихая потеря
+        # настройки безопасности, а не просто неудобство.
+        initial = initial_launch_values(remembered_launch_choice(), lang_flag=lang)
         # issue #821: подписи окна — из каталога проекта. issue #1131: язык
         # больше не определяется раз и навсегда — в окне есть переключатель,
         # и он же задаёт язык страницы дочернего сервера.
-        self._lang = lang or detect_lang()
+        self._lang = initial.lang
         self._messages = load_ui_messages(self._lang)
 
         root.title(self._t("launcher_window_title"))
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        self.port_var = tk.StringVar(value=str(DEFAULT_PORT))
-        self.sandbox_var = tk.BooleanVar(value=False)
+        self.port_var = tk.StringVar(value=str(initial.port))
+        self.sandbox_var = tk.BooleanVar(value=initial.sandbox)
         # issue #823: стартуем в настроенной папке задач, а не в cwd ярлыка.
-        self.workdir_var = tk.StringVar(value=str(default_workdir()))
+        # issue #1133: запомненная папка сильнее вычисленной — её выбрал человек.
+        self.workdir_var = tk.StringVar(value=str(initial.workdir))
         self.status_var = tk.StringVar(value=self._t("launcher_status_stopped"))
         self.tasks_var = tk.StringVar(value="")
         # issue #1131: язык и запись истории — выбор пользователя ДО старта.
@@ -827,7 +931,9 @@ class LauncherApp:
             ],
         )
         self.history_box.grid(row=4, column=1, columnspan=2, sticky="w", pady=(0, 8))
-        self.history_box.set(self._t("launcher_history_inherit"))
+        # issue #1133: запомненный выбор восстанавливается; «не выбирал»
+        # (``None``) — это отдельное значение «унаследовать», а не «выключено».
+        self.history_box.set(self._history_label(initial.record_history))
 
         # issue #1131 (LNCH-2-05): язык выбирается на старте и доезжает до
         # браузера — до этого фикса страница всегда открывалась на русском.
@@ -955,6 +1061,17 @@ class LauncherApp:
         if not port_available(port, host=self.controller.host):
             self._set_status(self._port_busy_hint(port), error=True)
             return
+        # issue #1133: выбор запоминается ДО старта — окно, закрытое сразу после
+        # запуска сервера, всё равно откроется в том же состоянии.
+        remember_launch_choice(
+            LaunchChoice(
+                sandbox=self.sandbox_var.get(),
+                record_history=self.selected_record_history(),
+                lang=self.lang_var.get(),
+                port=port,
+                workdir=workdir,
+            )
+        )
         self.controller.start(
             port,
             sandbox=self.sandbox_var.get(),
@@ -978,6 +1095,14 @@ class LauncherApp:
         if free is None:
             return self._t("launcher_port_busy", port=port)
         return self._t("launcher_port_busy_free", port=port, free=free)
+
+    def _history_label(self, value: bool | None) -> str:
+        """Подпись пункта «запись истории» по значению (обратное к выбору, #1133)."""
+        if value is True:
+            return self._t("launcher_history_on")
+        if value is False:
+            return self._t("launcher_history_off")
+        return self._t("launcher_history_inherit")
 
     def selected_record_history(self) -> bool | None:
         """Выбор по записи истории: ``True``/``False``/``None`` — «унаследовать».

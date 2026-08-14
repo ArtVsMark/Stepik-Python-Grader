@@ -22,21 +22,121 @@ issue #430), в файле ``.grader_settings.json`` в рабочей дире�
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
+from dataclasses import fields as dataclass_fields
 from pathlib import Path
+from typing import Any
 
 from stepik_grader.atomic_io import atomic_write_json
 
 __all__ = [
     "SETTINGS_FILE_NAME",
+    "LaunchChoice",
     "UserSettings",
     "default_settings_path",
     "load_settings",
     "save_fields",
     "save_settings",
+    "settings_field_names",
 ]
 
 SETTINGS_FILE_NAME = ".grader_settings.json"
+
+
+@dataclass(frozen=True)
+class LaunchChoice:
+    """Выбор в окне лаунчера, переживающий закрытие окна (issue #1133).
+
+    Окно каждый раз стартовало с нуля: порт 8000, изоляция выключена, папка
+    вычислялась заново. Для инструмента, который открывают ежедневно, это
+    значит, что пользователь, работающий с ``--sandbox``, включает его каждый
+    раз — и однажды забудет. Тихая потеря настройки безопасности.
+
+    ``None`` в поле — «не выбирал», и это не то же самое, что «выбрал значение,
+    совпавшее с дефолтом»: запечённый выбор перекрыл бы правку
+    ``pyproject.toml`` флагом с тем же значением (ADR-0012). Поэтому поля
+    трёхзначные, а восстановление подставляет только заданное.
+    """
+
+    sandbox: bool | None = None
+    record_history: bool | None = None
+    lang: str | None = None
+    port: int | None = None
+    workdir: Path | None = None
+
+    def to_json(self) -> dict[str, object]:
+        """Представление для ``.grader_settings.json`` (только заданные поля)."""
+        payload: dict[str, object] = {}
+        for field in dataclass_fields(self):
+            value = getattr(self, field.name)
+            if value is None:
+                continue
+            payload[field.name] = str(value) if isinstance(value, Path) else value
+        return payload
+
+    @classmethod
+    def from_json(cls, raw: object) -> LaunchChoice | None:
+        """Разобрать значение из файла; мусор и чужие типы → ``None`` полей.
+
+        Файл правится сторонними редакторами и другой версией грейдера, поэтому
+        каждое поле проверяется по типу отдельно: одна испорченная строка не
+        должна обнулять остальной выбор (тот же принцип, что у
+        :func:`load_settings`).
+        """
+        if not isinstance(raw, dict):
+            return None
+        port = raw.get("port")
+        workdir = raw.get("workdir")
+        return cls(
+            sandbox=_as_bool(raw.get("sandbox")),
+            record_history=_as_bool(raw.get("record_history")),
+            lang=_as_str(raw.get("lang")),
+            # bool — подкласс int: без явной отсечки `True` стал бы портом 1.
+            port=port if isinstance(port, int) and not isinstance(port, bool) else None,
+            workdir=Path(workdir) if isinstance(workdir, str) and workdir else None,
+        )
+
+
+def _as_bool(value: object) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
+def _as_str(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _as_launch(value: object) -> LaunchChoice | None:
+    return LaunchChoice.from_json(value)
+
+
+# issue #1133 (LNCH-3-05): единственный список полей файла настроек. Раньше их
+# перечисляли руками в четырёх местах (dataclass, чтение, `save_fields`,
+# `save_settings`), и поле, забытое в одном из них, МОЛЧА не сохранялось —
+# ровно тот дефект, которым рисковали профили лаунчера, первое непримитивное
+# поле. Теперь читатели живут здесь, а совпадение с полями `UserSettings`
+# сверяет тест (`test_user_settings.py`), а не внимательность автора правки.
+_FIELD_READERS: dict[str, Callable[[object], object]] = {
+    "record_history": _as_bool,
+    "ai_hint_consent": _as_bool,
+    "ai_hint_consent_endpoint": _as_str,
+    "onboarding_seen": _as_bool,
+    "last_launch": _as_launch,
+}
+
+
+def settings_field_names() -> frozenset[str]:
+    """Имена полей, которые этот код умеет читать и писать (issue #1133)."""
+    return frozenset(_FIELD_READERS)
+
+
+def _to_json(value: object) -> object:
+    """Значение поля в JSON-представлении (``LaunchChoice`` — вложенным объектом)."""
+    if isinstance(value, LaunchChoice):
+        return value.to_json()
+    if isinstance(value, Path):
+        return str(value)
+    return value
 
 
 @dataclass
@@ -66,12 +166,19 @@ class UserSettings:
     автоматически (открыть заново можно кнопкой в topbar). Машинный факт «первый
     запуск на этой рабочей директории», а не per-браузер, поэтому живёт здесь, а
     не в ``localStorage`` (в отличие от однократного history-notice, issue #565).
+
+    ``last_launch`` (issue #1133): последний выбор в окне лаунчера — изоляция,
+    история, язык, порт, рабочая папка. ``None`` — окно ещё не запускали. Первое
+    непримитивное поле файла настроек, поэтому список полей выведен в
+    ``_FIELD_READERS`` (см. комментарий там): при ручном перечислении новое поле
+    молча не сохранилось бы.
     """
 
     record_history: bool | None = None
     ai_hint_consent: bool | None = None
     ai_hint_consent_endpoint: str | None = None
     onboarding_seen: bool | None = None
+    last_launch: LaunchChoice | None = None
 
 
 def default_settings_path(root: Path | None = None) -> Path:
@@ -113,16 +220,12 @@ def load_settings(path: Path) -> UserSettings:
         return UserSettings()
     if not isinstance(data, dict):
         return UserSettings()
-    record_history = data.get("record_history")
-    ai_hint_consent = data.get("ai_hint_consent")
-    endpoint = data.get("ai_hint_consent_endpoint")
-    onboarding_seen = data.get("onboarding_seen")
-    return UserSettings(
-        record_history=record_history if isinstance(record_history, bool) else None,
-        ai_hint_consent=ai_hint_consent if isinstance(ai_hint_consent, bool) else None,
-        ai_hint_consent_endpoint=endpoint if isinstance(endpoint, str) else None,
-        onboarding_seen=onboarding_seen if isinstance(onboarding_seen, bool) else None,
-    )
+    # issue #1133: поля берутся из общего списка читателей, а не перечисляются
+    # здесь ещё раз — иначе новое поле читалось бы только там, где о нём вспомнили.
+    # Значения приходят из JSON, то есть проверяются в рантайме читателями, а не
+    # статически: `Any` здесь честнее, чем `object` с игнором на распаковке.
+    values: dict[str, Any] = {name: read(data.get(name)) for name, read in _FIELD_READERS.items()}
+    return UserSettings(**values)
 
 
 def _read_raw(path: Path) -> dict[str, object]:
@@ -160,13 +263,7 @@ def save_fields(path: Path, **fields: object) -> None:
     Гонку двух одновременных писателей это не решает (read-modify-write не
     атомарен), но окно сузилось с «вся сессия меню» до времени одной записи.
     """
-    known = {
-        "record_history",
-        "ai_hint_consent",
-        "ai_hint_consent_endpoint",
-        "onboarding_seen",
-    }
-    unknown = set(fields) - known
+    unknown = set(fields) - settings_field_names()
     if unknown:
         raise ValueError(f"неизвестные поля настроек: {sorted(unknown)}")
     data = _read_raw(path)
@@ -174,7 +271,7 @@ def save_fields(path: Path, **fields: object) -> None:
         if value is None:
             data.pop(name, None)
         else:
-            data[name] = value
+            data[name] = _to_json(value)
     atomic_write_json(path, data, fsync=False)
 
 

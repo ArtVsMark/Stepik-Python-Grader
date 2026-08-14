@@ -214,3 +214,107 @@ def test_save_settings_keeps_keys_unknown_to_this_version(tmp_path: Path) -> Non
     save_settings(UserSettings(record_history=True), path)
 
     assert json.loads(path.read_text(encoding="utf-8"))["future_flag"] == "keep-me"
+
+
+# ---------------------------------------------------------------------------
+# issue #1133 — память окна лаунчера: первое непримитивное поле файла настроек
+# ---------------------------------------------------------------------------
+
+
+def test_field_readers_cover_every_dataclass_field() -> None:
+    """LNCH-3-05: список полей один, а не переписан в четырёх местах.
+
+    Поле, добавленное в dataclass и забытое в читателях, МОЛЧА не сохранялось
+    бы — именно этим рисковала память лаунчера. Тест держит их синхронными
+    вместо внимательности автора правки.
+    """
+    from dataclasses import fields
+
+    declared = {field.name for field in fields(user_settings.UserSettings)}
+
+    assert user_settings.settings_field_names() == declared
+
+
+def test_launch_choice_roundtrip(tmp_path: Path) -> None:
+    """Выбор окна переживает запись и чтение — включая путь как Path."""
+    path = tmp_path / ".grader_settings.json"
+    choice = user_settings.LaunchChoice(
+        sandbox=True,
+        record_history=False,
+        lang="en",
+        port=8123,
+        workdir=tmp_path / "tasks",
+    )
+
+    user_settings.save_fields(path, last_launch=choice)
+
+    assert user_settings.load_settings(path).last_launch == choice
+
+
+def test_launch_choice_keeps_unset_fields_apart_from_defaults(tmp_path: Path) -> None:
+    """«Не выбирал» остаётся None, а не превращается в False/0 (ADR-0012)."""
+    path = tmp_path / ".grader_settings.json"
+
+    user_settings.save_fields(path, last_launch=user_settings.LaunchChoice(port=9000))
+    restored = user_settings.load_settings(path).last_launch
+
+    assert restored is not None
+    assert restored.port == 9000
+    assert restored.sandbox is None
+    assert restored.record_history is None
+    assert restored.lang is None
+
+
+def test_saving_launch_choice_keeps_foreign_keys(tmp_path: Path) -> None:
+    """Критерий приёмки #1133: параллельная запись веба не теряется.
+
+    Окно и веб пишут ОДИН файл. Если бы память окна писалась целым снапшотом,
+    она вернула бы на диск состояние, снятое при открытии окна, — включая
+    отозванное тем временем согласие на отправку кода AI-провайдеру.
+    """
+    path = tmp_path / ".grader_settings.json"
+    user_settings.save_fields(path, ai_hint_consent=True, onboarding_seen=True)
+
+    # Веб отозвал согласие, пока окно было открыто.
+    user_settings.save_fields(path, ai_hint_consent=None)
+    user_settings.save_fields(path, last_launch=user_settings.LaunchChoice(sandbox=True))
+
+    restored = user_settings.load_settings(path)
+    assert restored.ai_hint_consent is None, "отозванное согласие вернулось из памяти окна"
+    assert restored.onboarding_seen is True, "чужой ключ затёрт"
+    assert restored.last_launch is not None
+    assert restored.last_launch.sandbox is True
+
+
+def test_corrupt_launch_choice_does_not_break_other_settings(tmp_path: Path) -> None:
+    """Мусор в памяти окна не уносит с собой остальные настройки."""
+    path = tmp_path / ".grader_settings.json"
+    path.write_text(
+        json.dumps({"record_history": True, "last_launch": "не объект"}), encoding="utf-8"
+    )
+
+    restored = user_settings.load_settings(path)
+
+    assert restored.record_history is True
+    assert restored.last_launch is None
+
+
+def test_launch_choice_ignores_wrong_types_field_by_field(tmp_path: Path) -> None:
+    """Одно испорченное поле не обнуляет соседние — разбор поштучный.
+
+    ``True`` в порту отдельным случаем: ``bool`` — подкласс ``int``, и без
+    явной отсечки запомненный порт стал бы единицей.
+    """
+    path = tmp_path / ".grader_settings.json"
+    path.write_text(
+        json.dumps({"last_launch": {"sandbox": True, "port": True, "lang": 42, "workdir": ""}}),
+        encoding="utf-8",
+    )
+
+    restored = user_settings.load_settings(path).last_launch
+
+    assert restored is not None
+    assert restored.sandbox is True  # уцелело
+    assert restored.port is None  # bool портом не считается
+    assert restored.lang is None
+    assert restored.workdir is None

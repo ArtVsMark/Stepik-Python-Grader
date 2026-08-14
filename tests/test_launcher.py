@@ -405,15 +405,21 @@ def _tk_module():
 
 
 @pytest.fixture
-def tk_window(_tk_module, monkeypatch):
+def tk_window(_tk_module, monkeypatch, tmp_path):
     """Отдельный withdrawn Toplevel на тест поверх общего Tk-рута модуля.
 
     Язык окна фиксируется явно (issue #821): подписи локализованы, а язык по
     умолчанию берётся из системной локали — без фиксации проверки русских строк
     падали бы на англоязычных раннерах Windows/macOS, оставаясь зелёными на
     русской машине разработчика. Английский путь проверяется отдельным тестом.
+
+    Корень настроек уводится в ``tmp_path`` (issue #1133): окно теперь ЧИТАЕТ
+    запомненный выбор при открытии, и без изоляции тест на машине разработчика
+    подхватил бы его настоящий `.grader_settings.json` — а заодно перезаписал бы
+    его при проверке старта.
     """
     monkeypatch.setenv(launcher.LANG_ENV_VAR, "ru")
+    monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
     tk, root = _tk_module
     top = tk.Toplevel(root)
     top.withdraw()
@@ -433,9 +439,52 @@ class TestGuiSmoke:
         assert app.sandbox_var.get() is False
         assert "Остановлен" in app.status_var.get()
 
-    def test_widgets_follow_selected_language(self, _tk_module, monkeypatch) -> None:
+    def test_window_opens_with_remembered_choice(self, tk_window, tmp_path) -> None:
+        """issue #1133: связка окна с памятью — то, что GUI-free тесты не видят.
+
+        Логика восстановления проверяется отдельно и без дисплея
+        (`TestRemembersChoice`), но что конструктор её ВЫЗЫВАЕТ — только здесь.
+        Тест скипается там, где нет дисплея, то есть во всём CI: это поверхность
+        локального окна, и в PR она отмечена как проверка руками.
+        """
+        tasks = tmp_path / "tasks"
+        tasks.mkdir()
+        launcher.remember_launch_choice(
+            launcher.LaunchChoice(sandbox=True, record_history=False, port=8321, workdir=tasks)
+        )
+
+        app = LauncherApp(tk_window, ServerController())
+        tk_window.update()
+
+        assert app.port_var.get() == "8321"
+        assert app.sandbox_var.get() is True
+        assert app.workdir_var.get() == str(tasks)
+
+    def test_start_remembers_the_choice(self, tk_window, tmp_path, monkeypatch) -> None:
+        """Выбор сохраняется при запуске, а не при закрытии окна.
+
+        Окно, закрытое сразу после старта сервера (обычное дело — оно больше не
+        нужно), иначе не оставило бы следа.
+        """
+        app = LauncherApp(tk_window, ServerController())
+        tk_window.update()
+        app.port_var.set("8322")
+        app.sandbox_var.set(True)
+        app.workdir_var.set(str(tmp_path))
+        monkeypatch.setattr(launcher, "port_available", lambda *a, **k: True)
+        monkeypatch.setattr(app.controller, "start", lambda *a, **k: None)
+
+        app._start()
+
+        remembered = launcher.remembered_launch_choice()
+        assert remembered.port == 8322
+        assert remembered.sandbox is True
+        assert remembered.workdir == tmp_path
+
+    def test_widgets_follow_selected_language(self, _tk_module, monkeypatch, tmp_path) -> None:
         """issue #821: под английским языком окно строится с английскими подписями."""
         monkeypatch.setenv(launcher.LANG_ENV_VAR, "en")
+        monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
         tk, root = _tk_module
         top = tk.Toplevel(root)
         top.withdraw()
@@ -1099,3 +1148,158 @@ class TestZeroTasksLine:
         line = self._line_for(tmp_path / "нет-такой")
 
         assert "не найдена" in line.lower()
+
+
+class TestRemembersChoice:
+    """issue #1133: окно открывается там, где его закрыли.
+
+    Раньше каждый запуск начинался с нуля — порт 8000, изоляция выключена,
+    папка вычислена заново. Для инструмента, который открывают ежедневно, это
+    значит, что работающий с изоляцией включает её каждый раз, пока однажды не
+    забудет: тихая потеря настройки безопасности, а не просто неудобство.
+
+    Всё GUI-free: логика восстановления вынесена из конструктора окна ровно
+    затем, чтобы её проверял не только тот, у кого есть дисплей.
+    """
+
+    def test_saved_choice_comes_back(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
+        tasks = tmp_path / "tasks"
+        tasks.mkdir()
+        choice = launcher.LaunchChoice(
+            sandbox=True, record_history=False, lang="en", port=8321, workdir=tasks
+        )
+
+        launcher.remember_launch_choice(choice)
+
+        assert launcher.remembered_launch_choice() == choice
+
+    def test_first_run_has_no_memory(self, tmp_path: Path, monkeypatch) -> None:
+        """Файла ещё нет — пустой выбор, а не падение и не мусор."""
+        monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
+
+        assert launcher.remembered_launch_choice() == launcher.LaunchChoice()
+
+    def test_unwritable_settings_do_not_block_launch(self, tmp_path: Path, monkeypatch) -> None:
+        """Память — не обязательство: сервер запускается, даже если запись упала."""
+        monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
+
+        def refuse(*_args: object, **_kwargs: object) -> None:
+            raise OSError("read-only filesystem")
+
+        monkeypatch.setattr(launcher, "save_fields", refuse)
+
+        launcher.remember_launch_choice(launcher.LaunchChoice(sandbox=True))  # без исключения
+
+    def test_remembered_values_fill_the_window(self, tmp_path: Path) -> None:
+        tasks = tmp_path / "tasks"
+        tasks.mkdir()
+        remembered = launcher.LaunchChoice(
+            sandbox=True, record_history=False, lang="en", port=8321, workdir=tasks
+        )
+
+        initial = launcher.initial_launch_values(remembered, fallback_dir=tmp_path)
+
+        assert initial.port == 8321
+        assert initial.sandbox is True
+        assert initial.workdir == tasks
+        assert initial.lang == "en"
+        assert initial.record_history is False
+
+    def test_empty_memory_falls_back_to_defaults(self, tmp_path: Path) -> None:
+        initial = launcher.initial_launch_values(launcher.LaunchChoice(), fallback_dir=tmp_path)
+
+        assert initial.port == launcher.DEFAULT_PORT
+        assert initial.sandbox is False
+        assert initial.workdir == tmp_path
+        # «Не выбирал» остаётся None — это «унаследовать», а не «выключено».
+        assert initial.record_history is None
+
+    def test_vanished_workdir_falls_back(self, tmp_path: Path) -> None:
+        """Папка с прошлого раза исчезла (внешний диск, переезд проекта).
+
+        Окно, открытое на несуществующем пути, показало бы ноль задач — и повод
+        думать, что пропали они, а не папка.
+        """
+        remembered = launcher.LaunchChoice(workdir=tmp_path / "унесённая-флешка")
+
+        initial = launcher.initial_launch_values(remembered, fallback_dir=tmp_path)
+
+        assert initial.workdir == tmp_path
+
+    def test_lang_flag_beats_memory(self, tmp_path: Path) -> None:
+        """`--lang` — решение «на сейчас», память только предлагает прошлое."""
+        remembered = launcher.LaunchChoice(lang="ru")
+
+        initial = launcher.initial_launch_values(remembered, lang_flag="en", fallback_dir=tmp_path)
+
+        assert initial.lang == "en"
+
+
+class TestStartRemembersWithoutDisplay:
+    """issue #1133: сохранение при старте — без tkinter, значит и в CI.
+
+    `_start` трогает только переменные окна и контроллер, поэтому вызывается на
+    заглушке. Через настоящее окно эта связка проверялась бы лишь там, где есть
+    дисплей, — то есть ни в одном job'е матрицы.
+    """
+
+    class _Var:
+        def __init__(self, value: object = "") -> None:
+            self._value = value
+
+        def get(self) -> object:
+            return self._value
+
+        def set(self, value: object) -> None:
+            self._value = value
+
+    def test_start_saves_the_choice(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
+        monkeypatch.setattr(launcher, "port_available", lambda *a, **k: True)
+        started: list[dict[str, object]] = []
+
+        stub = types.SimpleNamespace(
+            port_var=self._Var("8324"),
+            workdir_var=self._Var(str(tmp_path)),
+            sandbox_var=self._Var(True),
+            lang_var=self._Var("en"),
+            controller=types.SimpleNamespace(
+                host=launcher.DEFAULT_HOST,
+                start=lambda *a, **k: started.append(k),
+            ),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = launcher.LauncherApp._t.__get__(stub)
+        stub.selected_record_history = lambda: False
+        stub._set_status = lambda *a, **k: None
+
+        launcher.LauncherApp._start(stub)
+
+        assert started, "сервер не запущен — тест проверяет не тот путь"
+        remembered = launcher.remembered_launch_choice()
+        assert remembered.port == 8324
+        assert remembered.sandbox is True
+        assert remembered.lang == "en"
+        assert remembered.record_history is False
+        assert remembered.workdir == tmp_path
+
+    def test_invalid_port_saves_nothing(self, tmp_path: Path, monkeypatch) -> None:
+        """Невалидный ввод не попадает в память: запомнить стоит только запуск."""
+        monkeypatch.setattr(launcher, "default_workdir", lambda: tmp_path)
+
+        stub = types.SimpleNamespace(
+            port_var=self._Var("не число"),
+            workdir_var=self._Var(str(tmp_path)),
+            sandbox_var=self._Var(True),
+            lang_var=self._Var("ru"),
+            controller=types.SimpleNamespace(host=launcher.DEFAULT_HOST),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = launcher.LauncherApp._t.__get__(stub)
+        stub.selected_record_history = lambda: None
+        stub._set_status = lambda *a, **k: None
+
+        launcher.LauncherApp._start(stub)
+
+        assert launcher.remembered_launch_choice() == launcher.LaunchChoice()

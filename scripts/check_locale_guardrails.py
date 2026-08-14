@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/check_locale_guardrails.py — CI-guard локализации веб-API (issue #264).
 
-Пять машинных защит, чтобы каталог сообщений веб-слоя (``message_id`` →
+Шесть машинных защит, чтобы каталог сообщений веб-слоя (``message_id`` →
 локализованный текст, см. ``web/i18n.py``) не разъезжался с фактическим
 использованием, между локалями и с тем, что пользователь реально видит:
 
@@ -24,6 +24,11 @@
 5. **Один стиль кавычек в ``en.json``.** Русские «ёлочки» соседствовали с
    английскими “лапками”, причём один и тот же термин был закавычен обоими
    способами; проверка на кириллицу этого не видит — кавычки не буквы.
+6. **Подсказки ``pip install`` называют настоящий пакет** (issue #1005):
+   сообщение про ``--watch`` советовало ``stepik-grader[watch]`` — имя, под
+   которым проект не публикуется, — тогда как соседние строки того же файла
+   писали его верно. Имя берётся из ``pyproject.toml``, поэтому переименование
+   дистрибутива не разъедется с текстами молча.
 
 По образцу ``scripts/check_docs_guardrails.py`` (issue #173): чистый
 ``ast``/``json``/``pathlib``, без внешних зависимостей — быстро и
@@ -40,6 +45,7 @@ import ast
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 __all__ = [
@@ -47,8 +53,10 @@ __all__ = [
     "check_en_locale_uses_one_quote_style",
     "check_en_ru_key_parity",
     "check_locales_link_outside_the_repo",
+    "check_locales_name_the_real_package",
     "check_ru_covers_referenced_ids",
     "collect_referenced_message_ids",
+    "distribution_name",
     "load_locale_keys",
     "load_locale_values",
     "main",
@@ -260,6 +268,41 @@ def check_en_locale_uses_one_quote_style(errors: list[str]) -> None:
         print("en.json: consistent English quotation marks.")
 
 
+def distribution_name() -> str:
+    """Имя дистрибутива из ``pyproject.toml`` — единственный источник истины."""
+    data = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return str(data["project"]["name"])
+
+
+def check_locales_name_the_real_package(errors: list[str]) -> None:
+    """Подсказки ``pip install`` называют НАСТОЯЩЕЕ имя пакета (issue #1005, RUN-5-06).
+
+    ``watch_dependency_missing`` советовал ``pip install "stepik-grader[watch]"``
+    — имя, под которым проект на PyPI не публикуется. Пользователь, у которого
+    нет ``watchfiles``, выполнял подсказку и получал либо ошибку, либо ЧУЖОЙ
+    пакет. Соседние строки того же файла при этом писали имя верно, так что
+    расхождение жило внутри одного файла и глазами не ловилось.
+
+    Проверяется форма с extras (``имя[extra]``): именно она адресует
+    дистрибутив, тогда как голое ``stepik-grader`` в тексте — это ещё и имя
+    исполняемой команды, которое законно встречается само по себе.
+    """
+    expected = distribution_name()
+    with_extras = re.compile(r"\b([A-Za-z][\w.-]*)\[[\w,\s-]+\]")
+    bad: list[str] = []
+    for lang in ("ru", "en"):
+        for key, text in load_locale_values(lang).items():
+            for name in with_extras.findall(text):
+                if name != expected and name.lower().startswith("stepik"):
+                    bad.append(f"{lang}.json:{key} → {name}[…]")
+    if bad:
+        errors.append(
+            f"locale(s) advertise a package name other than {expected!r}: " + ", ".join(sorted(bad))
+        )
+    else:
+        print(f"Locale package hints: all extras name {expected}.")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
@@ -268,6 +311,7 @@ def main() -> int:
     check_en_locale_has_no_cyrillic(errors)
     check_locales_link_outside_the_repo(errors)
     check_en_locale_uses_one_quote_style(errors)
+    check_locales_name_the_real_package(errors)
 
     if errors:
         print("\nFAIL: locale guardrails violated:")
