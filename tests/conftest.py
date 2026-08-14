@@ -180,6 +180,35 @@ def _no_writes_outside_tmp(
         )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _history_db_safety_net(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Изоляция истории держится и МЕЖДУ тестами, а не только внутри них (#1166).
+
+    Изоляция ниже — per-test, и её ``monkeypatch`` откатывается на границе
+    теста. В окне между откатом одного теста и установкой следующего
+    ``STEPIK_GRADER_HISTORY_DB`` пуста, и ``default_history_db_path()``
+    резолвится в НАСТОЯЩУЮ ``~/.stepik-grader/history.db``. Тест этого окна не
+    видит — а поток видит: web-слой гоняет проверки в пуле
+    (``web/runs.py``), и поток, переживший свой тест, попадает ровно туда.
+
+    Так падал guard ``_no_filesystem_pollution``: «создано
+    ``/Users/runner/.stepik-grader``» — причём каждый раз в другом тесте
+    ``test_runs.py`` и только на медленных раннерах (macOS/Windows), где поток
+    не успевает закончить до конца теста. На Linux окно закрывалось раньше, чем
+    поток до него добирался.
+
+    Страховка ставится на всю сессию, поэтому откат per-test изоляции
+    возвращает не пустоту, а тоже путь в ``tmp``. Свою базу на тест это не
+    отменяет: значение ниже ложится поверх и действует, пока тест идёт.
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv(
+            "STEPIK_GRADER_HISTORY_DB",
+            str(tmp_path_factory.mktemp("history-safety-net") / "history.db"),
+        )
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _isolate_history_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
     """Ни один тест не пишет в РЕАЛЬНУЮ базу истории пользователя (issue #818).
