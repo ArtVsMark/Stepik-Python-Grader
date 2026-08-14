@@ -195,7 +195,9 @@ function closeOnboarding() {
   overlay.hidden = true;
   document.removeEventListener("keydown", _onboardingKeydown);
   overlay.removeEventListener("mousedown", _onboardingBackdropClick);
-  // Галка checked (дефолт) → больше не авто-показ; снята → покажется снова.
+  // Галка отмечена → больше не авто-показ; снята → покажется снова. Значение
+  // берётся из самого чекбокса, который теперь отражает сохранённое состояние
+  // (issue #934), а не из предположения «по умолчанию отмечено».
   const dontShow = $("#onboarding-dont-show");
   _persistOnboardingSeen(dontShow ? dontShow.checked : true);
   if (_onboardingReturnFocus && typeof _onboardingReturnFocus.focus === "function") {
@@ -221,8 +223,16 @@ function initOnboarding() {
   if (closeBtn) closeBtn.addEventListener("click", closeOnboarding);
   const closeX = $("#onboarding-close-x");
   if (closeX) closeX.addEventListener("click", closeOnboarding);
+  // issue #934: галка ОТРАЖАЕТ сохранённое состояние, а не всегда «отмечено».
+  // Прежде она была checked в разметке и не читалась ниоткуда, поэтому закрытие
+  // модалки всегда слало seen=true: пользователь снимал галку, прося показывать
+  // окно дальше, а первое же закрытие отменяло его выбор — интерфейс врал о
+  // том, что сохранил.
+  const seen = document.body.dataset.onboardingSeen === "true";
+  const dontShow = $("#onboarding-dont-show");
+  if (dontShow) dontShow.checked = seen;
   // Первый показ: сервер прислал data-onboarding-seen="false" (флаг ещё не стоял).
-  if (document.body.dataset.onboardingSeen !== "true") openOnboarding();
+  if (!seen) openOnboarding();
 }
 
 // -- Wiring / init -------------------------------------------------------------
