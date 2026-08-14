@@ -17,7 +17,6 @@ pytest сохраняет; запуск одного лишь ``test_...report``
 
 from __future__ import annotations
 
-import pathlib
 import threading
 import time
 
@@ -32,13 +31,19 @@ _WATCH_SECONDS = 0.9
 
 
 def _watch() -> None:
-    """Резолвить путь к базе, пока идут соседние тесты; помнить попадания в home."""
-    home = pathlib.Path.home().resolve()
+    """Резолвить путь к базе, пока идут соседние тесты; помнить попадания в пользовательскую.
+
+    Сравнение точечное — именно с ``user_history_db_path()``, а не «где-то под
+    домашней папкой»: на Windows временный каталог pytest сам лежит внутри
+    ``C:\\Users\\<user>\\AppData\\Local\\Temp``, и широкая проверка объявляла бы
+    исправную изоляцию нарушением. Guard ``_no_filesystem_pollution`` ловит
+    ровно этот путь — на него и смотрим.
+    """
+    real = history_recording.user_history_db_path().resolve()
     deadline = time.monotonic() + _WATCH_SECONDS
     while not _STOP.is_set() and time.monotonic() < deadline:
-        resolved = history_recording.default_history_db_path().resolve()
-        if home == resolved or home in resolved.parents:
-            _HITS.append(str(resolved))
+        if history_recording.default_history_db_path().resolve() == real:
+            _HITS.append(str(real))
 
 
 def test_1_watcher_starts() -> None:
@@ -66,7 +71,7 @@ def test_4_home_was_never_resolved() -> None:
     _STOP.set()
 
     assert not _HITS, (
-        "путь к базе истории уводил в домашнюю папку на границе теста: "
-        f"{sorted(set(_HITS))[:3]}. Изоляция из conftest.py действует только "
-        "внутри теста — нужен слой, переживающий её откат."
+        f"путь к базе истории уводил в пользовательскую базу {_HITS[0]} на границе "
+        f"теста ({len(_HITS)} раз). Изоляция из conftest.py действует только внутри "
+        "теста — нужен слой, переживающий её откат."
     )
