@@ -157,6 +157,29 @@ def _as_profiles(value: object) -> dict[str, LaunchChoice]:
     return profiles
 
 
+def _as_run_settings(value: object) -> dict[str, object]:
+    """Настройки прогона, выбранные во вкладке «Дополнительно» (issue #1136).
+
+    Плоский словарь «имя поля ``GraderConfig`` → значение». Плоский и без
+    собственной схемы намеренно: набор задаётся вкладкой и будет расти, а
+    отдельное поле на каждую настройку требовало бы правки модели при каждом
+    добавлении. Отсутствие ключа означает «не задано» — то самое состояние,
+    которое в командной строке невыразимо, а здесь получается бесплатно.
+
+    Проверка ЗНАЧЕНИЙ живёт не здесь: их валидирует ``config.validate_values``
+    тем же кодом, что и ``pyproject.toml`` — иначе появилось бы два разных
+    представления о допустимом. Здесь отсекается только явный мусор: ключ не
+    строка, значение не примитив.
+    """
+    if not isinstance(value, dict):
+        return {}
+    return {
+        name: item
+        for name, item in value.items()
+        if isinstance(name, str) and isinstance(item, str | int | float | bool | type(None))
+    }
+
+
 def _as_profile_name(value: object) -> str | None:
     if isinstance(value, str) and valid_profile_name(value):
         return value.strip()
@@ -177,6 +200,7 @@ _FIELD_READERS: dict[str, Callable[[object], object]] = {
     "last_launch": _as_launch,
     "launch_profiles": _as_profiles,
     "last_profile": _as_profile_name,
+    "run_settings": _as_run_settings,
 }
 
 
@@ -241,6 +265,11 @@ class UserSettings:
     # выбора — одно и то же, и отдельное состояние только плодило бы проверки.
     launch_profiles: dict[str, LaunchChoice] = field(default_factory=dict)
     last_profile: str | None = None
+    # issue #1136: настройки прогона, выбранные во вкладке «Дополнительно»
+    # (таймаут, лимит памяти, строгость сравнения, пороги «Подучить» и т.д.).
+    # Пустой словарь = «ничего не переопределено»: пользователь наследует
+    # pyproject.toml и дефолты, как и до вкладки.
+    run_settings: dict[str, object] = field(default_factory=dict)
 
 
 def default_settings_path(root: Path | None = None) -> Path:

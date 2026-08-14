@@ -366,6 +366,7 @@
   "toggle_on": "ON",
   "too_many_runs": "Too many active runs (limit {limit}). Wait for the current runs to finish and retry.",
   "unknown_choice": "Unknown choice. Please enter 0-9.",
+  "user_settings_rejected": "⚠️ Settings from .grader_settings.json were not applied (invalid values): {names}. Fix them on the “Advanced” tab or remove them from the file.",
   "vscode_exists": "⚠️ File already exists: {path}\n   Delete/rename it to regenerate, or add the tasks manually:\n   https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/README.md",
   "vscode_written": "✅ VS Code tasks created: {path}\n   Run: Terminal → Run Task → “Stepik: …”,\n   or Ctrl+Shift+B for “check current file”.",
   "wa_whitespace_suggestion": "Output matches after trimming trailing whitespace/line endings — check formatting.",
