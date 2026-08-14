@@ -26,7 +26,11 @@ from stepik_grader.core.stepik_client import (
     external_download_get,
     is_stepik_url,
 )
-from stepik_grader.core.tests_writer import reset_tests_dir, write_testblock_tests
+from stepik_grader.core.tests_writer import (
+    backup_dir_for,
+    reset_tests_dir,
+    write_testblock_tests,
+)
 
 __all__ = ["download_github_tests", "download_zip_tests"]
 
@@ -46,6 +50,22 @@ _MAX_TOTAL_BYTES = 64 * 1024 * 1024  # 64 МБ на весь архив
 
 class _ZipTooLarge(Exception):
     """Распаковка вышла за лимит — обрабатывается на месте, наружу не летит."""
+
+
+def _reset_tests_dir_reporting_backup(tests_dir: pathlib.Path) -> None:
+    """Освободить ``tests/`` под новый набор и сказать, что спасено (issue #951).
+
+    Перенос молчал бы так же, как молчало удаление: пользователь должен видеть,
+    что его дописанные кейсы не исчезли, а лежат рядом. Повторный вызов внутри
+    :func:`write_testblock_tests` найдёт каталог уже пустым и ничего не сделает.
+    """
+    moved = reset_tests_dir(tests_dir)
+    if moved:
+        backup = backup_dir_for(tests_dir)
+        print(
+            f"  🗂 Прежнее содержимое tests/ ({moved} шт.) перенесено "
+            f"в {backup.name}/ — дописанные вручную кейсы не потеряны"
+        )
 
 
 def _read_member(zf: zipfile.ZipFile, name: str, *, budget: list[int] | None = None) -> bytes:
@@ -129,6 +149,7 @@ def download_zip_tests(
         )
         for idx, pair in pairs.items()
     }
+    _reset_tests_dir_reporting_backup(task_dir / "tests")
     count = write_testblock_tests(task_dir / "tests", text_pairs)
     print(f"  📦 ZIP сконвертирован в Format 3: {count} тест(ов) → tests/input.txt + output.txt")
     return count
@@ -274,7 +295,7 @@ def download_github_tests(
         # висящие Format-1 файлы (``N``/``N.clue``) прошлого скачивания, а
         # автодетект отдаёт Format 1 приоритет — грейдер молча прогонял СТАРЫЙ
         # набор. Триггер: перекачка шага, тесты которого раньше пришли из ZIP.
-        reset_tests_dir(tests_dir)
+        _reset_tests_dir_reporting_backup(tests_dir)
         for fname, blob in blobs.items():
             (tests_dir / fname).write_bytes(blob)
 
@@ -315,6 +336,7 @@ def download_github_tests(
         print(f"  ⚠️ GitHub: не удалось скачать файлы тестов: {exc}")
         return 0
 
+    _reset_tests_dir_reporting_backup(tests_dir)
     count = write_testblock_tests(tests_dir, text_pairs)
     print(f"  🔗 GitHub: сконвертировано {count} тест(ов) → Format 3")
     return count
