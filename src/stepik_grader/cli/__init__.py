@@ -110,6 +110,7 @@ from stepik_grader.core.reporter import (
     print_progress_summary,
     print_stats_summary,
 )
+from stepik_grader.core.settings_resolver import apply_user_run_settings
 
 __all__ = ["main"]
 
@@ -583,6 +584,16 @@ def main(argv: list[str] | None = None) -> ExitCode:
     # аргументы разъезжаются по конфигу и веб-серверу, и профиль, применённый
     # позже, действовал бы наполовину.
     apply_launch_profile(args, argv, parser)
+
+    # issue #1136: настройки, выбранные во вкладке «Дополнительно», ложатся
+    # поверх pyproject.toml — и ДО флагов ниже, потому что флаг обязан
+    # перекрывать сохранённое: разовое `--timeout 30` иначе проигрывало бы
+    # значению, выбранному месяц назад.
+    rejected = apply_user_run_settings()
+    if rejected:
+        # Настройка, которая «не сработала» без единого слова, неотличима от
+        # неработающей функции — поэтому отброшенное называется вслух.
+        print(_t("user_settings_rejected", names=", ".join(rejected)))
 
     # issue #997 (SET-3-03): лимиты правились только в pyproject.toml, которого
     # у pipx-установки нет. Применяем ДО диспетчеризации — прогон, паспорт

@@ -373,6 +373,7 @@
   "toggle_on": "ВКЛ",
   "too_many_runs": "Слишком много активных задач (лимит {limit}). Дождитесь завершения текущих и повторите.",
   "unknown_choice": "Неизвестный выбор. Введите число от 0 до 9.",
+  "user_settings_rejected": "⚠️ Настройки из .grader_settings.json не применены (негодные значения): {names}. Исправьте их во вкладке «Дополнительно» или удалите из файла.",
   "vscode_exists": "⚠️ Файл уже существует: {path}\n   Удалите/переименуйте его, чтобы пересоздать, или добавьте задачи вручную:\n   https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/README.md",
   "vscode_written": "✅ VS Code задачи созданы: {path}\n   Запуск: Terminal → Run Task → «Stepik: …»,\n   либо Ctrl+Shift+B — «проверить текущий файл».",
   "wa_whitespace_suggestion": "Вывод совпадает после удаления хвостовых пробелов/переводов строк — проверьте форматирование.",
