@@ -315,3 +315,52 @@ def test_strip_trailing_blanks_does_not_mutate_input() -> None:
     original = ["a ", ""]
     strip_trailing_blanks(original)
     assert original == ["a ", ""]
+
+
+class TestFalseAcceptWhereRoundingGlues:
+    """issue #996: округление до девяти знаков — АБСОЛЮТНОЕ, и там, где double
+    не решает, оно склеивало разные числа в один вердикт.
+
+    Все четыре случая воспроизведены на боевом пути ядра
+    (`grader_core` сравнивает через `floats_equal_with_precision`), а не на
+    вспомогательной функции.
+    """
+
+    def test_overflow_does_not_equate_different_numbers(self) -> None:
+        """PY-1-02: 1.0e400 и 2.0e400 оба дают `inf` — и признавались равными."""
+        assert not floats_equal_with_precision("1.0e400", "2.0e400")
+
+    def test_large_integers_beyond_double_precision(self) -> None:
+        """MTX-8-02: double не держит 18 значащих цифр, repr выходит один."""
+        assert not floats_equal_with_precision("123456789012345678.0", "123456789012345679.0")
+
+    def test_tiny_numbers_stay_glued_on_purpose(self) -> None:
+        """MTX-8-01/MTX-8-03 в части малых чисел ОТКЛОНЕНЫ — это сам контракт.
+
+        Числа меньше 5e-10 укладываются в девять знаков после запятой, и
+        сравнение до девяти знаков обязано их склеивать: сузить границу —
+        значит завернуть законное `print(0.1234567894)` при ожидании
+        `0.123456789`, что и поймал `test_output_comparison`.
+        """
+        assert floats_equal_with_precision("0.0000000002", "0.0000000001")
+        assert floats_equal_with_precision("-0.0000000002", "-0.0000000001")
+
+    def test_binary_noise_still_passes(self) -> None:
+        """Главный риск правки: толерантность к двоичному представлению обязана остаться.
+
+        Без неё 0.1 + 0.2 никогда не совпадёт с 0.3, и грейдер станет бесполезен
+        на любой задаче с дробями (issue #940).
+        """
+        assert floats_equal_with_precision("0.30000000000000004", "0.3")
+
+    def test_ninth_digit_tolerance_still_passes(self) -> None:
+        """Разница за девятым знаком по-прежнему прощается."""
+        assert floats_equal_with_precision("0.1234567891", "0.1234567890")
+
+    def test_required_precision_still_enforced(self) -> None:
+        """И требование разрядности не ослаблено: 12.3 не проходит за 12.30."""
+        assert not floats_equal_with_precision("12.3", "12.30")
+
+    def test_ninth_digit_tolerance_survives_on_large_numbers(self) -> None:
+        """Разница за пределами девятого знака прощается и на больших числах."""
+        assert floats_equal_with_precision("12345.6789012341", "12345.6789012342")
