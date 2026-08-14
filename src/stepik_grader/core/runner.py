@@ -48,6 +48,7 @@ except ImportError:
     resource = None  # type: ignore[assignment]
 
 from stepik_grader.config import CONFIG
+from stepik_grader.core import spawn
 
 __all__ = [
     "TRUNCATION_MARKER",
@@ -591,8 +592,15 @@ class LocalRunner:
             popen_kwargs["start_new_session"] = True
         proc: subprocess.Popen[bytes] | None = None
         try:
-            proc = subprocess.Popen(
-                [sys.executable, exec_path],
+            # issue #1149: запуск идёт через страховку, а не голым Popen. Свой
+            # `timeout` ниже покрывает работу процесса, но подвиснуть можно
+            # РАНЬШЕ — в самом `Popen.__init__`, на чтении errpipe после
+            # fork/exec; тогда таймаут прогона до дела не доходит, и поток
+            # остаётся заблокированным навсегда (под `--serve` это занятый
+            # воркер, которого никто не отменит). Ловили на macOS/Windows с
+            # Python 3.14 — здесь и в `run_lint` (issue #877).
+            proc = spawn.guarded_popen(
+                [sys.executable, str(exec_path)],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -667,7 +675,9 @@ class LocalRunner:
             if mem_thread is not None:
                 mem_thread.join(timeout=0.5)
             return outcome
-        except OSError as exc:
+        except (OSError, spawn.SpawnTimeout) as exc:
+            # SpawnTimeout — это «не стартовал», то есть тот же класс, что и
+            # OSError при спавне: вердикт получает причину вместо зависания.
             stop_event.set()
             return RunOutcome(launch_error=str(exc), timed_out=False)
         finally:
