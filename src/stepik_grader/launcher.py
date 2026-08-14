@@ -37,6 +37,7 @@ CLI, никогда из самого веб-интерфейса.
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import json
 import locale
@@ -64,6 +65,7 @@ __all__ = [
     "ServerController",
     "ServerState",
     "ServerStatus",
+    "build_arg_parser",
     "build_server_command",
     "count_tasks",
     "create_app",
@@ -72,6 +74,7 @@ __all__ = [
     "load_ui_messages",
     "main",
     "port_available",
+    "resolve_version",
 ]
 
 DEFAULT_HOST = "127.0.0.1"
@@ -157,7 +160,15 @@ def detect_lang() -> str:
     system = _system_lang()
     if system is None:
         return _FALLBACK_LANG
-    return "ru" if system.startswith("ru") else "en"
+    # issue #1135 (LNCH-1-04): английский — только когда локаль ДЕЙСТВИТЕЛЬНО
+    # английская. Прежнее «всё, что не ru, — en» превращало `LANG=C` (обычное
+    # дело в CI, контейнерах и по ssh) и любую третью локаль в английское окно,
+    # хотя документация обещает русский fallback.
+    if system.startswith("ru"):
+        return "ru"
+    if system.startswith("en"):
+        return "en"
+    return _FALLBACK_LANG
 
 
 def load_ui_messages(lang: str) -> dict[str, str]:
@@ -601,8 +612,13 @@ class LauncherApp:
     сервера подтягивается опросом ``controller.snapshot()`` по ``root.after``.
     """
 
-    def __init__(self, root: Any, controller: ServerController) -> None:
-        """Построить виджеты в ``root`` и запустить периодический опрос статуса."""
+    def __init__(self, root: Any, controller: ServerController, *, lang: str | None = None) -> None:
+        """Построить виджеты в ``root`` и запустить периодический опрос статуса.
+
+        ``lang`` (issue #1135) — язык окна, если он выбран явно флагом
+        ``--lang``; ``None`` означает «определить как раньше» (переменная
+        окружения → системная локаль → русский).
+        """
         import tkinter as tk
         from tkinter import ttk
 
@@ -615,7 +631,7 @@ class LauncherApp:
         # issue #821: подписи окна — из каталога проекта. issue #1131: язык
         # больше не определяется раз и навсегда — в окне есть переключатель,
         # и он же задаёт язык страницы дочернего сервера.
-        self._lang = detect_lang()
+        self._lang = lang or detect_lang()
         self._messages = load_ui_messages(self._lang)
 
         root.title(self._t("launcher_window_title"))
@@ -972,7 +988,12 @@ class LauncherApp:
         self.status_label.config(foreground="#c0392b" if error else "")
 
 
-def create_app(controller: ServerController | None = None, *, root: Any = None) -> LauncherApp:
+def create_app(
+    controller: ServerController | None = None,
+    *,
+    root: Any = None,
+    lang: str | None = None,
+) -> LauncherApp:
     """Создать окно-лаунчер (без входа в ``mainloop``).
 
     ``root`` — использовать существующий Tk/Toplevel вместо нового окна (для
@@ -987,11 +1008,61 @@ def create_app(controller: ServerController | None = None, *, root: Any = None) 
 
     if root is None:
         root = tk.Tk()
-    return LauncherApp(root, controller or ServerController())
+    return LauncherApp(root, controller or ServerController(), lang=lang)
 
 
-def main() -> None:
+def resolve_version() -> str:
+    """Версия пакета для ``--version``; ``0.0.0+unknown`` вне установленного пакета.
+
+    Читается из метаданных, как и в CLI (единый источник — ``pyproject.toml``);
+    ``importlib.metadata`` — stdlib, ребра DAG не добавляет.
+    """
+    import importlib.metadata
+
+    try:
+        return importlib.metadata.version("stepik-python-grader")
+    except importlib.metadata.PackageNotFoundError:
+        return "0.0.0+unknown"
+
+
+def build_arg_parser(messages: dict[str, str]) -> argparse.ArgumentParser:
+    """Разбор аргументов ``stepik-grader-gui`` (issue #1135).
+
+    Лаунчер — вторая установленная команда продукта, но вела себя не как
+    команда: ``--help`` не существовал, а любой аргумент молча игнорировался и
+    просто открывалось окно. Флагов немного и больше не нужно: окно на то и
+    окно, что выбор делается в нём (issue #1131), а не в командной строке.
+    """
+
+    def _t(key: str) -> str:
+        return messages.get(key, key)
+
+    parser = argparse.ArgumentParser(
+        prog="stepik-grader-gui",
+        description=_t("launcher_cli_description"),
+        epilog=_t("launcher_cli_epilog"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--lang",
+        choices=_SUPPORTED_LANGS,
+        default=None,
+        help=_t("launcher_cli_lang_help"),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"stepik-grader-gui {resolve_version()}",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
     """Точка входа GUI-лаунчера (``python -m stepik_grader.launcher``, gui-script).
+
+    Аргументы разбираются ДО создания окна: ``--help``/``--version`` обязаны
+    работать там, где дисплея нет вовсе, а неизвестный флаг — отвергаться, а не
+    игнорироваться (issue #1135).
 
     В headless-окружении/сборке без ``tkinter`` — не падает трейсбеком, а
     подсказывает эквивалентную CLI-команду и выходит с кодом 1.
@@ -999,17 +1070,25 @@ def main() -> None:
     # issue #1108: подсказка про отсутствующий tkinter и статусы лаунчера идут
     # в консоль — в cp1251 они не должны ронять процесс.
     force_utf8_stdio()
+    # Язык справки — тот же, что у окна: подсказку читают до его открытия.
+    args = build_arg_parser(load_ui_messages(detect_lang())).parse_args(argv)
+    messages = load_ui_messages(args.lang or detect_lang())
+
+    def _t(key: str, **params: object) -> str:
+        template = messages.get(key, key)
+        return template.format(**params) if params else template
+
     try:
         import tkinter
     except ImportError:
-        _print("tkinter недоступен в этой сборке Python. Запустите веб-интерфейс командой:")
+        _print(_t("launcher_cli_no_tkinter"))
         _print(f"    {sys.executable} -m stepik_grader --serve")
         raise SystemExit(1) from None
 
     try:
-        app = create_app()
+        app = create_app(lang=args.lang)
     except tkinter.TclError:
-        _print("Нет графического дисплея (headless). Запустите веб-интерфейс командой:")
+        _print(_t("launcher_cli_headless"))
         _print(f"    {sys.executable} -m stepik_grader --serve")
         raise SystemExit(1) from None
 
