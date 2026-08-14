@@ -1709,3 +1709,166 @@ class TestAdvancedTabHandlers:
         stub._set_inputs_enabled(True)
 
         assert stub.setting_widgets["compare_mode"].state == "readonly"
+
+
+class TestAdvancedTabIsBuilt:
+    """issue #1136: вкладка собирается целиком — на подменённом tkinter.
+
+    В облачной сессии и во всех job'ах CI ``tkinter`` не собран, поэтому
+    настоящее окно не строится нигде: опечатка в имени виджета или забытый
+    ключ каталога дошли бы до пользователя первыми. Заглушка отвечает на
+    единственный вопрос, ради которого сюда стоит лезть, — собирается ли
+    вкладка и по описаниям ли из ядра.
+    """
+
+    class _Var:
+        def __init__(self, value: object = None, **_kwargs: object) -> None:
+            self._value = value
+
+        def get(self) -> object:
+            return self._value
+
+        def set(self, value: object) -> None:
+            self._value = value
+
+        def trace_add(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+    class _Widget:
+        """Виджет-заглушка: помнит, с какими параметрами создан и настроен."""
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.parent = args[0] if args else None
+            self.kwargs = dict(kwargs)
+            self.grid_kwargs: dict[str, object] = {}
+
+        def config(self, **kwargs: object) -> None:
+            self.kwargs.update(kwargs)
+
+        configure = config
+
+        def grid(self, **kwargs: object) -> None:
+            self.grid_kwargs = dict(kwargs)
+
+        def __getattr__(self, _name: str):
+            return lambda *args, **kwargs: None
+
+    class _Canvas(_Widget):
+        def create_window(self, *_args: object, **_kwargs: object) -> int:
+            return 1
+
+        def bbox(self, _what: str) -> tuple[int, int, int, int]:
+            return (0, 0, 10, 10)
+
+    class _Notebook(_Widget):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)
+            self.tabs: list[tuple[object, str]] = []
+
+        def add(self, child: object, text: str = "") -> None:
+            self.tabs.append((child, text))
+
+    def _fake_tk(self, monkeypatch: pytest.MonkeyPatch):
+        ttk = types.SimpleNamespace(
+            Frame=self._Widget,
+            Label=self._Widget,
+            Button=self._Widget,
+            Entry=self._Widget,
+            Combobox=self._Widget,
+            Checkbutton=self._Widget,
+            Scrollbar=self._Widget,
+            Notebook=self._Notebook,
+        )
+        tk = types.SimpleNamespace(
+            TclError=RuntimeError,
+            Canvas=self._Canvas,
+            BooleanVar=self._Var,
+            StringVar=self._Var,
+            ttk=ttk,
+        )
+        monkeypatch.setitem(sys.modules, "tkinter", tk)
+        monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk)
+        return tk
+
+    @pytest.fixture
+    def built(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        from stepik_grader import config
+
+        monkeypatch.chdir(tmp_path)
+        config.set_workspace_root(tmp_path)
+        config.reset_config_cache()
+        tk = self._fake_tk(monkeypatch)
+        stub = types.SimpleNamespace(
+            _tk=tk,
+            notebook=self._Notebook(),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = LauncherApp._t.__get__(stub)
+        for method in (
+            "_build_advanced_tab",
+            "_build_unsafe_gate",
+            "_build_setting_row",
+            "_setting_display",
+            "_setting_state_text",
+            "_refresh_setting_state",
+            "_apply_setting",
+            "_reset_setting",
+            "_on_unsafe_toggled",
+        ):
+            setattr(stub, method, getattr(LauncherApp, method).__get__(stub))
+        try:
+            stub._build_advanced_tab()
+            yield stub
+        finally:
+            config.set_workspace_root(None)
+            config.reset_config_cache()
+
+    def test_every_declared_setting_gets_a_control(self, built) -> None:
+        from stepik_grader.core import settings_resolver
+
+        expected = {item.name for item in settings_resolver.advanced_settings()}
+
+        assert set(built.setting_widgets) == expected
+        assert set(built.setting_vars) == expected
+        assert set(built.setting_buttons) == expected
+
+    def test_tab_is_added_to_the_notebook(self, built) -> None:
+        assert (
+            built.notebook.tabs[-1][1] == launcher.load_ui_messages("ru")["launcher_tab_advanced"]
+        )
+
+    def test_choice_control_lists_the_allowed_values(self, built) -> None:
+        assert built.setting_widgets["compare_mode"].kwargs["values"] == ["stepik", "strict"]
+
+    def test_every_group_gets_a_heading(self, built) -> None:
+        from stepik_grader.core import settings_resolver
+
+        assert set(built._group_labels) == set(settings_resolver.ADVANCED_GROUPS)
+
+    def test_labels_come_from_the_catalogue_not_raw_keys(self, built) -> None:
+        """Подпись — текст из локали, а не служебный идентификатор.
+
+        Пропущенный ключ каталога виден именно так: вместо «Таймаут решения, с»
+        в окне стоит «setting_timeout_seconds».
+        """
+        for name, label in built.setting_labels.items():
+            assert label.kwargs["text"] != f"setting_{name}"
+
+    def test_sandbox_quotas_are_born_disabled(self, built) -> None:
+        """Квоты закрыты ДО того, как окно показано, а не после первого клика."""
+        from stepik_grader.core import settings_resolver
+
+        for item in settings_resolver.advanced_settings("unsafe"):
+            assert built.setting_widgets[item.name].kwargs["state"] == "disabled"
+            assert built.setting_buttons[item.name][0].kwargs["state"] == "disabled"
+
+    def test_nullable_hint_says_what_empty_means(self, built) -> None:
+        messages = launcher.load_ui_messages("ru")
+
+        text = built.setting_hints["max_memory_mb"].kwargs["text"]
+
+        assert messages["settings_empty_means_none"] in text
+        assert (
+            messages["settings_empty_means_none"]
+            not in built.setting_hints["job_workers"].kwargs["text"]
+        )
