@@ -49,6 +49,7 @@ from collections.abc import Callable
 __all__ = [
     "DEFAULT_LABEL",
     "DEFAULT_REPO",
+    "MAX_RUSSIAN_WORDS",
     "MIN_TRANSLATION_CHARS",
     "check_issue",
     "english_part",
@@ -159,8 +160,26 @@ def check_issue(number: int, body: str) -> str | None:
     return None
 
 
+def _force_utf8_stdout() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли.
+
+    Справка и сообщения русские, а консоль Windows по умолчанию cp1251/cp1252:
+    без этого падал даже ``--help`` — ``UnicodeEncodeError`` вместо текста, и
+    скрипт возвращал 1 «на ровном месте», подменяя настоящую причину отказа
+    своей собственной. Тот же приём, что в ``check_docs_guardrails.py`` и
+    ``cli/options._force_utf8_stdio``. No-op на потоках без ``reconfigure`` —
+    например, перехваченных pytest.
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Вернуть 0 всегда, кроме сетевого сбоя: непереведённый issue — предупреждение."""
+    # ДО разбора аргументов: справку печатает argparse, он же завершает процесс —
+    # после ``parse_args()`` переключать кодировку уже некому.
+    _force_utf8_stdout()
     parser = argparse.ArgumentParser(
         prog="python scripts/check_good_first_issues_bilingual.py",
         description="Проверка, что задачи с меткой good first issue двуязычны.",

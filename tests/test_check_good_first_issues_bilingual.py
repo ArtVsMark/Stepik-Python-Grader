@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -195,3 +196,24 @@ class TestFetchAndMain:
 
         assert result.returncode == 0
         assert "good first issue" in result.stdout
+
+    def test_help_prints_on_a_single_byte_console(self) -> None:
+        """Справка печатается под cp1252, а не падает вместо неё.
+
+        Ровно это и уронило Windows-job: описания флагов русские, консоль
+        Windows по умолчанию однобайтовая, и `--help` возвращал 1 с
+        ``UnicodeEncodeError`` — отказ, подменяющий собственной причиной ту, о
+        которой спрашивали. Соседние гейты лечатся тем же ``_force_utf8_stdout``;
+        тест держит его на месте и на Linux, где cp1252 задаётся переменной.
+        """
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+        )
+
+        assert "UnicodeEncodeError" not in result.stderr, result.stderr
+        assert result.returncode == 0, result.stderr
