@@ -237,3 +237,114 @@ def test_connect_closes_connection_when_migration_refuses(tmp_path: Path) -> Non
         db.connect(path, migrate=_migrate)
     with pytest.raises(sqlite3.ProgrammingError):
         captured[0].execute("SELECT 1")
+
+
+# ---------------------------------------------------------------------------
+# issue #947 — write-lock на время миграции: версия читалась вне транзакции,
+# и два процесса входили в неё одновременно
+# ---------------------------------------------------------------------------
+
+
+def test_exclusive_transaction_holds_write_lock(tmp_path: Path) -> None:
+    """Внутри блока лок взят, после выхода — снят и данные закоммичены."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        with db.exclusive_transaction(conn):
+            assert conn.in_transaction
+            conn.execute("INSERT INTO t (v) VALUES ('a')")
+        assert not conn.in_transaction
+
+    with contextlib.closing(sqlite3.connect(path)) as other:
+        assert other.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 1
+
+
+def test_exclusive_transaction_rolls_back_on_error(tmp_path: Path) -> None:
+    """Исключение внутри блока откатывает всё, что успело записаться."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        with pytest.raises(RuntimeError), db.exclusive_transaction(conn):
+            conn.execute("INSERT INTO t (v) VALUES ('a')")
+            raise RuntimeError("сбой посреди транзакции")
+        assert conn.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 0
+
+
+def test_exclusive_transaction_is_reentrant(tmp_path: Path) -> None:
+    """Вложенный вход не открывает вторую транзакцию и не коммитит раньше срока.
+
+    Нужно ``core/history._migrate``: он берёт лок на всю многоступенчатую
+    миграцию и вызывает внутри ``apply_schema``, который тоже просит лок.
+    Sqlite вложенных ``BEGIN`` не умеет — вложенный вход обязан быть no-op.
+    """
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        with db.exclusive_transaction(conn):
+            conn.execute("INSERT INTO t (v) VALUES ('outer')")
+            with db.exclusive_transaction(conn):
+                conn.execute("INSERT INTO t (v) VALUES ('inner')")
+            assert conn.in_transaction, "вложенный выход закоммитил внешнюю транзакцию"
+        assert conn.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 2
+
+
+def test_execute_ddl_script_keeps_transaction_open(tmp_path: Path) -> None:
+    """Многооператорный DDL не разрывает транзакцию — в отличие от executescript.
+
+    Это и есть причина дефекта #947: ``executescript`` делает неявный COMMIT,
+    то есть снимает взятый write-lock ровно в середине миграции. Проверяем оба
+    поведения рядом, чтобы разница была видна, а не подразумевалась.
+    """
+    path = tmp_path / "x.db"
+    script = "CREATE TABLE IF NOT EXISTS a (x INTEGER);\nCREATE TABLE IF NOT EXISTS b (y INTEGER);"
+    with contextlib.closing(db.connect(path)) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        db.execute_ddl_script(conn, script)
+        assert conn.in_transaction, "execute_ddl_script разорвал транзакцию"
+        conn.execute("COMMIT")
+
+        conn.execute("BEGIN IMMEDIATE")
+        conn.executescript(script)
+        assert not conn.in_transaction, (
+            "поведение executescript изменилось — фикс #947 пересмотреть"
+        )
+
+    with contextlib.closing(sqlite3.connect(path)) as other:
+        names = {
+            row[0] for row in other.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    assert {"a", "b"} <= names
+
+
+def test_execute_ddl_script_runs_statement_without_trailing_semicolon(tmp_path: Path) -> None:
+    """Последнее выражение без ``;`` тоже исполняется, а не теряется молча."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.execute_ddl_script(conn, "CREATE TABLE IF NOT EXISTS solo (x INTEGER)")
+        assert conn.execute("SELECT COUNT(*) FROM solo").fetchone()[0] == 0
+
+
+def test_apply_schema_rechecks_version_under_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Версия перечитывается под локом: сосед мог мигрировать, пока мы ждали.
+
+    Патчим ``user_version`` так, чтобы первое (быстрое) чтение отдало 0, а
+    второе — уже 1: ровно то, что видит процесс, дождавшийся чужой миграции.
+    DDL при этом исполняться не должен.
+    """
+    path = tmp_path / "x.db"
+    versions = iter([0, 1])
+
+    def fake_user_version(conn: sqlite3.Connection) -> int:
+        return next(versions)
+
+    with contextlib.closing(db.connect(path)) as conn:
+        monkeypatch.setattr(db, "user_version", fake_user_version)
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        monkeypatch.undo()
+
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    assert "t" not in tables, "DDL применён поверх чужой завершённой миграции"

@@ -395,6 +395,18 @@ def _migrate(conn: sqlite3.Connection) -> None:
     примитив знает только про свою ступень, и на базе v2 вызов со ступенью v1
     выглядел бы как откат (issue #794).
 
+    Вся миграция идёт под ОДНИМ write-lock'ом (``db.exclusive_transaction``,
+    issue #947), и версия перечитывается уже под ним. Раньше версия читалась
+    вне транзакции, а мигрирует и путь чтения (раздел «Прогресс» открывает базу
+    так же, как запись прогона) — поэтому два процесса входили в миграцию 1→2
+    одновременно, оба видели ``user_version = 1`` и оба гнали
+    ``_backfill_task_progress``. Бэкфилл не идемпотентен: он зовёт
+    ``_bump_task_progress``, а тот делает ``runs_total = runs_total + 1``, —
+    и «попытки» в «Прогрессе» удваивались молча, без ошибки в логе. Лок делает
+    вход в миграцию взаимоисключающим, а транзакция — атомарной: обрыв между
+    DDL и ``set_user_version`` откатывается целиком, а не оставляет базу
+    полумигрированной.
+
     Raises:
         db.SchemaTooNewError: база записана более новой версией схемы.
     """
@@ -402,31 +414,38 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if current > SCHEMA_VERSION:
         raise db.SchemaTooNewError(found=current, expected=SCHEMA_VERSION)
     if current == SCHEMA_VERSION:
-        return
-    # issue #990: ступень 0→1 применяется ТОЛЬКО к базе, которая её не проходила.
-    # Примитив `apply_schema` знает лишь про свою ступень и считает любую версию
-    # выше запрошенной откатом: на базе v2 (а это все базы, созданные до этого
-    # изменения) безусловный вызов со ступенью v1 бросал SchemaTooNewError, и
-    # история отваливалась с «схема новее ожидаемой» сразу после обновления
-    # грейдера. Поймано тестом миграции v2→v3.
-    if current < _SCHEMA_V1_VERSION:
-        db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
-    conn.executescript(_SCHEMA_V2)
-    # issue #990: ступень 2→3 идёт ДО заполнения агрегата — backfill пишет через
-    # `_bump_task_progress`, а тот уже знает про `display_name`. Обратный порядок
-    # ронял домиграцию старой базы на «no such column» и, из-за best-effort,
-    # выглядел как молча пропавшая запись (поймано тестом миграции v1→v2).
-    #
-    # `ALTER TABLE ... ADD COLUMN` не идемпотентен (в отличие от
-    # `CREATE ... IF NOT EXISTS`), поэтому ступень выполняется по факту наличия
-    # колонки: параллельная инициализация двумя процессами иначе роняла бы
-    # второго на «duplicate column name».
-    if not _has_column(conn, "task_progress", "display_name"):
-        conn.executescript(_SCHEMA_V3)
-    if current < _SCHEMA_V2_VERSION:
-        _backfill_task_progress(conn)
-    db.set_user_version(conn, SCHEMA_VERSION)
-    conn.commit()
+        return  # быстрый путь: почти каждое открытие базы уже на актуальной схеме
+    with db.exclusive_transaction(conn):
+        current = db.user_version(conn)  # под локом: сосед мог мигрировать, пока мы ждали
+        if current > SCHEMA_VERSION:
+            raise db.SchemaTooNewError(found=current, expected=SCHEMA_VERSION)
+        if current == SCHEMA_VERSION:
+            return
+        # issue #990: ступень 0→1 применяется ТОЛЬКО к базе, которая её не проходила.
+        # Примитив `apply_schema` знает лишь про свою ступень и считает любую версию
+        # выше запрошенной откатом: на базе v2 (а это все базы, созданные до этого
+        # изменения) безусловный вызов со ступенью v1 бросал SchemaTooNewError, и
+        # история отваливалась с «схема новее ожидаемой» сразу после обновления
+        # грейдера. Поймано тестом миграции v2→v3.
+        if current < _SCHEMA_V1_VERSION:
+            db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
+        # DDL — через `db.execute_ddl_script`, а не `conn.executescript`: последний
+        # делает неявный COMMIT и снял бы взятый выше write-lock (issue #947).
+        db.execute_ddl_script(conn, _SCHEMA_V2)
+        # issue #990: ступень 2→3 идёт ДО заполнения агрегата — backfill пишет через
+        # `_bump_task_progress`, а тот уже знает про `display_name`. Обратный порядок
+        # ронял домиграцию старой базы на «no such column» и, из-за best-effort,
+        # выглядел как молча пропавшая запись (поймано тестом миграции v1→v2).
+        #
+        # `ALTER TABLE ... ADD COLUMN` не идемпотентен (в отличие от
+        # `CREATE ... IF NOT EXISTS`), поэтому ступень выполняется по факту наличия
+        # колонки: параллельная инициализация двумя процессами иначе роняла бы
+        # второго на «duplicate column name».
+        if not _has_column(conn, "task_progress", "display_name"):
+            db.execute_ddl_script(conn, _SCHEMA_V3)
+        if current < _SCHEMA_V2_VERSION:
+            _backfill_task_progress(conn)
+        db.set_user_version(conn, SCHEMA_VERSION)
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
