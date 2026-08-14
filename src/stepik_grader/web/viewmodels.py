@@ -668,6 +668,7 @@ def _preflight_skip(
             passed=report["passed"],
             total=report["total"],
             verdict=report["verdict"] or "—",
+            case=report["case"] or "—",
         ),
         "runs": 0,
         "verdict": "SKIPPED",

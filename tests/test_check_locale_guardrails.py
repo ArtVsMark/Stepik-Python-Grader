@@ -379,3 +379,83 @@ def test_known_cli_key_passes(monkeypatch, tmp_path: Path) -> None:
     module.check_ru_covers_referenced_ids(errors)
 
     assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (RUN-5-06) — подсказки pip install называют настоящий пакет
+# ---------------------------------------------------------------------------
+
+
+def test_wrong_package_name_in_hint_is_caught(monkeypatch, tmp_path: Path) -> None:
+    """Чужое имя дистрибутива в подсказке — ошибка гейта.
+
+    Сообщение про `--watch` советовало `pip install "stepik-grader[watch]"` —
+    имя, под которым проект не публикуется: выполнив подсказку, пользователь
+    получал либо ошибку, либо ЧУЖОЙ пакет. Соседние строки того же файла имя
+    писали верно, поэтому глазами расхождение не ловилось.
+    """
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"watch_missing": 'нужен watchfiles: pip install "stepik-grader[watch]"'},
+            {"watch_missing": 'watchfiles needed: pip install "stepik-grader[watch]"'},
+        ),
+    )
+    monkeypatch.setattr(module, "distribution_name", lambda: "stepik-python-grader")
+
+    errors: list[str] = []
+    module.check_locales_name_the_real_package(errors)
+
+    assert any("watch_missing" in error for error in errors), errors
+
+
+def test_correct_package_name_passes(monkeypatch, tmp_path: Path) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"watch_missing": 'pip install "stepik-python-grader[watch]"'},
+            {"watch_missing": 'pip install "stepik-python-grader[watch]"'},
+        ),
+    )
+    monkeypatch.setattr(module, "distribution_name", lambda: "stepik-python-grader")
+
+    errors: list[str] = []
+    module.check_locales_name_the_real_package(errors)
+
+    assert errors == []
+
+
+def test_foreign_package_names_are_not_touched(monkeypatch, tmp_path: Path) -> None:
+    """Чужие пакеты с extras — не наша забота: проверяем только своё имя.
+
+    Иначе гейт запретил бы законную подсказку вида `pip install "uvicorn[standard]"`.
+    """
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"other": 'поставьте pip install "uvicorn[standard]"'},
+            {"other": 'run pip install "uvicorn[standard]"'},
+        ),
+    )
+    monkeypatch.setattr(module, "distribution_name", lambda: "stepik-python-grader")
+
+    errors: list[str] = []
+    module.check_locales_name_the_real_package(errors)
+
+    assert errors == []
+
+
+def test_distribution_name_comes_from_pyproject() -> None:
+    """Имя берётся из pyproject, а не хардкодится в гейте."""
+    module = _load_module()
+
+    assert module.distribution_name() == "stepik-python-grader"
