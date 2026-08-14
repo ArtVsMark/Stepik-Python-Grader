@@ -1099,7 +1099,6 @@ class LauncherApp:
         self.setting_hints: dict[str, Any] = {}
         self.setting_buttons: dict[str, list[Any]] = {}
         self.setting_widgets: dict[str, Any] = {}
-        self._group_labels: dict[str, Any] = {}
 
         outer = ttk.Frame(self.notebook, padding=16)
         self.notebook.add(outer, text=self._t("launcher_tab_advanced"))
@@ -1111,57 +1110,34 @@ class LauncherApp:
         )
         self.advanced_intro.grid(row=0, column=0, sticky="w", pady=(0, 12))
 
-        # Семнадцать настроек по три строки каждая в окно не помещаются, поэтому
-        # вкладка прокручивается: без этого нижние блоки существовали бы только
-        # для тех, у кого высокий монитор.
-        canvas = self._tk.Canvas(outer, highlightthickness=0, borderwidth=0)
-        canvas.grid(row=1, column=0, sticky="nsew")
-        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        scrollbar.grid(row=1, column=1, sticky="ns")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        body = ttk.Frame(canvas)
-        window = canvas.create_window((0, 0), window=body, anchor="nw")
-        # Оба обработчика применяют новое значение ТОЛЬКО если оно изменилось.
-        # Безусловная запись зацикливает событийный цикл: смена scrollregion (или
-        # ширины окна canvas) вызывает перерисовку, та даёт новый `<Configure>`,
-        # и `update()` не возвращается. Поймано на macOS в CI — тест окна висел
-        # до таймаута; на Linux не видно, там нет дисплея и тест скипается.
-        body.bind("<Configure>", lambda _event: self._sync_scrollregion(canvas))
-        canvas.bind("<Configure>", lambda event: self._sync_body_width(canvas, window, event.width))
-        body.columnconfigure(1, weight=1)
+        # Семнадцать настроек в один экран не помещаются, и первым решением была
+        # прокрутка через Canvas. Она вешала окно: внутренний фрейм тянется по
+        # ширине canvas, canvas подгоняет размер под фрейм, и `<Configure>`
+        # гоняют друг друга между двумя значениями — `update()` не возвращается.
+        # Сравнение «писать только при изменении» такую осцилляцию не ловит,
+        # значения-то каждый раз разные. Поймано на macOS в CI дважды; на Linux
+        # не видно — там нет дисплея и тесты окна скипаются.
+        #
+        # Группы уже есть, поэтому вместо прокрутки — вложенные вкладки по
+        # блокам: в самом большом четыре настройки, любой экран вмещает. Заодно
+        # исчезает длинный список, в котором нужную строку искали глазами.
+        self.advanced_groups = ttk.Notebook(outer)
+        self.advanced_groups.grid(row=1, column=0, sticky="nsew")
 
-        row = 0
+        self._group_frames: dict[str, Any] = {}
         for group in settings_resolver.ADVANCED_GROUPS:
             items = settings_resolver.advanced_settings(group)
             if not items:
                 continue
-            heading = ttk.Label(body, text=self._t(f"settings_group_{group}"))
-            heading.grid(row=row, column=0, columnspan=4, sticky="w", pady=(12, 4))
-            self._group_labels[group] = heading
-            row += 1
+            page = ttk.Frame(self.advanced_groups, padding=(0, 8))
+            page.columnconfigure(1, weight=1)
+            self.advanced_groups.add(page, text=self._t(f"settings_group_{group}"))
+            self._group_frames[group] = page
+            row = 0
             if group == "unsafe":
-                row = self._build_unsafe_gate(body, row)
+                row = self._build_unsafe_gate(page, row)
             for item in items:
-                row = self._build_setting_row(body, item, row)
-
-    def _sync_scrollregion(self, canvas: Any) -> None:
-        """Обновить область прокрутки, только если она реально изменилась.
-
-        Условие — не оптимизация: ``canvas.configure(scrollregion=...)``
-        планирует перерисовку, перерисовка рождает новый ``<Configure>``, и
-        безусловная запись замыкает цикл событий насмерть.
-        """
-        region = canvas.bbox("all")
-        if not region:
-            return
-        wanted = " ".join(str(value) for value in region)
-        if str(canvas.cget("scrollregion")) != wanted:
-            canvas.configure(scrollregion=wanted)
-
-    def _sync_body_width(self, canvas: Any, window: Any, width: int) -> None:
-        """Растянуть содержимое по ширине canvas — тоже только при изменении."""
-        if str(canvas.itemcget(window, "width")) != str(width):
-            canvas.itemconfigure(window, width=width)
+                row = self._build_setting_row(page, item, row)
 
     def _build_unsafe_gate(self, body: Any, row: int) -> int:
         """Предупреждение и галка, открывающая правку квот песочницы (issue #1136)."""
@@ -1320,8 +1296,8 @@ class LauncherApp:
         self.advanced_intro.config(text=self._t("settings_intro"))
         self.unsafe_warning.config(text=self._t("settings_unsafe_warning"))
         self.unsafe_check.config(text=self._t("settings_unsafe_unlock"))
-        for group, label in self._group_labels.items():
-            label.config(text=self._t(f"settings_group_{group}"))
+        for index, group in enumerate(self._group_frames):
+            self.advanced_groups.tab(index, text=self._t(f"settings_group_{group}"))
         for item in settings_resolver.advanced_settings():
             name = item.name
             self.setting_labels[name].config(text=self._t(f"setting_{name}"))

@@ -349,3 +349,16 @@ def test_every_control_has_labels_in_both_locales() -> None:
             assert messages.get(f"setting_{item.name}_hint"), f"{lang}: нет пояснения {item.name}"
         for group in settings_resolver.ADVANCED_GROUPS:
             assert messages.get(f"settings_group_{group}"), f"{lang}: нет заголовка {group}"
+
+
+def test_no_group_outgrows_a_single_screen() -> None:
+    """Блок не должен разрастаться: вкладка рассчитана на экран без прокрутки.
+
+    Прокрутка через Canvas дважды подвесила окно на macOS, поэтому её убрали, а
+    настройки разложили по вкладкам-группам. Порог здесь и держит это решение:
+    группа из десяти настроек вернула бы задачу «как показать длинный список»,
+    а вместе с ней и соблазн вернуть Canvas.
+    """
+    for group in settings_resolver.ADVANCED_GROUPS:
+        count = len(settings_resolver.advanced_settings(group))
+        assert count <= 4, f"в блоке {group} уже {count} настроек — экрана не хватит"

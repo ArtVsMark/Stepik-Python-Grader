@@ -1840,10 +1840,10 @@ class TestAdvancedTabIsBuilt:
     def test_choice_control_lists_the_allowed_values(self, built) -> None:
         assert built.setting_widgets["compare_mode"].kwargs["values"] == ["stepik", "strict"]
 
-    def test_every_group_gets_a_heading(self, built) -> None:
+    def test_every_group_gets_its_own_page(self, built) -> None:
         from stepik_grader.core import settings_resolver
 
-        assert set(built._group_labels) == set(settings_resolver.ADVANCED_GROUPS)
+        assert set(built._group_frames) == set(settings_resolver.ADVANCED_GROUPS)
 
     def test_labels_come_from_the_catalogue_not_raw_keys(self, built) -> None:
         """Подпись — текст из локали, а не служебный идентификатор.
@@ -1874,72 +1874,57 @@ class TestAdvancedTabIsBuilt:
         )
 
 
-class TestScrollLoopIsBroken:
-    """issue #1136: прокрутка вкладки не зацикливает событийный цикл.
+class TestNoScrollableCanvas:
+    """issue #1136: вкладка не строит прокручиваемый Canvas.
 
-    Дефект пойман CI на macOS: `tk_window.update()` в соседнем тесте не
-    возвращался, потому что обработчик `<Configure>` безусловно писал
-    `scrollregion`, запись рождала новый `<Configure>`, и так по кругу. На
-    Linux этого не видно — дисплея нет, тесты окна скипаются, — поэтому
-    проверка сделана на заглушке и работает везде.
+    Прокрутка через Canvas дважды подвесила окно на macOS: внутренний фрейм
+    тянется по ширине canvas, canvas подгоняет размер под фрейм, и `<Configure>`
+    гоняют друг друга между двумя значениями — `tk_window.update()` не
+    возвращается. Осцилляцию не лечит ни сравнение «писать только при
+    изменении» (значения каждый раз разные), поэтому прокрутка убрана вовсе:
+    настройки разложены по вложенным вкладкам, где каждая помещается на экран.
+
+    Тест держит это решение: возврат Canvas в эту вкладку вернёт и зависание,
+    а увидит его снова только macOS-раннер — на Linux тесты окна скипаются.
     """
 
-    class _Canvas:
-        """Canvas, считающий ЗАПИСИ: цикл — это когда пишут при неизменном значении."""
+    def test_advanced_tab_creates_no_canvas(self, tmp_path, monkeypatch) -> None:
+        from stepik_grader import config
 
-        def __init__(self) -> None:
-            self.scrollregion = ""
-            self.item_width = ""
-            self.writes = 0
+        monkeypatch.chdir(tmp_path)
+        config.set_workspace_root(tmp_path)
+        config.reset_config_cache()
+        built = TestAdvancedTabIsBuilt()
+        tk = built._fake_tk(monkeypatch)
+        canvases: list[object] = []
 
-        def bbox(self, _what: str) -> tuple[int, int, int, int]:
-            return (0, 0, 100, 200)
+        class _NoCanvas:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
+                canvases.append(self)
 
-        def cget(self, name: str) -> str:
-            return self.scrollregion if name == "scrollregion" else ""
+        tk.Canvas = _NoCanvas
+        stub = types.SimpleNamespace(
+            _tk=tk,
+            notebook=built._Notebook(),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = LauncherApp._t.__get__(stub)
+        for method in (
+            "_build_advanced_tab",
+            "_build_unsafe_gate",
+            "_build_setting_row",
+            "_setting_display",
+            "_setting_state_text",
+            "_refresh_setting_state",
+            "_apply_setting",
+            "_reset_setting",
+            "_on_unsafe_toggled",
+        ):
+            setattr(stub, method, getattr(LauncherApp, method).__get__(stub))
+        try:
+            stub._build_advanced_tab()
+        finally:
+            config.set_workspace_root(None)
+            config.reset_config_cache()
 
-        def configure(self, **kwargs: object) -> None:
-            if "scrollregion" in kwargs:
-                self.scrollregion = str(kwargs["scrollregion"])
-                self.writes += 1
-
-        def itemcget(self, _window: object, _name: str) -> str:
-            return self.item_width
-
-        def itemconfigure(self, _window: object, **kwargs: object) -> None:
-            if "width" in kwargs:
-                self.item_width = str(kwargs["width"])
-                self.writes += 1
-
-    def test_scrollregion_is_written_once_not_on_every_configure(self) -> None:
-        canvas = self._Canvas()
-        stub = types.SimpleNamespace()
-        sync = LauncherApp._sync_scrollregion.__get__(stub)
-
-        for _ in range(5):
-            sync(canvas)
-
-        assert canvas.writes == 1, "повторная запись при неизменной области — это и есть цикл"
-        assert canvas.scrollregion == "0 0 100 200"
-
-    def test_body_width_is_written_once_per_change(self) -> None:
-        canvas = self._Canvas()
-        stub = types.SimpleNamespace()
-        sync = LauncherApp._sync_body_width.__get__(stub)
-
-        for _ in range(4):
-            sync(canvas, object(), 640)
-        sync(canvas, object(), 800)
-
-        assert canvas.writes == 2, "ширина пишется на каждое изменение, а не на каждое событие"
-        assert canvas.item_width == "800"
-
-    def test_empty_bbox_is_not_written(self) -> None:
-        """Пустой canvas (ещё нет содержимого) не должен ничего писать."""
-        canvas = self._Canvas()
-        canvas.bbox = lambda _what: None  # type: ignore[assignment,return-value]
-        stub = types.SimpleNamespace()
-
-        LauncherApp._sync_scrollregion.__get__(stub)(canvas)
-
-        assert canvas.writes == 0
+        assert canvases == [], "Canvas вернулся во вкладку — вместе с ним вернётся зависание"
