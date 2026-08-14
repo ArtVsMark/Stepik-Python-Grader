@@ -135,7 +135,7 @@ def iter_course_steps(
 
 
 def build_course_inventory(course_id: int, steps: Sequence[CourseStep]) -> dict[str, Any]:
-    """Build the stable machine-readable course inventory."""
+    """Собрать машинночитаемый инвентарь курса."""
     sections: dict[int, dict[str, Any]] = {}
 
     for step in steps:
