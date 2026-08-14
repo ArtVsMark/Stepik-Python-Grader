@@ -662,7 +662,16 @@ def main(argv: list[str] | None = None) -> ExitCode:
     if args.stats_summary:
         summary = stats.read_summary()
         if summary["total_runs"] == 0:
-            print(_t("stats_no_data"))
+            # issue #1005 (FZZ-5-06): битый журнал и пустой журнал — разные
+            # причины с разными действиями. Прежнее общее «статистика выключена
+            # или ещё не накопилась» называло причину, которой нет: записи были,
+            # их не удалось прочитать, и чинится это удалением файла — о котором
+            # молчали.
+            skipped = int(summary.get("skipped", 0))
+            if skipped:
+                print(_t("stats_all_entries_broken", skipped=skipped, path=stats.stats_path()))
+            else:
+                print(_t("stats_no_data"))
         else:
             print_stats_summary(summary)
         return ExitCode.OK

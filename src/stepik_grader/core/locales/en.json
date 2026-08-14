@@ -333,6 +333,7 @@
   "specify_path_file_or_folder": "Specify a path to a file or folder.",
   "specify_path_folder": "Specify a path to a folder.",
   "specify_url": "Specify url.",
+  "stats_all_entries_broken": "The stats journal exists, but none of its entries can be read ({skipped} damaged): {path}\n   Delete the file — the journal will start over (previous entries cannot be recovered).",
   "stats_no_data": "No data — stats recording is off (--stats/[tool.stepik-grader] record_stats) or hasn't accumulated yet.",
   "stepik_auth_required": "Not authorized with Stepik: set up OAuth (secrets.json) in the “Task downloader” section. Submitting is impossible without a token.",
   "stepik_network_error": "Could not reach Stepik: {error}. Check your connection and retry — no need to re-issue the token.",

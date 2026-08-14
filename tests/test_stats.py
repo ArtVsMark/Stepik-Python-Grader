@@ -55,6 +55,7 @@ class TestReadSummary:
             "by_os": {},
             "verdict_totals": {},
             "total_time": 0.0,
+            "skipped": 0,
         }
 
     def test_aggregates_across_multiple_records(self, tmp_path: pathlib.Path) -> None:
@@ -216,3 +217,54 @@ def test_rotation_keeps_second_half(tmp_path: pathlib.Path, monkeypatch) -> None
     # ужался и остался читаемым.
     assert 15 <= summary["total_runs"] <= 25
     assert summary["by_mode"].get(2) == 1
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (FZZ-5-06) — битый журнал отличается от пустого
+# ---------------------------------------------------------------------------
+
+
+class TestBrokenJournalIsVisible:
+    """Пропуск нечитаемых строк правилен, но молчать о нём нельзя.
+
+    Журнал, испорченный целиком, давал `total_runs=0`, и CLI печатал
+    «статистика выключена или ещё не накопилась» — причину, которой нет:
+    записи были, прочитать их не удалось, а чинится это удалением файла, о
+    котором никто не сказал.
+    """
+
+    def test_broken_lines_are_counted(self, tmp_path: pathlib.Path) -> None:
+        path = tmp_path / ".grader_stats.jsonl"
+        stats.record_run(1, {"AC": 1}, 1.0, stats_path=path)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write("{не json\n")
+            handle.write('"строка вместо объекта"\n')
+            handle.write('{"os": "linux"}\n')  # разобралось, но без режима — в сводку не войдёт
+
+        summary = stats.read_summary(stats_path=path)
+
+        assert summary["total_runs"] == 1
+        assert summary["skipped"] == 3
+
+    def test_healthy_journal_reports_no_skips(self, tmp_path: pathlib.Path) -> None:
+        path = tmp_path / ".grader_stats.jsonl"
+        stats.record_run(1, {"AC": 1}, 1.0, stats_path=path)
+        stats.record_run(2, {"WA": 1}, 2.0, stats_path=path)
+
+        assert stats.read_summary(stats_path=path)["skipped"] == 0
+
+    def test_empty_lines_are_not_counted_as_broken(self, tmp_path: pathlib.Path) -> None:
+        """Пустая строка — не повреждение: журнал дописывается построчно."""
+        path = tmp_path / ".grader_stats.jsonl"
+        stats.record_run(1, {"AC": 1}, 1.0, stats_path=path)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write("\n\n")
+
+        assert stats.read_summary(stats_path=path)["skipped"] == 0
+
+    def test_stats_path_is_public_for_messages(self, tmp_path: pathlib.Path) -> None:
+        """Имя файла нужно сообщению — значит доступ к нему не приватный."""
+        explicit = tmp_path / "journal.jsonl"
+
+        assert stats.stats_path(explicit) == explicit
+        assert stats.stats_path().name == stats.STATS_FILE_NAME
