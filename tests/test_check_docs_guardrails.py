@@ -724,7 +724,7 @@ def test_nested_badge_links_are_checked_for_relative_targets(tmp_path, monkeypat
 
 
 def test_conflict_markers_are_flagged(tmp_path, monkeypatch) -> None:
-    """Незаконченное слияние в документации — нарушение (issue #1165).
+    """Незаконченное слияние в документации — нарушение (#1164).
 
     Такое уже уезжало в main и жило там несколько PR: ссылки резолвились,
     бюджет строк соблюдался, индексы были полны — а раздел про лаунчер читатель
