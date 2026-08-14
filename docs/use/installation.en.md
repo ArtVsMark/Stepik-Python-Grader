@@ -170,8 +170,8 @@ stepik-grader --serve          # or: python -m stepik_grader --serve
 Open <http://127.0.0.1:8000> in your browser — the default port is 8000, otherwise
 is specified by the `--port` flag (e.g. `stepik-grader --serve --port 9000`). When
 upon the first launch, the initial welcome screen is displayed, followed by —
-a shell with sections for "Solution Verification," "Problem Loader," and "Glossary,"
-"Rules (PEP)", "Learn", "Sandbox". If the interface is rendered -
+a shell with sections "Check solutions", "Task downloader", "Glossary",
+"Rules (PEP)", "Practice", "Sandbox". If the interface is rendered —
 the setup is working. To stop the server, press `Ctrl+C` in the terminal.
 
 The server listens only on `127.0.0.1` and is not exposed externally; without `--sandbox` isolation.
