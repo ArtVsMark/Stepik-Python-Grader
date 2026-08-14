@@ -235,3 +235,130 @@ def test_tuning_only_settings_stay_out_of_reach() -> None:
     """То, что постановка отнесла к тюнингу, вкладка не предъявляет."""
     for name in ("encoding", "glossary_store", "glossary_missing_queue", "similar_threshold"):
         assert name not in settings_resolver.USER_TUNABLE_SETTINGS
+
+
+class TestAdvancedDescriptions:
+    """Описания контролов вкладки: состав, группы, приведение ввода (issue #1136).
+
+    Состав вкладки живёт в ядре, а не в окне, ровно ради этих тестов: на машине
+    без дисплея (облачная сессия, любой job CI) проверить содержимое окна иначе
+    нечем — а именно там оно и разъезжается незаметно.
+    """
+
+    def test_every_control_is_a_permitted_setting(self) -> None:
+        """Контрол вне списка разрешённых сохранялся бы с отказом при нажатии."""
+        for item in settings_resolver.advanced_settings():
+            assert item.name in settings_resolver.USER_TUNABLE_SETTINGS
+
+    def test_only_record_history_is_left_without_a_control(self) -> None:
+        """Разрешено, но не показано — только то, что уже стоит на «Запуске».
+
+        Иначе вкладка тихо теряет настройку: разрешить пользователю менять её и
+        не дать контрола — это функция, о существовании которой знает лишь тот,
+        кто читал исходники.
+        """
+        shown = {item.name for item in settings_resolver.advanced_settings()}
+
+        assert settings_resolver.USER_TUNABLE_SETTINGS - shown == {"record_history"}
+
+    def test_groups_cover_every_control(self) -> None:
+        assert {item.group for item in settings_resolver.advanced_settings()} == set(
+            settings_resolver.ADVANCED_GROUPS
+        )
+
+    def test_group_filter_keeps_declaration_order(self) -> None:
+        names = [item.name for item in settings_resolver.advanced_settings("verdict")]
+
+        assert names == ["compare_mode", "timeout_seconds", "max_memory_mb"]
+
+    def test_sandbox_quotas_are_the_ones_behind_confirmation(self) -> None:
+        """Подтверждения требует ровно то, что ослабляет изоляцию, и не больше.
+
+        Лишняя настройка за галкой — лишнее трение; недостающая — снятая защита
+        одним кликом.
+        """
+        unsafe = {item.name for item in settings_resolver.advanced_settings() if item.unsafe}
+
+        assert unsafe == {
+            "sandbox_max_cpu_seconds",
+            "sandbox_max_processes",
+            "sandbox_max_output_bytes",
+        }
+
+    def test_choice_control_offers_the_values_config_accepts(self) -> None:
+        """Список в комбобоксе и список в валидаторе — одно и то же."""
+        spec = settings_resolver.setting_spec("compare_mode")
+
+        for value in spec.choices:
+            assert config.validate_values({"compare_mode": value}) == []
+
+    def test_unknown_name_has_no_spec(self) -> None:
+        with pytest.raises(ValueError, match="недоступна"):
+            settings_resolver.setting_spec("encoding")
+
+
+class TestCoerceValue:
+    """Ввод контрола → тип настройки: поле отдаёт строку, конфиг ждёт число."""
+
+    def test_int_and_float_are_parsed(self) -> None:
+        assert settings_resolver.coerce_value("job_workers", "4") == 4
+        assert settings_resolver.coerce_value("timeout_seconds", "2.5") == 2.5
+
+    def test_decimal_comma_is_understood(self) -> None:
+        """В русской раскладке «2,5» набирается первым — отказ выглядел бы дефектом грейдера."""
+        assert settings_resolver.coerce_value("timeout_seconds", "2,5") == 2.5
+
+    def test_empty_nullable_means_no_limit(self) -> None:
+        """Пусто у лимита памяти — «не ограничивать», и это валидное значение."""
+        value = settings_resolver.coerce_value("max_memory_mb", "   ")
+
+        assert value is None
+        assert config.validate_values({"max_memory_mb": value}) == []
+
+    def test_empty_non_nullable_is_refused(self) -> None:
+        """У поля без «не задано» пустая строка — незаконченный ввод, а не выбор."""
+        with pytest.raises(ValueError, match="пустое значение"):
+            settings_resolver.coerce_value("job_workers", "")
+
+    def test_garbage_is_refused_by_name(self) -> None:
+        with pytest.raises(ValueError, match="job_workers"):
+            settings_resolver.coerce_value("job_workers", "четыре")
+
+    def test_ready_typed_value_passes_through(self) -> None:
+        """Галка отдаёт настоящий bool — разбирать нечего."""
+        assert settings_resolver.coerce_value("use_cache", True) is True
+
+    def test_text_setting_keeps_its_string(self) -> None:
+        assert settings_resolver.coerce_value("ai_model", " gpt-x ") == "gpt-x"
+
+
+def test_every_control_has_labels_in_both_locales() -> None:
+    """Подпись и объяснение — на каждую настройку и в ru, и в en.
+
+    Ключи собираются из имени настройки (``setting_<name>``), поэтому гейт
+    локалей их не видит: он ищет строковые литералы в вызовах каталога. Без
+    этого теста добавленная настройка показывалась бы служебным
+    идентификатором вместо подписи — молча и только в окне.
+    """
+    from stepik_grader.launcher import load_ui_messages
+
+    for lang in ("ru", "en"):
+        messages = load_ui_messages(lang)
+        for item in settings_resolver.advanced_settings():
+            assert messages.get(f"setting_{item.name}"), f"{lang}: нет подписи {item.name}"
+            assert messages.get(f"setting_{item.name}_hint"), f"{lang}: нет пояснения {item.name}"
+        for group in settings_resolver.ADVANCED_GROUPS:
+            assert messages.get(f"settings_group_{group}"), f"{lang}: нет заголовка {group}"
+
+
+def test_no_group_outgrows_a_single_screen() -> None:
+    """Блок не должен разрастаться: вкладка рассчитана на экран без прокрутки.
+
+    Прокрутка через Canvas дважды подвесила окно на macOS, поэтому её убрали, а
+    настройки разложили по вкладкам-группам. Порог здесь и держит это решение:
+    группа из десяти настроек вернула бы задачу «как показать длинный список»,
+    а вместе с ней и соблазн вернуть Canvas.
+    """
+    for group in settings_resolver.ADVANCED_GROUPS:
+        count = len(settings_resolver.advanced_settings(group))
+        assert count <= 4, f"в блоке {group} уже {count} настроек — экрана не хватит"

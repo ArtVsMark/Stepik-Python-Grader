@@ -1468,3 +1468,463 @@ class TestProfilesInWindow:
 
         assert values[0] == stub._t("launcher_profile_custom")
         assert values[1:] == ["первый"]
+
+
+class TestAdvancedTabHandlers:
+    """issue #1136: вкладка «Дополнительно» — обработчики без tkinter.
+
+    Как и профили (#1133), проверяются на заглушке: настоящее окно живёт только
+    там, где есть дисплей, то есть ни в одном job'е CI и ни в одной облачной
+    сессии. Заглушка подделывает переменные и виджеты, но методы берутся
+    настоящие — расхождение сигнатур ловится здесь, а не глазами.
+    """
+
+    class _Var:
+        def __init__(self, value: object = "") -> None:
+            self._value = value
+
+        def get(self) -> object:
+            return self._value
+
+        def set(self, value: object) -> None:
+            self._value = value
+
+    class _Widget:
+        """Виджет, помнящий последний ``state`` — им и проверяется блокировка."""
+
+        def __init__(self) -> None:
+            self.state = "normal"
+
+        def config(self, **kwargs: object) -> None:
+            if "state" in kwargs:
+                self.state = str(kwargs["state"])
+
+    @pytest.fixture
+    def workspace(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        from stepik_grader import config
+
+        monkeypatch.chdir(tmp_path)
+        config.set_workspace_root(tmp_path)
+        config.reset_config_cache()
+        try:
+            yield tmp_path
+        finally:
+            config.set_workspace_root(None)
+            config.reset_config_cache()
+
+    def _stub(self):
+        from stepik_grader.core import settings_resolver
+
+        names = [item.name for item in settings_resolver.advanced_settings()]
+        stub = types.SimpleNamespace(
+            setting_vars={
+                item.name: self._Var(
+                    False
+                    if item.kind == "bool"
+                    else str(settings_resolver.describe_setting(item.name).value or "")
+                )
+                for item in settings_resolver.advanced_settings()
+            },
+            setting_state_vars={name: self._Var("") for name in names},
+            setting_widgets={name: self._Widget() for name in names},
+            setting_buttons={name: [self._Widget(), self._Widget()] for name in names},
+            unsafe_var=self._Var(False),
+            unsafe_check=self._Widget(),
+            port_entry=self._Widget(),
+            workdir_entry=self._Widget(),
+            browse_btn=self._Widget(),
+            radio_simple=self._Widget(),
+            radio_sandbox=self._Widget(),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = LauncherApp._t.__get__(stub)
+        stub.status: list[tuple[str, bool]] = []
+        stub._set_status = lambda text, error=False: stub.status.append((text, error))
+        for method in (
+            "_setting_display",
+            "_setting_state_text",
+            "_refresh_setting_state",
+            "_apply_setting",
+            "_reset_setting",
+            "_on_unsafe_toggled",
+            "_set_inputs_enabled",
+        ):
+            setattr(stub, method, getattr(LauncherApp, method).__get__(stub))
+        return stub
+
+    def test_applied_value_reaches_the_settings_file(self, workspace: Path) -> None:
+        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+
+        stub = self._stub()
+        stub.setting_vars["timeout_seconds"].set("30")
+
+        stub._apply_setting("timeout_seconds")
+
+        stored = load_settings(workspace / SETTINGS_FILE_NAME).run_settings
+        assert stored == {"timeout_seconds": 30.0}
+
+    def test_applied_value_is_reported_by_its_human_name(self, workspace: Path) -> None:
+        stub = self._stub()
+        stub.setting_vars["job_workers"].set("4")
+
+        stub._apply_setting("job_workers")
+
+        text, error = stub.status[-1]
+        assert error is False
+        assert launcher.load_ui_messages("ru")["setting_job_workers"] in text
+
+    def test_rejected_value_is_not_saved(self, workspace: Path) -> None:
+        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+
+        stub = self._stub()
+        stub.setting_vars["job_workers"].set("0")  # конфиг требует >= 1
+
+        stub._apply_setting("job_workers")
+
+        assert load_settings(workspace / SETTINGS_FILE_NAME).run_settings == {}
+        assert stub.status[-1][1] is True
+
+    def test_rejected_value_leaves_the_control_showing_what_is_stored(
+        self, workspace: Path
+    ) -> None:
+        """Поле не хранит отвергнутое: иначе следующий взгляд примет его за действующее.
+
+        Именно так липкая настройка и обманывает: в окне «0», в прогоне —
+        двойка из конфига, и ничто на экране не говорит, какое из двух работает.
+        """
+        stub = self._stub()
+        stub._apply_setting("job_workers")  # исходное значение из конфига
+        stub.setting_vars["job_workers"].set("0")
+
+        stub._apply_setting("job_workers")
+
+        assert stub.setting_vars["job_workers"].get() == "2"
+
+    def test_empty_memory_limit_is_saved_as_no_limit(self, workspace: Path) -> None:
+        """Пусто у nullable-поля — осмысленный выбор «без лимита», а не ошибка ввода."""
+        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+
+        stub = self._stub()
+        stub.setting_vars["max_memory_mb"].set("")
+
+        stub._apply_setting("max_memory_mb")
+
+        assert load_settings(workspace / SETTINGS_FILE_NAME).run_settings == {"max_memory_mb": None}
+
+    def test_reset_removes_the_key(self, workspace: Path) -> None:
+        from stepik_grader.core.user_settings import SETTINGS_FILE_NAME, load_settings
+
+        stub = self._stub()
+        stub.setting_vars["timeout_seconds"].set("30")
+        stub._apply_setting("timeout_seconds")
+
+        stub._reset_setting("timeout_seconds")
+
+        assert load_settings(workspace / SETTINGS_FILE_NAME).run_settings == {}
+        assert stub.setting_vars["timeout_seconds"].get() == "10.0"
+
+    def test_state_line_names_the_origin(self, workspace: Path) -> None:
+        """Откуда значение — видно всегда: свой выбор месячной давности не помнят."""
+        messages = launcher.load_ui_messages("ru")
+        stub = self._stub()
+
+        stub._refresh_setting_state("timeout_seconds")
+        untouched = str(stub.setting_state_vars["timeout_seconds"].get())
+
+        stub.setting_vars["timeout_seconds"].set("30")
+        stub._apply_setting("timeout_seconds")
+        changed = str(stub.setting_state_vars["timeout_seconds"].get())
+
+        assert messages["settings_origin_default"] in untouched
+        assert messages["settings_origin_user"] in changed
+
+    def test_project_value_is_named_as_such(self, workspace: Path) -> None:
+        """Значение из pyproject.toml не выдаётся за пользовательский выбор."""
+        from stepik_grader import config
+
+        (workspace / "pyproject.toml").write_text(
+            "[tool.stepik-grader]\ntimeout_seconds = 7.5\n", encoding="utf-8"
+        )
+        config.reset_config_cache()
+        stub = self._stub()
+
+        stub._refresh_setting_state("timeout_seconds")
+
+        text = str(stub.setting_state_vars["timeout_seconds"].get())
+        assert launcher.load_ui_messages("ru")["settings_origin_pyproject"] in text
+        assert "7.5" in text
+
+    def test_sandbox_quotas_start_locked(self, workspace: Path) -> None:
+        from stepik_grader.core import settings_resolver
+
+        stub = self._stub()
+        stub._on_unsafe_toggled()
+
+        for item in settings_resolver.advanced_settings("unsafe"):
+            assert stub.setting_widgets[item.name].state == "disabled"
+            assert stub.setting_buttons[item.name][0].state == "disabled"
+
+    def test_confirmation_unlocks_only_the_unsafe_block(self, workspace: Path) -> None:
+        from stepik_grader.core import settings_resolver
+
+        stub = self._stub()
+        stub.unsafe_var.set(True)
+
+        stub._on_unsafe_toggled()
+
+        for item in settings_resolver.advanced_settings("unsafe"):
+            assert stub.setting_widgets[item.name].state == "normal"
+        # Соседние блоки галка не трогает — она про изоляцию, а не про вкладку.
+        assert stub.setting_widgets["timeout_seconds"].state == "normal"
+
+    def test_running_server_freezes_the_settings(self, workspace: Path) -> None:
+        """Дочерний сервер читает настройки один раз, на старте.
+
+        Живой контрол на работающем сервере принимал бы правку, которая ничего
+        не меняет до перезапуска, — ровно та молча не сработавшая настройка,
+        против которой вкладка и сделана.
+        """
+        stub = self._stub()
+
+        stub._set_inputs_enabled(False)
+
+        assert stub.setting_widgets["timeout_seconds"].state == "disabled"
+        assert stub.setting_buttons["timeout_seconds"][0].state == "disabled"
+        assert stub.unsafe_check.state == "disabled"
+
+    def test_stopping_server_returns_the_settings_but_keeps_the_gate(self, workspace: Path) -> None:
+        """Разблокировка не открывает квоты песочницы: подтверждение снято."""
+        stub = self._stub()
+        stub._set_inputs_enabled(False)
+
+        stub._set_inputs_enabled(True)
+
+        assert stub.setting_widgets["timeout_seconds"].state == "normal"
+        assert stub.setting_widgets["sandbox_max_processes"].state == "disabled"
+
+    def test_choice_control_is_readonly_not_free_text(self, workspace: Path) -> None:
+        """Комбобокс остаётся readonly — иначе в него впечатают несуществующий режим."""
+        stub = self._stub()
+
+        stub._set_inputs_enabled(True)
+
+        assert stub.setting_widgets["compare_mode"].state == "readonly"
+
+
+class TestAdvancedTabIsBuilt:
+    """issue #1136: вкладка собирается целиком — на подменённом tkinter.
+
+    В облачной сессии и во всех job'ах CI ``tkinter`` не собран, поэтому
+    настоящее окно не строится нигде: опечатка в имени виджета или забытый
+    ключ каталога дошли бы до пользователя первыми. Заглушка отвечает на
+    единственный вопрос, ради которого сюда стоит лезть, — собирается ли
+    вкладка и по описаниям ли из ядра.
+    """
+
+    class _Var:
+        def __init__(self, value: object = None, **_kwargs: object) -> None:
+            self._value = value
+
+        def get(self) -> object:
+            return self._value
+
+        def set(self, value: object) -> None:
+            self._value = value
+
+        def trace_add(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+    class _Widget:
+        """Виджет-заглушка: помнит, с какими параметрами создан и настроен."""
+
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self.parent = args[0] if args else None
+            self.kwargs = dict(kwargs)
+            self.grid_kwargs: dict[str, object] = {}
+
+        def config(self, **kwargs: object) -> None:
+            self.kwargs.update(kwargs)
+
+        configure = config
+
+        def grid(self, **kwargs: object) -> None:
+            self.grid_kwargs = dict(kwargs)
+
+        def __getattr__(self, _name: str):
+            return lambda *args, **kwargs: None
+
+    class _Canvas(_Widget):
+        def create_window(self, *_args: object, **_kwargs: object) -> int:
+            return 1
+
+        def bbox(self, _what: str) -> tuple[int, int, int, int]:
+            return (0, 0, 10, 10)
+
+    class _Notebook(_Widget):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)
+            self.tabs: list[tuple[object, str]] = []
+
+        def add(self, child: object, text: str = "") -> None:
+            self.tabs.append((child, text))
+
+    def _fake_tk(self, monkeypatch: pytest.MonkeyPatch):
+        ttk = types.SimpleNamespace(
+            Frame=self._Widget,
+            Label=self._Widget,
+            Button=self._Widget,
+            Entry=self._Widget,
+            Combobox=self._Widget,
+            Checkbutton=self._Widget,
+            Scrollbar=self._Widget,
+            Notebook=self._Notebook,
+        )
+        tk = types.SimpleNamespace(
+            TclError=RuntimeError,
+            Canvas=self._Canvas,
+            BooleanVar=self._Var,
+            StringVar=self._Var,
+            ttk=ttk,
+        )
+        monkeypatch.setitem(sys.modules, "tkinter", tk)
+        monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk)
+        return tk
+
+    @pytest.fixture
+    def built(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        from stepik_grader import config
+
+        monkeypatch.chdir(tmp_path)
+        config.set_workspace_root(tmp_path)
+        config.reset_config_cache()
+        tk = self._fake_tk(monkeypatch)
+        stub = types.SimpleNamespace(
+            _tk=tk,
+            notebook=self._Notebook(),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = LauncherApp._t.__get__(stub)
+        for method in (
+            "_build_advanced_tab",
+            "_build_unsafe_gate",
+            "_build_setting_row",
+            "_setting_display",
+            "_setting_state_text",
+            "_refresh_setting_state",
+            "_apply_setting",
+            "_reset_setting",
+            "_on_unsafe_toggled",
+        ):
+            setattr(stub, method, getattr(LauncherApp, method).__get__(stub))
+        try:
+            stub._build_advanced_tab()
+            yield stub
+        finally:
+            config.set_workspace_root(None)
+            config.reset_config_cache()
+
+    def test_every_declared_setting_gets_a_control(self, built) -> None:
+        from stepik_grader.core import settings_resolver
+
+        expected = {item.name for item in settings_resolver.advanced_settings()}
+
+        assert set(built.setting_widgets) == expected
+        assert set(built.setting_vars) == expected
+        assert set(built.setting_buttons) == expected
+
+    def test_tab_is_added_to_the_notebook(self, built) -> None:
+        assert (
+            built.notebook.tabs[-1][1] == launcher.load_ui_messages("ru")["launcher_tab_advanced"]
+        )
+
+    def test_choice_control_lists_the_allowed_values(self, built) -> None:
+        assert built.setting_widgets["compare_mode"].kwargs["values"] == ["stepik", "strict"]
+
+    def test_every_group_gets_its_own_page(self, built) -> None:
+        from stepik_grader.core import settings_resolver
+
+        assert set(built._group_frames) == set(settings_resolver.ADVANCED_GROUPS)
+
+    def test_labels_come_from_the_catalogue_not_raw_keys(self, built) -> None:
+        """Подпись — текст из локали, а не служебный идентификатор.
+
+        Пропущенный ключ каталога виден именно так: вместо «Таймаут решения, с»
+        в окне стоит «setting_timeout_seconds».
+        """
+        for name, label in built.setting_labels.items():
+            assert label.kwargs["text"] != f"setting_{name}"
+
+    def test_sandbox_quotas_are_born_disabled(self, built) -> None:
+        """Квоты закрыты ДО того, как окно показано, а не после первого клика."""
+        from stepik_grader.core import settings_resolver
+
+        for item in settings_resolver.advanced_settings("unsafe"):
+            assert built.setting_widgets[item.name].kwargs["state"] == "disabled"
+            assert built.setting_buttons[item.name][0].kwargs["state"] == "disabled"
+
+    def test_nullable_hint_says_what_empty_means(self, built) -> None:
+        messages = launcher.load_ui_messages("ru")
+
+        text = built.setting_hints["max_memory_mb"].kwargs["text"]
+
+        assert messages["settings_empty_means_none"] in text
+        assert (
+            messages["settings_empty_means_none"]
+            not in built.setting_hints["job_workers"].kwargs["text"]
+        )
+
+
+class TestNoScrollableCanvas:
+    """issue #1136: вкладка не строит прокручиваемый Canvas.
+
+    Прокрутка через Canvas дважды подвесила окно на macOS: внутренний фрейм
+    тянется по ширине canvas, canvas подгоняет размер под фрейм, и `<Configure>`
+    гоняют друг друга между двумя значениями — `tk_window.update()` не
+    возвращается. Осцилляцию не лечит ни сравнение «писать только при
+    изменении» (значения каждый раз разные), поэтому прокрутка убрана вовсе:
+    настройки разложены по вложенным вкладкам, где каждая помещается на экран.
+
+    Тест держит это решение: возврат Canvas в эту вкладку вернёт и зависание,
+    а увидит его снова только macOS-раннер — на Linux тесты окна скипаются.
+    """
+
+    def test_advanced_tab_creates_no_canvas(self, tmp_path, monkeypatch) -> None:
+        from stepik_grader import config
+
+        monkeypatch.chdir(tmp_path)
+        config.set_workspace_root(tmp_path)
+        config.reset_config_cache()
+        built = TestAdvancedTabIsBuilt()
+        tk = built._fake_tk(monkeypatch)
+        canvases: list[object] = []
+
+        class _NoCanvas:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
+                canvases.append(self)
+
+        tk.Canvas = _NoCanvas
+        stub = types.SimpleNamespace(
+            _tk=tk,
+            notebook=built._Notebook(),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = LauncherApp._t.__get__(stub)
+        for method in (
+            "_build_advanced_tab",
+            "_build_unsafe_gate",
+            "_build_setting_row",
+            "_setting_display",
+            "_setting_state_text",
+            "_refresh_setting_state",
+            "_apply_setting",
+            "_reset_setting",
+            "_on_unsafe_toggled",
+        ):
+            setattr(stub, method, getattr(LauncherApp, method).__get__(stub))
+        try:
+            stub._build_advanced_tab()
+        finally:
+            config.set_workspace_root(None)
+            config.reset_config_cache()
+
+        assert canvases == [], "Canvas вернулся во вкладку — вместе с ним вернётся зависание"
