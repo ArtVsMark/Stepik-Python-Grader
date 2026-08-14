@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import time
+import types
 from pathlib import Path
 
 import pytest
@@ -236,15 +237,40 @@ class TestLastLine:
 
 
 class TestMainGraceful:
-    def test_without_tkinter_prints_cli_hint_and_exits(self, monkeypatch, capsys) -> None:
+    """issue #1134: без дисплея лаунчер делает работу, а не советует её сделать.
+
+    Раньше все три ветки печатали `python -m stepik_grader --serve` и выходили
+    с кодом 1 — команду, которую лаунчер знает целиком. Теперь он её выполняет,
+    а код возврата приходит от сервера.
+    """
+
+    @staticmethod
+    def _spy_serve(monkeypatch, *, code: int = 0) -> list[dict[str, object]]:
+        """Подменить запуск сервера: тест не должен поднимать настоящий."""
+        calls: list[dict[str, object]] = []
+
+        def fake_serve(messages: dict[str, str], **kwargs: object) -> int:
+            calls.append(kwargs)
+            return code
+
+        monkeypatch.setattr(launcher, "serve_without_gui", fake_serve)
+        return calls
+
+    def test_without_tkinter_starts_server_itself(self, monkeypatch, capsys) -> None:
         # None в sys.modules → `import tkinter` бросает ImportError.
         monkeypatch.setitem(sys.modules, "tkinter", None)
+        calls = self._spy_serve(monkeypatch)
+
         with pytest.raises(SystemExit) as exc:
             # issue #1135: main() разбирает argv, поэтому список обязателен —
             # иначе argparse увидит аргументы самого pytest.
             launcher.main([])
-        assert exc.value.code == 1
-        assert "--serve" in capsys.readouterr().out
+
+        assert exc.value.code == 0
+        assert calls == [{"lang": None}]
+        # Сообщение — в stderr: gui-script на Windows идёт через pythonw.exe,
+        # где stdout попросту некуда писать (issue #1134, PKG-1-05).
+        assert "tkinter" in capsys.readouterr().err
 
     def test_headless_branch_runs_without_real_tkinter(self, monkeypatch, capsys) -> None:
         """Та же headless-ветка, но БЕЗ настоящего tkinter — значит и в облаке.
@@ -257,6 +283,7 @@ class TestMainGraceful:
         import types
 
         monkeypatch.setitem(sys.modules, "tkinter", types.SimpleNamespace(TclError=RuntimeError))
+        calls = self._spy_serve(monkeypatch, code=3)
 
         def _raise(**_kwargs: object) -> None:
             raise RuntimeError("no display")
@@ -266,11 +293,12 @@ class TestMainGraceful:
         with pytest.raises(SystemExit) as exc:
             launcher.main([])
 
-        assert exc.value.code == 1
-        assert "--serve" in capsys.readouterr().out
+        assert exc.value.code == 3, "код возврата сервера подменён своим"
+        assert calls == [{"lang": None}]
 
-    def test_headless_tclerror_prints_cli_hint_and_exits(self, monkeypatch, capsys) -> None:
+    def test_headless_tclerror_starts_server_with_chosen_lang(self, monkeypatch, capsys) -> None:
         tk = pytest.importorskip("tkinter")
+        calls = self._spy_serve(monkeypatch)
 
         # issue #1135: main() зовёт create_app(lang=...), поэтому заглушка
         # обязана принимать kwargs — иначе тест падает TypeError вместо
@@ -282,9 +310,80 @@ class TestMainGraceful:
         with pytest.raises(SystemExit) as exc:
             # issue #1135: как и в тесте выше — main() разбирает argv, поэтому
             # без явного списка argparse увидит аргументы самого pytest.
-            launcher.main([])
-        assert exc.value.code == 1
-        assert "--serve" in capsys.readouterr().out
+            launcher.main(["--lang", "en"])
+
+        assert exc.value.code == 0
+        assert calls == [{"lang": "en"}], "выбор языка не доехал до сервера"
+        assert "display" in capsys.readouterr().err.lower()
+
+
+class TestServeWithoutGui:
+    """issue #1134: сама headless-ветка — GUI-free, проверяется везде."""
+
+    @staticmethod
+    def _messages() -> dict[str, str]:
+        return launcher.load_ui_messages("ru")
+
+    def test_starts_server_and_returns_its_code(self, monkeypatch, tmp_path) -> None:
+        seen: list[list[str]] = []
+        monkeypatch.setattr(launcher, "our_server_on", lambda *a, **k: False)
+        monkeypatch.setattr(launcher, "port_available", lambda *a, **k: True)
+        monkeypatch.setattr(launcher.subprocess, "call", lambda cmd: seen.append(cmd) or 7)
+
+        code = launcher.serve_without_gui(self._messages(), port=8123, workdir=tmp_path)
+
+        assert code == 7, "код возврата сервера потерян"
+        (command,) = seen
+        assert "--serve" in command
+        assert command[command.index("--port") + 1] == "8123"
+        assert command[command.index("--root") + 1] == str(tmp_path)
+        assert "--sandbox" not in command  # изоляция — явный выбор, не дефолт
+
+    def test_running_server_is_not_duplicated(self, monkeypatch, capsys) -> None:
+        """На порту уже наш сервер — второй не поднимаем, печатаем адрес."""
+        monkeypatch.setattr(launcher, "our_server_on", lambda *a, **k: True)
+        monkeypatch.setattr(
+            launcher.subprocess, "call", lambda cmd: pytest.fail("сервер запущен повторно")
+        )
+
+        assert launcher.serve_without_gui(self._messages(), port=8321) == 0
+        assert "8321" in capsys.readouterr().err
+
+    def test_busy_port_falls_back_to_the_next_free_one(self, monkeypatch, tmp_path) -> None:
+        """Порт занят чужим — берём следующий свободный, как и окно (#1146)."""
+        seen: list[list[str]] = []
+        monkeypatch.setattr(launcher, "our_server_on", lambda *a, **k: False)
+        monkeypatch.setattr(launcher, "port_available", lambda port, **k: port != 8000)
+        monkeypatch.setattr(launcher.subprocess, "call", lambda cmd: seen.append(cmd) or 0)
+
+        launcher.serve_without_gui(self._messages(), workdir=tmp_path)
+
+        (command,) = seen
+        assert command[command.index("--port") + 1] == "8001"
+
+    def test_no_free_port_reports_and_exits_nonzero(self, monkeypatch, capsys) -> None:
+        monkeypatch.setattr(launcher, "our_server_on", lambda *a, **k: False)
+        monkeypatch.setattr(launcher, "port_available", lambda *a, **k: False)
+        monkeypatch.setattr(
+            launcher.subprocess, "call", lambda cmd: pytest.fail("сервер запущен без порта")
+        )
+
+        assert launcher.serve_without_gui(self._messages(), port=8000) == 1
+        assert "8000" in capsys.readouterr().err
+
+    def test_lang_choice_reaches_the_server(self, monkeypatch, tmp_path) -> None:
+        seen: list[list[str]] = []
+        monkeypatch.setattr(launcher, "our_server_on", lambda *a, **k: False)
+        monkeypatch.setattr(launcher, "port_available", lambda *a, **k: True)
+        monkeypatch.setattr(launcher.subprocess, "call", lambda cmd: seen.append(cmd) or 0)
+
+        launcher.serve_without_gui(self._messages(), lang="en", workdir=tmp_path)
+        launcher.serve_without_gui(self._messages(), lang=None, workdir=tmp_path)
+
+        with_lang, without_lang = seen
+        assert with_lang[with_lang.index("--lang") + 1] == "en"
+        # «не выбирал» — флага нет вовсе: дефолт резолвит сервер (ADR-0012).
+        assert "--lang" not in without_lang
 
 
 # Один Tk-интерпретатор на весь модуль + Toplevel на тест: множественные
@@ -944,3 +1043,59 @@ class TestOurServerOn:
         finally:
             httpd.shutdown()
             httpd.server_close()
+
+
+class TestZeroTasksLine:
+    """issue #1134: «Найдено задач: 0» — развилка, а не счёт.
+
+    Первокурсник, ради которого лаунчер и сделан, из нуля не узнаёт ни что
+    задачи скачиваются загрузчиком, ни что он мог промахнуться папкой.
+
+    Тесты GUI-free: метод `_refresh_tasks_found` трогает только `workdir_var`,
+    `tasks_var` и каталог сообщений, поэтому вызывается на заглушке — иначе
+    проверка жила бы только там, где собран tkinter, а это ровно те окружения,
+    где её никто не увидит (см. соседний headless-класс).
+    """
+
+    class _Var:
+        def __init__(self, value: str = "") -> None:
+            self._value = value
+
+        def get(self) -> str:
+            return self._value
+
+        def set(self, value: str) -> None:
+            self._value = value
+
+    def _line_for(self, workdir: Path) -> str:
+        stub = types.SimpleNamespace(
+            workdir_var=self._Var(str(workdir)),
+            tasks_var=self._Var(),
+            _messages=launcher.load_ui_messages("ru"),
+        )
+        stub._t = launcher.LauncherApp._t.__get__(stub)
+        launcher.LauncherApp._refresh_tasks_found(stub)
+        return str(stub.tasks_var.get())
+
+    def test_empty_folder_offers_a_next_step(self, tmp_path: Path) -> None:
+        line = self._line_for(tmp_path)
+
+        assert "0" not in line, "ноль показан как счёт, а не как развилка"
+        assert "загрузчик" in line.lower()  # откуда задачи берутся
+        assert "папк" in line.lower()  # и что можно было промахнуться папкой
+
+    def test_folder_with_tasks_keeps_the_count(self, tmp_path: Path) -> None:
+        """Непустая папка — прежняя строка со счётчиком, поведение не тронуто."""
+        task = tmp_path / "01-task"
+        (task / "tests").mkdir(parents=True)
+        (task / "main.py").write_text("print(1)", encoding="utf-8")
+        (task / "tests" / "1").write_text("in", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("out", encoding="utf-8")
+
+        assert "1" in self._line_for(tmp_path)
+
+    def test_missing_folder_still_says_so(self, tmp_path: Path) -> None:
+        """Несуществующая папка — своё сообщение, не «задач не найдено»."""
+        line = self._line_for(tmp_path / "нет-такой")
+
+        assert "не найдена" in line.lower()
