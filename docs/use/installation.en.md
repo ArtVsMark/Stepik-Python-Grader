@@ -120,7 +120,7 @@ source .venv/bin/activate
 > and run the command again; the PATH within an activated venv places its `Scripts`/
 > `bin` directory first, ensuring the correct `stepik-grader` is found instead of the other one.
 > To prevent such a "stale" global installation from causing confusion later, you should
-> remove it explicitly (replace `<version>`/`<hash>` with the values ​​shown by `pip show -f
+> remove it explicitly (replace `<version>`/`<hash>` with the values shown by `pip show -f
 > stepik-python-grader` when run from the global Python):
 > ```bash
 > pip uninstall stepik-python-grader   # if it complains "No files were found to
