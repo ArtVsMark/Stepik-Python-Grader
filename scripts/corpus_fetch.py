@@ -29,6 +29,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import sys
 from collections.abc import Iterator, Sequence
@@ -73,12 +74,18 @@ class CourseStep:
         position: позиция шага внутри урока (1-based, как в URL).
         step_id: идентификатор шага.
         title: название урока — для читаемого прогресса в консоли.
+        section_id: идентификатор секции (главы) курса.
+        section_title: название секции — для сводки по главам.
+        section_position: позиция секции в курсе — задаёт порядок вывода.
     """
 
     lesson_id: int
     position: int
     step_id: int
     title: str
+    section_id: int
+    section_title: str
+    section_position: int
 
     @property
     def url(self) -> str:
@@ -105,6 +112,8 @@ def iter_course_steps(
     course = fetch_course_data(session, course_id)
     for section_id in course.get("sections") or []:
         section = fetch_section_data(session, int(section_id))
+        section_title = str(section.get("title") or f"section {section_id}")
+        section_position = int(section.get("position") or 0)
         for unit in fetch_section_units(session, int(section["id"])):
             lesson_id = unit.get("lesson")
             if lesson_id is None:
@@ -119,7 +128,62 @@ def iter_course_steps(
                     position=position,
                     step_id=int(step_id),
                     title=title,
+                    section_id=int(section["id"]),
+                    section_title=section_title,
+                    section_position=section_position,
                 )
+
+
+def build_course_inventory(course_id: int, steps: Sequence[CourseStep]) -> dict[str, Any]:
+    """Собрать машинночитаемый инвентарь курса."""
+    sections: dict[int, dict[str, Any]] = {}
+
+    for step in steps:
+        section = sections.setdefault(
+            step.section_id,
+            {
+                "id": step.section_id,
+                "title": step.section_title,
+                "position": step.section_position,
+                "lessons": [],
+                "_lessons": {},
+            },
+        )
+
+        lessons: dict[int, dict[str, Any]] = section["_lessons"]
+        lesson = lessons.get(step.lesson_id)
+
+        if lesson is None:
+            lesson = {
+                "id": step.lesson_id,
+                "title": step.title,
+                "steps": [],
+            }
+            lessons[step.lesson_id] = lesson
+            section["lessons"].append(lesson)
+
+        lesson["steps"].append(
+            {
+                "step_id": step.step_id,
+                "position": step.position,
+                "url": step.url,
+            }
+        )
+
+    result_sections = []
+    for section in sorted(
+        sections.values(),
+        key=lambda item: (item["position"], item["id"]),
+    ):
+        section.pop("_lessons")
+        result_sections.append(section)
+
+    return {
+        "course": {
+            "id": course_id,
+            "sections": result_sections,
+        }
+    }
 
 
 def _is_code_step(session: requests.Session, lesson_id: int, position: int) -> bool:
@@ -191,9 +255,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Скачать задачи курса Stepik в локальную базу для сквозного прогона."
     )
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--course", type=int, help="идентификатор курса Stepik")
     source.add_argument(
-        "--steps", type=pathlib.Path, help="файл со списком URL шагов (по одному в строке)"
+        "--course",
+        type=int,
+        help="идентификатор курса Stepik",
+    )
+    source.add_argument(
+        "--steps",
+        type=pathlib.Path,
+        help="файл со списком URL шагов (по одному в строке)",
     )
     parser.add_argument(
         "--target",
@@ -207,49 +277,127 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=pathlib.Path("secrets.json"),
         help="путь к secrets.json с токеном Stepik",
     )
-    parser.add_argument("--limit", type=int, default=0, help="взять не больше N шагов (0 — все)")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="взять не больше N шагов (0 — все)",
+    )
     parser.add_argument(
         "--all-steps",
         action="store_true",
         help="не фильтровать по типу шага (по умолчанию только задачи с кодом)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="только показать список шагов, ничего не скачивать"
+        "--dry-run",
+        action="store_true",
+        help="только показать список шагов, ничего не скачивать",
+    )
+    parser.add_argument(
+        "--inventory",
+        choices=("json",),
+        help="машинночитаемый инвентарь курса в JSON",
     )
     args = parser.parse_args(argv)
+
+    if args.inventory is not None and args.steps is not None:
+        parser.error("--inventory работает только с --course")
+    if args.inventory is not None and args.limit > 0:
+        parser.error("--inventory нельзя использовать вместе с --limit")
 
     try:
         secrets = load_secrets_dict(args.secrets)
         session = create_user_session(secrets, args.secrets)
     except (OSError, ValueError) as exc:
-        print(f"Не удалось авторизоваться: {exc}", file=sys.stderr)
+        print(
+            f"Не удалось авторизоваться: {exc}",
+            file=sys.stderr,
+        )
         return 1
+
+    steps: list[CourseStep] | None = None
 
     if args.steps is not None:
         step_urls = read_step_urls(args.steps)
     else:
         try:
-            steps = list(iter_course_steps(session, args.course, code_only=not args.all_steps))
+            steps = list(
+                iter_course_steps(
+                    session,
+                    args.course,
+                    code_only=not args.all_steps,
+                )
+            )
         except (requests.RequestException, ValueError, KeyError) as exc:
             print(f"Обход курса не удался: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 1
+
+        if args.limit > 0:
+            steps = steps[: args.limit]
+
         step_urls = [step.url for step in steps]
+
+        if args.inventory == "json":
+            print(
+                json.dumps(
+                    build_course_inventory(args.course, steps),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 0
+
         for step in steps:
             print(f"{step.url}  # {step.title}")
 
-    if args.limit > 0:
+    if args.steps is not None and args.limit > 0:
         step_urls = step_urls[: args.limit]
 
     if not step_urls:
-        print("Нечего скачивать: список шагов пуст.", file=sys.stderr)
+        print(
+            "Нечего скачивать: список шагов пуст.",
+            file=sys.stderr,
+        )
         return 1
 
     if args.dry_run:
-        print(f"\nНайдено шагов: {len(step_urls)} (--dry-run, ничего не скачано)", file=sys.stderr)
+        print(
+            f"\nНайдено шагов: {len(step_urls)} (--dry-run, ничего не скачано)",
+            file=sys.stderr,
+        )
+
+        if steps is not None:
+            section_totals: dict[int, tuple[int, str, int]] = {}
+
+            for step in steps:
+                count, title, position = section_totals.get(
+                    step.section_id,
+                    (0, step.section_title, step.section_position),
+                )
+                section_totals[step.section_id] = (
+                    count + 1,
+                    title,
+                    position,
+                )
+
+            print("По секциям:", file=sys.stderr)
+
+            for section_id, (count, title, _position) in sorted(
+                section_totals.items(),
+                key=lambda item: (item[1][2], item[0]),
+            ):
+                print(
+                    f"  {section_id}: {title} — {count}",
+                    file=sys.stderr,
+                )
+
         return 0
 
     downloaded, errors = fetch_steps(session, step_urls, args.target)
-    print(f"\nСкачано шагов: {downloaded} из {len(step_urls)} → {args.target}", file=sys.stderr)
+    print(
+        f"\nСкачано шагов: {downloaded} из {len(step_urls)} → {args.target}",
+        file=sys.stderr,
+    )
     if errors:
         print(f"Ошибок: {len(errors)}", file=sys.stderr)
         for error in errors:
