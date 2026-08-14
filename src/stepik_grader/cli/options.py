@@ -39,6 +39,8 @@ __all__ = [
     "_resolve_record_stats",
     "_resolve_use_cache",
     "_resolve_verbosity",
+    "apply_launch_profile",
+    "flag_present",
     "peek_lang",
 ]
 
@@ -282,6 +284,15 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         action="store_true",
         help=t["cli_help_sandbox"],
     )
+    # issue #1133 (шаг 2): именованный профиль запуска — тот же набор, что
+    # выбирается в окне лаунчера. Без флага в CLI профиль остался бы сущностью
+    # одного окна, а граница эпика требует обратного.
+    parser.add_argument(
+        "--profile",
+        metavar="NAME",
+        default=None,
+        help=t["cli_help_profile"],
+    )
     parser.add_argument(
         "--init-vscode",
         action="store_true",
@@ -301,6 +312,71 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         help=t["cli_help_import_top"],
     )
     return parser
+
+
+def flag_present(argv: list[str] | None, *names: str) -> bool:
+    """Передан ли пользователем один из флагов ЯВНО (issue #1133).
+
+    argparse не различает «не указан» и «указан со значением, равным дефолту»:
+    у ``--port`` дефолт 8000, у ``--lang`` — ru. Для профиля разница
+    принципиальна — иначе он либо всегда проигрывает дефолту, либо всегда
+    выигрывает у явного флага. Смотрим сырой ``argv``: это точный ответ на
+    вопрос «пользователь это писал?», в отличие от сравнения с дефолтом.
+    """
+    raw = list(sys.argv[1:] if argv is None else argv)
+    return any(arg == name or arg.startswith(f"{name}=") for arg in raw for name in names)
+
+
+def _profile_message(args: argparse.Namespace, key: str, /, **params: object) -> str:
+    """Строка каталога на языке, выбранном в этом запуске."""
+    messages = load_locale_messages(getattr(args, "lang", DEFAULT_LANG)) or load_locale_messages(
+        DEFAULT_LANG
+    )
+    template = messages.get(key, key)
+    return template.format(**params) if params else template
+
+
+def apply_launch_profile(
+    args: argparse.Namespace,
+    argv: list[str] | None,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Применить именованный профиль к аргументам ``--serve`` (issue #1133).
+
+    Профиль — база, явные флаги её перекрывают: приоритет остаётся прежним
+    (``флаг → профиль → user-state → pyproject → дефолт``), и это единственный
+    порядок, при котором «запустить профиль, но на другом порту» выражается без
+    правки самого профиля.
+
+    Неизвестное имя — ``parser.error`` со списком доступных, а не молчаливый
+    запуск с дефолтами: пользователь просил конкретный набор, и тихая подмена
+    дала бы, например, сервер без изоляции там, где её ждали.
+
+    Raises:
+        SystemExit: профиль не найден или указан без ``--serve``.
+    """
+    if args.profile is None:
+        return
+    if not args.serve:
+        parser.error(_profile_message(args, "profile_requires_serve"))
+    settings = user_settings.load_settings(
+        user_settings.default_settings_path(config.workspace_root())
+    )
+    profile = settings.launch_profiles.get(args.profile.strip())
+    if profile is None:
+        known = ", ".join(sorted(settings.launch_profiles)) or "—"
+        parser.error(_profile_message(args, "profile_unknown", name=args.profile, known=known))
+        return  # недостижимо (parser.error поднимает SystemExit); для mypy
+    if profile.sandbox and not flag_present(argv, "--sandbox"):
+        args.sandbox = True
+    if profile.record_history is not None and not flag_present(argv, "--history", "--no-history"):
+        args.history = profile.record_history
+    if profile.lang is not None and not flag_present(argv, "--lang"):
+        args.lang = profile.lang
+    if profile.port is not None and not flag_present(argv, "--port"):
+        args.port = profile.port
+    if profile.workdir is not None and not flag_present(argv, "--root"):
+        args.root = profile.workdir
 
 
 def _resolve_verbosity(args: argparse.Namespace, *, default: bool) -> bool:
