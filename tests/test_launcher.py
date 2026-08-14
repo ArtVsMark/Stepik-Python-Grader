@@ -254,7 +254,9 @@ class TestMainGraceful:
 
         monkeypatch.setattr(launcher, "create_app", _raise)
         with pytest.raises(SystemExit) as exc:
-            launcher.main()
+            # issue #1135: как и в тесте выше — main() разбирает argv, поэтому
+            # без явного списка argparse увидит аргументы самого pytest.
+            launcher.main([])
         assert exc.value.code == 1
         assert "--serve" in capsys.readouterr().out
 
