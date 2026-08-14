@@ -245,7 +245,7 @@ OAuth.
 | Authorization grant type | `Authorization code` |
 | Redirect URIs | `http://localhost:8080/callback` |
 
-. Click **Save** — Stepik will display the `Client ID` and `Client Secret`.
+4. Click **Save** — Stepik will display the `Client ID` and `Client Secret`.
 
 ### Step 1 — Create `secrets.json`
 
