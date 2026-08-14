@@ -184,9 +184,9 @@ there is no execution isolation — run only your own solutions. Sections, flags
 > a window for selecting the server mode, port, and working directory. See details in
 > [grader-workflow.md](grader-workflow.md#веб-интерфейс---serve).
 
- ---
+---
 
- ## Dependencies
+## Dependencies
 
 | Package | Purpose | Used in |
 |---------|---------|---------|
