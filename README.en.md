@@ -186,6 +186,11 @@ fork, branch off `main`, run the local gates (`pytest` / `ruff` / `mypy`), add o
 [CONTRIBUTING.md](CONTRIBUTING.md). Questions & ideas —
 [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
 
+**Those tasks are written in English too.** Every issue carrying that label
+holds both versions — the Russian text and, under an `## In English` heading, its
+translation. The rest of the tracker is Russian: this label is the entry point
+that stays readable for you.
+
 ---
 
 ## More
