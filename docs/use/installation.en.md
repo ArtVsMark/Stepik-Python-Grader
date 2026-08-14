@@ -174,9 +174,9 @@ a shell with sections "Check solutions", "Task downloader", "Glossary",
 "Rules (PEP)", "Practice", "Sandbox". If the interface is rendered —
 the setup is working. To stop the server, press `Ctrl+C` in the terminal.
 
-The server listens only on `127.0.0.1` and is not exposed externally; without `--sandbox` isolation.
-no execution allowed—run only your own solutions. Sections, flags, and threat model —
-[grader-workflow.md](grader-workflow.md#web-interface---serve).
+The server listens only on `127.0.0.1` and is not exposed externally; without `--sandbox`
+there is no execution isolation — run only your own solutions. Sections, flags, and threat model —
+[grader-workflow.md](grader-workflow.md#веб-интерфейс---serve).
 
 >**Launching without the command line.** In addition to `python -m stepik_grader`
 > and `stepik-grader`, a GUI launcher—`stepik-grader-gui`—is available after installation
