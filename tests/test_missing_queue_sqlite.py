@@ -152,11 +152,31 @@ def test_concurrent_cross_process_appends_lose_nothing(tmp_path: Path) -> None:
 
     procs, per = 4, 15
     running = [
-        subprocess.Popen([sys.executable, "-c", _WORKER, str(db_path), str(worker_id), str(per)])
+        subprocess.Popen(
+            [sys.executable, "-c", _WORKER, str(db_path), str(worker_id), str(per)],
+            # issue #924: stderr воркера обязан доехать до сообщения падения.
+            # На windows-джобе CI тест упал с «воркер завершился с ненулевым
+            # кодом» — и это всё, что осталось от диагноза: причина упала в
+            # /dev/null вместе с трейсбеком дочернего процесса. Локально
+            # воспроизвести не удалось (120 прогонов подряд зелёные; симптом
+            # повторяется только искусственным сжатием `BUSY_TIMEOUT_MS` до
+            # 1 мс, где 7 воркеров из 8 падают `database is locked`). Пока
+            # причина неизвестна, ценнее всего — чтобы следующий случай на CI
+            # объяснил себя сам, а не потребовал третьего расследования.
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
         for worker_id in range(procs)
     ]
-    for proc in running:
-        assert proc.wait(timeout=120) == 0, "воркер завершился с ненулевым кодом"
+    failures: list[str] = []
+    for worker_id, proc in enumerate(running):
+        _, stderr = proc.communicate(timeout=120)
+        if proc.returncode != 0:
+            failures.append(f"воркер {worker_id}: код {proc.returncode}\n{(stderr or '').strip()}")
+
+    assert not failures, "воркеры завершились с ненулевым кодом:\n" + "\n".join(failures)
 
     concepts = {e.concept for e in load_missing_queue(db_path)}
     expected = {f"w{w}.c{i}" for w in range(procs) for i in range(per)}
