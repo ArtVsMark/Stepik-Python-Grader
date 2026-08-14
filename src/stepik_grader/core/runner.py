@@ -726,8 +726,19 @@ class LocalRunner:
         budget = _OutputBudget(spec.max_output_bytes)
 
         def _drain(pipe: Any, sink: list[bytes]) -> None:
+            # issue #952 (RUN-4-01): `read1`, а не `read`. `read(65536)` ждёт
+            # ЛИБО полные 65536 байт, ЛИБО EOF — и отдаёт накопленное только
+            # тогда. Решение, оставившее живого внука с открытым stdout, EOF не
+            # даёт: «7\n» лежит в буфере, `proc.wait()` уже вернулся по
+            # основному процессу, `reader.join(timeout=1.0)` истекает, поток
+            # бросают — и sink остаётся ПУСТЫМ. Верное решение получает
+            # `WA / Actual: (empty)`.
+            #
+            # `read1` возвращает то, что пришло за один системный вызов, — так
+            # же читает и сам `communicate()`. Байты попадают в sink сразу,
+            # независимо от того, кто ещё держит другой конец трубы.
             try:
-                for chunk in iter(lambda: pipe.read(65536), b""):
+                for chunk in iter(lambda: pipe.read1(65536), b""):
                     kept = budget.take(chunk)
                     if kept:
                         sink.append(kept)
