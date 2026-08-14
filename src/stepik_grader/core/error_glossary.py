@@ -88,6 +88,30 @@ def _bundled_index() -> dict[str, GlossaryCard]:
     return index
 
 
+# Карточки, у которых вид не проставлен, судим по имени: у исключений оно
+# кончается на error/exception (issue #965).
+_EXCEPTION_ID_SUFFIXES = ("error", "exception")
+
+
+def _is_exception_card(card: GlossaryCard) -> bool:
+    """Карточка описывает ИСКЛЮЧЕНИЕ, а не термин или функцию (issue #965).
+
+    Индекс строится из всех ~1350 карточек каталога, а имя берётся из последней
+    строки stderr до двоеточия — то есть из строки, которую пишет проверяемый
+    код. ``sys.exit("input: неверный формат")`` печатает её без трейсбека, и
+    резолвер выдавал студенту карточку функции ``input()`` как «объяснение
+    падения». Вид карточки такие совпадения отсекает.
+
+    ``kind`` по умолчанию — ``"term"`` (см. ``glossary.models``), поэтому
+    непроставленный вид неотличим от настоящего термина; для него остаётся
+    запасное правило по имени, чтобы карточка исключения не потерялась из-за
+    незаполненного поля. Явные ``function``/``construct`` отвергаются всегда.
+    """
+    if card.kind == "exception":
+        return True
+    return card.kind == "term" and card.id.endswith(_EXCEPTION_ID_SUFFIXES)
+
+
 def resolve_error_hint(error_text: str) -> ErrorHint | None:
     """RE-подсказка по тексту ошибки из общей базы, или ``None``.
 
@@ -96,11 +120,17 @@ def resolve_error_hint(error_text: str) -> ErrorHint | None:
     исключений — заглушки) добирается из компактной карты, чтобы подсказка не
     деградировала. ``None``, если исключение не выделилось из трейсбека или его
     нет ни в одном источнике.
+
+    Карточка не-исключения игнорируется (issue #965, см.
+    :func:`_is_exception_card`) — тогда работает откат на компактную карту, в
+    которой только исключения и есть.
     """
     name = exception_name_from_error(error_text)
     if not name:
         return None
     card = _bundled_index().get(name.lower())
+    if card is not None and not _is_exception_card(card):
+        card = None
     entry = lookup(name)  # компактная карта (может быть None)
     if card is None and entry is None:
         return None
