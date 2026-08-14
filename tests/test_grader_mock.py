@@ -58,6 +58,13 @@ def _make_popen_mock(
     mock_proc.kill = MagicMock()
     mock_proc.poll.return_value = returncode  # not None → finally-guard не убивает
     # Дренаж читает порциями до сигнального b"" (одна порция вывода + EOF).
+    #
+    # issue #952: дренаж зовёт `read1`, а не `read`. Настоящий pipe — это
+    # `BufferedReader`, у него есть оба; `read` ждал бы полный буфер или EOF и
+    # терял вывод решения, оставившего живого внука. Мок обязан отражать ту же
+    # пару, иначе он проверяет метод, которого продуктовый код не вызывает.
+    mock_proc.stdout.read1.side_effect = [stdout, b""]
+    mock_proc.stderr.read1.side_effect = [stderr, b""]
     mock_proc.stdout.read.side_effect = [stdout, b""]
     mock_proc.stderr.read.side_effect = [stderr, b""]
 
