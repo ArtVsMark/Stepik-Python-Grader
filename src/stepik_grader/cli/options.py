@@ -42,6 +42,7 @@ __all__ = [
     "apply_launch_profile",
     "flag_present",
     "peek_lang",
+    "validate_serve_arguments",
 ]
 
 # Эпилог справки: обе рабочие формы запуска. При src-layout файла grader.py в
@@ -377,6 +378,67 @@ def apply_launch_profile(
         args.port = profile.port
     if profile.workdir is not None and not flag_present(argv, "--root"):
         args.root = profile.workdir
+
+
+# issue #930 (LNCH-2-04): флаги, которые ветка `--serve` не выполняет. Она
+# возвращается ДО диспетчера режимов, поэтому всё это молча не срабатывало:
+# `--serve --mode 1 --file task.py` поднимал сервер и не проверял ничего, а
+# `--stats` оставлял `.grader_stats.jsonl` пустым — узнать об этом можно было
+# только по пустому файлу.
+_SERVE_INCOMPATIBLE: tuple[tuple[str, str], ...] = (
+    ("mode", "--mode"),
+    ("file", "--file"),
+    ("dir", "--dir"),
+    ("watch", "--watch"),
+    ("stats", "--stats"),
+    ("lint", "--lint"),
+    ("ai_hints", "--ai-hints"),
+)
+
+
+def validate_serve_arguments(
+    args: argparse.Namespace,
+    argv: list[str] | None,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Проверить аргументы ветки ``--serve`` до запуска сервера (issue #930).
+
+    Две проверки, которых у ветки не было вовсе:
+
+    * **порт в диапазоне.** ``type=int`` без границ пропускал ``--port 70000``,
+      и пользователь получал ``OverflowError`` из недр ``socket`` — при том что
+      GUI-лаунчер тот же ввод отвергает по-человечески;
+    * **несовместимые флаги.** Явно переданное и молча не выполненное — хуже
+      отказа: команда выглядит сработавшей.
+
+    ``--output`` в список не входит намеренно: у него есть дефолт, и отличить
+    «указал text» от «не указывал» можно только по argv — что и делается.
+
+    Raises:
+        SystemExit: порт вне диапазона или указан несовместимый флаг.
+    """
+    if not args.serve:
+        return
+    port = int(args.port)
+    if not 1 <= port <= 65535:
+        parser.error(_profile_message(args, "serve_port_out_of_range", port=port))
+    conflicting = [
+        flag
+        for name, flag in _SERVE_INCOMPATIBLE
+        if _is_set(args, name) or flag_present(argv, flag)
+    ]
+    if flag_present(argv, "--output"):
+        conflicting.append("--output")
+    if conflicting:
+        parser.error(
+            _profile_message(args, "serve_incompatible_flags", flags=", ".join(conflicting))
+        )
+
+
+def _is_set(args: argparse.Namespace, name: str) -> bool:
+    """Задан ли флаг: ``None``/``False`` считаются «не задан»."""
+    value = getattr(args, name, None)
+    return value not in (None, False)
 
 
 def _resolve_verbosity(args: argparse.Namespace, *, default: bool) -> bool:

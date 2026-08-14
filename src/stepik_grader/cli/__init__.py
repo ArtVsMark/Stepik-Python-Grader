@@ -78,6 +78,7 @@ from stepik_grader.cli.options import (
     _resolve_verbosity,
     apply_launch_profile,
     peek_lang,
+    validate_serve_arguments,
 )
 from stepik_grader.cli.prompts import EXPLICIT_YES
 
@@ -584,6 +585,10 @@ def main(argv: list[str] | None = None) -> ExitCode:
     # аргументы разъезжаются по конфигу и веб-серверу, и профиль, применённый
     # позже, действовал бы наполовину.
     apply_launch_profile(args, argv, parser)
+    # issue #930: проверяем ПОСЛЕ профиля — порт мог приехать из него, и
+    # ругаться на значение, которого пользователь не писал, но выбрал
+    # профилем, всё равно правильно: сервер с ним не поднимется.
+    validate_serve_arguments(args, argv, parser)
 
     # issue #1136: настройки, выбранные во вкладке «Дополнительно», ложатся
     # поверх pyproject.toml — и ДО флагов ниже, потому что флаг обязан
@@ -814,6 +819,13 @@ def main(argv: list[str] | None = None) -> ExitCode:
             )
         except SandboxUnavailableError as exc:
             parser.error(_t("sandbox_unavailable", reason=str(exc)))
+        except OSError as exc:
+            # issue #930: bind на занятом порту прилетал голым OSError прямо в
+            # консоль. Меню (пункт 6) и GUI-лаунчер тот же отказ объясняют
+            # по-человечески — CLI оставался единственной поверхностью из трёх,
+            # где пользователь видел трейсбек. Ключ свой, не меню: там текст
+            # обещает «возврат в меню», которого в этой ветке не бывает.
+            parser.error(_t("serve_start_failed", error=exc))
         return ExitCode.OK
 
     if args.sandbox:

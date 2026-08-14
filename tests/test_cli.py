@@ -1925,3 +1925,73 @@ class TestFlagPresent:
 
     def test_any_of_several_names(self) -> None:
         assert options.flag_present(["--no-history"], "--history", "--no-history") is True
+
+
+class TestServeArgumentValidation:
+    """issue #930: ветка --serve проверяет аргументы, а не молчит.
+
+    Она возвращается ДО диспетчера режимов, поэтому раньше не проверяла
+    ничего: занятый порт прилетал голым OSError, `--port 70000` — OverflowError
+    из недр socket, а `--mode/--file/--stats/--output` молча не выполнялись.
+    Меню (пункт 6) и GUI-лаунчер те же отказы давно объясняют по-человечески —
+    CLI оставался единственной поверхностью из трёх с трейсбеком.
+    """
+
+    def test_port_out_of_range_is_refused(self, capsys) -> None:
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["--serve", "--port", "70000"])
+
+        assert exc.value.code != 0
+        assert "70000" in capsys.readouterr().err
+
+    def test_port_zero_is_refused(self) -> None:
+        """Ноль — «любой свободный» для сокета, но не осознанный выбор пользователя."""
+        with pytest.raises(SystemExit):
+            cli.main(["--serve", "--port", "0"])
+
+    @pytest.mark.parametrize(
+        "extra",
+        [
+            ["--mode", "1", "--file", "task.py"],
+            ["--dir", "."],
+            ["--watch"],
+            ["--stats"],
+            ["--output", "json"],
+            ["--lint"],
+        ],
+    )
+    def test_incompatible_flags_are_refused(self, extra: list[str], capsys) -> None:
+        """Явно переданное и молча не выполненное хуже отказа: команда выглядит сработавшей."""
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["--serve", *extra])
+
+        assert exc.value.code != 0
+        assert extra[0] in capsys.readouterr().err
+
+    def test_busy_port_reports_instead_of_traceback(self, capsys) -> None:
+        """Занятый порт → понятное сообщение и ненулевой код, без трейсбека."""
+        import socket
+
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            sock.listen()
+            port = sock.getsockname()[1]
+
+            with pytest.raises(SystemExit) as exc:
+                cli.main(["--serve", "--port", str(port)])
+
+        assert exc.value.code != 0
+        err = capsys.readouterr().err
+        assert "--port" in err, "подсказка про свободный порт не показана"
+        assert "Traceback" not in err
+
+    def test_plain_serve_flags_still_pass_validation(self, monkeypatch) -> None:
+        """Обычный `--serve --sandbox --port N` проверку проходит — не переусердствовали."""
+        started: list[dict[str, object]] = []
+        from stepik_grader import web
+
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: started.append(kwargs))
+
+        cli.main(["--serve", "--port", "8765"])
+
+        assert started and started[0]["port"] == 8765
