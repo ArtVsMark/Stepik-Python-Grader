@@ -208,6 +208,8 @@
   "launcher_open_browser": "Open in browser",
   "launcher_port": "Port:",
   "launcher_port_busy": "Port {port} is busy — choose another one",
+  "launcher_port_busy_free": "Port {port} is busy. The nearest free one is {free}.",
+  "launcher_port_busy_ours": "Port {port} is busy — it looks like the web interface is already running. Press “Open in browser” or stop it.",
   "launcher_port_invalid": "Invalid port — enter a number between 1 and 65535",
   "launcher_port_range": "Port is out of the 1–65535 range",
   "launcher_start": "Start",
