@@ -33,9 +33,12 @@ from __future__ import annotations
 import argparse
 import contextlib
 import pathlib
+import sys
 import webbrowser
 
+from stepik_grader import config
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.exit_codes import ExitCode
 from stepik_grader.cli.prompts import CONFIRM_YES
 from stepik_grader.config import CONFIG
 from stepik_grader.core import feedback, user_settings
@@ -98,6 +101,10 @@ def _ask_bench_profile(ctx: CliContext) -> int:
     choice = input(ctx.t("select_profile_prompt")).strip() or "2"
     repeats = _BENCH_PROFILES.get(choice)
     if repeats is None:
+        # issue #997 (DES-2-08): опечатка в номере профиля молча превращалась
+        # во второй профиль. Пользователь просил 50 повторов, получал 15 — и
+        # сравнивал результаты, думая, что мерил то, что выбрал.
+        print(ctx.t("profile_unknown_default_used", value=choice, default="2"))
         repeats = _BENCH_PROFILES["2"]
     if repeats == 0:
         repeats = _ask_number(ctx.t("enter_repeats_prompt"), default=15, ctx=ctx)
@@ -117,6 +124,9 @@ def _ask_micro_profile(ctx: CliContext) -> int:
     choice = input(ctx.t("select_profile_prompt")).strip() or "2"
     number = _MICRO_PROFILES.get(choice)
     if number is None:
+        # issue #997 (DES-2-08): то же для micro-bench — «7» давало 1000
+        # вызовов вместо запрошенных 100 000, и разница списывалась на машину.
+        print(ctx.t("profile_unknown_default_used", value=choice, default="2"))
         number = _MICRO_PROFILES["2"]
     if number == 0:
         number = _ask_number(ctx.t("enter_calls_prompt"), default=1000, ctx=ctx)
@@ -216,12 +226,43 @@ def _resolve_cli_path_or_error(
     ``--watch``) предлагает нативный файловый диалог; иначе — или при отмене
     диалога / отсутствии tkinter — завершает работу через ``parser.error``
     (чистое сообщение argparse, не трейсбек). issue #79.
+
+    issue #997 (DEV-1-05): признак «text-режим» не отвечает на вопрос, есть ли
+    кому нажать кнопку в диалоге. Скрипт, запустивший ``--mode 1`` без
+    ``--file``, получал окно tkinter и вис на нём до убийства процесса — в CI
+    это выглядит как зависший шаг без единой строки в логе. Диалог предлагается
+    только при живом терминале; иначе сразу ``parser.error`` с именем флага.
     """
-    if args.output == "text" and not args.watch:
+    if args.output == "text" and not args.watch and _is_interactive():
         picked = ctx.pick_path_via_dialog(want_dir=want_dir)
         if picked:
             return picked
     parser.error(f"--mode {args.mode} requires {flag}")
+
+
+def _is_interactive() -> bool:
+    """Есть ли за терминалом человек: stdin и stdout — TTY.
+
+    Проверяются оба потока: под пайпом (``| tee``) stdin остаётся терминалом, а
+    показывать модальное окно в таком запуске всё равно нельзя — его никто не
+    ждёт, а вывод уходит в файл.
+    """
+    return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
+
+
+def _runs_in_window(db_path: pathlib.Path, window: int) -> int:
+    """Сколько прогонов реально попало в окно карточек «Подучить».
+
+    Отдельная функция, а не поле карточки: карточки агрегированы по ключу
+    ошибки, и число прогонов у них одинаковое, но при пустом списке брать его
+    неоткуда. Ошибка чтения базы не должна ронять раздел — тогда 0.
+    """
+    from stepik_grader.core import history
+
+    try:
+        return len(history.read_recent_runs(db_path, limit=window))
+    except Exception:
+        return 0
 
 
 def _show_insights(ctx: CliContext) -> None:
@@ -239,6 +280,20 @@ def _show_insights(ctx: CliContext) -> None:
         t=CONFIG.insights_active_threshold_t,
         k=CONFIG.insights_clean_streak_k,
     )
+    if cards:
+        # issue #997 (JRN-1-05): база истории — пользовательская и общая для
+        # всех папок. В свежей установке раздел показывал карточки, накопленные
+        # в другом проекте, при том что тумблер истории тут говорит «ВЫКЛ», —
+        # и понять, откуда взялись чужие ошибки, было неоткуда. Называем файл и
+        # окно, по которому считали.
+        print(
+            ctx.t(
+                "insights_source",
+                path=db_path,
+                runs=_runs_in_window(db_path, CONFIG.insights_window_n),
+                window=CONFIG.insights_window_n,
+            )
+        )
     if not cards:
         # issue #822 (PROD-11): в меню историю включают пунктом 7, а не флагом.
         # Общий текст советовал `--history` — из меню это тупик: пользователь
@@ -258,12 +313,12 @@ def _maybe_grade_downloaded(
     *,
     record_stats: bool,
     record_history: bool,
-) -> bool | None:
+) -> ExitCode | None:
     """Предложить проверить только что скачанную задачу (issue #822, PROD-09).
 
-    Возвращает ``had_failures`` прогона или ``None``, если проверять было нечего
-    либо пользователь отказался — вызывающая сторона по ``None`` понимает, что
-    прогона не было, и не трогает серию зачётов.
+    Возвращает код исхода прогона (issue #936) или ``None``, если проверять было
+    нечего либо пользователь отказался — вызывающая сторона по ``None`` понимает,
+    что прогона не было, и не трогает серию зачётов.
 
     Скачано несколько задач — предлагаем последнюю: это та, что пользователь
     ввёл только что, и другие варианты требовали бы ещё одного выбора ровно
@@ -284,19 +339,28 @@ def _maybe_grade_downloaded(
         return None
     if answer not in CONFIRM_YES:
         return None
-    return bool(ctx.run_mode_2(task_dir, record_stats=record_stats, record_history=record_history))
+    return ctx.run_mode_2(task_dir, record_stats=record_stats, record_history=record_history)
 
 
 def _maybe_nudge_history(
-    ctx: CliContext, had_failures: bool, *, record_history: bool, nudged: bool
+    ctx: CliContext, outcome: ExitCode, *, record_history: bool, nudged: bool
 ) -> bool:
     """Однократный (за сессию меню) nudge про «Подучить» после прогона с падениями.
 
     issue #430: печатается только при выключенной истории и только если ещё не
     показывали в этой сессии меню («не чаще раза за запуск»). Возвращает
     обновлённый флаг ``nudged``.
+
+    issue #936: сверка именно с ``FAILURES``. Прежний ``bool`` не различал
+    «упало» и «проверять было нечего», а после введения кодов исхода
+    ``NO_TESTS`` истинен — без явной сверки подсказка «Подучить» выскакивала бы
+    там, где прогона не было.
+
+    Сравнение по значению, а не по тождеству: ``ExitCode`` — ``IntEnum``, и
+    вызывающая сторона (включая тестовые дубли режимов) вправе вернуть простой
+    ``bool``. ``False == ExitCode.OK`` истинно, ``False is ExitCode.OK`` — нет.
     """
-    if had_failures and not record_history and not nudged:
+    if outcome == ExitCode.FAILURES and not record_history and not nudged:
         print(ctx.t("nudge_enable_history"))
         return True
     return nudged
@@ -457,7 +521,7 @@ def _interactive_menu(ctx: CliContext) -> None:
     issue #753: пункт 9 — обратная связь: собирает окружение и открывает
     заполненную форму issue на GitHub после предпросмотра и подтверждения.
     """
-    settings_path = user_settings.default_settings_path()
+    settings_path = user_settings.default_settings_path(config.workspace_root())
     settings = user_settings.load_settings(settings_path)
     # issue #268/#344: интерактивное меню не проходит через argparse, поэтому
     # --stats/--history и их --no-* недоступны — record_stats читаем из CONFIG.
@@ -485,13 +549,18 @@ def _interactive_menu(ctx: CliContext) -> None:
 
             if choice == "1":
                 solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
-                had_failures = ctx.run_mode_1(
+                outcome = ctx.run_mode_1(
                     solution, record_stats=record_stats, record_history=record_history
                 )
                 nudged = _maybe_nudge_history(
-                    ctx, had_failures, record_history=record_history, nudged=nudged
+                    ctx, outcome, record_history=record_history, nudged=nudged
                 )
-                success_streak = 0 if had_failures else success_streak + 1
+                # issue #936: серию трогает только состоявшийся прогон — при
+                # NO_TESTS проверять было нечего, обнулять её не за что.
+                if outcome == ExitCode.FAILURES:
+                    success_streak = 0
+                elif outcome == ExitCode.OK:
+                    success_streak += 1
                 nudged_success = _maybe_nudge_success_streak(
                     ctx,
                     success_streak,
@@ -501,13 +570,18 @@ def _interactive_menu(ctx: CliContext) -> None:
 
             elif choice == "2":
                 directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-                had_failures = ctx.run_mode_2(
+                outcome = ctx.run_mode_2(
                     directory, record_stats=record_stats, record_history=record_history
                 )
                 nudged = _maybe_nudge_history(
-                    ctx, had_failures, record_history=record_history, nudged=nudged
+                    ctx, outcome, record_history=record_history, nudged=nudged
                 )
-                success_streak = 0 if had_failures else success_streak + 1
+                # issue #936: серию трогает только состоявшийся прогон — при
+                # NO_TESTS проверять было нечего, обнулять её не за что.
+                if outcome == ExitCode.FAILURES:
+                    success_streak = 0
+                elif outcome == ExitCode.OK:
+                    success_streak += 1
                 nudged_success = _maybe_nudge_success_streak(
                     ctx,
                     success_streak,
@@ -576,7 +650,11 @@ def _interactive_menu(ctx: CliContext) -> None:
                 record_history = not record_history
                 settings.record_history = record_history
                 try:
-                    user_settings.save_settings(settings, settings_path)
+                    # issue #997 (CNC-5-04, CNC-5-01): на диск уходит ТОЛЬКО
+                    # тумблер. Прежде писался весь снапшот настроек, снятый при
+                    # запуске меню, и открытое меню откатывало всё, что за это
+                    # время записал веб, — включая отозванное AI-согласие.
+                    user_settings.save_fields(settings_path, record_history=record_history)
                 except OSError as exc:
                     # Best-effort, симметрично load_settings: read-only cwd / полный
                     # диск не должны ронять меню. Переключение действует на сессию.
@@ -614,7 +692,10 @@ def _interactive_menu(ctx: CliContext) -> None:
                     nudged = _maybe_nudge_history(
                         ctx, graded, record_history=record_history, nudged=nudged
                     )
-                    success_streak = 0 if graded else success_streak + 1
+                    if graded == ExitCode.FAILURES:
+                        success_streak = 0
+                    elif graded == ExitCode.OK:
+                        success_streak += 1
                     nudged_success = _maybe_nudge_success_streak(
                         ctx,
                         success_streak,
@@ -636,5 +717,15 @@ def _interactive_menu(ctx: CliContext) -> None:
             # ввод пути/числа/профиля в _prompt_path/_ask_*) — корректный выход,
             # не трейсбек. Пайповый ввод (`printf '1\n' | ... grader`) завершается
             # штатно, а не падает на вложенном input() после исчерпания потока.
+            print(ctx.t("goodbye"))
+            return
+        except KeyboardInterrupt:
+            # issue #997 (DEV-1-03, PROD-1-03): Ctrl+C на выборе режима ронял
+            # процесс трейсбеком KeyboardInterrupt. Точечные обработчики стояли
+            # только внутри пунктов 6/8/9, то есть самый частый способ выйти из
+            # программы — единственный, который выглядел как поломка. Прерывание
+            # равнозначно «0»: пользователь просит закончить, а не сообщает об
+            # ошибке.
+            print()
             print(ctx.t("goodbye"))
             return

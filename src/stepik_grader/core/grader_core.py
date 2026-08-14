@@ -25,9 +25,11 @@ from __future__ import annotations
 import contextlib
 import difflib
 import pathlib
+import shutil
 import statistics
 import tempfile
 import threading
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
@@ -77,6 +79,7 @@ __all__ = [
 from stepik_grader.core.microbench_runner import apply_relative_ranking, run_microbench
 from stepik_grader.core.mode_detector import (
     _ast_function_name,
+    _ast_function_names,
     _block_invokes_solution,
     _detect_run_mode,  # noqa: F401  (реэкспорт для grader.py, не вызывается здесь напрямую)
     _is_python_code_block,
@@ -84,10 +87,19 @@ from stepik_grader.core.mode_detector import (
     _read_meta_function_name,
     is_function_only_solution,
 )
-from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
-from stepik_grader.core.normalizers import split_output_lines
+from stepik_grader.core.normalizers import (
+    floats_equal_with_precision,
+    split_output_lines,
+    strip_trailing_blanks,
+)
+
+# issue #940: сравнение перешло на floats_equal_with_precision, но сам
+# `_normalize_output_line` остаётся реэкспортом для фасада grader.py (см. его
+# __all__) — удалять его отсюда нельзя, это публичное имя.
+from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line  # noqa: F401
 from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult, Verdict
 from stepik_grader.core.runner import (
+    TRUNCATION_MARKER,
     RunOutcome,
     RunSpec,
     _apply_memory_limit,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
@@ -209,6 +221,62 @@ class BenchStats:
 # не спускается в тела функций, поэтому цикл существовал, а тест был зелёным.
 
 
+def _lines_for_compare(
+    actual_lines: list[str],
+    expected_lines: list[str],
+) -> tuple[list[str], list[str]]:
+    """Пара «факт, ожидание», приведённая к текущему режиму сравнения (issue #1111).
+
+    ``compare_mode="stepik"`` (по умолчанию) снимает то, чего не различает чекер
+    платформы: хвостовые пробелы строки и хвостовые пустые строки. Найдено
+    внешним эталоном — на реальной базе курса решения, принятые Stepik,
+    получали ``WA`` ровно на этих различиях.
+
+    ``compare_mode="strict"`` возвращает списки как есть: побайтовая построчная
+    сверка для тех, кому нужна именно она (авторы задач, прогонный корпус).
+    """
+    if get_config().compare_mode == "strict":
+        return actual_lines, expected_lines
+    return strip_trailing_blanks(actual_lines), strip_trailing_blanks(expected_lines)
+
+
+def _undecodable_output_result(
+    case: TestCase,
+    outcome: RunOutcome,
+    exc: UnicodeDecodeError,
+) -> CaseResult:
+    """Вердикт для вывода, который не является корректным UTF-8 (issue #1031).
+
+    Отдельный исход, а не «просто WA»: сравнивать такой вывод с ожиданием
+    нельзя — при терпимом декоде любые непредставимые байты схлопываются в
+    один и тот же ``�``, и разные выводы становятся неотличимы. Поэтому
+    причина называется прямо, а не прячется за ``█`` в отчёте.
+
+    Вывод всё же показывается — терпимым декодом: пустой ``output`` не дал бы
+    понять, что вообще напечатало решение, а показанные символы замены вместе
+    с текстом ошибки объясняют картину целиком.
+    """
+    lossy = outcome.stdout.decode(_CHILD_IO_ENCODING, errors="replace")
+    bad_byte = exc.object[exc.start : exc.start + 1]
+    return {
+        "passed": False,
+        "output": split_output_lines(lossy),
+        "expected": case.expected_lines,
+        "diff": "",
+        "time": outcome.elapsed,
+        "memory": outcome.peak_memory_mb,
+        "error": (
+            f"вывод решения не является корректным {_CHILD_IO_ENCODING}: "
+            f"байт 0x{bad_byte.hex()} в позиции {exc.start}. Сравнить его с ожиданием нельзя — "
+            "разные байты дали бы один и тот же символ замены, и неверное решение получило бы AC. "
+            "Печатайте текст, а не сырые байты (см. docs/use/configuration.md)."
+        ),
+        "timed_out": False,
+        "verdict": "WA",
+        "exit_code": outcome.returncode,
+    }
+
+
 def _fail_result(
     case: TestCase,
     *,
@@ -250,10 +318,17 @@ class _RunPlan:
     ``error`` — ошибка подготовки (нет ``function_name`` / невалидный wrapper),
     при которой запуск не производится и кейс сразу маппится в RE. Инвариант:
     ровно одно из ``spec``/``error`` заполнено.
+
+    ``tmp_wrapper_dir`` — приватный каталог, в котором лежит wrapper (issue
+    #945). Уборка сносит именно каталог, а не один файл: каталог и есть то, что
+    защищает исполнение (см. ``_prepare_run_spec``). Отдельное поле, а не
+    ``tmp_wrapper_path.parent``, чтобы ``rmtree`` не мог уехать в чужую папку,
+    если путь придёт откуда-то ещё.
     """
 
     spec: RunSpec | None = None
     tmp_wrapper_path: pathlib.Path | None = None
+    tmp_wrapper_dir: pathlib.Path | None = None
     error: str | None = None
 
 
@@ -297,7 +372,7 @@ def _prepare_run_spec(
                 timeout=timeout,
                 measure_memory=measure_memory,
                 max_memory_mb=mem_cap,
-                max_output_bytes=CONFIG.max_output_bytes,
+                max_output_bytes=get_config().max_output_bytes,
                 cancel_event=cancel_event,
             )
         )
@@ -311,7 +386,12 @@ def _prepare_run_spec(
     # а не по «похоже ли на Python-код»: присваивание `a = 5` — это данные
     # legacy-теста, а не драйвер (issue #622).
     func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
-    if _block_invokes_solution(input_data, func_name):
+    # issue #938: драйвером блок считается, если вызывает ЛЮБУЮ функцию решения,
+    # а не ту одну, что выбрана для legacy-обёртки. Иначе вердикт зависел от
+    # порядка объявлений: `def _helper` выше целевой функции уводил блок
+    # `show(5)` в legacy-обёртку и давал NameError на верном решении.
+    known_names = {*_ast_function_names(solution_path), *([func_name] if func_name else [])}
+    if _block_invokes_solution(input_data, known_names):
         # python-generation function-call: блок уже содержит print(func(...))
         wrapper_src = _build_call_wrapper(solution_path, input_data)
     else:
@@ -334,16 +414,15 @@ def _prepare_run_spec(
     # дочернего процесса, которому раннер выставил PYTHONUTF8=1. Прежний
     # CONFIG.encoding здесь означал бы, что при cp1251 сгенерированный код
     # физически не разберётся.
-    tmp_wrapper = tempfile.NamedTemporaryFile(  # noqa: SIM115
-        mode="w",
-        suffix=".py",
-        encoding=_CHILD_IO_ENCODING,
-        delete=False,
-    )
-    tmp_wrapper.write(wrapper_src)
-    tmp_wrapper.flush()
-    tmp_wrapper.close()
-    wrapper_path = pathlib.Path(tmp_wrapper.name)
+    # issue #945: приватный каталог 0700 вместо общего системного temp — тот же
+    # вектор, что закрыт в runner.py/tracer.py (issue #799) и в микробенче:
+    # каталог исполняемого скрипта CPython ставит ПЕРВЫМ в ``sys.path``
+    # дочернего процесса, поэтому в общем ``/tmp`` посторонний мог подложить
+    # свой ``json.py`` и подменить импорт внутри wrapper'а. Права файла тут не
+    # при чём — цель атаки каталог.
+    wrapper_dir = pathlib.Path(tempfile.mkdtemp(prefix="stepik-wrapper-"))
+    wrapper_path = wrapper_dir / "wrapper.py"
+    wrapper_path.write_text(wrapper_src, encoding=_CHILD_IO_ENCODING)
     return _RunPlan(
         spec=RunSpec(
             path=wrapper_path,
@@ -351,11 +430,44 @@ def _prepare_run_spec(
             timeout=timeout,
             measure_memory=measure_memory,
             max_memory_mb=mem_cap,
-            max_output_bytes=CONFIG.max_output_bytes,
+            max_output_bytes=get_config().max_output_bytes,
+            # issue #992 (SBX-1-01/SBX-1-02): под изоляцией внутрь попадает
+            # только то, что отдали в spec. Обёртка обязана сохранить своё имя —
+            # положенная под именем модуля решения, она импортировала саму себя
+            # («cannot import name ... from partially initialized module») и
+            # роняла ВСЕ function-кейсы верного решения. Рядом кладётся сам
+            # модуль решения и его соседи: вне изоляции они доступны по
+            # исходному пути, внутри — только так.
+            script_name=wrapper_path.name,
+            aux_files=_solution_aux_files(solution_path),
             cancel_event=cancel_event,
         ),
         tmp_wrapper_path=wrapper_path,
+        tmp_wrapper_dir=wrapper_dir,
     )
+
+
+def _solution_aux_files(solution_path: pathlib.Path) -> tuple[tuple[str, bytes], ...]:
+    """Модуль решения и соседние ``*.py`` для переноса внутрь изоляции (issue #992).
+
+    Обёртка импортирует решение, а решение — соседние модули своей папки
+    (``helpers.py`` рядом с ``solution.py``). Вне изоляции они доступны по
+    исходному пути; внутри видно только то, что материализовано в рабочем
+    каталоге, — поэтому список собирается явно.
+
+    Берутся только ``*.py`` верхнего уровня папки решения: пакеты и данные —
+    отдельный разговор, а тянуть внутрь всё подряд означало бы копировать в
+    изоляцию произвольные файлы пользователя. Нечитаемый файл пропускается —
+    он и так не помог бы решению, а падать на подготовке из-за чужого файла
+    рядом нельзя.
+    """
+    aux: list[tuple[str, bytes]] = []
+    for candidate in sorted(solution_path.parent.glob("*.py")):
+        try:
+            aux.append((candidate.name, candidate.read_bytes()))
+        except OSError:
+            continue
+    return tuple(aux)
 
 
 def _map_outcome_to_result(
@@ -415,7 +527,8 @@ def _map_outcome_to_result(
     # как он кодируется на входе и как раннер настраивает сам процесс. С
     # CONFIG.encoding != utf-8 это давало ложные WA: вывод решения читался
     # чужой кодировкой и не совпадал с ожиданием.
-    stdout = outcome.stdout.decode(_CHILD_IO_ENCODING, errors="replace")
+    # stderr — только для показа, поэтому декодируется терпимо: битый байт в
+    # трейсбеке не должен мешать увидеть сам трейсбек.
     stderr = outcome.stderr.decode(_CHILD_IO_ENCODING, errors="replace")
 
     if outcome.returncode != 0:
@@ -433,16 +546,39 @@ def _map_outcome_to_result(
             exit_code=outcome.returncode,
         )
 
+    # issue #1031: декодируем СТРОГО — и только здесь, после ветки RE. Прежний
+    # `errors="replace"` схлопывал любые непредставимые байты в один и тот же
+    # `�`, поэтому РАЗНЫЕ выводы становились равны: `b"\x80"`, `b"\xff"` и
+    # `b"\xfe"` все давали `AC` против ожидания из одного символа замены. Это
+    # ложное принятие неверного решения — тот же класс, что #932 и #940.
+    #
+    # Порядок важен: строгий декод стоит ПОСЛЕ проверки `returncode`, иначе
+    # упавшее решение, успевшее напечатать битый байт, получало бы WA вместо
+    # честного RE — то есть диагноз подменялся бы на ходу.
+    try:
+        stdout = outcome.stdout.decode(_CHILD_IO_ENCODING)
+    except UnicodeDecodeError as exc:
+        return _undecodable_output_result(case, outcome, exc)
+
     # issue #843: разбор только по настоящим переводам строки. Прежний
     # `splitlines()` резал вывод ещё по восьми управляющим символам, из-за чего
     # `a<VT>b` в одну строку признавалось равным двум настоящим строкам — AC на
     # неверном решении.
     actual_lines = split_output_lines(stdout)
-    passed = actual_lines == case.expected_lines
-    if not passed and len(actual_lines) == len(case.expected_lines):
+    # issue #1111: режим сравнения. `stepik` (дефолт) не различает того, чего не
+    # различает чекер платформы — хвостовые пробелы строки и хвостовые пустые
+    # строки; `strict` сверяет побайтово. Нормализуются ОБЕ стороны, но только
+    # для решения «passed»: `output`/`expected`/`diff` остаются исходными, иначе
+    # студент увидел бы не свой вывод, а его причёсанную копию.
+    compare_actual, compare_expected = _lines_for_compare(actual_lines, case.expected_lines)
+    passed = compare_actual == compare_expected
+    if not passed and len(compare_actual) == len(compare_expected):
+        # issue #940: толерантность к записи float сохранена, но она больше не
+        # стирает незначащие нули ожидания: `12.30` против `12.3` — не «та же
+        # величина», а невыполненное требование «до сотых».
         passed = all(
-            _normalize_output_line(a) == _normalize_output_line(e)
-            for a, e in zip(actual_lines, case.expected_lines, strict=True)
+            floats_equal_with_precision(a, e)
+            for a, e in zip(compare_actual, compare_expected, strict=True)
         )
     diff_str = ""
     if not passed:
@@ -456,6 +592,19 @@ def _map_outcome_to_result(
             )
         )
 
+    # issue #935 (RUN-1-02/QA-1-04): факт обрезки вывода доходил только до
+    # ветки returncode != 0, а здесь `error` был захардкожен пустым. Решение,
+    # напечатавшее больше `max_output_bytes`, получало обычный WA — студент
+    # искал несуществующую ошибку в своём коде, а причина была в лимите
+    # грейдера. Пометка живёт в stderr (в stdout её класть нельзя — он
+    # сравнивается с ожиданием), поэтому переносим её в `error` как есть.
+    note = ""
+    if not passed and TRUNCATION_MARKER in stderr:
+        note = next(
+            (line.strip() for line in stderr.splitlines() if TRUNCATION_MARKER in line),
+            TRUNCATION_MARKER,
+        )
+
     return {
         "passed": passed,
         "output": actual_lines,
@@ -463,7 +612,7 @@ def _map_outcome_to_result(
         "diff": diff_str,
         "time": outcome.elapsed,
         "memory": outcome.peak_memory_mb,
-        "error": "",
+        "error": note,
         "timed_out": False,
         "verdict": "AC" if passed else "WA",
         "exit_code": outcome.returncode,
@@ -529,8 +678,12 @@ def run_single_test(
         # станет точкой выбора per-request Runner'а при серверном пивоте.
         outcome = run_spec(plan.spec)
     finally:
-        # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
-        if plan.tmp_wrapper_path is not None:
+        # issue #945: сносим каталог целиком, а не один файл — приватный каталог
+        # и есть то, что защищает исполнение, оставлять его пустым незачем.
+        # ignore_errors — уборка не должна ронять уже посчитанный вердикт.
+        if plan.tmp_wrapper_dir is not None:
+            shutil.rmtree(plan.tmp_wrapper_dir, ignore_errors=True)
+        elif plan.tmp_wrapper_path is not None:
             with contextlib.suppress(OSError):
                 plan.tmp_wrapper_path.unlink()
 
@@ -575,13 +728,27 @@ def run_tests(
         avg_time   (float) — среднее время на тест
         peak_memory_mb (float) — пик памяти (МБ)
         first_fail (int | None) — индекс первого упавшего теста
+        warnings   (list[str]) — предупреждения загрузки набора (issue #935):
+                             рассогласование блоков формата 3, непарные файлы,
+                             смешение форматов. Пустой список — набор полон
         cases      (list)  — детальные результаты по каждому кейсу; каждый
                              включает "stdin" (вход кейса, issue #397)
     """
     # issue #830 (ARCH-04): значение конфига читается в момент ВЫЗОВА, а не
     # вмораживается в дефолт при импорте модуля.
     timeout = get_config().timeout_seconds if timeout is None else timeout
-    test_cases = load_test_cases(test_dir)
+    # issue #935 (RUN-2-05): загрузчик предупреждает о неполном наборе через
+    # `warnings.warn`, то есть в stderr — машиночитаемый вывод об этом молчал,
+    # и CI не отличал полный прогон от урезанного. Ловим предупреждения здесь и
+    # переносим их в результат: рассогласование блоков формата 3, непарные
+    # файлы, смешение форматов — всё, из-за чего «OK N/N» относится не ко
+    # всему набору.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        test_cases = load_test_cases(test_dir)
+    load_warnings = [str(w.message) for w in caught]
+    for message in caught:
+        warnings.warn_explicit(message.message, message.category, message.filename, message.lineno)
     # Определяем режим запуска один раз для всех тест-кейсов.
     _apply_run_mode_override(test_cases, solution_path, test_dir)
 
@@ -650,6 +817,10 @@ def run_tests(
         "avg_time": avg_time,
         "peak_memory_mb": peak_mb,
         "first_fail": first_fail,
+        # issue #935: предупреждения загрузки набора — часть результата, а не
+        # только строка в stderr. Пустой список в обычном прогоне, поэтому
+        # потребители контракта (web, кэш, тесты) не ломаются.
+        "warnings": load_warnings,
         "cases": results,
     }
 
@@ -672,9 +843,13 @@ def preflight_solution(
     самим замером, но лишь по факту первого запуска и с сырым traceback вместо
     внятной причины.
 
-    Возвращает ``{"ok", "passed", "total", "verdict", "cancelled"}``:
+    Возвращает ``{"ok", "passed", "total", "verdict", "case", "cancelled"}``:
     ``ok=True`` — решение допускается к замеру;
     ``verdict`` — первый непрошедший вердикт (``WA``/``RE``/``TLE``) или ``""``;
+    ``case`` — НОМЕР этого кейса, начиная с 1 (``0``, если провала нет,
+    issue #1005/``MTX-3-05``): режимы 1/2 в отчёте кейс называют, а 3/4
+    говорили только «не прошёл проверку» — воспроизвести падение было не с
+    чего, хотя номер известен здесь же;
     ``cancelled`` — прогон прерван (``cancel_event``), решение не оценено.
     Текст для пользователя формирует UI-слой: тут только факты, без локали.
 
@@ -696,7 +871,16 @@ def preflight_solution(
     )
     cases = result.get("cases", [])
     cancelled = any(case.get("verdict") == "CANCELLED" for case in cases)
-    bad = next((case for case in cases if case.get("verdict") not in ("AC", "CANCELLED")), None)
+    # Номер кейса — его позиция в наборе (1-based): собственного поля с номером
+    # у кейса нет, порядок и есть нумерация, как в отчётах режимов 1/2.
+    bad_no, bad = next(
+        (
+            (index, case)
+            for index, case in enumerate(cases, 1)
+            if case.get("verdict") not in ("AC", "CANCELLED")
+        ),
+        (0, None),
+    )
     total = int(result.get("total", 0))
     passed = int(result.get("passed", 0))
     return {
@@ -704,6 +888,7 @@ def preflight_solution(
         "passed": passed,
         "total": total,
         "verdict": str(bad.get("verdict", "")) if bad else "",
+        "case": bad_no,
         "cancelled": cancelled,
     }
 

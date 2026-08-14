@@ -18,9 +18,12 @@ not. Update the import lines, keep the assertions.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import socket
 import threading
 import time
+import urllib.request
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
@@ -37,6 +40,8 @@ from stepik_grader.core.oauth_flow import (
     wait_for_auth_code,
 )
 from stepik_grader.core.stepik_client import (
+    OAuthCallbackPortBusy,
+    StepikNetworkError,
     _make_oauth_handler,
     create_user_session,
     refresh_access_token,
@@ -166,12 +171,17 @@ class TestTokenIsValid:
 
 
 # ---------------------------------------------------------------------------
-# wait_for_auth_code (drives a real OAuthHandler via a fake HTTPServer)
+# wait_for_auth_code (drives a real OAuthHandler via a fake server)
 # ---------------------------------------------------------------------------
 
 
 def _fake_server_factory(simulated_path):
-    """Build a fake HTTPServer class that drives the real handler with simulated_path."""
+    """Fake-класс сервера, прогоняющий настоящий handler на simulated_path.
+
+    Подменяет ``_OAuthHTTPServer`` (issue #943): колбэк-сервер перестал быть
+    голым ``HTTPServer`` — он переопределяет ``server_bind``, чтобы не ходить в
+    обратный DNS при старте.
+    """
 
     class _FakeServer:
         def __init__(self, server_address, handler_class):
@@ -200,21 +210,21 @@ class TestWaitForAuthCode:
         REFACTORING INVARIANT: same extraction logic in oauth_flow.wait_for_auth_code.
         """
         fake_server = _fake_server_factory("/callback?code=test_code&state=xyz")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         code = wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
         assert code == "test_code"
 
     def test_wait_for_auth_code_raises_on_error_param(self, monkeypatch):
         """An ?error= callback (with matching state) raises RuntimeError. REFACTORING INVARIANT."""
         fake_server = _fake_server_factory("/callback?error=access_denied&state=xyz")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(RuntimeError):
             wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
 
     def test_wait_for_auth_code_timeout_without_code(self, monkeypatch):
         """No code and no error within timeout raises TimeoutError. REFACTORING INVARIANT."""
         fake_server = _fake_server_factory("/callback?state=xyz")  # no code, no error
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(TimeoutError):
             wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
 
@@ -226,14 +236,14 @@ class TestWaitForAuthCode:
         yield a usable code.
         """
         fake_server = _fake_server_factory("/callback?code=attacker_code&state=wrong")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(RuntimeError, match="state"):
             wait_for_auth_code("localhost", 8080, "/callback", "expected", timeout=1)
 
     def test_wait_for_auth_code_raises_on_missing_state(self, monkeypatch):
         """Callback with no ``state`` param at all is rejected the same as a mismatch."""
         fake_server = _fake_server_factory("/callback?code=attacker_code")
-        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        monkeypatch.setattr(stepik_client, "_OAuthHTTPServer", fake_server)
         with pytest.raises(RuntimeError, match="state"):
             wait_for_auth_code("localhost", 8080, "/callback", "expected", timeout=1)
 
@@ -338,13 +348,14 @@ class TestRefreshAccessToken:
             "expires_in": 3600,
         }
         with patch(
-            "stepik_grader.core.stepik_client.requests.post", return_value=mock_resp
+            "stepik_grader.core.stepik_client._token_session",
+            return_value=MagicMock(post=MagicMock(return_value=mock_resp)),
         ) as mock_post:
             result = refresh_access_token("cid", "csecret", "old_refresh")
         assert result["access_token"] == "new_access"
-        called_url = mock_post.call_args[0][0]
+        called_url = mock_post.return_value.post.call_args[0][0]
         assert called_url.endswith("/oauth2/token/")
-        sent_data = mock_post.call_args.kwargs["data"]
+        sent_data = mock_post.return_value.post.call_args.kwargs["data"]
         assert sent_data["grant_type"] == "refresh_token"
         assert sent_data["refresh_token"] == "old_refresh"
 
@@ -440,6 +451,108 @@ class TestRefreshAccessToken:
         assert session.headers["Authorization"] == "Bearer browser_access"
         saved = json.loads(secrets_path.read_text(encoding="utf-8"))
         assert saved["access_token"] == "browser_access"
+
+
+# ---------------------------------------------------------------------------
+# Настоящая причина отказа — issue #997 (JRN-3A-04, DEV-3-06)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthFailureReasons:
+    """Занятый порт и обрыв сети называют себя, а не «неверные учётные данные»."""
+
+    def test_busy_callback_port_raises_dedicated_error(self):
+        """Занятый порт колбэка → OAuthCallbackPortBusy с номером порта."""
+        with patch(
+            "stepik_grader.core.stepik_client._OAuthHTTPServer",
+            side_effect=OSError(48, "Address already in use"),
+        ):
+            with pytest.raises(OAuthCallbackPortBusy) as excinfo:
+                wait_for_auth_code("localhost", 8080, "/callback", "state")
+
+        message = str(excinfo.value)
+        assert "8080" in message
+        assert "redirect_uri" in message
+
+    def test_network_failure_during_refresh_is_not_credentials_error(self, tmp_path):
+        """Обрыв связи при refresh → StepikNetworkError, браузер НЕ открывается."""
+        secrets_path = tmp_path / "secrets.json"
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "access_token": "",
+            "refresh_token": "live_refresh",
+            "expires_at": 0,
+        }
+        secrets_path.write_text(json.dumps(secrets), encoding="utf-8")
+
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.refresh_access_token",
+                side_effect=requests.ConnectionError("dns failure"),
+            ),
+            patch(
+                "stepik_grader.core.stepik_client.authorize_via_browser",
+            ) as mock_authorize,
+        ):
+            with pytest.raises(StepikNetworkError) as excinfo:
+                create_user_session(secrets, secrets_path)
+
+        mock_authorize.assert_not_called()
+        assert "Stepik" in str(excinfo.value)
+
+    def test_timeout_during_refresh_is_network_error(self, tmp_path):
+        """Таймаут — тот же класс причины, что и обрыв связи."""
+        secrets_path = tmp_path / "secrets.json"
+        secrets_path.write_text(
+            json.dumps(
+                {
+                    "client_id": "cid",
+                    "client_secret": "csecret",
+                    "redirect_uri": "http://localhost:8080/callback",
+                    "refresh_token": "live_refresh",
+                    "expires_at": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with patch(
+            "stepik_grader.core.stepik_client.refresh_access_token",
+            side_effect=requests.Timeout("too slow"),
+        ):
+            with pytest.raises(StepikNetworkError):
+                create_user_session(
+                    json.loads(secrets_path.read_text(encoding="utf-8")), secrets_path
+                )
+
+    def test_http_error_still_falls_back_to_browser(self, tmp_path):
+        """Регрессия: истёкший refresh по-прежнему уходит в браузер, а не в ошибку."""
+        secrets_path = tmp_path / "secrets.json"
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "refresh_token": "stale",
+            "expires_at": 0,
+        }
+        secrets_path.write_text(json.dumps(secrets), encoding="utf-8")
+
+        with (
+            patch(
+                "stepik_grader.core.stepik_client.refresh_access_token",
+                side_effect=requests.HTTPError("expired"),
+            ),
+            patch(
+                "stepik_grader.core.stepik_client.authorize_via_browser",
+                return_value={"access_token": "browser_access", "expires_at": time.time() + 60},
+            ) as mock_authorize,
+        ):
+            session = create_user_session(secrets, secrets_path)
+
+        mock_authorize.assert_called_once()
+        assert session.headers["Authorization"] == "Bearer browser_access"
 
 
 # ---------------------------------------------------------------------------
@@ -675,3 +788,53 @@ class TestRefreshRace:
         assert session is not None
         assert session.headers["Authorization"] == "Bearer winner-token"
         mock_refresh.assert_not_called()  # обмена не было вовсе
+
+
+class TestBusyPortIsDetectedOnEveryOS:
+    """Занятый порт колбэка виден и на Windows (issue #997, JRN-3A-04).
+
+    ``HTTPServer`` ставит ``SO_REUSEADDR``, и на Windows этот флаг РАЗРЕШАЕТ
+    второй bind на уже слушаемый порт: bind проходит, колбэк уходит чужому
+    слушателю, а пользователь вместо «порт занят» ждёт таймаута «код не
+    получен». Поймано живым прогоном на Windows — на POSIX тот же код падал
+    как надо, поэтому тесты с моками проблему не показывали.
+    """
+
+    def _busy_socket(self, port: int) -> socket.socket:
+        sock = socket.socket()
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("localhost", port))
+        sock.listen(1)
+        return sock
+
+    def _free_port(self) -> int:
+        with socket.socket() as probe:
+            probe.bind(("localhost", 0))
+            return int(probe.getsockname()[1])
+
+    def test_busy_port_raises_instead_of_timing_out(self):
+        port = self._free_port()
+        holder = self._busy_socket(port)
+        try:
+            with pytest.raises(OAuthCallbackPortBusy) as excinfo:
+                wait_for_auth_code("localhost", port, "/callback", "state", timeout=1)
+        finally:
+            holder.close()
+
+        assert str(port) in str(excinfo.value)
+        assert "redirect_uri" in str(excinfo.value)
+
+    def test_free_port_still_serves_the_callback(self):
+        """Регрессия: SO_EXCLUSIVEADDRUSE не должен ломать обычный сценарий."""
+        port = self._free_port()
+
+        def knock() -> None:
+            time.sleep(0.5)
+            with contextlib.suppress(Exception):
+                urllib.request.urlopen(
+                    f"http://localhost:{port}/callback?code=ABC123&state=xyz", timeout=3
+                ).read()
+
+        threading.Thread(target=knock, daemon=True).start()
+
+        assert wait_for_auth_code("localhost", port, "/callback", "xyz", timeout=8) == "ABC123"

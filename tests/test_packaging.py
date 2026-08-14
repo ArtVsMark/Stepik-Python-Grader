@@ -149,6 +149,49 @@ def test_scripts_are_measured_by_coverage() -> None:
     assert "--cov=scripts" in tables["pytest"]["addopts"]
 
 
+def test_release_pipeline_scripts_are_not_omitted() -> None:
+    """issue #976 не отменяет issue #790: конвейер и гейты остаются измеряемыми.
+
+    Разовые тулзы мейнтейнера из измерения исключены — под них писались тесты
+    ради процента, а их поломку видит сам мейнтейнер в тот же момент. Но список
+    `omit` — ровно та «одна строка в конфиге, которая ничего не ломает», о
+    которой предупреждает тест выше: в него легко дописать `check_*` и тихо
+    обнулить защиту релиза. Поэтому конвейер перечислен поимённо.
+    """
+    omitted = set(_coverage_tables()["run"]["omit"])
+    protected = {
+        "scripts/check_docs_guardrails.py",
+        "scripts/check_locale_guardrails.py",
+        "scripts/check_version_consistency.py",
+        "scripts/check_wheel_contents.py",
+        "scripts/check_workflow_guardrails.py",
+        "scripts/combine_coverage.py",
+        "scripts/extract_release_notes.py",
+        "scripts/generate_ci_coveragerc.py",
+        "scripts/preflight.py",
+        "scripts/check_pr_ready.py",
+        "scripts/collect_changelog.py",
+    }
+
+    assert not (protected & omitted), sorted(protected & omitted)
+
+
+def test_omitted_scripts_exist() -> None:
+    """Список `omit` не разъезжается с деревом: переименованный файл — не защита.
+
+    Запись, потерявшая свой файл, ничего не исключает и живёт как мусор,
+    создавая ложное впечатление, что тулза выведена из измерения.
+    """
+    root = pathlib.Path(__file__).parent.parent
+    stale = [
+        entry
+        for entry in _coverage_tables()["run"]["omit"]
+        if entry.startswith("scripts/") and not (root / entry).is_file()
+    ]
+
+    assert stale == [], stale
+
+
 def test_scripts_paths_alias_declared_for_cross_os_combine() -> None:
     """issue #790: у ``scripts/`` есть свой aliasing в ``[tool.coverage.paths]``.
 
@@ -318,3 +361,64 @@ def test_task_problem_form_carries_navigation_labels() -> None:
     assert labels is not None
     declared = {part.strip().strip('"') for part in labels.group(1).split(",")}
     assert {"bug", "area/core", "downloader"} <= declared
+
+
+# ===========================================================================
+# Сборка из дерева без .git — issue #958
+# ===========================================================================
+
+
+class TestBuildWithoutGit:
+    """Дерево без `.git` — обычный способ получить исходники, а не экзотика.
+
+    «Download ZIP» с GitHub, `git archive`, вендоренная копия, образ с
+    `.dockerignore` на `.git` — во всех этих случаях setuptools-scm неоткуда
+    взять версию. Без запасного значения сборка падала `LookupError` ещё на
+    `get_requires_for_build_wheel`: пакет не собирался вовсе, а сообщение
+    ничего не говорило о причине.
+    """
+
+    def _scm_config(self) -> dict[str, object]:
+        """Секция `[tool.setuptools_scm]` из настоящего pyproject.toml."""
+        root = pathlib.Path(__file__).parent.parent
+        data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+        config = data["tool"]["setuptools_scm"]
+        assert isinstance(config, dict)
+        return config
+
+    def test_fallback_version_is_declared(self) -> None:
+        """Запасная версия объявлена — иначе сборка без `.git` невозможна."""
+        assert "fallback_version" in self._scm_config(), (
+            "в [tool.setuptools_scm] нет fallback_version: дерево без .git "
+            "(ZIP с GitHub, git archive, вендоринг) снова не соберётся"
+        )
+
+    def test_static_version_is_still_absent(self) -> None:
+        """Инвариант проекта: статической `version` в [project] быть не должно.
+
+        `fallback_version` его не нарушает — git остаётся источником истины
+        там, где он есть, — но проверить это стоит здесь же: обе строки живут
+        в одном файле и правятся одной рукой.
+        """
+        root = pathlib.Path(__file__).parent.parent
+        data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+        assert "version" not in data["project"]
+        assert "version" in data["project"]["dynamic"]
+
+    def test_version_resolves_in_tree_without_git(self, tmp_path: pathlib.Path) -> None:
+        """С нашим конфигом версия резолвится и без репозитория.
+
+        Проверяется настоящей библиотекой на настоящем конфиге: смысл находки —
+        в том, что именно НАШИ настройки не давали собраться, а не в поведении
+        setuptools-scm вообще.
+        """
+        scm = pytest.importorskip(
+            "setuptools_scm",
+            reason="setuptools-scm — build-зависимость, в runtime-окружении её может не быть",
+        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
+
+        version = scm.get_version(root=str(tmp_path), **self._scm_config())
+
+        assert version, "версия пустая — сборка получит бессмысленный дистрибутив"

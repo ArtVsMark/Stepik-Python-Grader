@@ -41,7 +41,7 @@
 | `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `web/grading.run_spec` (активный `Runner`, а не `core/runner.LocalRunner` напрямую — ADR-0010; под `--serve --sandbox` это `SandboxRunner`); раздел «Песочница»; потребитель — `web/runs.py` |
 | `web/i18n.py` | Application / Web | `message_id`-каталог веб-API: `resolve_lang`/`message_fields`/`render_message`; рендер поверх `core/i18n.load_locale_messages` (локали в `core/locales/<lang>.json`, **не** `web/locales/`); импортирует `core/i18n.py` — не leaf |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
-| `launcher.py` | Application / GUI | GUI-лаунчер веб-интерфейса без командной строки: tkinter-окно (выбор запуска простой/с изоляцией `--sandbox`, порт, папка, Запустить/Остановить, статус) поднимает `--serve` **отдельным процессом**; gui-script `stepik-grader-gui`. Только stdlib — project-импортов нет (leaf) |
+| `launcher.py` | Application / GUI | GUI-лаунчер веб-интерфейса без командной строки: tkinter-окно (выбор запуска простой/с изоляцией `--sandbox`, порт, папка, Запустить/Остановить, статус) поднимает `--serve` **отдельным процессом**; gui-script `stepik-grader-gui`. Из проекта тянет только `stdio_encoding`, `config.workspace_root` (общий корень настроек — окно стартует там же, где его видят CLI и веб) и `core/user_settings` (память выбора между запусками) — ядро грейдера в процесс окна не импортируется |
 | `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`): запуск тест-кейсов грейдера как pytest-тестов |
 | `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/`: ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
 | `core/glossary.py` | Infrastructure / Utilities (leaf) | Компактная встроенная карта исключений (`GlossaryEntry.anchor`, ~28 записей) для error cards при RE; адрес карточки — якорь своего глоссария, ссылок наружу нет; leaf-модуль, отдельная сущность от пакета `glossary/` |
@@ -65,19 +65,24 @@
 | `core/ai_grounding.py` | Application-service | Retrieval-заземление AI-подсказки из офлайн-глоссария: по концептам кода (`scan_code_concepts`) достаёт top-k карточек комплектной базы в `FailureContext.grounding` — опционально, офлайн, без эмбеддингов; ребро `core→glossary` разорвано ленивым импортом |
 | `core/ai_hints.py` | Application / Integration | Opt-in AI-объяснение падений WA/RE (`--ai-hints`, ADR-0003): BYOK, OpenAI-совместимый `{ai_base_url}/chat/completions` на голом `requests` (облако + `ollama` одним кодом, без новых зависимостей); off по умолчанию, network/timeout/invalid-key → тихий пропуск, грейдинг не падает |
 | `core/progress_export.py` | Application-service | Экспорт прогресса в Markdown/HTML (`--export-progress`) над `core/history`/`core/insights`: `build_progress_report`/`render_markdown`/`render_html` — per-task TTFG и tallies решённого, без сети. Подписи отчёта берутся из `core/locales` по параметру `lang` (данные — `task_key`, коды вердиктов и `failure_kind` — не переводятся) |
+| `core/runprofile.py` | Application / Configuration | Паспорт условий прогона (`RunProfile`, `current_profile()`): активный `Runner` и backend песочницы, таймаут, лимиты вывода/памяти, кодировка, версии Python и пакета, применённый конфиг. Два потребителя — шапка отчёта (`describe()`) и ключ кэша (`fingerprint`): условия меняют вердикт наравне с кодом, поэтому их отпечаток инвалидирует запись |
 | `core/user_settings.py` | Application / Configuration (leaf) | Персистентные пользовательские настройки CLI (`.grader_settings.json`) — тумблер записи истории из меню и т.п.; отдельный слой от frozen `config.py` (изменяемые пользователем настройки, не `pyproject.toml`); единственный project-импорт — top-level `atomic_io.atomic_write_json` (stdlib-leaf) |
+| `core/settings_resolver.py` | Application / Configuration | Настройки прогона из `.grader_settings.json` поверх `pyproject.toml` и происхождение значения («по умолчанию» / «из `pyproject.toml`» / «изменено вами») с возвратом к унаследованному. Нужен вкладке «Дополнительно»: у установки через pipx конфига проекта нет вовсе, а персистентная настройка липкая — без показа источника её автор через месяц не помнит, что менял. Список настраиваемого закрытый: тюнинг остаётся в конфиге проекта |
 | `core/stepik_reference.py` | Application | Импорт закреплённых/топовых решений Stepik как reference-competitor'ов для режимов 2–4 (`--import-reference`/`--import-top`): `import_references_from_task_dir`; НЕ часть grading-core (вторичный конкурент, не источник первичной проверки) |
+| `core/attachments.py` | Application | Вложения условия рядом с решением: `download_attachments` скачивает файлы из `media/attachments`, на которые ссылается текст задачи, и возвращает отчёт по каждому (`saved`/`exists`/`failed`/`skipped`) для `meta.json`. Существующий файл не перезаписывается — его правят руками. Имя санируется до basename: HTML недоверенный, а имя становится путём на диске |
+| `core/submission_archive.py` | Application | История своих отправок по шагу в `<задача>/submissions/`: файл кода на каждую попытку + `meta.json` с вердиктом платформы, `hint` и временем (`save_submission_history`). Ничего не затирает — в отличие от `solution.py`, который хранит только последнюю отправку; имена намеренно вне маски `_SOLUTION_FILE_RE`, иначе старые попытки пришли бы в режимы 2–4 конкурентами |
 | `rules/` (пакет) | Domain | Карточки правил PEP 8: `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет `core/mtime_cache` — не leaf |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
 | `core/storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `atomic_io.py` (top-level) | Infrastructure / Utilities (leaf) | Общий атомарный JSON-писатель `atomic_write_json` (ADR-0011): temp в той же директории (`mkstemp`) + `os.replace`, опциональный `fsync`. Живёт вне `core/` намеренно — им пользуются и `core/user_settings`, и независимые от `core/` подпакеты (`glossary/`), без ребра `glossary → core`. Stdlib-only, project-импортов нет |
+| `stdio_encoding.py` (top-level) | Infrastructure / Utilities (leaf) | `force_utf8_stdio()` — переключение `stdout`/`stderr` на UTF-8 с `errors="replace"`. Консоль Windows работает в cp1251, и печать символа вне неё роняет процесс: падало и на строках локали, и на заголовках уроков из Stepik. Top-level по той же причине, что `atomic_io`/`db` — зовут все точки входа (`cli/`, `downloader`, `diagnostic_stepik`, `launcher`) и скрипты стенда, а прежнее место (`cli/options`) тянуло за собой половину CLI. Stdlib-only, project-импортов нет |
 | `db.py` (top-level) | Infrastructure / Utilities (leaf) | Общий SQLite-коннектор (ADR-0011): `connect` (PRAGMA WAL/FK/`busy_timeout` + callback-миграция + close-on-fail) и примитивы `user_version`/`set_user_version`/`apply_schema` (версия в базе выше ожидаемой — `SchemaTooNewError`, потомок `sqlite3.DatabaseError`, а не молчаливый no-op). Вынесен из `core/history`; им пользуются и `core/history`, и очередь пополнения глоссария (`glossary/json_provider`, SQLite/WAL). Top-level (как `atomic_io`), чтобы `glossary/` не тянул `core/`. Stdlib-only (`sqlite3`), project-импортов нет |
 | `core/stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostic_stepik.py` |
 | `core/parsers.py` | Infrastructure / Utilities | Парсинг тест-блоков (`# TEST_N:`) — единственный источник истины для `grader.py` и `downloader.py` |
 | `core/task_page_parser.py` | Domain (leaf) | Разбор HTML текста задачи: `extract_tests_from_html` (таблица кейсов), `extract_external_test_links` (ZIP/GitHub-ссылки), `is_function_style` (stdin vs function по AST). Только stdlib, без project-импортов |
-| `core/tests_writer.py` | Domain (leaf) | Запись форматов тест-кейсов: `save_tests` (Format 1 — `N`/`N.clue`/`N.type`), `write_testblock_tests` (Format 3 — `input.txt`/`output.txt` с `# TEST_N:`). Только stdlib |
+| `core/tests_writer.py` | Domain (leaf) | Запись форматов тест-кейсов: `save_tests` (Format 1 — `N`/`N.clue`/`N.type`), `write_testblock_tests` (Format 3 — `input.txt`/`output.txt` с `# TEST_N:`), `reset_tests_dir` (сброс каталога для источников, кладущих Format 3 байт-в-байт). Только stdlib |
 | `core/test_source_fetcher.py` | Infrastructure | Скачивание тестов из внешних источников: `download_zip_tests` (Stepik ZIP), `download_github_tests` (GitHub Contents API) → Format 3; безопасность сторонних хостов через `stepik_client` |
 | `core/step_content.py` | Domain (leaf) | Извлечение данных из ответов Stepik API: `parse_stepik_step_url`, `extract_python_code`, `extract_submission_code`, `extract_function_name`. Чистые `dict/str -> данные`, без сети/ФС |
 | `core/i18n.py` | Infrastructure / Utilities (leaf) | `load_locale_messages(lang)` — JSON-локали `core/locales/<lang>.json`; аддитивный путь поверх статического `_MESSAGES` в `cli/__init__.py` — новые сообщения через JSON, без переписывания существующих; graceful degradation на отсутствующий/битый файл |
@@ -98,15 +103,24 @@
 
 Граф зависимостей — DAG без циклов (все модули живут в `src/stepik_grader/`):
 
+> **Одно ребро — одна строка, пояснение в скобках на той же строке.** Разбор
+> идёт построчно (`tests/test_import_dag.py`), и пояснение, перенесённое на
+> вторую строку, оставляет незакрытую скобку — ребро молча перестаёт
+> распознаваться, а гейт остаётся красным уже после правки. Форму держит
+> `test_graph_edges_fit_one_line`.
+
 ```
 downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
 downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py, core/test_source_fetcher.py, core/step_content.py  (реэкспорт публичных имён)
 downloader.py          ──→  downloader_config.py  (конфиг+интерактив)
+downloader.py          ──→  core/submission_archive.py  (история отправок в <задача>/submissions/)
+downloader.py          ──→  core/attachments.py  (вложения условия рядом с task.md; сеть — через stepik_client)
 downloader_config.py   ──→  core/storage.py
 core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, core/tests_writer.py  (НЕ импортирует downloader)
 core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
 core/stepik_client.py ──→  core/storage.py
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli/__init__.py  (тонкий фасад)
+grader.py              ──→  core/runner.py  (Runner/RunSpec/RunOutcome/LocalRunner — точка расширения целиком в фасаде, рядом с set_runner)
 core/grader_core.py    ──→  core/microbench_runner.py, core/normalizers.py, core/runner.py
 core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
 core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
@@ -115,10 +129,13 @@ cli/__init__.py        ──→  core/grader_core.py  (run_tests/run_benchmark/
 cli/__init__.py        ──→  core/cache.py  (GraderCache для --clear-cache)
 cli/__init__.py        ──→  core/i18n.py  (JSON-локали поверх статического _MESSAGES)
 cli/__init__.py        ──→  cli/options.py  (реэкспорт для backward-compatible facade)
+cli/__init__.py        ──→  core/settings_resolver.py  (настройки прогона из .grader_settings.json ложатся на конфиг ДО флагов: флаг перекрывает сохранённое, ADR-0012)
 cli/__init__.py        ──→  cli/commands.py, cli/context.py  (тонкие обёртки _run_mode_1..4 + _build_cli_context())
 cli/__init__.py        ──→  cli/rendering.py  (реэкспорт _print_tabular/_rows_to_csv/_rows_to_markdown)
 cli/__init__.py        ──→  cli/interactive.py  (тонкие обёртки _interactive_menu/_ask_*/_pick_path_via_dialog/_prompt_path/_resolve_cli_path_or_error/_print_menu)
 cli/options.py         ──→  config.py  (CONFIG.use_cache в _resolve_use_cache; leaf — не импортирует cli/__init__.py)
+cli/options.py         ──→  core/user_settings.py  (персистентный тумблер истории в _resolve_record_history: одна лестница приоритета для режимов 1-4 и --serve)
+cli/options.py         ──→  core/i18n.py  (load_locale_messages: тексты --help берутся из каталога локалей, а не из литералов в парсере)
 cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/reporter.py, core/microbench_runner.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
@@ -152,7 +169,10 @@ cli/commands.py        ──→  core/stats.py  (record_run для --stats)
 cli/commands.py        ──→  core/failure_context.py, core/user_settings.py, rules/  (контекст падения для AI-подсказки, тумблер истории, персональные правила)
 cli/commands.py        ──→  core/history.py, core/lint.py  (--history/--lint; карточки «Подучить» и подсказки глоссария приходят через core/failure_context.py, напрямую cli/commands.py их больше не импортирует)
 cli/commands.py        ──→  core/ai_hints.py, core/history_recording.py  (--ai-hints + наполнение истории)
+cli/commands.py        ──→  core/runprofile.py  (паспорт условий прогона: шапка отчёта + отпечаток в ключе кэша)
+core/runprofile.py     ──→  config.py, core/runner.py  (действующие настройки + активный Runner; снимается в момент вызова, не на импорте)
 cli/__init__.py        ──→  core/progress_export.py  (--export-progress), core/stepik_reference.py  (--import-reference/--import-top)
+cli/__init__.py        ──→  core/history.py  (--purge-history: PurgePreview для предпросмотра удаления; сам purge_history — ленивый импорт в ветке флага)
 cli/interactive.py     ──→  core/user_settings.py  (тумблер записи истории из меню)
 web/api_routes.py      ──→  web/reference_adapter.py  (POST /api/import-reference)
 web/api_routes.py      ──→  web/settings_adapter.py  (настройки пользователя: onboarding_seen, consent AI-подсказки)
@@ -165,10 +185,12 @@ core/history_recording.py ──→  core/history.py, core/insights.py, core/glo
 core/progress_export.py   ──→  core/history.py, core/insights.py  (агрегаты прогресса)
 core/ai_hints.py          ──→  core/diag_log.py  (редакция ключа; config передаётся вызывающим, requests — вне проекта)
 core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py
+core/submission_archive.py ──→  core/step_content.py, core/storage.py, core/diag_log.py  (раскладка истории отправок; сеть — на стороне вызывающего)
 core/user_settings.py     ──→  atomic_io.py  (.grader_settings.json атомарно; иначе stdlib-leaf)
 core/stats.py             ──→  atomic_io.py  (ротация .grader_stats.jsonl атомарной заменой)
-downloader.py / downloader_config.py  ──→  core/i18n.py  (сообщения мастера скачивания на языке меню)
+downloader.py / downloader_config.py / diagnostic_stepik.py  ──→  core/i18n.py  (сообщения мастера скачивания и диагностики на языке меню)
 core/history.py           ──→  db.py  (.grader_history.db через общий SQLite-коннектор; иначе stdlib-leaf)
+cli/options.py / downloader.py / diagnostic_stepik.py / launcher.py  ──→  stdio_encoding.py  (вывод в UTF-8 до первой печати; иначе консоль cp1251 роняет процесс)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
@@ -178,7 +200,9 @@ web/viewmodels.py      ──→  core/result.py  (те же типы на вх�
 web/runs.py            ──→  core/diag_log.py  (traceback упавшей job'ы в диагностический лог)
 core/error_glossary.py ──→  core/glossary.py, glossary/json_provider.py  (bundled JSON → компактная карта fallback, лениво; glossary/ не тянет core/, ацикл)
 ide.py                 (только stdlib — генерация конфигов VS Code; project-импортов нет)
-launcher.py            (только stdlib + tkinter/subprocess — поднимает --serve отдельным процессом; project-импортов нет, leaf)
+launcher.py            ──→  config.py  (workspace_root: та же папка проекта, что у CLI и веба — иначе у окна свой корень)
+launcher.py            ──→  core/user_settings.py  (память окна между запусками: тот же .grader_settings.json, что у меню и веба — свой формат хранения был бы вторым источником истины; ADR-0012)
+launcher.py            (в остальном stdlib + tkinter/subprocess — поднимает --serve отдельным процессом; ядро грейдера в процесс окна не тянет)
 diagnostic_stepik.py ──→  core/stepik_client.py
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 downloader.py        ──→  core/oauth_flow.py

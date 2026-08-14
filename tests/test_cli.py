@@ -8,14 +8,18 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib.metadata
+import json
 import pathlib
 import sys
 import tomllib
 
 import pytest
 
-from stepik_grader import cli
+from stepik_grader import cli, config
+from stepik_grader.cli import options
+from stepik_grader.core import user_settings
 
 # Ссылка на настоящую функцию диалога ДО того, как autouse-фикстура её
 # подменит — нужна тестам, проверяющим саму graceful-деградацию (issue #79).
@@ -166,6 +170,83 @@ class TestArgparseCli:
         with pytest.raises(SystemExit):
             cli.main(["--mode", "9"])
 
+    def test_config_flag_with_missing_file_is_rejected(
+        self, tmp_path: pathlib.Path, capsys
+    ) -> None:
+        """issue #993: явно указанный конфиг обязан существовать.
+
+        Тихий откат на автопоиск здесь хуже отказа: пользователь просил
+        конкретный файл, а прогон пошёл бы с чужими параметрами.
+        """
+        with pytest.raises(SystemExit):
+            cli.main(["--config", str(tmp_path / "nope.toml"), "--version"])
+        assert "--config" in capsys.readouterr().err
+
+    def test_config_flag_sets_explicit_source(self, tmp_path: pathlib.Path) -> None:
+        """--config фиксирует источник конфигурации на весь процесс.
+
+        Модуль берётся через ``cli.config``, а не свежим импортом: соседний
+        ``test_bare_import_does_not_read_pyproject_toml`` переимпортирует
+        ``stepik_grader.config``, после чего в ``sys.modules`` лежит ДРУГОЙ
+        объект модуля — со своим кэшем и своими переопределениями.
+        """
+        config = cli.config
+
+        cfg = tmp_path / "grader.toml"
+        cfg.write_text("[tool.stepik-grader]\ntimeout_seconds = 7.0\n", encoding="utf-8")
+        try:
+            cli.main(["--config", str(cfg), "--version"])
+            assert config.config_source() == cfg
+            assert config.get_config().timeout_seconds == 7.0
+        finally:
+            config.set_config_path(None)
+
+    def test_run_profile_header_names_conditions(
+        self, tmp_path: pathlib.Path, monkeypatch, capsys
+    ) -> None:
+        """issue #984: шапка прогона говорит, чем проверяли и каким конфигом.
+
+        Прежде условия, определяющие вердикт, не были видны нигде — расхождение
+        двух прогонов объяснить было нечем.
+        """
+        config = cli.config
+        cfg = tmp_path / "grader.toml"
+        cfg.write_text("[tool.stepik-grader]\ntimeout_seconds = 4.0\n", encoding="utf-8")
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        sol = tmp_path / "task.py"
+        sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        try:
+            cli.main(["--mode", "1", "--file", str(sol), "--config", str(cfg)])
+        finally:
+            config.set_config_path(None)
+
+        out = capsys.readouterr().out
+        assert "Условия прогона" in out
+        assert "LocalRunner" in out
+        assert "4.0" in out  # таймаут из применённого конфига
+        assert str(cfg) in out  # и сам применённый файл
+
+    def test_run_profile_header_absent_in_machine_output(
+        self, tmp_path: pathlib.Path, monkeypatch, capsys
+    ) -> None:
+        """В json/csv/markdown шапки нет — это данные для пайплайна."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        sol = tmp_path / "task.py"
+        sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(sol), "--output", "json"])
+
+        out = capsys.readouterr().out
+        assert "Условия прогона" not in out
+        json.loads(out.strip().splitlines()[-1])  # вывод остаётся разбираемым
+
     def test_mode_1_dispatches_to_run_mode_1(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
@@ -265,6 +346,28 @@ class TestMode1:
         out = capsys.readouterr().out
         assert "Tests not found for" in out
         assert "python -m stepik_grader.downloader" in out
+
+    def test_downloaded_task_without_tests_is_not_sent_back_to_downloader(
+        self, tmp_path: pathlib.Path, capsys, monkeypatch
+    ) -> None:
+        """issue #1018: скачанному шагу без тестов не советуют скачать его снова.
+
+        Загрузчик уже сказал «Тесты не найдены (нет ZIP, таблицы и
+        GitHub-ссылок)», и повторный запуск ничего не изменит — тестов нет на
+        стороне Stepik. Признак скачанной задачи — ``meta.json`` от загрузчика.
+        """
+        sol = tmp_path / "solution.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "meta.json").write_text("{}", encoding="utf-8")
+
+        inputs = iter(["1", str(sol), "0"])
+        monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+        cli._interactive_menu()
+        out = capsys.readouterr().out
+
+        assert "Tests not found for" in out
+        assert "python -m stepik_grader.downloader" not in out  # круг разорван
+        assert "tests/1.clue" in out  # сказано, что делать вместо этого
 
 
 # ---------------------------------------------------------------------------
@@ -670,18 +773,61 @@ class TestDialogFallbackMenu:
         cli._interactive_menu()  # не должно быть трейсбека
         assert "File not found" in capsys.readouterr().out
 
+    def test_ctrl_c_at_menu_prompt_exits_cleanly(self, monkeypatch, capsys) -> None:
+        """issue #997 (DEV-1-03, PROD-1-03): Ctrl+C — выход, а не трейсбек.
+
+        Точечные обработчики стояли только внутри пунктов 6/8/9, поэтому самый
+        частый способ закончить работу — прерывание на выборе режима — выглядел
+        как поломка программы.
+        """
+
+        def _interrupt(*_args: object) -> str:
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr("builtins.input", _interrupt)
+
+        cli._interactive_menu()  # не должно быть трейсбека
+
+        assert "Goodbye" in capsys.readouterr().out
+
 
 class TestDialogFallbackCli:
     """`--mode N` без --file/--dir: диалог только в text-режиме."""
 
     def test_missing_file_uses_dialog_in_text_mode(self, monkeypatch, tmp_path) -> None:
+        from stepik_grader.cli import interactive as interactive_mod
+
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         called = []
+        # issue #997 (DEV-1-05): диалог предлагается только при живом терминале;
+        # под pytest потоки перехвачены, поэтому интерактивность задаётся явно.
+        monkeypatch.setattr(interactive_mod, "_is_interactive", lambda: True)
         monkeypatch.setattr(cli, "_pick_path_via_dialog", lambda *, want_dir: str(sol))
         monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: called.append(solution))
         cli.main(["--mode", "1"])
         assert called == [str(sol)]
+
+    def test_missing_file_without_terminal_errors_instead_of_dialog(self, monkeypatch) -> None:
+        """issue #997 (DEV-1-05): скрипту показывают ошибку, а не окно tkinter.
+
+        Признак «text-режим» ничего не говорит о том, есть ли кому нажать кнопку
+        в диалоге: `--mode 1` без `--file` из скрипта открывал модальное окно и
+        вис на нём до убийства процесса — в CI это выглядит как зависший шаг без
+        единой строки в логе.
+        """
+        from stepik_grader.cli import interactive as interactive_mod
+
+        called = []
+        monkeypatch.setattr(interactive_mod, "_is_interactive", lambda: False)
+        monkeypatch.setattr(
+            cli, "_pick_path_via_dialog", lambda *, want_dir: called.append(True) or "/x"
+        )
+
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1"])
+
+        assert called == []  # окно не открывалось
 
     def test_missing_file_json_output_no_dialog_errors(self, monkeypatch) -> None:
         # В машинном режиме диалог не показываем — argparse.error → SystemExit.
@@ -801,7 +947,14 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--port", "9090"])
         assert called == [
-            {"port": 9090, "root": None, "confine": True, "sandbox": False, "record_history": True}
+            {
+                "port": 9090,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
     def test_serve_uses_default_port(self, monkeypatch) -> None:
@@ -811,22 +964,35 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve"])
         assert called == [
-            {"port": 8000, "root": None, "confine": True, "sandbox": False, "record_history": True}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
-    def test_serve_passes_root(self, monkeypatch) -> None:
+    def test_serve_passes_root(self, monkeypatch, tmp_path) -> None:
         from stepik_grader import web
 
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
-        cli.main(["--serve", "--root", "/some/dir"])
+        # issue #997: путь берётся реальный (tmp_path), а не выдуманный
+        # «/some/dir». С тех пор как --root задаёт корень настроек, резолвер
+        # истории читает по этому пути .grader_settings.json — с фиктивным
+        # каталогом тест начинал зависеть от состояния диска машины, а прогоны
+        # оставляли там файл настроек.
+        cli.main(["--serve", "--root", str(tmp_path)])
         assert called == [
             {
                 "port": 8000,
-                "root": pathlib.Path("/some/dir"),
+                "root": tmp_path,
                 "confine": True,
                 "sandbox": False,
                 "record_history": True,
+                "lang": "ru",
             }
         ]
 
@@ -837,7 +1003,14 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--no-root-confinement"])
         assert called == [
-            {"port": 8000, "root": None, "confine": False, "sandbox": False, "record_history": True}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": False,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
     def test_serve_passes_sandbox_flag(self, monkeypatch) -> None:
@@ -850,7 +1023,14 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--sandbox"])
         assert called == [
-            {"port": 8000, "root": None, "confine": True, "sandbox": True, "record_history": True}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": True,
+                "record_history": True,
+                "lang": "ru",
+            }
         ]
 
     def test_serve_no_history_disables_recording(self, monkeypatch) -> None:
@@ -862,7 +1042,38 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--no-history"])
         assert called == [
-            {"port": 8000, "root": None, "confine": True, "sandbox": False, "record_history": False}
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": False,
+                "lang": "ru",
+            }
+        ]
+
+    def test_serve_passes_lang_to_the_page(self, monkeypatch) -> None:
+        """issue #1131 (LNCH-2-05): выбранный язык доезжает до веб-интерфейса.
+
+        Прежде `--lang en --serve` переводил только сообщения API, а страница
+        открывалась на русском: флаг действовал наполовину и молчал об этом.
+        """
+        from stepik_grader import web
+
+        called: list[dict[str, object]] = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+
+        cli.main(["--serve", "--lang", "en"])
+
+        assert called == [
+            {
+                "port": 8000,
+                "root": None,
+                "confine": True,
+                "sandbox": False,
+                "record_history": True,
+                "lang": "en",
+            }
         ]
 
     def test_serve_sandbox_unavailable_is_rejected(self, monkeypatch, capsys) -> None:
@@ -1063,9 +1274,11 @@ class TestFacadeNamespaceContract:
         real = cli._build_arg_parser
         calls = []
 
-        def _spy():
+        def _spy(*args, **kwargs):
+            # issue #997: парсер собирается с языком (--lang читается предпроходом),
+            # поэтому шпион обязан пропускать аргументы дальше.
             calls.append(True)
-            return real()
+            return real(*args, **kwargs)
 
         monkeypatch.setattr(cli, "_build_arg_parser", _spy)
         cli.main(["--version"])
@@ -1361,3 +1574,354 @@ class TestPurgeHistoryFlag:
         monkeypatch.chdir(tmp_path)
         cli.main(["--purge-history"])
         assert "0" in capsys.readouterr().out
+
+    def test_purge_prints_what_will_be_deleted(self, tmp_path, monkeypatch, capsys) -> None:
+        """issue #990: объём удаления виден ДО удаления, а не после.
+
+        Данные уходят необратимо, поэтому пользователь должен успеть увидеть,
+        сколько прогонов и каких задач исчезнет.
+        """
+        monkeypatch.chdir(tmp_path)
+        self._seed(tmp_path)
+
+        # Язык задаётся явно: main() выставляет _LANG из --lang (по умолчанию
+        # ru), перекрывая autouse-фикстуру английского.
+        cli.main(["--purge-history", "--lang", "en"])
+
+        out = capsys.readouterr().out
+        assert "Will be deleted permanently" in out
+        assert "alpha" in out and "beta" in out  # обе задачи названы
+
+    def test_purge_of_shared_key_warns_about_collision(self, tmp_path, monkeypatch, capsys) -> None:
+        """Ключ задачи — имя папки, и одноимённые папки делят историю.
+
+        Пока это так, точечное удаление способно унести чужой курс; о риске
+        сообщается до удаления, а не постфактум в issue.
+        """
+        from stepik_grader.core.history import record_run
+        from stepik_grader.core.history_recording import default_history_db_path
+
+        monkeypatch.chdir(tmp_path)
+        db_path = default_history_db_path()
+        # Одинаковый ключ, разные решения — так выглядит коллизия одноимённых
+        # папок из разных курсов в единой пользовательской базе.
+        record_run(2, [], db_path=db_path, task_key="задача-3", solution_name="course_a.py")
+        record_run(2, [], db_path=db_path, task_key="задача-3", solution_name="course_b.py")
+
+        cli.main(["--purge-history", "задача-3"])
+
+        out = capsys.readouterr().out
+        assert "course_a.py" in out and "course_b.py" in out
+
+    def test_purge_survives_corrupt_database(self, tmp_path, monkeypatch, capsys) -> None:
+        """Битая база — не трейсбек: цель команды и есть «истории не стало».
+
+        Находки PROD-2-02/FZZ-5-05: пользователь с повреждённым журналом
+        приходит сюда именно за этим, а получал `sqlite3.DatabaseError`.
+        """
+        from stepik_grader.core.history_recording import default_history_db_path
+
+        monkeypatch.chdir(tmp_path)
+        db_path = default_history_db_path()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_path.write_text("это не sqlite", encoding="utf-8")
+
+        cli.main(["--purge-history"])
+
+        assert not db_path.exists()
+        assert capsys.readouterr().out  # что-то сказано пользователю
+
+
+# ---------------------------------------------------------------------------
+# Коды возврата (issue #936): исход прогона как машинный сигнал
+# ---------------------------------------------------------------------------
+
+
+def _task_with_cases(tmp_path: pathlib.Path, expected: str) -> pathlib.Path:
+    """Задача с одним кейсом: вход `5`, ожидание задаётся параметром."""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "tests" / "expected_1.txt").write_text(expected, encoding="utf-8")
+    solution = tmp_path / "task1.py"
+    solution.write_text("print(input())\n", encoding="utf-8")
+    return solution
+
+
+class TestExitCodes:
+    """`--mode 1/2` документированы как CI-сценарий, значит исход обязан быть в rc."""
+
+    def test_passing_run_returns_ok(self, tmp_path: pathlib.Path) -> None:
+        """Все кейсы прошли — код 0."""
+        solution = _task_with_cases(tmp_path, "5\n")
+        assert cli.main(["--mode", "1", "--file", str(solution)]) == cli.ExitCode.OK
+
+    def test_failing_run_returns_failures(self, tmp_path: pathlib.Path) -> None:
+        """Есть непройденный кейс — код 1, а не 0 (issue #936)."""
+        solution = _task_with_cases(tmp_path, "999\n")
+        assert cli.main(["--mode", "1", "--file", str(solution)]) == cli.ExitCode.FAILURES
+
+    def test_empty_tests_dir_returns_no_tests(self, tmp_path: pathlib.Path) -> None:
+        """Каталог tests/ есть, но кейсов нет — код 2, а не «успех» (issue #936).
+
+        Это самый тихий способ пропустить неверное решение: задача не скачалась,
+        а гейт зелёный.
+        """
+        (tmp_path / "tests").mkdir()
+        solution = tmp_path / "task1.py"
+        solution.write_text("print(1)\n", encoding="utf-8")
+
+        assert cli.main(["--mode", "1", "--file", str(solution)]) == cli.ExitCode.NO_TESTS
+
+    def test_missing_file_returns_no_tests(self, tmp_path: pathlib.Path) -> None:
+        """Файла решения нет — код 2: проверять нечего."""
+        missing = tmp_path / "task1.py"
+        assert cli.main(["--mode", "1", "--file", str(missing)]) == cli.ExitCode.NO_TESTS
+
+    def test_mode_2_failing_returns_failures(self, tmp_path: pathlib.Path) -> None:
+        """Режим 2 с провалом в таблице — код 1."""
+        _task_with_cases(tmp_path, "999\n")
+        assert cli.main(["--mode", "2", "--dir", str(tmp_path)]) == cli.ExitCode.FAILURES
+
+    def test_mode_2_without_solutions_returns_no_tests(self, tmp_path: pathlib.Path) -> None:
+        """Режим 2 на папке без решений — код 2."""
+        assert cli.main(["--mode", "2", "--dir", str(tmp_path)]) == cli.ExitCode.NO_TESTS
+
+    def test_version_returns_ok(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Служебные команды завершаются нулём — гейт не должен на них падать."""
+        assert cli.main(["--version"]) == cli.ExitCode.OK
+        capsys.readouterr()
+
+    def test_run_cli_raises_system_exit_with_code(self, tmp_path: pathlib.Path) -> None:
+        """Точка входа консольного скрипта превращает код исхода в статус процесса."""
+        solution = _task_with_cases(tmp_path, "999\n")
+
+        with pytest.raises(SystemExit) as exc:
+            cli.run_cli(["--mode", "1", "--file", str(solution)])
+
+        assert exc.value.code == cli.ExitCode.FAILURES
+
+
+class TestSandboxAndHistoryToggle:
+    """issue #997: флаг и сохранённая настройка не должны молча игнорироваться."""
+
+    def test_sandbox_without_mode_reaches_the_menu(self, monkeypatch) -> None:
+        """`--sandbox` без `--mode` включает изоляцию для меню, а не молчит.
+
+        Находки DEV-1-02, LNCH-2-01, SBX-4-03, SEC-2-01 — четыре независимых
+        среза об одном: блок обработки флага стоял ниже ветки меню, поэтому
+        пользователь просил песочницу, получал обычное меню и грейдил через
+        LocalRunner. Молчание про безопасность хуже отказа.
+        """
+        from stepik_grader.core import sandbox as sandbox_mod
+
+        installed: list[object] = []
+        monkeypatch.setattr(sandbox_mod, "SandboxRunner", lambda: "sandbox-runner")
+        monkeypatch.setattr(cli, "set_runner", lambda runner: installed.append(runner))
+        monkeypatch.setattr(cli, "_interactive_menu", lambda: None)
+
+        cli.main(["--sandbox"])
+
+        assert installed == ["sandbox-runner"]
+
+    def test_serve_respects_saved_history_toggle(self, tmp_path, monkeypatch) -> None:
+        """`--serve` уважает выключенный тумблер истории (LNCH-2-03/3-01/5-01, SET-2-03).
+
+        Пользователь выключал запись пунктом 7 меню и получал её обратно при
+        первом же запуске веба: у `--serve` была своя лестница приоритета, не
+        знавшая ни про сохранённый выбор, ни про pyproject.
+        """
+        from stepik_grader import web
+        from stepik_grader.core import user_settings
+
+        monkeypatch.chdir(tmp_path)
+        user_settings.save_settings(
+            user_settings.UserSettings(record_history=False),
+            tmp_path / user_settings.SETTINGS_FILE_NAME,
+        )
+        captured: list[dict[str, object]] = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: captured.append(kwargs))
+
+        cli.main(["--serve"])
+
+        assert captured and captured[0]["record_history"] is False
+
+    def test_serve_defaults_to_history_on(self, tmp_path, monkeypatch) -> None:
+        """Без сохранённого выбора веб по-прежнему пишет историю (ADR-0002, issue #395)."""
+        from stepik_grader import web
+
+        monkeypatch.chdir(tmp_path)
+        captured: list[dict[str, object]] = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: captured.append(kwargs))
+
+        cli.main(["--serve"])
+
+        assert captured and captured[0]["record_history"] is True
+
+
+class TestMachineOutputAndMessages:
+    """issue #997: вывод для машин остаётся машинным, а сообщения — полными."""
+
+    def test_json_output_stays_json_on_early_exit(self, tmp_path, monkeypatch, capsys) -> None:
+        """`--output json` отдаёт объект, а не русскую прозу (MTX-10-04).
+
+        Ранние выходы печатали человеческий текст независимо от формата, и
+        парсер на том же входе получал не JSON — при том что веб-слой на ту же
+        ситуацию отвечает JSON.
+        """
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(tmp_path / "нет-такого.py"), "--output", "json"])
+
+        payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+        assert payload["reason"] == "file_not_found"
+        assert payload["error"]
+
+    def test_missing_solutions_message_names_the_folder(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
+        """Сообщение подставляет путь, а не печатает «{path}» буквально.
+
+        Находки RUN-4-04 и SBX-1-04: шаблон звался без аргумента, поэтому
+        пользователь видел плейсхолдер вместо каталога, в котором искали.
+        """
+        monkeypatch.chdir(tmp_path)
+        empty = tmp_path / "пусто"
+        empty.mkdir()
+
+        cli.main(["--mode", "2", "--dir", str(empty)])
+
+        out = capsys.readouterr().out
+        assert "{path}" not in out
+        assert str(empty) in out.replace("\n", "")
+
+    def test_markdown_table_survives_pipes_and_newlines(self) -> None:
+        """`--output markdown` не разваливается на реальных данных (DES-2-03).
+
+        Вертикальная черта в выводе решения дробила ячейку на несколько, а
+        многострочная ошибка обрывала строку таблицы — формат существует ради
+        отчёта, который после этого нельзя было прочитать.
+        """
+        rows = [{"file": "a|b.py", "error": "Traceback:\nValueError"}]
+
+        table = cli._rows_to_markdown(rows, ["file", "error"])
+
+        body = table.splitlines()[-1]
+        # Границы ячеек — только « | »; экранированная «\|» внутри значения
+        # разделителем не считается, поэтому ячеек ровно две.
+        assert len(body.split(" | ")) == 2
+        assert r"\|" in body  # черта экранирована, а не потеряна
+        assert "<br>" in body  # перевод строки сохранён видимым
+        assert len(table.splitlines()) == 3  # шапка, разделитель, одна строка
+
+
+# ---------------------------------------------------------------------------
+# issue #1133 (шаг 2) — профиль запуска доступен из CLI, а не только из окна
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchProfileFlag:
+    """`--profile NAME` применяет сохранённый набор к `--serve`.
+
+    Без флага профиль остался бы сущностью одного окна — граница эпика #1130
+    требует обратного: одно и то же имя работает и в окне, и в терминале.
+    """
+
+    @staticmethod
+    def _resolve(argv: list[str], root: pathlib.Path) -> argparse.Namespace:
+        parser = options._build_arg_parser("ru")
+        args = parser.parse_args(argv)
+        config.set_workspace_root(root)
+        options.apply_launch_profile(args, argv, parser)
+        return args
+
+    @pytest.fixture
+    def workspace(self, tmp_path: pathlib.Path):
+        """Корень настроек с одним профилем; конфиг возвращается на место."""
+        user_settings.save_launch_profile(
+            user_settings.default_settings_path(tmp_path),
+            "с изоляцией",
+            user_settings.LaunchChoice(
+                sandbox=True, port=8123, lang="en", record_history=False, workdir=tmp_path
+            ),
+        )
+        try:
+            yield tmp_path
+        finally:
+            config.set_workspace_root(None)
+
+    def test_profile_fills_every_saved_field(self, workspace: pathlib.Path) -> None:
+        args = self._resolve(["--serve", "--profile", "с изоляцией"], workspace)
+
+        assert args.sandbox is True
+        assert args.port == 8123
+        assert args.lang == "en"
+        assert args.history is False
+        assert args.root == workspace
+
+    def test_explicit_flag_beats_profile(self, workspace: pathlib.Path) -> None:
+        """«Тот же профиль, но на другом порту» — без правки профиля.
+
+        Проверяется именно порт: у него дефолт 8000, то есть argparse не
+        отличает «не указан» от «указан 8000», и без разбора argv профиль либо
+        всегда проигрывал бы дефолту, либо всегда выигрывал у явного флага.
+        """
+        args = self._resolve(["--serve", "--profile", "с изоляцией", "--port", "9999"], workspace)
+
+        assert args.port == 9999
+        assert args.sandbox is True  # остальное по-прежнему из профиля
+
+    def test_explicit_lang_beats_profile(self, workspace: pathlib.Path) -> None:
+        """У `--lang` дефолт ru — тот же случай неразличимости, что и у порта."""
+        args = self._resolve(["--serve", "--profile", "с изоляцией", "--lang", "ru"], workspace)
+
+        assert args.lang == "ru"
+
+    def test_no_history_flag_beats_profile(self, workspace: pathlib.Path) -> None:
+        user_settings.save_launch_profile(
+            user_settings.default_settings_path(workspace),
+            "с историей",
+            user_settings.LaunchChoice(record_history=True),
+        )
+
+        args = self._resolve(["--serve", "--profile", "с историей", "--no-history"], workspace)
+
+        assert args.history is False
+
+    def test_unknown_profile_lists_available(
+        self, workspace: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Тихая подмена дала бы сервер без изоляции там, где её ждали."""
+        with pytest.raises(SystemExit):
+            self._resolve(["--serve", "--profile", "нет такого"], workspace)
+
+        err = capsys.readouterr().err
+        assert "нет такого" in err
+        assert "с изоляцией" in err, "список доступных профилей не показан"
+
+    def test_profile_without_serve_is_refused(self, workspace: pathlib.Path) -> None:
+        """Профиль описывает запуск сервера — молча игнорировать его нельзя."""
+        with pytest.raises(SystemExit):
+            self._resolve(["--profile", "с изоляцией"], workspace)
+
+    def test_without_profile_nothing_changes(self, workspace: pathlib.Path) -> None:
+        args = self._resolve(["--serve"], workspace)
+
+        assert args.sandbox is False
+        assert args.port == 8000
+        assert args.history is None
+
+
+class TestFlagPresent:
+    """Разбор сырого argv: единственный точный ответ «пользователь это писал?»."""
+
+    def test_detects_separate_value(self) -> None:
+        assert options.flag_present(["--serve", "--port", "9000"], "--port") is True
+
+    def test_detects_equals_form(self) -> None:
+        assert options.flag_present(["--port=9000"], "--port") is True
+
+    def test_absent_flag_is_false(self) -> None:
+        assert options.flag_present(["--serve"], "--port") is False
+
+    def test_any_of_several_names(self) -> None:
+        assert options.flag_present(["--no-history"], "--history", "--no-history") is True

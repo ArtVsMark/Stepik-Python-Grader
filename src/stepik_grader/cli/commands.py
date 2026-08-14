@@ -31,8 +31,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 from urllib.parse import urlparse
 
-from stepik_grader import rules
+from stepik_grader import config, rules
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.exit_codes import ExitCode
 from stepik_grader.cli.prompts import EXPLICIT_YES
 from stepik_grader.config import get_config
 from stepik_grader.core import (
@@ -52,6 +53,7 @@ from stepik_grader.core.grader_core import (
 )
 from stepik_grader.core.microbench_runner import apply_relative_ranking
 from stepik_grader.core.reporter import (
+    escape_control_chars,
     print_benchmark_results,
     print_case_verbose,
     print_correctness_results,
@@ -60,6 +62,7 @@ from stepik_grader.core.reporter import (
     safe_rel,
 )
 from stepik_grader.core.result import BenchResult, CaseResult, SolutionResult
+from stepik_grader.core.runprofile import current_profile
 
 
 def _t(key: str, /, **kwargs: object) -> str:
@@ -91,6 +94,77 @@ def _has_failures(cases: Sequence[CaseResult]) -> bool:
     return any(not c.get("passed") for c in cases)
 
 
+_STATUS_BY_EXIT: dict[ExitCode, str] = {
+    ExitCode.OK: "ok",
+    ExitCode.FAILURES: "fail",
+    ExitCode.NO_TESTS: "no_tests",
+}
+
+
+JSON_SCHEMA_VERSION = 1
+
+_MODE_NAMES = {1: "grade", 2: "batch", 3: "benchmark", 4: "microbench"}
+
+
+def _isolation_label() -> str:
+    """Чем изолирован прогон: ``none`` или имя backend'а (issue #997, SBX-5-04).
+
+    Ни JSON, ни строка ``.grader_stats.jsonl`` не помечали изоляцию, а под
+    ``--sandbox`` вердикты другие: два прогона с разным уровнем изоляции
+    оставляли неразличимые артефакты, и CI-гейт «проверено в песочнице»
+    подтвердить было нечем.
+    """
+    return current_profile().sandbox_backend or "none"
+
+
+def _machine_labels(mode: int | None, outcome: ExitCode) -> dict[str, object]:
+    """Пометки, которыми машинный вывод описывает сам себя (issue #997).
+
+    ``schema``/``mode`` закрывают ``JRN-2-03``: четыре режима дают четыре разные
+    формы результата, а признака, по которому их различить, не было — парсер
+    угадывал по набору ключей. Полный конверт ``{"schema", "mode", "results"}``
+    был бы сменой корня, то есть ломающим изменением (result-contract.md
+    § Ожидания стабильности, п. 2), поэтому пометки едут рядом с существующими
+    ключами: старый потребитель их просто игнорирует.
+
+    ``mode is None`` — ранний выход: режим до отказа не начинался.
+    """
+    labels: dict[str, object] = {
+        "schema": JSON_SCHEMA_VERSION,
+        "status": _status_for(outcome),
+        "isolation": _isolation_label(),
+    }
+    if mode is not None:
+        labels["mode"] = _MODE_NAMES.get(mode, str(mode))
+    return labels
+
+
+def _status_for(outcome: ExitCode) -> str:
+    """Машинный статус прогона (issue #997, MTX-4-04).
+
+    В текстовой таблице «0/0» печатается как ``NO TESTS``, а машинный вывод
+    отдавал ту же ситуацию как ``total: 0, failed: 0`` — то есть без единого
+    провала. Потребитель, читающий JSON, видел успех там, где не было ни одной
+    проверки: тесты не скачались, набор пуст, а CI зеленеет.
+
+    Значение то же, что кодирует код возврата, — они не могут разойтись.
+    """
+    return _STATUS_BY_EXIT.get(outcome, "fail")
+
+
+def _outcome_for_cases(cases: Sequence[CaseResult]) -> ExitCode:
+    """Код исхода по набору кейсов (issue #936).
+
+    Пустой набор — это ``NO_TESTS``, а не успех: «0/0» в таблице печатается как
+    «NO TESTS» (см. ``reporter._correctness_status``), и код возврата обязан
+    говорить то же самое. Иначе CI-гейт зеленеет на задаче, тесты к которой не
+    скачались, — самый тихий способ пропустить неверное решение.
+    """
+    if not cases:
+        return ExitCode.NO_TESTS
+    return ExitCode.FAILURES if _has_failures(cases) else ExitCode.OK
+
+
 def _preflight_skip(
     ctx: CliContext, solution: pathlib.Path, test_dir: pathlib.Path
 ) -> BenchResult | None:
@@ -110,6 +184,7 @@ def _preflight_skip(
             passed=report["passed"],
             total=report["total"],
             verdict=report["verdict"] or "—",
+            case=report["case"] or "—",
         ),
         "runs": 0,
         "verdict": "SKIPPED",
@@ -217,7 +292,7 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
     В неинтерактивной сессии (нет TTY: CI, пайп) согласие не запрашивается —
     подсказки просто пропускаются с явным сообщением.
     """
-    settings_path = user_settings.default_settings_path()
+    settings_path = user_settings.default_settings_path(config.workspace_root())
     settings = user_settings.load_settings(settings_path)
     endpoint = consent_endpoint(base_url)
     if settings.ai_hint_consent is True and settings.ai_hint_consent_endpoint == endpoint:
@@ -243,7 +318,11 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
     settings.ai_hint_consent = True
     settings.ai_hint_consent_endpoint = endpoint
     with contextlib.suppress(OSError):
-        user_settings.save_settings(settings, settings_path)
+        user_settings.save_fields(
+            settings_path,
+            ai_hint_consent=True,
+            ai_hint_consent_endpoint=endpoint,
+        )
     return True
 
 
@@ -253,13 +332,19 @@ def revoke_ai_consent() -> bool:
     ``SECD-06``: отозвать согласие было нечем — только правкой JSON руками.
     Согласие на передачу данных, которое нельзя отозвать, согласием не является.
     """
-    settings_path = user_settings.default_settings_path()
+    settings_path = user_settings.default_settings_path(config.workspace_root())
     settings = user_settings.load_settings(settings_path)
     had = settings.ai_hint_consent is True
     settings.ai_hint_consent = None
     settings.ai_hint_consent_endpoint = None
     with contextlib.suppress(OSError):
-        user_settings.save_settings(settings, settings_path)
+        # None здесь — «стереть ключ»: save_settings не-None поля не писал бы
+        # вовсе, и отзыв согласия молча не доезжал до диска.
+        user_settings.save_fields(
+            settings_path,
+            ai_hint_consent=None,
+            ai_hint_consent_endpoint=None,
+        )
     return had
 
 
@@ -316,6 +401,18 @@ def _print_ai_limit_notice(limit: int) -> None:
     print(_t("ai_hints_capped", limit=limit))
 
 
+def _print_ai_failure(reason: str) -> None:
+    """Сказать, ПОЧЕМУ подсказки нет (issue #975).
+
+    Ключ причины приходит из ``ai_hints`` (`unauthorized`, `rate_limited`,
+    `bad_request`, `network`…). Незнакомая причина показывается общей строкой:
+    новый код провайдера не должен возвращать канал к молчанию.
+    """
+    known = {"unauthorized", "forbidden", "rate_limited", "bad_request", "network", "server_error"}
+    key = f"ai_error_{reason}" if reason in known else "ai_error_unknown"
+    print(_t(key, reason=reason))
+
+
 def _print_ai_hints(
     rows: Sequence[tuple[pathlib.Path, SolutionResult]], *, lang: str = "ru"
 ) -> None:
@@ -342,11 +439,18 @@ def _print_ai_hints(
                 _print_ai_limit_notice(limit)
                 return
             fc = build_failure_context(case, code=code, lang=lang)
-            hint = ai_hints.explain_failure(fc, config)
+            outcome = ai_hints.explain_failure_detailed(fc, config)
             shown += 1
-            if hint:
+            if outcome.text:
                 header = _t("ai_hint_case_header", solution=solution.name, index=index)
-                print(f"{header}\n{hint}")
+                print(f"{header}\n{outcome.text}")
+            elif outcome.reason:
+                # issue #975: отказ провайдера обязан быть слышен. Молчание
+                # выглядело как «подсказки выключены», и пользователь искал
+                # причину в своих настройках, а не в ответе 401/429. Дальше не
+                # идём: следующий кейс упрётся в тот же отказ.
+                _print_ai_failure(outcome.reason)
+                return
 
 
 def _print_ai_hints_bench(
@@ -373,9 +477,12 @@ def _print_ai_hints_bench(
         code = _read_solution_code(path)
         case = {"verdict": str(data.get("verdict") or "RE"), "error": str(data.get("error", ""))}
         fc = build_failure_context(case, code=code, lang=lang)
-        hint = ai_hints.explain_failure(fc, config)
-        if hint:
-            print(f"\n· {_rel(path, base)}:\n{hint}")
+        outcome = ai_hints.explain_failure_detailed(fc, config)
+        if outcome.text:
+            print(f"\n· {_rel(path, base)}:\n{outcome.text}")
+        elif outcome.reason:
+            _print_ai_failure(outcome.reason)
+            return
 
 
 __all__ = [
@@ -387,6 +494,22 @@ __all__ = [
     "_verdict_counts_from_bench",
     "_verdict_counts_from_cases",
 ]
+
+
+def _history_base() -> pathlib.Path:
+    """База для ключа задачи в истории (issue #997, JRN-4A-02 / LNG-1-04).
+
+    Корень рабочего пространства, а не текущий каталог. Ключ считался от
+    ``cwd``, поэтому одна и та же задача получала разные ключи в зависимости от
+    того, откуда её запустили: из корня проекта — ``module1/04-slug``, из самой
+    папки задачи — ``04-slug``. В базе появлялись две строки на одну задачу,
+    «Прогресс» рисовал её дважды, TTFG считался по половине попыток, а лимит
+    retention фактически удваивался.
+
+    Web-слой этот шов уже прошёл (``web/viewmodels`` считает ключ от
+    ``--root``); здесь тот же корень, что резолвит конфиг и настройки.
+    """
+    return config.workspace_root()
 
 
 def _run_tests_maybe_cached(
@@ -401,10 +524,12 @@ def _run_tests_maybe_cached(
     """Прогнать тесты, при активном кэше — переиспользуя актуальную запись.
 
     Возвращает пару (result, from_cache). Ключ кэша — sha256 содержимого
-    решения и sha256 всех файлов тест-директории (issue #56). При промахе
-    результат кладётся в кэш (в память; ``cache.save()`` — забота вызывающей
-    стороны, чтобы для пачки решений писать файл один раз). На попадании
-    per-case verbose-вывод не печатается — тесты не запускались.
+    решения, sha256 всех файлов тест-директории (issue #56) и отпечаток условий
+    прогона (issue #984): таймаут, изоляция и лимиты меняют вердикт наравне с
+    кодом, поэтому запись, снятая при других условиях, считается промахом. При
+    промахе результат кладётся в кэш (в память; ``cache.save()`` — забота
+    вызывающей стороны, чтобы для пачки решений писать файл один раз). На
+    попадании per-case verbose-вывод не печатается — тесты не запускались.
     """
     callback = print_case_verbose if (verbose and output == "text") else None
     if cache is None:
@@ -413,15 +538,130 @@ def _run_tests_maybe_cached(
 
     solution_sha = hash_solution(solution)
     tests_sha = hash_tests(test_dir)
-    cached = cache.get(solution, solution_sha, tests_sha)
+    env = current_profile().fingerprint
+    cached = cache.get(solution, solution_sha, tests_sha, env=env)
     if cached is not None:
         # Форма читается из results.json — статически её никто не гарантирует,
         # поэтому cast, а не «типизированный» кэш с ложной уверенностью.
         return cast("SolutionResult", cached), True
 
     result = ctx.run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
-    cache.put(solution, solution_sha, tests_sha, result)
+    if _is_cacheable(result):
+        cache.put(solution, solution_sha, tests_sha, result, env=env)
     return result, False
+
+
+# Вердикты, зависящие не от кода, а от того, чем в этот момент занята машина
+# (issue #997, CNC-1-01). Кэш обещает «тот же код + те же тесты + те же условия
+# → тот же вердикт», а на TLE это неверно: параллельные прогоны на загруженной
+# машине давали одному и тому же верному решению разные вердикты, и первый же
+# TLE залипал в кэше — дальше решение «не проходило» уже без запуска, пока
+# пользователь не менял код или не чистил кэш.
+_TIME_DEPENDENT_VERDICTS = frozenset({"TLE"})
+
+
+def _is_cacheable(result: Mapping[str, Any]) -> bool:
+    """Можно ли доверить этот результат кэшу (issue #997, CNC-1-01).
+
+    Нет, если хоть один кейс упал по времени: повтор на незагруженной машине
+    дал бы другой вердикт, а кэш выдавал бы старый без запуска.
+    """
+    cases = result.get("cases") or []
+    return not any(
+        str(case.get("verdict", "")).upper() in _TIME_DEPENDENT_VERDICTS for case in cases
+    )
+
+
+def _missing_tests_hint(ctx: CliContext, solution: pathlib.Path) -> str:
+    """Подсказка «тестов нет» — разная для скачанной задачи и для чужой папки.
+
+    issue #1018: совет «запустите загрузчик» был безусловным, и после скачивания
+    шага без публичных тестов получался круг — загрузчик уже сказал «тесты не
+    найдены», а грейдер отправлял к нему обратно. Повторное скачивание в этом
+    случае ничего не меняет: тестов нет на стороне Stepik.
+
+    Признак скачанной задачи — ``meta.json`` рядом с решением: его кладёт
+    загрузчик, и вручную такой файл не появляется.
+    """
+    folder = solution.resolve().parent
+    key = "test_dir_not_found_task" if (folder / "meta.json").is_file() else "test_dir_not_found"
+    return ctx.t(key, name=solution.name, expected=str(folder / "tests"))
+
+
+def _report_no_data(ctx: CliContext, output: str, message: str, *, reason: str) -> None:
+    """Сообщить о раннем выходе так, чтобы потребитель вывода это разобрал.
+
+    issue #997 (MTX-10-04): под ``--output json`` ранние выходы («файл не
+    найден», «решений нет») печатали человеческий русский текст, и парсер на том
+    же входе получал не JSON, а прозу — при том что веб-слой на ту же ситуацию
+    отдаёт JSON. Теперь json-режим получает объект с машинным ``reason`` и тем
+    же текстом в ``error``, а текстовый вывод не меняется.
+
+    ``csv``/``markdown`` намеренно оставлены строкой: это плоские табличные
+    форматы для чтения и вставки в отчёт, схемы ошибки у них нет — навязывать
+    им JSON значило бы ломать таблицу ради единообразия.
+    """
+    if output == "json":
+        print(
+            json.dumps(
+                {
+                    **_machine_labels(None, ExitCode.NO_TESTS),
+                    "error": message,
+                    "reason": reason,
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
+    print(message)
+
+
+def _print_run_profile(
+    output: str,
+    *,
+    solution: pathlib.Path | None = None,
+    test_dir: pathlib.Path | None = None,
+) -> None:
+    """Шапка прогона: чем именно проверяли (issue #984).
+
+    Условия, определяющие вердикт, были не видны нигде — пользователь не знал
+    ни какой ``pyproject.toml`` применён, ни идёт ли исполнение в песочнице,
+    поэтому расхождение вердиктов между двумя запусками объяснить было нечем.
+    Печатается только в текстовом выводе: машинные форматы (json/csv/markdown)
+    — это данные для пайплайна, лишняя строка их ломает.
+    """
+    if output != "text":
+        return
+    profile = current_profile()
+    config_label = (
+        str(profile.config_path)
+        if profile.config_path is not None
+        else _t("run_profile_config_default")
+    )
+    print(
+        _t(
+            "run_profile",
+            runner=profile.describe(),
+            timeout=profile.timeout_seconds,
+            python=profile.python,
+            config=config_label,
+        )
+    )
+    # issue #935 (RUN-2-08): подъём к родительской папке за тестами — штатная
+    # стратегия resolve_test_dir, но в отчёте о ней не было ни слова. Решение в
+    # подпапке грейдилось чужими тестами, и «Expected: 10 / Actual: 5» выглядело
+    # ошибкой студента. Говорим об этом ровно тогда, когда тесты взяты НЕ рядом
+    # с решением: в обычном случае строка была бы шумом.
+    if solution is not None and test_dir is not None:
+        solution_dir = solution.resolve().parent
+        if test_dir.resolve().parent != solution_dir:
+            print(
+                _t(
+                    "run_profile_tests_elsewhere",
+                    test_dir=test_dir,
+                    solution_dir=solution_dir,
+                )
+            )
 
 
 def _resolve_individual_test_dir(
@@ -453,29 +693,30 @@ def _run_mode_1(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1.
 
-    Возвращает ``had_failures`` — были ли непройденные кейсы. Интерактивное меню
-    (issue #430) решает по этому флагу, печатать ли однократный за сессию nudge
-    «Подучить»; CLI ``--mode 1`` возврат игнорирует. ``False`` также на ранних
-    выходах (файл/тесты не найдены — прогона не было).
+    Возвращает код исхода (issue #936): ``OK`` — все кейсы прошли, ``FAILURES`` —
+    есть непройденные, ``NO_TESTS`` — проверять было нечего (файл или каталог
+    тестов не найден). Прежде здесь был ``bool had_failures``, и «нет тестов»
+    было неотличимо от успеха — ровно поэтому ``--mode 1`` в CI зеленел на
+    пустом наборе. Меню (issue #430) по этому же значению решает, печатать ли
+    подсказку «Подучить»: она уместна только при ``FAILURES``.
     """
     if not solution.is_file():
-        print(ctx.t("file_not_found", path=solution))
-        return False
+        _report_no_data(
+            ctx, output, ctx.t("file_not_found", path=solution), reason="file_not_found"
+        )
+        return ExitCode.NO_TESTS
 
     test_dir = resolve_test_dir(solution)
     if test_dir is None or not test_dir.is_dir():
-        print(
-            ctx.t(
-                "test_dir_not_found",
-                name=solution.name,
-                expected=str(solution.resolve().parent / "tests"),
-            )
-        )
-        return False
+        # issue #1018 + #936: подсказка разная для скачанной задачи и чужой
+        # папки, а код возврата в обоих случаях один — проверять было нечем.
+        _report_no_data(ctx, output, _missing_tests_hint(ctx, solution), reason="tests_not_found")
+        return ExitCode.NO_TESTS
 
+    _print_run_profile(output, solution=solution, test_dir=test_dir)
     cache = GraderCache() if use_cache else None
     result, from_cache = _run_tests_maybe_cached(
         ctx, solution, test_dir, verbose=verbose, output=output, cache=cache
@@ -487,14 +728,24 @@ def _run_mode_1(
 
     # issue #403: собрать lint один раз — и для истории, и для печати ниже.
     lint_by_sol = _collect_lint([solution]) if record_lint else None
-    if record_stats:
-        stats.record_run(1, _verdict_counts_from_cases(result["cases"]), result["total_time"])
+    if record_stats and not from_cache:
+        # issue #997 (CNC-1-03): попадание в кэш писалось в .grader_stats.jsonl
+        # как полноценный прогон, причём с ``total_time`` из чужого,
+        # закэшированного запуска. Строка выглядела как ещё одно измерение и
+        # портила и счётчик прогонов, и любую статистику по времени.
+        stats.record_run(
+            1,
+            _verdict_counts_from_cases(result["cases"]),
+            result["total_time"],
+            isolation=_isolation_label(),
+        )
     if record_history:
         history.record_run(
             1,
             history_recording.cases_from_test_results(result["cases"]),
             db_path=history_recording.default_history_db_path(),
-            task_key=history.task_key_for(solution.parent, pathlib.Path.cwd()),
+            task_key=history.task_key_for(solution.parent.resolve(), _history_base()),
+            task_title=solution.parent.name,
             solution_name=solution.name,
             solution_hash=hash_solution(solution),
             duration_s=result["total_time"],
@@ -504,12 +755,23 @@ def _run_mode_1(
             or None,
         )
 
-    had_failures = _has_failures(result["cases"])
+    outcome = _outcome_for_cases(result["cases"])
 
     if output == "json":
-        print(json.dumps({"file": str(solution), **result}, ensure_ascii=False))
-        return had_failures
+        print(
+            json.dumps(
+                {**_machine_labels(1, outcome), "file": str(solution), **result},
+                ensure_ascii=False,
+            )
+        )
+        return outcome
     if output in ("csv", "markdown"):
+        # issue #981: `error` — это stderr решения, а csv/markdown печатаются в
+        # терминал как есть. Без экранирования ANSI-последовательность из
+        # упавшего решения перерисовывала бы таблицу поверх напечатанного —
+        # тот же канал подделки, что закрыт в подробном отчёте. JSON-вывод
+        # экранирует управляющие символы сам (`json.dumps`), поэтому трогается
+        # только табличная ветка.
         rows = [
             {
                 "index": i,
@@ -517,12 +779,25 @@ def _run_mode_1(
                 "verdict": c.get("verdict", ""),
                 "time": c["time"],
                 "memory": c["memory"],
-                "error": c["error"],
+                "error": escape_control_chars(str(c["error"] or "")),
             }
             for i, c in enumerate(result["cases"], start=1)
         ]
+        if not rows:
+            # issue #997 (MTX-4-04): пустая таблица читалась как «всё хорошо».
+            # Одна строка со статусом честнее нуля строк.
+            rows = [
+                {
+                    "index": 0,
+                    "passed": False,
+                    "verdict": _status_for(outcome).upper(),
+                    "time": 0.0,
+                    "memory": 0.0,
+                    "error": ctx.t("no_test_cases_loaded"),
+                }
+            ]
         ctx.print_tabular(output, rows, ["index", "passed", "verdict", "time", "memory", "error"])
-        return had_failures
+        return outcome
 
     col_file = 28
     print()
@@ -532,7 +807,7 @@ def _run_mode_1(
         _print_lint_blocks([solution], None, output, lint_by_sol)
     if ai_hints:
         _print_ai_hints([(solution, result)])
-    return had_failures
+    return outcome
 
 
 def _run_mode_2(
@@ -546,25 +821,31 @@ def _run_mode_2(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2.
 
-    Возвращает ``had_failures`` (см. ``_run_mode_1``) — были ли непройденные
-    кейсы среди всех решений; меню решает по нему про однократный nudge. ``False``
-    на ранних выходах (папка/решения не найдены).
+    Возвращает код исхода (issue #936), как ``_run_mode_1``: ``FAILURES`` — есть
+    непройденные кейсы среди решений, ``NO_TESTS`` — папки или решений нет.
     """
     if not directory.is_dir():
-        print(ctx.t("dir_not_found", path=directory))
-        return False
+        _report_no_data(ctx, output, ctx.t("dir_not_found", path=directory), reason="dir_not_found")
+        return ExitCode.NO_TESTS
 
     scripts = find_all_solution_files(directory)
     if not scripts:
-        print(ctx.t("no_solutions_found"))
-        return False
+        _report_no_data(
+            ctx, output, ctx.t("no_solutions_found", path=directory), reason="no_solutions"
+        )
+        return ExitCode.NO_TESTS
 
     col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
 
+    _print_run_profile(output)
     rows: list[tuple[pathlib.Path, SolutionResult]] = []
+    # issue #997 (CNC-1-03): в статистику идут только реально прогнанные
+    # решения. Прежде агрегат режима 2 складывал и закэшированные — вместе с
+    # их total_time из чужого запуска, который в этот раз никто не измерял.
+    measured: list[SolutionResult] = []
     machine_output = output != "text"
     cache = GraderCache() if use_cache else None
     cache_hits = 0
@@ -580,6 +861,8 @@ def _run_mode_2(
         )
         cache_hits += int(from_cache)
         rows.append((path, result))
+        if not from_cache:
+            measured.append(result)
 
     if cache is not None:
         cache.save()
@@ -589,8 +872,14 @@ def _run_mode_2(
     if record_stats or record_history:
         all_cases = [c for _, result in rows for c in result["cases"]]
         total_time = sum(result["total_time"] for _, result in rows)
-        if record_stats:
-            stats.record_run(2, _verdict_counts_from_cases(all_cases), total_time)
+        if record_stats and measured:
+            measured_cases = [c for result in measured for c in result["cases"]]
+            stats.record_run(
+                2,
+                _verdict_counts_from_cases(measured_cases),
+                sum(result["total_time"] for result in measured),
+                isolation=_isolation_label(),
+            )
         if record_history:
             # Агрегатный прогон режима 2 → объединённые нарушения всех решений
             # (карточки «Подучить» агрегируют по rule_code, атрибуция по файлу тут
@@ -600,16 +889,28 @@ def _run_mode_2(
                 2,
                 history_recording.cases_from_test_results(all_cases),
                 db_path=history_recording.default_history_db_path(),
-                task_key=history.task_key_for(directory, pathlib.Path.cwd()),
+                task_key=history.task_key_for(directory.resolve(), _history_base()),
+                task_title=directory.name,
                 duration_s=total_time,
                 lint=history_recording.lint_records_from_violations(all_violations) or None,
             )
 
-    had_failures = _has_failures([c for _, result in rows for c in result["cases"]])
+    outcome = _outcome_for_cases([c for _, result in rows for c in result["cases"]])
 
     if output == "json":
-        print(json.dumps({"results": {str(p): r for p, r in rows}}, ensure_ascii=False))
-        return had_failures
+        print(
+            json.dumps(
+                {
+                    **_machine_labels(2, outcome),
+                    "results": {
+                        str(p): {"status": _status_for(_outcome_for_cases(r["cases"])), **r}
+                        for p, r in rows
+                    },
+                },
+                ensure_ascii=False,
+            )
+        )
+        return outcome
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **result} for path, result in rows]
         fields = [
@@ -624,7 +925,7 @@ def _run_mode_2(
             "first_fail",
         ]
         ctx.print_tabular(output, table_rows, fields)
-        return had_failures
+        return outcome
 
     print_correctness_results(rows, directory, col_file=col_file)
     if cache is not None:
@@ -633,7 +934,7 @@ def _run_mode_2(
         _print_lint_blocks([p for p, _ in rows], directory, output, lint_by_sol)
     if ai_hints:
         _print_ai_hints(rows)
-    return had_failures
+    return outcome
 
 
 def _run_mode_3(
@@ -648,14 +949,17 @@ def _run_mode_3(
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Общий код для меню и --mode 3."""
     if not directory.is_dir():
-        print(ctx.t("dir_not_found", path=directory))
+        _report_no_data(ctx, output, ctx.t("dir_not_found", path=directory), reason="dir_not_found")
         return
 
     scripts = find_all_solution_files(directory)
     if not scripts:
-        print(ctx.t("no_solutions_found"))
+        _report_no_data(
+            ctx, output, ctx.t("no_solutions_found", path=directory), reason="no_solutions"
+        )
         return
 
+    _print_run_profile(output)
     results: dict[pathlib.Path, BenchResult] = {}
     machine_output = output != "text"
     track = (
@@ -684,18 +988,31 @@ def _run_mode_3(
         # mean × runs — приближённая оценка суммарного времени решения.
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
         if record_stats:
-            stats.record_run(3, _verdict_counts_from_bench(results), total_time)
+            stats.record_run(
+                3, _verdict_counts_from_bench(results), total_time, isolation=_isolation_label()
+            )
         if record_history:
             history.record_run(
                 3,
                 history_recording.cases_from_bench_results(results),
                 db_path=history_recording.default_history_db_path(),
-                task_key=history.task_key_for(directory, pathlib.Path.cwd()),
+                task_key=history.task_key_for(directory.resolve(), _history_base()),
+                task_title=directory.name,
                 duration_s=total_time,
             )
 
     if output == "json":
-        print(json.dumps({"results": {str(p): d for p, d in results.items()}}, ensure_ascii=False))
+        # Бенчмарк не даёт вердиктов кейсов: статус — «прогон вообще состоялся».
+        bench_status = ExitCode.OK if results else ExitCode.NO_TESTS
+        print(
+            json.dumps(
+                {
+                    **_machine_labels(3, bench_status),
+                    "results": {str(p): d for p, d in results.items()},
+                },
+                ensure_ascii=False,
+            )
+        )
         return
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **data} for path, data in sorted(results.items())]
@@ -758,14 +1075,17 @@ def _run_mode_4(
 ) -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
     if not directory.is_dir():
-        print(ctx.t("dir_not_found", path=directory))
+        _report_no_data(ctx, output, ctx.t("dir_not_found", path=directory), reason="dir_not_found")
         return
 
     grouped = collect_grouped_files(directory)
     if not grouped:
-        print(ctx.t("no_solutions_found"))
+        _report_no_data(
+            ctx, output, ctx.t("no_solutions_found", path=directory), reason="no_solutions"
+        )
         return
 
+    _print_run_profile(output)
     machine_output = output != "text"
     json_results: dict[str, dict[str, Any]] = {}
     table_rows: list[dict[str, Any]] = []
@@ -850,18 +1170,30 @@ def _run_mode_4(
     if (record_stats or record_history) and all_bench_results:
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in all_bench_results.values())
         if record_stats:
-            stats.record_run(4, _verdict_counts_from_bench(all_bench_results), total_time)
+            stats.record_run(
+                4,
+                _verdict_counts_from_bench(all_bench_results),
+                total_time,
+                isolation=_isolation_label(),
+            )
         if record_history:
             history.record_run(
                 4,
                 history_recording.cases_from_bench_results(all_bench_results),
                 db_path=history_recording.default_history_db_path(),
-                task_key=history.task_key_for(directory, pathlib.Path.cwd()),
+                task_key=history.task_key_for(directory.resolve(), _history_base()),
+                task_title=directory.name,
                 duration_s=total_time,
             )
 
     if output == "json":
-        print(json.dumps({"groups": json_results}, ensure_ascii=False))
+        micro_status = ExitCode.OK if json_results else ExitCode.NO_TESTS
+        print(
+            json.dumps(
+                {**_machine_labels(4, micro_status), "groups": json_results},
+                ensure_ascii=False,
+            )
+        )
     elif output in ("csv", "markdown"):
         ctx.print_tabular(output, table_rows, _MODE4_FIELDS)
     elif printed_table:

@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import json
+import pathlib
 import sqlite3
 import threading
 from pathlib import Path
 
 import pytest
 
+from stepik_grader import cli
 from stepik_grader.core import history
 from stepik_grader.core.history import CaseRecord, LintRecord, RunRecord
 
@@ -550,6 +553,114 @@ def test_migration_v1_to_v2_backfills_task_progress(tmp_path: Path) -> None:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
 
 
+def _seed_v1_database(db_path: Path, runs: list[tuple[int, str]]) -> None:
+    """Создать базу схемы v1 с готовыми прогонами (``[(mode, verdict), ...]``)."""
+    from stepik_grader import db as db_module
+
+    with contextlib.closing(db_module.connect(db_path)) as conn:
+        db_module.apply_schema(conn, version=1, ddl=history._SCHEMA_V1)
+        for i, (mode, verdict) in enumerate(runs, 1):
+            conn.execute(
+                "INSERT INTO runs (id, ts_utc, mode, source, task_key) "
+                "VALUES (?, ?, ?, 'cli', 't')",
+                (i, f"2026-08-{i:02d}T10:00:00Z", mode),
+            )
+            conn.execute(
+                "INSERT INTO case_results (run_id, case_no, verdict) VALUES (?, 1, ?)",
+                (i, verdict),
+            )
+        conn.commit()
+
+
+def test_concurrent_migration_v1_to_v2_does_not_double_task_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #947: два одновременных входа в миграцию 1→2 не удваивают агрегат.
+
+    Бэкфилл не идемпотентен (``runs_total = runs_total + 1`` на каждый прогон),
+    а мигрирует и путь ЧТЕНИЯ: «Прогресс» в веб-интерфейсе открывает базу так
+    же, как запись прогона из CLI. Раньше версия читалась вне транзакции —
+    оба процесса видели ``user_version = 1`` и оба гнали бэкфилл, после чего
+    «попытки» студента удваивались молча.
+
+    Гонка воспроизводится детерминированно, а не «как повезёт»: барьер внутри
+    ``db.user_version`` держит оба потока ровно в том окне, где они уже
+    прочитали старую версию, но ещё не мигрировали. Ожидание срабатывает один
+    раз на поток (``threading.local``) — под write-lock'ом версия перечитывается
+    тем же вызовом, и повторное ожидание повесило бы тест вместо проверки.
+    """
+    from stepik_grader import db as db_module
+
+    db = _db(tmp_path)
+    _seed_v1_database(db, [(1, "WA"), (3, "SIMILAR"), (1, "AC")])
+
+    barrier = threading.Barrier(2, timeout=30)
+    state = threading.local()
+    real_user_version = db_module.user_version
+
+    def synced_user_version(conn: sqlite3.Connection) -> int:
+        version = real_user_version(conn)
+        if not getattr(state, "synced", False):
+            state.synced = True
+            barrier.wait()
+        return version
+
+    monkeypatch.setattr(db_module, "user_version", synced_user_version)
+
+    results: list[list[dict[str, object]]] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        progress = history.read_task_progress(db)
+        with lock:
+            results.append(progress)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=60)
+
+    monkeypatch.undo()
+    (progress,) = history.read_task_progress(db)
+    # Два прогона режима 1 (бенчмарк-прогон в агрегат не входит), а не четыре.
+    assert progress["runs_total"] == 2, "бэкфилл выполнен дважды — агрегат удвоен"
+    assert progress["attempts_to_first_ac"] == 2
+    assert len(results) == 2, "поток не дождался миграции соседа"
+
+
+def test_migration_is_atomic_when_backfill_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #947: сбой посреди миграции откатывает её целиком, а не наполовину.
+
+    Без транзакции DDL уже был применён, а ``user_version`` — ещё нет: база
+    оставалась «полумигрированной», и следующий запуск гнал бэкфилл заново
+    поверх частично заполненного агрегата.
+    """
+    from stepik_grader import db as db_module
+
+    db = _db(tmp_path)
+    _seed_v1_database(db, [(1, "AC")])
+
+    def boom(conn: sqlite3.Connection) -> None:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(history, "_backfill_task_progress", boom)
+    assert history.read_task_progress(db) == []  # best-effort: не падаем наружу
+    monkeypatch.undo()
+
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        assert db_module.user_version(conn) == 1, "версия поднята при незавершённой миграции"
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    assert "task_progress" not in tables, "DDL не откачен — база полумигрирована"
+
+    (progress,) = history.read_task_progress(db)  # повторная попытка проходит целиком
+    assert progress["runs_total"] == 1
+
+
 def test_task_progress_repository_satisfies_protocol(tmp_path: Path) -> None:
     """Новый метод не выводит SqliteHistoryRepository из-под протокола (ADR-0009)."""
     repo = history.SqliteHistoryRepository(_db(tmp_path))
@@ -598,6 +709,134 @@ def test_different_tasks_get_different_keys(tmp_path: Path) -> None:
 def test_task_key_survives_mismatched_anchors(tmp_path: Path) -> None:
     """Относительный путь против абсолютной базы — путь как есть, без падения."""
     assert history.task_key_for(Path("04-slug"), tmp_path) == "04-slug"
+
+
+# ---------------------------------------------------------------------------
+# Устойчивый ключ задачи — issue #990 (JRN-4A-01 / JRN-4B-02)
+# ---------------------------------------------------------------------------
+
+
+def _make_task(dir_path: Path, step_id: int | None) -> Path:
+    """Папка задачи; с ``meta.json``, если ``step_id`` задан."""
+    dir_path.mkdir(parents=True)
+    if step_id is not None:
+        (dir_path / "meta.json").write_text(
+            json.dumps({"step_id": step_id, "lesson_id": 1}), encoding="utf-8"
+        )
+    return dir_path
+
+
+def test_same_folder_name_in_different_courses_keeps_keys_apart(tmp_path: Path) -> None:
+    """Сценарий из issue: `~/курс-А/задача-3` и `~/курс-Б/задача-3` — разные задачи.
+
+    Пока ключом было имя папки, обе писались в одну строку истории: общий зачёт
+    и общее удаление. `--purge-history задача-3` из курса Б стирал и курс А.
+    """
+    first = _make_task(tmp_path / "курс-А" / "задача-3", step_id=111)
+    second = _make_task(tmp_path / "курс-Б" / "задача-3", step_id=222)
+
+    assert history.task_key_for(first, first) != history.task_key_for(second, second)
+
+
+def test_stable_key_survives_folder_rename(tmp_path: Path) -> None:
+    """Переименование папки не заводит вторую задачу: ключ держится за шаг."""
+    task = _make_task(tmp_path / "04-slug", step_id=42)
+    before = history.task_key_for(task, task)
+
+    renamed = task.rename(tmp_path / "четвёртая-задача")
+
+    assert history.task_key_for(renamed, renamed) == before
+
+
+def test_folder_without_meta_keeps_path_key(tmp_path: Path) -> None:
+    """Папка, скачанная не downloader'ом, ведёт себя как раньше — по пути."""
+    task = _make_task(tmp_path / "своя-задача", step_id=None)
+    assert history.task_key_for(task, task) == "своя-задача"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    ["{ битый json", json.dumps({"step_id": "42"}), json.dumps({}), json.dumps([1, 2])],
+)
+def test_unusable_meta_falls_back_to_path(tmp_path: Path, payload: str) -> None:
+    """Битый/чужой meta.json — не ошибка, а «устойчивого ключа нет»."""
+    task = _make_task(tmp_path / "задача", step_id=None)
+    (task / "meta.json").write_text(payload, encoding="utf-8")
+
+    assert history.task_key_for(task, task) == "задача"
+
+
+def test_display_name_is_stored_and_updated(tmp_path: Path) -> None:
+    """Имя папки хранится рядом с ключом и обновляется после переименования.
+
+    Ключ показывать нельзя — `step:42` человеку ничего не говорит, а в
+    «Прогрессе» задачу ищут по названию.
+    """
+    db = _db(tmp_path)
+    history.record_run(
+        1, [CaseRecord(1, "AC")], db_path=db, task_key="step:42", task_title="старое"
+    )
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="step:42", task_title="новое")
+
+    rows = history.read_task_progress(db)
+
+    assert [row["display_name"] for row in rows] == ["новое"]
+
+
+def test_display_name_survives_run_without_title(tmp_path: Path) -> None:
+    """Прогон без имени не обезличивает уже названную задачу."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="step:7", task_title="задача")
+
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="step:7", task_title=None)
+
+    assert history.read_task_progress(db)[0]["display_name"] == "задача"
+
+
+def test_migration_v2_to_v3_adds_display_name(tmp_path: Path) -> None:
+    """База схемы v2 домигрируется до v3, не потеряв накопленный агрегат.
+
+    Ступень 2→3 обязана идти ДО заполнения агрегата: backfill пишет через
+    `_bump_task_progress`, который уже знает про новую колонку. Обратный порядок
+    ронял домиграцию на «no such column», и из-за best-effort это выглядело как
+    молча пропавшая запись.
+    """
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t", task_title="задача")
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        conn.execute("ALTER TABLE task_progress DROP COLUMN display_name")
+        conn.execute("PRAGMA user_version = 2")
+        conn.commit()
+
+    assert history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t") is not None
+
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
+    assert [row["task_key"] for row in history.read_task_progress(db)] == ["t"]
+
+
+def test_purge_by_step_key_leaves_the_other_course_alone(tmp_path: Path) -> None:
+    """Удаление истории одной задачи не трогает одноимённую из другого курса.
+
+    Это исходная потеря данных из #990, проверенная целиком: две записи, удаление
+    по ключу одной, вторая обязана остаться.
+    """
+    db = tmp_path / "history.db"
+    first = _make_task(tmp_path / "курс-А" / "задача-3", step_id=111)
+    second = _make_task(tmp_path / "курс-Б" / "задача-3", step_id=222)
+    for task in (first, second):
+        history.record_run(
+            1,
+            [CaseRecord(1, "OK")],
+            db_path=db,
+            task_key=history.task_key_for(task, task),
+            solution_name="solution.py",
+        )
+
+    history.purge_history(db, task_key=history.task_key_for(first, first))
+
+    survivors = history.read_recent_runs(db)
+    assert [run["task_key"] for run in survivors] == [history.task_key_for(second, second)]
 
 
 # ---------------------------------------------------------------------------
@@ -904,3 +1143,63 @@ def test_relative_task_dir_is_resolved_against_base_not_cwd(tmp_path, monkeypatc
     key = history.task_key_for(Path("module1/04-slug"), base)
 
     assert key.replace("\\", "/") == "module1/04-slug"
+
+
+# ---------------------------------------------------------------------------
+# Ключ задачи стабилен при любом каталоге запуска — issue #997
+# (JRN-4A-02, LNG-1-04)
+# ---------------------------------------------------------------------------
+
+
+class TestTaskKeyIsStableAcrossCwd:
+    """Одна задача — один ключ, откуда бы её ни запустили."""
+
+    def _project(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        """Проект с маркером ``[tool.stepik-grader]`` и задачей внутри."""
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.stepik-grader]\nrecord_history = true\n", encoding="utf-8"
+        )
+        task = tmp_path / "module1" / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        return task
+
+    def _keys(self, db_path: pathlib.Path) -> set[str]:
+        return {row["task_key"] for row in history.read_task_progress(db_path)}
+
+    def test_same_key_from_project_root_and_task_dir(self, tmp_path, monkeypatch, capsys):
+        """JRN-4A-02/LNG-1-04: два ключа на одну задачу давали двойной TTFG.
+
+        Из корня проекта ключом был ``module1/task1``, из самой папки задачи —
+        ``task1``: в базе появлялись две строки, «Прогресс» рисовал задачу
+        дважды, а лимит retention фактически удваивался.
+        """
+        task = self._project(tmp_path)
+        db_path = tmp_path / "hist.db"
+        monkeypatch.setenv("STEPIK_GRADER_HISTORY_DB", str(db_path))
+
+        monkeypatch.chdir(tmp_path)
+        cli.main(["--mode", "1", "--file", "module1/task1/task1_1.py", "--history"])
+        monkeypatch.chdir(task)
+        cli.main(["--mode", "1", "--file", "task1_1.py", "--history"])
+        capsys.readouterr()
+
+        assert self._keys(db_path) == {str(pathlib.Path("module1") / "task1")}
+
+    def test_key_outside_project_is_folder_name(self, tmp_path, monkeypatch, capsys):
+        """Регрессия: без маркера проекта ключ — имя папки задачи, как прежде."""
+        task = tmp_path / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        db_path = tmp_path / "hist.db"
+        monkeypatch.setenv("STEPIK_GRADER_HISTORY_DB", str(db_path))
+
+        monkeypatch.chdir(task)
+        cli.main(["--mode", "1", "--file", "task1_1.py", "--history"])
+        capsys.readouterr()
+
+        assert self._keys(db_path) == {"task1"}

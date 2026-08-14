@@ -120,5 +120,39 @@ def test_skips_without_git_tags(monkeypatch, capsys) -> None:
     (pyproject на текущем репо динамический)."""
     module = _load_module()
     monkeypatch.setattr(module, "_latest_tag_baseline", lambda: None)
+    monkeypatch.delenv("CI", raising=False)
     assert module.main() == 0
     assert "SKIP" in capsys.readouterr().out
+
+
+class TestBaselineRequiredInCi:
+    """Гейт обязан падать там, где проверять было чем, но не вышло (issue #988)."""
+
+    def test_missing_baseline_in_ci_is_an_error(self, monkeypatch, capsys) -> None:
+        """В CI теги доступны (fetch-depth: 0) — их отсутствие означает поломку.
+
+        Прежде эта ветка печатала SKIP, затем «OK: versions consistent» и
+        выходила нулём: гейт зеленел ровно тогда, когда не проверил ничего,
+        кроме pyproject.
+        """
+        module = _load_module()
+        monkeypatch.setattr(module, "_latest_tag_baseline", lambda: None)
+        monkeypatch.setenv("CI", "true")
+
+        code = module.main()
+
+        assert code == 1
+        assert "OK: versions consistent" not in capsys.readouterr().out
+
+    @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes"])
+    def test_ci_flag_recognised(self, monkeypatch, value: str) -> None:
+        module = _load_module()
+        monkeypatch.setenv("CI", value)
+        assert module._baseline_is_required() is True
+
+    @pytest.mark.parametrize("value", ["", "0", "false", "no"])
+    def test_local_run_keeps_skip(self, monkeypatch, value: str) -> None:
+        """Локально сборка из sdist без истории по-прежнему не падает."""
+        module = _load_module()
+        monkeypatch.setenv("CI", value)
+        assert module._baseline_is_required() is False

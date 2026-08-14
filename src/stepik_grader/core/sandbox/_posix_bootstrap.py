@@ -20,7 +20,9 @@ psutil-поллинг (см. ``core/runner.py._measure_peak_memory`` и
 
 from __future__ import annotations
 
-__all__ = ["build_bootstrap_argv"]
+from stepik_grader.core.sandbox import _limits
+
+__all__ = ["build_bootstrap_argv", "cpu_quota_seconds"]
 
 _BOOTSTRAP_SRC = """\
 import resource, os, sys
@@ -30,6 +32,16 @@ resource.setrlimit(resource.RLIMIT_FSIZE, ({max_file_bytes}, {max_file_bytes}))
 {memory_rlimit_line}
 os.execv(sys.argv[1], sys.argv[1:])
 """
+
+
+def cpu_quota_seconds(timeout: float, configured_max: float) -> int:
+    """CPU-квота изоляции — тонкая обёртка над общей формулой (issue #927).
+
+    Сама формула переехала в ``_limits`` вместе с Windows-backend'ом: она
+    нужна всем трём, а POSIX-модуль оттуда не импортируется. Имя оставлено —
+    на него ссылаются `_linux`/`_macos` и их тесты.
+    """
+    return _limits.cpu_quota_seconds(timeout, configured_max)
 
 
 def build_bootstrap_argv(

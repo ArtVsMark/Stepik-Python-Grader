@@ -15,6 +15,7 @@ import re
 from html.parser import HTMLParser
 
 __all__ = [
+    "extract_attachment_links",
     "extract_external_test_links",
     "extract_tests_from_html",
     "is_function_style",
@@ -26,11 +27,36 @@ __all__ = [
 _ZIP_URL_RE = re.compile(r'href=["\']([^"\']*\.zip)["\']', re.IGNORECASE)
 _GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE)
 
+# issue #1112: вложения условия — файлы, которые решение ОТКРЫВАЕТ по имени
+# (`open('files.txt')`). Живут на `stepik.org/media/attachments/...` и до сих
+# пор не скачивались вовсе: принятое платформой решение падало локально
+# `FileNotFoundError`, и подсказка глоссария добросовестно объясняла студенту
+# его несуществующую ошибку.
+_ATTACHMENT_URL_RE = re.compile(
+    r'href=["\']([^"\']*?/media/attachments/[^"\']+)["\']', re.IGNORECASE
+)
+
 
 # Теги, чьё содержимое — не текст кейса, даже если лежит внутри <td> (issue
 # #838): HTMLParser отдаёт тело <script>/<style> обычным handle_data, и текст
 # скрипта уезжал в ожидаемый вывод теста, ломая кейс.
 _NON_TEXT_TAGS = frozenset({"script", "style"})
+
+# issue #941: блочные теги внутри ячейки означают перевод строки в данных.
+# Список намеренно короткий — только то, что реально встречается в вёрстке
+# примеров Stepik; лишние теги дали бы ложные переводы строк.
+_BLOCK_TAGS = frozenset({"p", "div", "li", "tr"})
+
+
+def _collapse_breaks(text: str) -> str:
+    """Схлопнуть повторные переводы строк и убрать края (issue #941).
+
+    `<p>10</p><p>20</p>` даёт перевод после каждого абзаца, включая последний,
+    поэтому без схлопывания ожидание обрастало бы пустыми строками — а они в
+    сравнении значимы и дали бы тот же ложный WA, от которого уходим.
+    """
+    lines = [line.strip() for line in text.split("\n")]
+    return "\n".join(line for line in lines if line)
 
 
 class _TableParser(HTMLParser):
@@ -53,10 +79,20 @@ class _TableParser(HTMLParser):
             self._in_th = True
         elif tag in _NON_TEXT_TAGS:
             self._non_text_depth += 1
+        elif tag == "br":
+            # issue #941: перевод строки в вёрстке — это перевод строки в
+            # данных. `<td>7<br>8</td>` давало «78», и верное решение,
+            # печатающее две строки, стабильно получало WA — при том что
+            # дефект в скачанных данных, а не в коде студента.
+            self._append_break()
 
     def handle_endtag(self, tag: str) -> None:
+        # issue #941: закрытие блочного тега разделяет строки так же, как <br>.
+        # Типовая вёрстка Stepik использует и то, и другое вперемешку.
+        if tag in _BLOCK_TAGS:
+            self._append_break()
         if tag == "td" and self._current_cell is not None:
-            cell_text = "".join(self._current_cell).strip()
+            cell_text = _collapse_breaks("".join(self._current_cell))
             if self._current_row is not None:
                 self._current_row.append(cell_text)
             self._current_cell = None
@@ -68,6 +104,24 @@ class _TableParser(HTMLParser):
             self._current_row = None
         elif tag in _NON_TEXT_TAGS:
             self._non_text_depth = max(0, self._non_text_depth - 1)
+
+    def _append_break(self) -> None:
+        """Записать перевод строки в текущую ячейку (issue #941)."""
+        if self._current_cell is not None and not self._in_th and not self._non_text_depth:
+            self._current_cell.append("\n")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Самозакрывающийся тег: `<br/>` встречается наравне с `<br>` (issue #941).
+
+        Без этого метода HTMLParser зовёт для `<br/>` только `handle_starttag`
+        в одних случаях и `handle_startendtag` в других — поведение зависит от
+        разметки, и половина ячеек теряла бы переводы строк.
+        """
+        if tag == "br":
+            self._append_break()
+        else:
+            self.handle_starttag(tag, attrs)
+            self.handle_endtag(tag)
 
     def handle_data(self, data: str) -> None:
         if self._current_cell is not None and not self._in_th and not self._non_text_depth:
@@ -178,3 +232,27 @@ def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
     zip_links = _unique(_ZIP_URL_RE.findall(html))
     github_links = _unique(_GITHUB_URL_RE.findall(html))
     return zip_links, github_links
+
+
+def extract_attachment_links(html: str) -> list[str]:
+    """Ссылки на вложения условия — файлы, которые открывает само решение (#1112).
+
+    Это `stepik.org/media/attachments/...`: `files.txt`, `data.csv` и прочее,
+    на что условие ссылается словами «вам доступен файл». Без них принятое
+    платформой решение падает локально ``FileNotFoundError``.
+
+    ``.zip`` отсюда исключён намеренно: архивы разбирает путь внешних тестов
+    (:func:`extract_external_test_links`), и скачивать их вторым способом
+    значило бы класть рядом с задачей сырой архив вместо тест-кейсов.
+
+    Схема проверяется тем же ``_is_fetchable``, что и у тестовых ссылок: HTML
+    приходит из сети, а результат уходит в загрузчик (issue #838).
+    """
+    seen: set[str] = set()
+    links: list[str] = []
+    for url in _ATTACHMENT_URL_RE.findall(html):
+        if url in seen or not _is_fetchable(url) or url.lower().endswith(".zip"):
+            continue
+        seen.add(url)
+        links.append(url)
+    return links

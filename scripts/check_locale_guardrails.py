@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """scripts/check_locale_guardrails.py — CI-guard локализации веб-API (issue #264).
 
-Три машинные защиты, чтобы каталог сообщений веб-слоя (``message_id`` →
+Шесть машинных защит, чтобы каталог сообщений веб-слоя (``message_id`` →
 локализованный текст, см. ``web/i18n.py``) не разъезжался с фактическим
-использованием и между локалями:
+использованием, между локалями и с тем, что пользователь реально видит:
 
-1. **Полнота ``ru.json``.** Каждый ``message_id``, на который в ``web/*.py``
-   ссылается вызов ``render_message(...)``/``message_fields(...)``, должен
-   существовать как ключ в ``core/locales/ru.json`` — иначе ``render_message()``
-   тихо откатится на сам ``message_id`` вместо текста (graceful degradation
-   ценой немой опечатки, которую эта проверка ловит).
+1. **Полнота ``ru.json``.** Каждый ``message_id``, на который ссылается вызов
+   каталога — веб (``render_message``/``message_fields``), CLI (``ctx.t``) или
+   загрузчик (``_t``), — должен существовать как ключ в
+   ``core/locales/ru.json``. Иначе фолбэк тихо покажет сам ``message_id``
+   вместо текста: graceful degradation ценой немой опечатки, которую эта
+   проверка и ловит.
 2. **Синхронность ``ru.json``/``en.json``.** Оба файла должны иметь ровно
    одинаковый набор ключей — иначе ``?lang=en`` частично покажет русский
    текст (fallback в ``render_message()``) там, где перевод забыли добавить.
@@ -17,6 +18,17 @@
    (issue #821): совпадение ключей ещё не значит, что перевод сделан —
    строка баннера сервера годами называла раздел «Подучить» по-русски внутри
    английского файла, где четыре соседних ключа звали его «Learn».
+4. **Ссылки ведут наружу.** Ни одна пользовательская строка не зовёт читать
+   путь внутри репозитория (issue #1005): при установке через ``pip``/``pipx``
+   ни ``docs/``, ни ``README`` на диске нет — подсказка ведёт в никуда.
+5. **Один стиль кавычек в ``en.json``.** Русские «ёлочки» соседствовали с
+   английскими “лапками”, причём один и тот же термин был закавычен обоими
+   способами; проверка на кириллицу этого не видит — кавычки не буквы.
+6. **Подсказки ``pip install`` называют настоящий пакет** (issue #1005):
+   сообщение про ``--watch`` советовало ``stepik-grader[watch]`` — имя, под
+   которым проект не публикуется, — тогда как соседние строки того же файла
+   писали его верно. Имя берётся из ``pyproject.toml``, поэтому переименование
+   дистрибутива не разъедется с текстами молча.
 
 По образцу ``scripts/check_docs_guardrails.py`` (issue #173): чистый
 ``ast``/``json``/``pathlib``, без внешних зависимостей — быстро и
@@ -31,14 +43,20 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import sys
+import tomllib
 from pathlib import Path
 
 __all__ = [
     "check_en_locale_has_no_cyrillic",
+    "check_en_locale_uses_one_quote_style",
     "check_en_ru_key_parity",
+    "check_locales_link_outside_the_repo",
+    "check_locales_name_the_real_package",
     "check_ru_covers_referenced_ids",
     "collect_referenced_message_ids",
+    "distribution_name",
     "load_locale_keys",
     "load_locale_values",
     "main",
@@ -49,9 +67,17 @@ _ROOT = Path(__file__).resolve().parent.parent
 _PKG_DIR = _ROOT / "src" / "stepik_grader"
 _LOCALES_DIR = _PKG_DIR / "core" / "locales"
 
-# Функции каталога сообщений (``web/i18n.py``), чей первый позиционный
-# аргумент — строковый литерал ``message_id`` (issue #264).
-_CATALOG_CALL_NAMES = frozenset({"render_message", "message_fields"})
+# Функции каталога сообщений, чей первый позиционный аргумент — строковый
+# литерал ``message_id``: веб (``web/i18n.py``, issue #264), CLI (``ctx.t(...)``
+# из ``cli/context.py``) и загрузчик с диагностикой (``_t(...)``).
+#
+# issue #960 (ED-2-03): сначала здесь стояли только два веб-имени, а основные
+# потребители каталога зовутся иначе — 83 из 85 call-site'ов проверке были не
+# видны. Гейт заведён ровно против того, чтобы ключ разъехался с локалью, и
+# при этом оставался зелёным на переименовании ключа в CLI: фолбэк
+# ``messages.get(key, key)`` показывает студенту служебный идентификатор
+# вместо текста ошибки.
+_CATALOG_CALL_NAMES = frozenset({"render_message", "message_fields", "t", "_t"})
 
 
 def _call_name(node: ast.Call) -> str | None:
@@ -65,7 +91,7 @@ def _call_name(node: ast.Call) -> str | None:
 
 
 def collect_referenced_message_ids(path: Path) -> set[str]:
-    """``message_id``-литералы из вызовов ``render_message``/``message_fields`` в файле.
+    """``message_id``-литералы из вызовов каталога сообщений в файле.
 
     Обнаруживает только литеральные (``ast.Constant`` строка) первые
     аргументы — динамически построенные ``message_id`` (сегодня в кодовой
@@ -190,12 +216,102 @@ def check_en_locale_has_no_cyrillic(errors: list[str]) -> None:
         print(f"en.json: no Cyrillic text across {len(values)} key(s).")
 
 
+def check_locales_link_outside_the_repo(errors: list[str]) -> None:
+    """Пользовательские строки не ссылаются на пути внутри репозитория (issue #1005).
+
+    Находки INS-5-02, LINK-1-05, READER-1-04: сообщения звали читать
+    ``docs/use/installation.md``, ``SECURITY.md``, ``README`` — файлы, которых
+    у поставившего через ``pip``/``pipx`` на диске нет вовсе. Подсказка,
+    ведущая в никуда, хуже её отсутствия: пользователь ищет несуществующее.
+
+    Правильный адрес — абсолютный URL (база объявлена в ``pyproject.toml``
+    полем ``Documentation``). Имена файлов, которые продукт **создаёт** сам
+    (``grader-progress.md``, ``.grader_history.db``), под запрет не подпадают:
+    они относятся к рабочей папке пользователя, а не к репозиторию.
+    """
+    marker = re.compile(
+        r"(?<!/)\b(?:docs/[\w./-]+|README(?:\.md)?|SECURITY\.md|CONTRIBUTING\.md|CHANGELOG\.md)\b"
+    )
+    offenders: list[str] = []
+    for lang in ("ru", "en"):
+        for key, text in sorted(load_locale_values(lang).items()):
+            # Внутри абсолютного URL тот же путь легален — он и есть решение.
+            without_urls = re.sub(r"https?://\S+", "", text)
+            for hit in marker.findall(without_urls):
+                offenders.append(f"{lang}.json:{key} → {hit}")
+    if offenders:
+        errors.append(
+            "пользовательские строки ссылаются на пути внутри репозитория "
+            "(при pip/pipx этих файлов нет — нужен абсолютный URL): " + ", ".join(offenders)
+        )
+    else:
+        print("Locale links: no repo-relative paths in ru.json/en.json user strings.")
+
+
+def check_en_locale_uses_one_quote_style(errors: list[str]) -> None:
+    """Английская локаль закавычивает термины одним способом (issue #1005, ED-2-06).
+
+    В ``en.json`` соседствовали русские «ёлочки» и английские “лапки”, причём
+    один и тот же термин Learn был закавычен обоими способами. Проверка на
+    кириллицу такое не ловит: сами кавычки буквами не являются.
+    """
+    guillemets = ("«", "»", "„", "‟")
+    bad = sorted(
+        key for key, text in load_locale_values("en").items() if any(q in text for q in guillemets)
+    )
+    if bad:
+        errors.append(
+            "core/locales/en.json uses Russian guillemets («») instead of English quotes (“”) "
+            "in key(s): " + ", ".join(bad)
+        )
+    else:
+        print("en.json: consistent English quotation marks.")
+
+
+def distribution_name() -> str:
+    """Имя дистрибутива из ``pyproject.toml`` — единственный источник истины."""
+    data = tomllib.loads((_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return str(data["project"]["name"])
+
+
+def check_locales_name_the_real_package(errors: list[str]) -> None:
+    """Подсказки ``pip install`` называют НАСТОЯЩЕЕ имя пакета (issue #1005, RUN-5-06).
+
+    ``watch_dependency_missing`` советовал ``pip install "stepik-grader[watch]"``
+    — имя, под которым проект на PyPI не публикуется. Пользователь, у которого
+    нет ``watchfiles``, выполнял подсказку и получал либо ошибку, либо ЧУЖОЙ
+    пакет. Соседние строки того же файла при этом писали имя верно, так что
+    расхождение жило внутри одного файла и глазами не ловилось.
+
+    Проверяется форма с extras (``имя[extra]``): именно она адресует
+    дистрибутив, тогда как голое ``stepik-grader`` в тексте — это ещё и имя
+    исполняемой команды, которое законно встречается само по себе.
+    """
+    expected = distribution_name()
+    with_extras = re.compile(r"\b([A-Za-z][\w.-]*)\[[\w,\s-]+\]")
+    bad: list[str] = []
+    for lang in ("ru", "en"):
+        for key, text in load_locale_values(lang).items():
+            for name in with_extras.findall(text):
+                if name != expected and name.lower().startswith("stepik"):
+                    bad.append(f"{lang}.json:{key} → {name}[…]")
+    if bad:
+        errors.append(
+            f"locale(s) advertise a package name other than {expected!r}: " + ", ".join(sorted(bad))
+        )
+    else:
+        print(f"Locale package hints: all extras name {expected}.")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_ru_covers_referenced_ids(errors)
     check_en_ru_key_parity(errors)
     check_en_locale_has_no_cyrillic(errors)
+    check_locales_link_outside_the_repo(errors)
+    check_en_locale_uses_one_quote_style(errors)
+    check_locales_name_the_real_package(errors)
 
     if errors:
         print("\nFAIL: locale guardrails violated:")

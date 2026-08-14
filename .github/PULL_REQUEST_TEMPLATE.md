@@ -18,14 +18,17 @@ Closes #
 
 ## Чеклист
 
-- [ ] Ветка от свежего `main`, PR — в `main` (не коммит в `main` напрямую)
+- [ ] `python scripts/preflight.py` — всё чисто (ветка свежая, весь набор,
+      линтеры, типы; см. `docs/agent/preflight.md`)
+- [ ] Ветка от свежего `main` и обновлена из `origin/main` ПЕРЕД прогоном
+      гейтов: «зелено на моей ветке» ≠ «зелено после мержа»
 - [ ] `pytest tests/ -x -q` — зелёные
 - [ ] `ruff check .` и `ruff format --check .` — чисто
 - [ ] `mypy src/stepik_grader scripts` — чисто
 - [ ] Новые функции: type hints + docstring; новые модули: `__all__` и
       `from __future__ import annotations`
 - [ ] Версия не правится вручную (динамическая, `setuptools-scm`)
-- [ ] CHANGELOG.md: запись под `## [Unreleased]` добавлена — в КАЖДОМ PR, без исключений для рефакторингов
+- [ ] Запись о изменении добавлена файлом `changelog.d/<slug>.<секция>.md` — в КАЖДОМ PR, без исключений для рефакторингов (формат — `changelog.d/README.md`)
 - [ ] docs/archive/history.md — НЕ на каждый PR, только при релизе
 - [ ] Нет секретов в диффе (`secrets.json`, токены, `stepik_config.json`)
 

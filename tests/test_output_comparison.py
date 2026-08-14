@@ -21,9 +21,11 @@ AC/WA, то есть ровно то, что увидит студент.
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Iterator
 
 import pytest
 
+from stepik_grader import config
 from stepik_grader.core.grader_core import run_tests
 from stepik_grader.core.result import CaseResult
 
@@ -141,6 +143,18 @@ def _print_separated(code_point: int) -> str:
         ("print(float('nan'))", b"nan\n", "AC", "nan сравнивается дословно"),
         ("print('Python 3.10.5')", b"Python 3.10.5\n", "AC", "версия не считается float"),
         # --- не прощается ---
+        # issue #940: незначащие нули ожидания — это требование формата
+        # «вывести с точностью до сотых», а не другая запись той же величины.
+        ("print(12.3)", b"12.30\n", "WA", "решение не выполнило требование «до сотых»"),
+        ("print(1.5)", b"1.50\n", "WA", "то же для одного знака вместо двух"),
+        ("print(100.0)", b"100.00\n", "WA", "нули после точки значимы, если их ждут"),
+        ('print(f"{12.3:.2f}")', b"12.30\n", "AC", "формат соблюдён — толерантность не нужна"),
+        (
+            "print(0.1+0.2)",
+            b"0.30000000000000004\n",
+            "AC",
+            "у решения знаков не меньше — прежняя толерантность цела",
+        ),
         ("print(0.12345679)", b"0.12345678\n", "WA", "расхождение внутри 9 знаков — ошибка"),
         ("print(5.0)", b"5\n", "WA", "целое и float — разные строки, regex не тронет '5'"),
         ("print(-0.0)", b"0.0\n", "WA", "знак нуля сохраняется"),
@@ -168,11 +182,15 @@ def test_float_comparison(
 @pytest.mark.parametrize(
     "solution,expected,verdict,why",
     [
-        ("print('hello ')", b"hello\n", "WA", "лишний пробел в выводе решения"),
-        ("print('hello')", b"hello \n", "WA", "лишний пробел в файле ожиданий"),
+        # issue #1111: хвостовой пробел незначим в режиме по умолчанию `stepik` —
+        # как у чекера платформы. Проверка обратного поведения — в
+        # TestStrictCompareMode ниже.
+        ("print('hello ')", b"hello\n", "AC", "хвостовой пробел в выводе решения"),
+        ("print('hello')", b"hello \n", "AC", "хвостовой пробел в файле ожиданий"),
         ("print('  *')", b"  *\n", "AC", "ведущие пробелы значимы и сохраняются"),
+        ("print(' hello')", b"hello\n", "WA", "ведущий пробел значим — обрезается только хвост"),
         ("print('a' + chr(0xA0) + 'b')", b"a b\n", "WA", "неразрывный пробел ≠ обычный"),
-        ("print('a\\tb')", b"a b\n", "WA", "табуляция ≠ пробел"),
+        ("print('a\\tb')", b"a b\n", "WA", "табуляция внутри строки ≠ пробел"),
     ],
 )
 def test_whitespace_is_significant(
@@ -211,15 +229,16 @@ def test_missing_trailing_newline_in_expected_is_forgiven(tmp_path: pathlib.Path
     assert result["verdict"] == "AC"
 
 
-def test_bom_in_expected_file_fails_a_correct_solution(tmp_path: pathlib.Path) -> None:
-    """BOM в файле ожиданий даёт WA верному решению.
+def test_bom_in_expected_file_does_not_fail_a_correct_solution(tmp_path: pathlib.Path) -> None:
+    """BOM в файле ожиданий больше не даёт WA верному решению (issue #939).
 
-    Ловушка Windows: «Блокнот» и Excel сохраняют UTF-8 с BOM, а файлы читаются
-    как обычный UTF-8 — маркер остаётся первым символом первой строки.
+    Ловушка Windows: «Блокнот» и Excel сохраняют UTF-8 с BOM. Раньше маркер
+    оставался первым символом первой строки и верное решение получало `WA`;
+    теперь он срезается при чтении файла тестов.
     """
     result = _named(tmp_path, "print('a')", expected=b"\xef\xbb\xbfa\n")
-    assert result["verdict"] == "WA"
-    assert result["expected"] == ["﻿a"]
+    assert result["verdict"] == "AC"
+    assert result["expected"] == ["a"]
 
 
 def test_bom_printed_by_solution_fails(tmp_path: pathlib.Path) -> None:
@@ -228,15 +247,16 @@ def test_bom_printed_by_solution_fails(tmp_path: pathlib.Path) -> None:
     assert result["verdict"] == "WA"
 
 
-def test_bom_in_input_file_leaks_into_stdin(tmp_path: pathlib.Path) -> None:
-    """BOM во ВХОДНОМ файле утекает в stdin решения — первый `input()` получает маркер.
+def test_bom_in_input_file_does_not_leak_into_stdin(tmp_path: pathlib.Path) -> None:
+    """BOM во ВХОДНОМ файле больше не утекает в stdin решения (issue #939).
 
-    Для студента это выглядит как `ValueError` в `int(input())` на верном коде.
+    Раньше первый `input()` получал маркер, и для студента это выглядело как
+    `ValueError` в `int(input())` на совершенно верном коде.
     """
     result = _named(tmp_path, "print(repr(input()))", expected=b"'5'\n", stdin=b"\xef\xbb\xbf5\n")
-    assert result["verdict"] == "WA"
-    # repr() экранирует невидимый маркер: решение получило BOM + '5', а не '5'.
-    assert result["output"] == [repr(chr(0xFEFF) + "5")]
+    assert result["verdict"] == "AC"
+    # repr() показал бы невидимый маркер, если бы он дошёл до решения.
+    assert result["output"] == [repr("5")]
 
 
 # ---------------------------------------------------------------------------
@@ -248,17 +268,19 @@ def test_bom_in_input_file_leaks_into_stdin(tmp_path: pathlib.Path) -> None:
     "solution,expected,verdict,why",
     [
         ("pass", b"", "AC", "пустой файл ожиданий = решение не печатает ничего"),
-        ("print()", b"", "WA", "пустой файл ≠ вывод из одной пустой строки"),
+        # issue #1111: три кейса ниже ждали WA. Их и завернул грейдер на реальной
+        # базе — при том, что Stepik те же решения принял.
+        ("print()", b"", "AC", "пустой файл и одна пустая строка — одно и то же"),
         ("print()", b"\n", "AC", "файл из одного перевода строки = одна пустая строка"),
-        ("print('a')\nprint()", b"a\n", "WA", "лишняя пустая строка в конце — ошибка"),
-        ("print('\\na')", b"a\n", "WA", "лишняя пустая строка в начале — ошибка"),
-        ("print('a')", b"a\n\n\n", "WA", "пустые строки в конце файла ожиданий значимы"),
+        ("print('a')\nprint()", b"a\n", "AC", "хвостовая пустая строка незначима"),
+        ("print('a')", b"a\n\n\n", "AC", "пустые строки в конце файла ожиданий незначимы"),
+        ("print('\\na')", b"a\n", "WA", "пустая строка В НАЧАЛЕ значима — обрезается только хвост"),
     ],
 )
 def test_empty_output_edges(
     tmp_path: pathlib.Path, solution: str, expected: bytes, verdict: str, why: str
 ) -> None:
-    """Пустая строка — полноценная строка вывода; пустой файл ожиданий — её отсутствие."""
+    """Хвостовые пустые строки незначимы, ведущие — значимы (issue #1111)."""
     assert _named(tmp_path, solution, expected=expected)["verdict"] == verdict, why
 
 
@@ -424,25 +446,29 @@ def test_testblock_format_keeps_significant_spaces(
 
 
 @pytest.mark.parametrize(
-    "solution,expected,name",
+    "solution,expected,verdict,name",
     [
-        ("print('\\na')", "\na", "ведущая пустая строка"),
-        ("print('a\\n')", "a\n", "хвостовая пустая строка"),
-        ("print('   ')", "   ", "блок из одних пробелов"),
+        ("print('\\na')", "\na", "WA", "ведущая пустая строка"),
+        # issue #1111: два кейса ниже давали WA, пока хвост был значим. Формат
+        # по-прежнему срезает край блока — но теперь это различие не влияет на
+        # вердикт, потому что режим `stepik` его и не различает.
+        ("print('a\\n')", "a\n", "AC", "хвостовая пустая строка"),
+        ("print('   ')", "   ", "AC", "блок из одних пробелов"),
     ],
 )
 def test_testblock_format_drops_blank_edges(
-    tmp_path: pathlib.Path, solution: str, expected: str, name: str
+    tmp_path: pathlib.Path, solution: str, expected: str, verdict: str, name: str
 ) -> None:
     """Формат 3: пустые строки по краям блока теряются — цена формата, а не дефект.
 
     В `input.txt`/`output.txt` блок ограничен маркерами `# TEST_N:`, поэтому
     пустая строка на его краю неотличима от отбивки перед следующим маркером.
-    Фикс #783 сохранил пробелы ВНУТРИ строк, но пустые строки по краям режутся
-    по-прежнему — ожидание здесь дословное `WA`, а не «пока сломано». Задача с
-    пустой строкой в начале или конце ожидаемого вывода задаётся форматом 1 или 2.
+    Фикс #783 сохранил пробелы ВНУТРИ строк, а край режется по-прежнему. Что
+    изменилось в #1111: срезанный **хвост** больше не меняет вердикт — режим
+    `stepik` хвостовые пустые строки и пробелы не различает. Ведущая пустая
+    строка значима, и задача с ней по-прежнему задаётся форматом 1 или 2.
     """
-    assert _testblock(tmp_path, solution, expected=expected)["verdict"] == "WA", name
+    assert _testblock(tmp_path, solution, expected=expected)["verdict"] == verdict, name
 
 
 def test_testblock_stdin_keeps_leading_spaces(tmp_path: pathlib.Path) -> None:
@@ -467,3 +493,113 @@ def test_testblock_code_block_with_indent_still_runs_as_function(
         expected="42",
     )
     assert result["verdict"] == "AC"
+
+
+# ---------------------------------------------------------------------------
+# Результат объясняет вердикт (issue #935)
+# ---------------------------------------------------------------------------
+
+
+def test_truncated_output_says_so(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """WA от обрезки вывода несёт причину, а не выглядит обычным несовпадением.
+
+    issue #935 (RUN-1-02): пометка об обрезке уходила в stderr, а AC/WA-ветка
+    хардкодила пустой `error` — студент искал несуществующую ошибку в своём
+    коде, хотя вывод обрезал сам грейдер.
+    """
+    from stepik_grader import config as config_mod
+
+    # CONFIG — frozen dataclass, поэтому лимит задаётся так же, как у
+    # пользователя: настоящим файлом конфигурации. Через переменную окружения,
+    # а не через set_config_path: monkeypatch откатит её сам, и тест перестаёт
+    # зависеть от порядка — глобальный путь конфига общий на весь прогон, и
+    # его ручной сброс в None затирал состояние соседних тестов.
+    cfg = tmp_path / "tiny.toml"
+    cfg.write_text("[tool.stepik-grader]\nmax_output_bytes = 3\n", encoding="utf-8")
+    monkeypatch.setenv("STEPIK_GRADER_CONFIG", str(cfg))
+    config_mod.reset_config_cache()
+    try:
+        result = _named(tmp_path, 'print("y")\nprint("y")\nprint("y")', expected=b"y\ny\ny\n")
+    finally:
+        config_mod.reset_config_cache()
+
+    assert result["verdict"] == "WA"
+    assert "обрезан" in result["error"], result["error"]
+
+
+def test_clean_run_has_no_spurious_error(tmp_path: pathlib.Path) -> None:
+    """Обычный WA остаётся без служебной пометки (guard к issue #935)."""
+    result = _named(tmp_path, 'print("a")', expected=b"b\n")
+
+    assert result["verdict"] == "WA"
+    assert result["error"] == ""
+
+
+def test_dropped_format3_blocks_reach_the_result(tmp_path: pathlib.Path) -> None:
+    """Урезанный набор формата 3 виден в результате, а не только в stderr.
+
+    issue #935 (RUN-2-05): три блока входа против одного блока ожиданий давали
+    «1/1 OK» и чистый JSON — CI не отличал полный прогон от урезанного.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+    (task_dir / "tests" / "input.txt").write_text(
+        "# TEST_1:\n5\n\n# TEST_2:\n7\n\n# TEST_3:\n9\n", encoding="utf-8"
+    )
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning):
+        result = run_tests(task_dir / "task.py", task_dir / "tests", timeout=_TIMEOUT)
+
+    assert result["passed"] == 1
+    assert result["warnings"], "предупреждение о неполном наборе не дошло до результата"
+    assert "block" in result["warnings"][0]
+
+
+class TestStrictCompareMode:
+    """`--compare strict` возвращает побайтовую сверку (issue #1111).
+
+    Режим по умолчанию (`stepik`) прощает хвостовые пробелы и хвостовые пустые
+    строки — так их не различает чекер платформы. Но у побайтовой сверки есть
+    своя аудитория: авторы задач и прогонный корпус, которым важно, что вывод
+    совпадает буква в букву. Если бы `strict` молча вёл себя как `stepik`,
+    настройка была бы декорацией.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _strict(self) -> Iterator[None]:
+        config.override_config(compare_mode="strict")
+        yield
+        config.reset_config_cache()
+
+    @pytest.mark.parametrize(
+        "solution,expected,why",
+        [
+            ("print('hello ')", b"hello\n", "хвостовой пробел в выводе решения"),
+            ("print('hello')", b"hello \n", "хвостовой пробел в файле ожиданий"),
+            ("print()", b"", "пустой файл ≠ вывод из одной пустой строки"),
+            ("print('a')\nprint()", b"a\n", "лишняя пустая строка в конце"),
+        ],
+    )
+    def test_trailing_difference_is_wa(
+        self, tmp_path: pathlib.Path, solution: str, expected: bytes, why: str
+    ) -> None:
+        assert _named(tmp_path, solution, expected=expected)["verdict"] == "WA", why
+
+    def test_exact_match_still_passes(self, tmp_path: pathlib.Path) -> None:
+        """Совпадающий вывод остаётся `AC` — строгость не ломает верное решение."""
+        assert _named(tmp_path, "print('hello')", expected=b"hello\n")["verdict"] == "AC"
+
+
+def test_complete_run_has_empty_warnings(tmp_path: pathlib.Path) -> None:
+    """Полный набор не порождает предупреждений (guard к issue #935)."""
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    result = run_tests(task_dir / "task.py", task_dir / "tests", timeout=_TIMEOUT)
+
+    assert result["warnings"] == []

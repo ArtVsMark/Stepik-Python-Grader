@@ -5,7 +5,7 @@ OAuth делегируется в oauth_flow (фасад поверх stepik_cli
   - load_secrets — импортируется из oauth_flow
   - authorize_via_browser — импортируется из oauth_flow
   - make_session — импортируется из oauth_flow
-  - API_HOST — импортируется из stepik_client (константа)
+  - API_HOST — читается как stepik_client.API_HOST (переопределяем окружением)
 
 Запуск:
     python -m stepik_grader.diagnostic_stepik
@@ -13,19 +13,25 @@ OAuth делегируется в oauth_flow (фасад поверх stepik_cli
 
 from __future__ import annotations
 
+import argparse
 import html
 import json
 import pathlib
 import re
+import sys
 from typing import Any
-from urllib.parse import urlencode
 
 import requests
 
-from stepik_grader.core.diag_log import configure_diagnostics, get_logger
-from stepik_grader.core.oauth_flow import authorize_via_browser, load_secrets, make_session
-from stepik_grader.core.stepik_client import API_HOST
+# issue #997 (STR-3-06): импортируем МОДУЛЬ, а не значение — иначе
+# переопределение хоста через STEPIK_GRADER_API_HOST не видно диагностике,
+# и она проверяет боевой stepik.org, пока грейдер ходит на стенд.
+from stepik_grader.core import stepik_client
+from stepik_grader.core.diag_log import DIAGNOSTICS_DIR, configure_diagnostics, get_logger, redact
+from stepik_grader.core.i18n import load_locale_messages
+from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.downloader import parse_stepik_step_url
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "OAUTH_TIMEOUT_SECONDS",
@@ -68,32 +74,40 @@ _log = get_logger("diagnostic")  # issue #831 (DEV-12): стек падения 
 
 OAUTH_TIMEOUT_SECONDS = 120
 
+# issue #997 (JRN-3A-05): приглашения и сообщения — через каталог локалей, как в
+# downloader_config. Раньше три вопроса были по-английски вперемешку с русскими
+# ответами: «Enter Stepik step URL» → «✅ secrets.json успешно прочитан».
+_LANG = "ru"
+_FALLBACK_LANG = "ru"
+
+
+def set_lang(lang: str) -> None:
+    """Задать язык вывода диагностики (тот же приём, что в загрузчике)."""
+    global _LANG
+    _LANG = lang
+
+
+def _t(key: str, /, **kwargs: object) -> str:
+    """Строка каталога на текущем языке; отсутствующий ключ показывается как есть."""
+    messages = load_locale_messages(_LANG) or load_locale_messages(_FALLBACK_LANG)
+    template = messages.get(key, key)
+    return template.format(**kwargs) if kwargs else template
+
 
 # ---------------------------------------------------------------------------
 # OAuth2 — адаптер поверх oauth_flow.authorize_via_browser
 # ---------------------------------------------------------------------------
 
 
-def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -> requests.Session:
-    """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном.
-
-    Делегирует полный OAuth-flow в oauth_flow.authorize_via_browser.
-    Принимает три отдельных аргумента (диагностический интерфейс),
-    а не secrets-dict (интерфейс downloader).
-    """
-    auth_url = f"{API_HOST}/oauth2/authorize/?" + urlencode(
-        {"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri}
-    )
-    _print("\nОткрой в браузере и подтверди доступ приложению:")
-    _print(auth_url)
-    _print(f"\nОжидание редиректа с code (таймаут {OAUTH_TIMEOUT_SECONDS}s)...")
-
-    token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
-    access_token = token_data.get("access_token")
-    if not access_token:
-        raise RuntimeError("Stepik не вернул access_token.")
-    _print("✅ Authorization code получен.")
-    return make_session(str(access_token))
+# Своей реализации авторизации у диагностики нет (issue #1017): имя
+# ``create_user_session`` — тот же ``oauth_flow.create_user_session``, что
+# используют загрузчик, импорт эталонов и стенд корпуса. Прежняя локальная
+# версия принимала три отдельных аргумента и звала ``authorize_via_browser``
+# сразу, ничего не зная о сохранённых токенах: при полностью рабочем
+# ``secrets.json`` диагностика открывала браузер и падала по таймауту ожидания
+# кода — то есть отказывала ровно в той ситуации, ради которой её запускают.
+# Реэкспорт сохраняет публичное имя модуля (``__all__``), но поведение теперь
+# одно на весь пакет: валидный access_token → обмен refresh_token → браузер.
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +128,7 @@ def api_get(session: requests.Session, url: str) -> dict[str, Any]:
 
 def get_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]:
     """Получить данные урока по lesson_id."""
-    data = api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
+    data = api_get(session, f"{stepik_client.API_HOST}/api/lessons/{lesson_id}")
     lessons = data.get("lessons", [])
     if not lessons:
         raise ValueError(f"API не вернул lesson для id={lesson_id}")
@@ -124,7 +138,7 @@ def get_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]
 
 def get_step_data(session: requests.Session, step_id: int) -> dict[str, Any]:
     """Получить данные шага по step_id."""
-    data = api_get(session, f"{API_HOST}/api/steps/{step_id}")
+    data = api_get(session, f"{stepik_client.API_HOST}/api/steps/{step_id}")
     steps = data.get("steps", [])
     if not steps:
         raise ValueError(f"API не вернул step для step_id={step_id}")
@@ -159,10 +173,20 @@ def save_json(
     filename: str,
     payload: dict[str, Any],
 ) -> pathlib.Path:
-    """Сохранить payload как JSON-файл в output_dir."""
+    """Сохранить payload как JSON-файл в output_dir, отредактировав секреты.
+
+    issue #950 (находка OPS-1-02): ответы API писались на диск как есть, поэтому
+    файлы ``stepik_diagnostics/*.json`` могли содержать токены и ключи —
+    ``docs/dev/logging.md`` п. 4 запрещает это ровно потому, что эти файлы и
+    создаются для того, чтобы приложить их к issue. Редакция идёт по
+    сериализованному тексту (``diag_log.redact``): маскируются и известные
+    зарегистрированные секреты, и всё, что подходит под паттерны токенов —
+    включая поля, о которых мы заранее не знаем.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     file_path = output_dir / filename
-    file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    serialized = json.dumps(payload, ensure_ascii=False, indent=2)
+    file_path.write_text(redact(serialized), encoding="utf-8")
     return file_path
 
 
@@ -269,32 +293,90 @@ def print_result_summary(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
-    """Точка входа: диагностика шага Stepik через OAuth API."""
-    step_url = input("Enter Stepik step URL: ").strip()
-    secrets_file = input("Enter secrets.json path [secrets.json]: ").strip() or "secrets.json"
-    output_dir_input = (
-        input("Enter diagnostics output dir [stepik_diagnostics]: ").strip() or "stepik_diagnostics"
+def _build_parser() -> argparse.ArgumentParser:
+    """Парсер аргументов диагностики (issue #997: RUN-4-03, RUN-5-03).
+
+    Модуль начинался с трёх голых ``input()``, поэтому ``--help`` не печатал
+    справку, а уходил в первый вопрос и падал ``EOFError`` на закрытом stdin:
+    в скрипте и в CI инструмент был неработоспособен, а флаг, которым его
+    пытались вызвать, молча съедался приглашением.
+    """
+    parser = argparse.ArgumentParser(
+        prog="python -m stepik_grader.diagnostic_stepik",
+        description=_t("diag_description"),
     )
-    output_dir = pathlib.Path(output_dir_input)
+    parser.add_argument("--url", help=_t("diag_arg_url"))
+    parser.add_argument("--secrets", default="secrets.json", help=_t("diag_arg_secrets"))
+    parser.add_argument("--out", default=str(DIAGNOSTICS_DIR), help=_t("diag_arg_out"))
+    parser.add_argument("--lang", choices=["ru", "en"], default="ru", help=_t("diag_arg_lang"))
+    return parser
+
+
+def _ask(prompt_key: str, default: str = "") -> str:
+    """Спросить значение в интерактивном режиме; иначе вернуть значение по умолчанию.
+
+    Неинтерактивный запуск (CI, пайп, перехваченный stdin) — штатная ситуация, а
+    не повод для трейсбека: спрашивать некого, поэтому вопрос не задаётся вовсе.
+    Вызывающая сторона проверит обязательные значения и скажет об этом словами.
+    ``OSError`` ловится наравне с ``EOFError``: закрытый или подменённый поток
+    ввода даёт то одно, то другое в зависимости от окружения.
+    """
+    if not sys.stdin or not sys.stdin.isatty():
+        return default
+    try:
+        answer = input(_t(prompt_key)).strip()
+    except (EOFError, KeyboardInterrupt, OSError):
+        print()
+        return default
+    return answer or default
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Точка входа: диагностика шага Stepik через OAuth API.
+
+    Возвращает код процесса (issue #997, JRN-3A-03): ``0`` — данные шага
+    получены, ``1`` — диагностика не состоялась. Прежде код был всегда ``0``, и
+    триаж-инструмент не годился как автоматическая проверка: «всё сломано»
+    выглядело для скрипта так же, как «всё в порядке».
+    """
+    # issue #1108: до первой печати — отчёт несёт название шага из Stepik.
+    force_utf8_stdio()
+    args = _build_parser().parse_args(argv)
+    set_lang(args.lang)
+    step_url = args.url or _ask("diag_prompt_url")
+    secrets_file = args.secrets or _ask("diag_prompt_secrets", "secrets.json")
+    output_dir = pathlib.Path(args.out)
+    if not step_url:
+        _print(_t("diag_url_required"))
+        return 1
     # issue #146: диагностическая утилита — включаем общий логгер (debug) в тот же
     # каталог; сетевые вызовы через stepik_client логируются с редакцией секретов.
     configure_diagnostics("debug", log_dir=output_dir)
     try:
-        client_id, client_secret, redirect_uri = load_secrets(pathlib.Path(secrets_file))
-        _print("✅ secrets.json успешно прочитан.")
+        secrets_path = pathlib.Path(secrets_file)
+        # issue #1017: читаем ПОЛНЫЙ словарь, вместе с сохранёнными токенами —
+        # иначе валидный access_token и живой refresh_token остаются невидимы,
+        # и авторизация всегда уходит в браузер.
+        secrets = load_secrets_dict(secrets_path)
+        _print(_t("diag_secrets_ok"))
         lesson_id, step_position = parse_stepik_step_url(step_url)
-        _print(f"✅ URL распознан: lesson_id={lesson_id}, step={step_position}")
-        session = create_user_session(client_id, client_secret, redirect_uri)
-        _print("✅ OAuth access token пользователя успешно получен.")
+        _print(_t("diag_url_parsed", lesson_id=lesson_id, step=step_position))
+        session = create_user_session(secrets, secrets_path)
+        _print(_t("diag_token_ok"))
         step_id, lesson, step_data = get_step_data_by_position(session, lesson_id, step_position)
-        _print("✅ Step data получены через API /steps/{id}.")
+        _print(_t("diag_step_ok"))
     except Exception as error:
         # issue #831 (DEV-12): в лог — стек, пользователю — короткая строка.
         # Диагностика без места падения бесполезна ровно там, где нужна.
         _log.exception("сбой диагностики Stepik (secrets=%s, url=%s)", secrets_file, step_url)
-        _print(f"❌ Ошибка диагностики: {error}")
-        return
+        _print(_t("diag_failed", error=error))
+        # issue #997 (OPS-1-03): стек лежит в логе, но пользователю о нём не
+        # говорили — оставалось гадать, есть ли он и где. Путь печатается, только
+        # когда файл действительно создан.
+        log_path = output_dir / "grader.log"
+        if log_path.is_file():
+            _print(_t("diag_log_path", path=log_path.resolve()))
+        return 1
     lesson_path = save_json(output_dir, "lesson_debug.json", lesson)
     step_path = save_json(output_dir, "step_debug.json", step_data)
     zip_url = extract_zip_url_from_step_data(step_data)
@@ -308,7 +390,9 @@ def main() -> None:
     )
     save_json(output_dir, "diagnostic_result.json", result)
     print_result_summary(result, output_dir)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    # issue #997 (JRN-3A-03): исход диагностики виден процессу, а не только глазам.
+    raise SystemExit(main())

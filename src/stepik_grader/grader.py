@@ -40,6 +40,17 @@ from stepik_grader.core.grader_core import (
     apply_relative_ranking,
     run_microbench,
 )
+
+# issue #997 (VIS-2-03): точка расширения была асимметрична — ``set_runner``
+# приезжал в фасад через grader_core, а типы, которыми пишут свой runner
+# (``Runner``, ``RunSpec``, ``RunOutcome``), оставались только в ``core/``.
+# Расширять фасад, читая при этом core, — ровно то, чего фасад должен избавить.
+from stepik_grader.core.runner import (
+    LocalRunner,
+    RunOutcome,
+    Runner,
+    RunSpec,
+)
 from stepik_grader.core.reporter import *
 from stepik_grader.core.reporter import (
     Console,
@@ -64,6 +75,7 @@ from stepik_grader.cli import (
     _print_menu,
     _resolve_test_dir_from_input,
     main,
+    run_cli,
 )
 
 __all__ = [
@@ -73,7 +85,12 @@ __all__ = [
     "MUCH_SLOWER_THRESHOLD",
     "SIMILAR_THRESHOLD",
     "TIMEOUT_SECONDS",
+    "LocalRunner",
+    "RunOutcome",
+    "RunSpec",
+    "Runner",
     "TestCase",
+    "active_runner",
     "collect_grouped_files",
     "find_all_solution_files",
     "format_benchmark_row",
@@ -95,4 +112,5 @@ __all__ = [
 ]
 
 if __name__ == "__main__":
-    main()
+    # issue #936: код исхода прогона становится статусом процесса.
+    run_cli()

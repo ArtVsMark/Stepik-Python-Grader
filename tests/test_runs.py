@@ -15,6 +15,7 @@ import threading
 import pytest
 import requests
 
+from stepik_grader.core.ai_hints import AiHintOutcome
 from stepik_grader.web import runs
 from tests._wait import wait_until
 
@@ -167,7 +168,11 @@ class TestHintAndSubmitCancel:
     def test_hint_cancelled_before_provider_call(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Отмена в очереди executor'а: к провайдеру не идём вообще."""
         called: list[object] = []
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: called.append(fc))
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: called.append(fc) or AiHintOutcome(text=None, reason=None),
+        )
         job = runs.Job("hint-cancel", "hint")
         job.cancel_event.set()
 
@@ -182,11 +187,11 @@ class TestHintAndSubmitCancel:
 
         job = runs.Job("hint-cancel-mid", "hint")
 
-        def _slow_hint(fc: object, cfg: object) -> str:
+        def _slow_hint(fc: object, cfg: object) -> AiHintOutcome:
             job.cancel_event.set()  # пользователь нажал «Отмена», пока шёл запрос
-            return "подсказка"
+            return AiHintOutcome(text="подсказка", reason=None)
 
-        monkeypatch.setattr(runs, "explain_failure", _slow_hint)
+        monkeypatch.setattr(runs, "explain_failure_detailed", _slow_hint)
 
         runs._run_hint_job(job, "print(1)", {"case": {}}, "ru")
 
@@ -195,7 +200,11 @@ class TestHintAndSubmitCancel:
 
     def test_hint_done_when_not_cancelled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Обычный путь не затронут."""
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: "подсказка")
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text="подсказка", reason=None),
+        )
         job = runs.Job("hint-done", "hint")
 
         runs._run_hint_job(job, "print(1)", {"case": {}}, "ru")

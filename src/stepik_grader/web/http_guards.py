@@ -150,6 +150,30 @@ class _GuardMixin(BaseHTTPRequestHandler):
             return None
         return resolved
 
+    def _is_python_target(self, path: pathlib.Path, lang: str = DEFAULT_LANG) -> bool:
+        """Путь указывает на файл решения (``.py``); иначе 403 и ``False`` (issue #963).
+
+        Конфайн отвечает на вопрос «внутри ли workspace», но не на вопрос «это
+        вообще решение». Ручки, работающие с кодом студента, обязаны спрашивать
+        второе: `path=secrets.json` внутри workspace конфайн проходит, а дальше
+        файл либо уезжает внешнему AI-провайдеру, либо затирается текстом
+        решения. Первым такой гейт получил `_get_source` (#811, SECW-02) — здесь
+        он вынесен в общий метод, чтобы третья ручка не появилась без него.
+        """
+        if path.suffix.lower() == ".py":
+            return True
+        self._send(
+            403,
+            "application/json; charset=utf-8",
+            _json(
+                {
+                    "kind": "error",
+                    **message_fields("source_not_a_solution", lang, name=path.name),
+                }
+            ),
+        )
+        return False
+
     def _guard_request(self, lang: str = DEFAULT_LANG) -> bool:
         """Host/Origin/Referer-проверка для `/api/*` (issue #242, F-03).
 

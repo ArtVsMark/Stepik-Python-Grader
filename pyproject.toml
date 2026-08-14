@@ -128,7 +128,7 @@ lint = [
 ]
 
 [project.scripts]
-stepik-grader = "stepik_grader.cli:main"
+stepik-grader = "stepik_grader.cli:run_cli"
 
 # issue #661: GUI-лаунчер веб-интерфейса без командной строки. gui-scripts (не
 # обычный scripts) — на Windows создаёт pythonw-exe БЕЗ консольного окна: двойной
@@ -160,6 +160,17 @@ where = ["src"]
 # единственным источником истины, зафиксированным в момент сборки sdist.
 [tool.setuptools_scm]
 version_scheme = "post-release"
+# issue #958: дерево без `.git` — не экзотика, а обычный способ получить
+# исходники: «Download ZIP» с GitHub, `git archive`, вендоренная копия, образ
+# с `.dockerignore` на `.git`. Без запасного значения setuptools-scm падает
+# `LookupError` ещё на `get_requires_for_build_wheel`, то есть пакет не
+# собирается вовсе, а сообщение ничего не говорит о причине.
+#
+# «0.0.0» выбрано намеренно как заведомо неправдоподобная версия: сборка
+# проходит, но число само сообщает «версия неизвестна, это не релиз».
+# Инвариант CLAUDE.md не нарушен — статической `version` в [project]
+# по-прежнему нет, git остаётся единственным источником истины там, где он есть.
+fallback_version = "0.0.0"
 
 # issue #101: PEP 561 — маркер py.typed, чтобы mypy у downstream-потребителей
 # видел типы установленного пакета. Достаточно на верхнем уровне пакета —
@@ -294,8 +305,9 @@ scripts = [
 # generates a CI-only `.coveragerc.ci` (scripts/generate_ci_coveragerc.py)
 # that layers on top of THIS list, omitting only the core/sandbox/ backend
 # files structurally unreachable on that job's own OS -- so that job's own
-# `fail_under` gate below isn't dragged down by platforms it can never
-# exercise (ubuntu measured ~86.1%, ~1pp margin, before this). The
+# `--cov-fail-under` gate (declared in the CI step, issue #954) isn't dragged
+# down by platforms it can never exercise (ubuntu measured ~86.1%, ~1pp
+# margin, before this). The
 # `coverage-combine` job (cross-OS aggregate, `--fail-under=90`) does NOT use
 # `.coveragerc.ci` and keeps reading this exact list, so the combined number
 # stays a true aggregate -- no sandbox file is omitted from every job at once.
@@ -315,12 +327,48 @@ omit = [
     # pytester в tests/test_pytest_plugin.py). Измерять его coverage бессмысленно
     # — число было бы артефактом порядка загрузки, а не реальным пробелом.
     "src/stepik_grader/pytest_plugin.py",
+    # issue #976: разовые тулзы мейнтейнера — из измерения исключены, но
+    # `scripts/` в целом остаётся в контуре (инвариант issue #790 про релизный
+    # конвейер продолжает действовать).
+    #
+    # Граница между списками одна: **что ломается у пользователя, если скрипт
+    # сломан**. Гейты и конвейер (check_*, generate_*_badge, combine_coverage,
+    # extract_release_notes, preflight, check_pr_ready, collect_changelog) —
+    # ломают релиз или пропускают дефект в продукт, поэтому меряются. Файлы
+    # ниже запускает вручную мейнтейнер, их поломка видна ему же в тот же
+    # момент, и никакой пользователь её не увидит. Измерение заставляло писать
+    # под них тесты ради процента: 4349 из 7263 LOC `scripts/` (около 60%) не
+    # вызываются ни одним шагом workflow.
+    #
+    # Новый скрипт по умолчанию МЕРЯЕТСЯ — сюда он попадает только осознанно.
+    "scripts/audit_glossary_cards.py",
+    "scripts/check_contrast.py",
+    "scripts/check_work_overlap.py",
+    "scripts/corpus_fetch.py",
+    "scripts/corpus_mutations.py",
+    "scripts/corpus_run.py",
+    "scripts/corpus_sweep.py",
+    "scripts/generate_draft_cards.py",
+    "scripts/glossary_draft_pipeline.py",
+    "scripts/import_glossary_python.py",
+    "scripts/perf_baseline.py",
+    "scripts/skip_inventory.py",
     "tests/*",
     "conftest.py",
 ]
 
 [tool.coverage.report]
-fail_under = 85
+# issue #954: порога здесь НЕТ намеренно. `addopts` включает `--cov`
+# безусловно, поэтому `fail_under` в конфиге превращал любой частичный прогон
+# (`pytest tests/test_packaging.py`, `pytest -k ...`) в ложно-красный: тесты
+# зелёные, покрытие пакета по паре файлов — 0%, код возврата 1. Читающий exit
+# code — контрибьютор, агент или скрипт — делает вывод «тесты упали» и чинит
+# несуществующую поломку.
+#
+# Гейт не отменён, а перенесён туда, где прогон заведомо полный: флаг
+# `--cov-fail-under` в шаге `Run tests` (.github/workflows/ci.yml) и
+# `--fail-under 90` в `coverage-combine`. Что порог не исчез из CI молча,
+# следит `scripts/check_workflow_guardrails.py`.
 exclude_lines = [
     "if __name__ == .__main__.:",
     "pragma: no cover",

@@ -602,6 +602,15 @@ class _ApiRoutesMixin(_GuardMixin):
             confined_target = self._confined_path(raw_path, lang)
             if confined_target is None:
                 return
+            # issue #963 (SEC-1-03): ручка сохраняет РЕШЕНИЕ, и её контракт —
+            # только это. Без фильтра конфайна хватало, чтобы записать что угодно
+            # внутри workspace: `path=secrets.json` затирал токен Stepik текстом
+            # решения, причём optimistic-lock не мешал (без `expected_mtime`
+            # проверки нет). Соседний `_get_source` такой гейт получил в #811,
+            # а `_secrets_path_is_writable` защищает только сам secrets.json —
+            # здесь распространяем правило на любой не-`.py`.
+            if not self._is_python_target(confined_target, lang):
+                return
             target_path = confined_target
         # issue #297: optimistic locking — фронтенд присылает mtime, запомненный
         # при загрузке файла; save_solution откажет с conflict=True, если файл на
@@ -861,6 +870,13 @@ class _ApiRoutesMixin(_GuardMixin):
         if raw_path:
             confined = self._confined_path(raw_path, lang)
             if confined is None:
+                return
+            # issue #963 (SEC-1-01): здесь хуже, чем у чтения исходника, — файл не
+            # показывается, а УВОЗИТСЯ по сети внешнему AI-провайдеру. Без гейта
+            # `path=secrets.json` отправлял в промпт client_secret и access_token,
+            # и следов в интерфейсе не оставалось: в ответе только подсказка.
+            # Тот же фильтр, что `_get_source` получил в #811.
+            if not self._is_python_target(confined, lang):
                 return
             with contextlib.suppress(OSError):
                 code = confined.read_text(encoding="utf-8")

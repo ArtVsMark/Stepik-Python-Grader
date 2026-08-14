@@ -31,7 +31,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.ai_hints import explain_failure, is_configured
+from stepik_grader.core.ai_hints import explain_failure_detailed, is_configured
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.failure_context import build_failure_context
 from stepik_grader.web.grading import find_all_solution_files, trace_code
@@ -532,7 +532,7 @@ def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> Non
         raw_case = params.get("case")
         case = raw_case if isinstance(raw_case, dict) else {}
         fc = build_failure_context(case, code=code, lang=lang)
-        hint = explain_failure(fc, CONFIG)
+        outcome = explain_failure_detailed(fc, CONFIG)
     except Exception as exc:
         with job.lock:
             job.status = "error"
@@ -547,7 +547,14 @@ def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> Non
             job.message_fields = message_fields("run_cancelled", lang)
             return
         job.status = "done"
-        job.result = {"hint": hint, "configured": is_configured(CONFIG)}
+        # issue #975: рядом с подсказкой едет причина её отсутствия. Без неё
+        # интерфейс не мог отличить «провайдер отверг ключ» от «канал
+        # выключен» — в обоих случаях приходил `hint: null`.
+        job.result = {
+            "hint": outcome.text,
+            "configured": is_configured(CONFIG),
+            "reason": outcome.reason,
+        }
 
 
 def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: str) -> None:

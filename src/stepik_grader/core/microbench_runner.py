@@ -23,11 +23,14 @@
     Память (Issue #25): psutil-подход режима 3 (отдельный поток, читающий RSS
     дочернего процесса) здесь неприменим — все 5 повторов timeit.repeat идут
     в ОДНОМ subprocess, замерить RSS отдельно для каждого нельзя. Вместо этого
-    ``tracemalloc`` включается перед timeit.repeat и выключается сразу после;
-    пик выделений Python-heap печатается отдельной строкой (``MEM:<bytes>``)
-    после строк с таймингами и парсится отдельно. Это НЕ RSS процесса —
-    tracemalloc не видит память, выделенную C-расширениями (numpy и т.п.) —
-    но для чистого Python-кода даёт содержательное сравнение.
+    ``tracemalloc`` включается на ОТДЕЛЬНЫЙ однократный прогон после замера
+    времени (issue #991/#956: под профилировщиком тайминги смещены — плата
+    растёт с числом аллокаций, и решение, активнее работающее со структурами
+    данных, выглядит медленнее независимо от реальной скорости). Пик выделений
+    Python-heap печатается отдельной строкой (``MEM:<bytes>``) после строк с
+    таймингами и парсится отдельно. Это НЕ RSS процесса — tracemalloc не видит
+    память, выделенную C-расширениями (numpy и т.п.) — но для чистого
+    Python-кода даёт содержательное сравнение.
 
 Дополнительный публичный API (вспомогательные структуры для агрегации):
     MicrobenchResult          — dataclass с таймингами одного решения
@@ -41,9 +44,9 @@
 
 from __future__ import annotations
 
-import contextlib
 import pathlib
 import re
+import shutil
 import statistics
 import tempfile
 from collections.abc import MutableMapping
@@ -176,6 +179,14 @@ def _build_bench_script(source_code: str, stdin_data: str, number: int) -> str:
     ПЕРЕД замером и ВНЕ ``tracemalloc`` — праймят импорты, ленивую инициализацию
     и кэши, чтобы cold-start первого прогона не завышал min/median (в измеряемые
     время и память прогрев не входит).
+
+    Порядок замеров (issue #991): сначала время — вне ``tracemalloc``, затем
+    отдельный однократный прогон под профилировщиком ради пика памяти. Раньше
+    всё шло одним проходом под ``tracemalloc``, и его накладные расходы,
+    пропорциональные числу аллокаций, систематически штрафовали решения,
+    активнее работающие с памятью: режим 4 ставил быстрое решение ниже
+    медленного с расхождением 2175%. Режим существует ради сравнения решений,
+    поэтому смещение, зависящее от свойств решения, обесценивает его целиком.
     """
     return (
         "import timeit as _timeit, sys as _sys, io as _io, os as _os, "
@@ -195,13 +206,21 @@ def _build_bench_script(source_code: str, stdin_data: str, number: int) -> str:
         "try:\n"
         "    # прогрев до замера: холостые прогоны праймят кэши/импорты (issue #412)\n"
         "    _timeit.timeit(stmt=_stmt, setup='pass', number=_warmup)\n"
-        "    _tm.start()\n"
+        "    # issue #991: время меряется БЕЗ tracemalloc. Профилировщик берёт плату\n"
+        "    # пропорционально числу аллокаций, поэтому под ним решение, активнее\n"
+        "    # работающее с памятью, выглядит медленнее независимо от реальной\n"
+        "    # скорости — режим 4 ранжировал решения наоборот (расхождение 2175%).\n"
         "    _times = _timeit.repeat(\n"
         "        stmt=_stmt,\n"
         "        setup='pass',\n"
         "        repeat=5,\n"
         "        number=_number,\n"
         "    )\n"
+        "    # Память — отдельным проходом: один прогон даёт тот же пик, что и\n"
+        "    # серия (пик — максимум по времени жизни, а не сумма), но не пачкает\n"
+        "    # тайминги. Цена — ровно один дополнительный прогон против 5×number.\n"
+        "    _tm.start()\n"
+        "    _timeit.timeit(stmt=_stmt, setup='pass', number=1)\n"
         "    _peak_bytes = _tm.get_traced_memory()[1]\n"
         "    _tm.stop()\n"
         "finally:\n"
@@ -226,10 +245,14 @@ def run_microbench(
     ``run_spec()`` активным Runner'ом (issue #417/#640), а не напрямую subprocess'ом.
     stdin сбрасывается перед каждой итерацией через _reset_stdin() в начале stmt.
 
-    bench-скрипт пишется во временный файл с delete=False и удаляется в блоке
-    finally — единственный надёжный кросс-платформенный способ передать путь
-    Runner'у. delete_on_close=False (Python 3.12+) ведёт себя по-разному
-    на Linux (удаляет при close) и Windows, и непригоден здесь.
+    bench-скрипт пишется в ПРИВАТНЫЙ каталог 0700 (``mkdtemp``) и удаляется
+    вместе с ним в блоке finally — так же, как это делают ``runner.py`` и
+    ``tracer.py`` (issue #799, здесь — issue #945). Общий системный temp не
+    годится: каталог скрипта CPython ставит первым в ``sys.path`` дочернего
+    процесса, и на многопользовательском POSIX-хосте посторонний мог подложить
+    туда свой ``timeit.py``, чтобы строка ``import timeit as _timeit``
+    bench-скрипта исполнила чужой код правами владельца грейдера. Права самого
+    файла (0600) от этого не спасают — атака идёт на каталог.
 
     max_memory_mb: best-effort лимит адресного пространства дочернего процесса
         (RLIMIT_AS, POSIX-only; issue #43 S-01). None — без ограничения.
@@ -253,17 +276,18 @@ def run_microbench(
     # нет, и ацикличность держится структурой, а не дисциплиной «не забыть
     # сделать импорт ленивым».
 
-    # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
-    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
-        mode="w", suffix=".py", encoding=ENCODING, delete=False
-    )
+    # issue #945 (находка DEV-2-06): приватный каталог 0700 вместо общего
+    # системного temp — тот же вектор и та же схема, что уже закрыты в
+    # runner.py и tracer.py (issue #799, SECC-01); микробенч в ту правку не
+    # попал. Каталог удаляется целиком в finally, поэтому путь скрипта живёт
+    # ровно столько, сколько идёт прогон.
+    tmp_dir = pathlib.Path(tempfile.mkdtemp(prefix="stepik-bench-"))
+    bench_path = tmp_dir / "bench.py"
     try:
-        tmp.write(bench_script)
-        tmp.flush()
-        tmp.close()
+        bench_path.write_text(bench_script, encoding=ENCODING)
         outcome = run_spec(
             RunSpec(
-                path=pathlib.Path(tmp.name),
+                path=bench_path,
                 stdin=None,
                 timeout=60.0,
                 measure_memory=False,
@@ -276,8 +300,7 @@ def run_microbench(
             )
         )
     finally:
-        with contextlib.suppress(OSError):
-            pathlib.Path(tmp.name).unlink()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if outcome.launch_error is not None:
         return {"times": [], "error": outcome.launch_error, "peak_memory_mb": 0.0}
@@ -296,10 +319,11 @@ def run_microbench(
     stderr = outcome.stderr.decode(ENCODING, errors="replace")
     if outcome.returncode != 0:
         # issue #726: без кадров timeit-обёртки — они относятся к механике
-        # замера, а не к решению (bench-скрипт уже удалён, путь берём из tmp).
+        # замера, а не к решению (bench-скрипт уже удалён вместе с каталогом,
+        # поэтому путь берём из переменной, а не с диска).
         return {
             "times": [],
-            "error": strip_harness_frames(stderr.strip(), harness_path=tmp.name),
+            "error": strip_harness_frames(stderr.strip(), harness_path=str(bench_path)),
             "peak_memory_mb": 0.0,
         }
     try:

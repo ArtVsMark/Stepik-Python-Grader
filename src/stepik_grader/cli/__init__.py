@@ -37,15 +37,24 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import json
 import os
 import pathlib
+import sys
 from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # только для аннотаций: insights грузится лениво
+    from stepik_grader.core.insights import InsightCard, TaskProgress
+
+from stepik_grader import config
 
 # issue #120: mode handlers — вынесены в leaf-модуль cli/commands.py; получают
 # зависимости через CliContext (cli/context.py), а не читают module globals
 # этого файла напрямую (см. docstring выше и _build_cli_context() ниже).
 from stepik_grader.cli import commands, interactive
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.exit_codes import ExitCode
 
 # issue #121 Phase 2: интерактивное меню/профили — вынесены в leaf-модуль
 # cli/interactive.py. _ask_number/_BENCH_PROFILES/_MICRO_PROFILES нигде не
@@ -67,7 +76,10 @@ from stepik_grader.cli.options import (
     _resolve_record_stats,
     _resolve_use_cache,
     _resolve_verbosity,
+    apply_launch_profile,
+    peek_lang,
 )
+from stepik_grader.cli.prompts import EXPLICIT_YES
 
 # issue #121 Phase 1: pure rendering helpers — вынесены в leaf-модуль
 # cli/rendering.py, реэкспортированы здесь для backward compatibility фасада.
@@ -91,12 +103,14 @@ from stepik_grader.core.grader_core import (
     run_tests,
     set_runner,
 )
+from stepik_grader.core.history import PurgePreview
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.reporter import (
     print_insights_summary,
     print_progress_summary,
     print_stats_summary,
 )
+from stepik_grader.core.settings_resolver import apply_user_run_settings
 
 __all__ = ["main"]
 
@@ -174,6 +188,45 @@ def _t(key: str, /, **kwargs: object) -> str:
 # reporter готовыми строками — сам reporter про локали не знает и остаётся leaf'ом.
 # Единицы длительности («42с») намеренно не сюда: у них уже есть ключи
 # progress_export_unit_*, общие с HTML-экспортом прогресса (issue #823).
+INSIGHTS_SCHEMA = "stepik-grader/insights/1"
+
+
+def _insights_payload(
+    cards: list[InsightCard],
+    progress: list[TaskProgress],
+) -> dict[str, object]:
+    """Сводка «Подучить» в машинном виде (issue #997, VIS-1-03).
+
+    Схема версионирована (``schema``) — потребитель может отличить формат от
+    будущих изменений, как это уже сделано для экспорта прогресса. Пустая
+    история — не ошибка, а объект с пустыми списками: скрипту так проще, чем
+    отличать «данных нет» от «команда упала».
+    """
+    return {
+        "schema": INSIGHTS_SCHEMA,
+        "cards": [
+            {
+                "key": card.key,
+                "category": card.category,
+                "status": card.status,
+                "hits": card.hits,
+                "runs_considered": card.runs_considered,
+                "glossary_id": card.glossary_id,
+            }
+            for card in cards
+        ],
+        "tasks": [
+            {
+                "task_key": item.task_key,
+                "attempts": item.attempts,
+                "solved": item.solved,
+                "seconds_to_first_ac": item.seconds_to_first_ac,
+            }
+            for item in progress
+        ],
+    }
+
+
 def _insights_labels() -> dict[str, str]:
     """Подписи таблицы «Подучить» на текущем языке."""
     return {
@@ -289,7 +342,7 @@ def _run_mode_1(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
     return commands._run_mode_1(
         _build_cli_context(),
@@ -314,7 +367,7 @@ def _run_mode_2(
     record_history: bool = False,
     record_lint: bool = False,
     ai_hints: bool = False,
-) -> bool:
+) -> ExitCode:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
     return commands._run_mode_2(
         _build_cli_context(),
@@ -432,20 +485,65 @@ def _watch_and_rerun(watch_path: pathlib.Path, rerun: Callable[[], object]) -> N
         pass
 
 
-def _dispatch_with_watch(target: pathlib.Path, run: Callable[[], object], *, watch: bool) -> None:
+def _dispatch_with_watch(
+    target: pathlib.Path, run: Callable[[], ExitCode], *, watch: bool
+) -> ExitCode:
     """Запустить ``run`` один раз или, под ``--watch``, перезапускать при
     изменениях ``target``.
 
     issue #354 — общий раннер вместо двух почти одинаковых watch/no-watch
     веток в режимах 1 и 2.
+
+    issue #936: возвращает код исхода одиночного прогона. Под ``--watch`` кода
+    нет по сути — цикл живёт до Ctrl+C, и «итога» у него не бывает; такой
+    запуск завершается ``OK``.
     """
     if watch:
         _watch_and_rerun(target, run)
-    else:
-        run()
+        return ExitCode.OK
+    return run()
 
 
-def main(argv: list[str] | None = None) -> None:
+def _confirm_purge(preview: PurgePreview, task_key: str | None) -> bool:
+    """Показать объём удаления истории и спросить подтверждение (issue #990).
+
+    ``True`` — можно удалять. Удалять нечего (пустая или отсутствующая база) —
+    тоже ``True``: спрашивать не о чем, а сообщение о нуле удалённых напечатает
+    сам вызывающий.
+
+    Подтверждение спрашивается только в интерактивной сессии. Без TTY (CI,
+    пайп) вопрос не задаётся: зависший на вводе скрипт хуже, чем отсутствие
+    подтверждения, — но объём всё равно печатается, чтобы он остался в логе.
+    """
+    runs = preview["runs"]
+    if runs == 0:
+        return True
+    tasks = preview["tasks"]
+    solutions = preview["solutions"]
+    print(
+        _t(
+            "history_purge_preview",
+            runs=runs,
+            tasks=", ".join(tasks) or "—",
+            solutions=", ".join(solutions) or "—",
+        )
+    )
+    # Совпадение ключей — не гипотеза, а текущее поведение: ключ задачи равен
+    # имени папки, поэтому точечное удаление может задеть одноимённую задачу
+    # другого курса. Пользователь должен узнать об этом до, а не после.
+    if task_key is not None and len(tasks) > 1:
+        print(_t("history_purge_shared_key", task=task_key))
+    if not sys.stdin.isatty():
+        return True
+    try:
+        answer = input(_t("history_purge_confirm")).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return answer in EXPLICIT_YES
+
+
+def main(argv: list[str] | None = None) -> ExitCode:
     """Точка входа CLI: argparse для non-interactive режимов, иначе меню.
 
     stepik-grader                                             — интерактивное меню
@@ -462,8 +560,60 @@ def main(argv: list[str] | None = None) -> None:
     """
     _force_utf8_stdio()
 
-    parser = _build_arg_parser()
+    # issue #997 (INS-5-03): язык нужен ДО сборки парсера — иначе тексты справки
+    # уже зафиксированы, и `--lang en --help` печатает русскую справку, то есть
+    # самая первая поверхность игнорирует выбор языка.
+    parser = _build_arg_parser(peek_lang(argv))
     args = parser.parse_args(argv)
+
+    # issue #993: источник конфигурации фиксируется до всего остального —
+    # вердикт не должен зависеть от того, что лежит в родительских каталогах.
+    # Несуществующий путь — ошибка разбора аргументов, а не тихий откат на
+    # автопоиск: пользователь просил конкретный файл.
+    if args.config is not None:
+        if not args.config.is_file():
+            parser.error(f"--config: файл не найден — {args.config}")
+        config.set_config_path(args.config)
+    # issue #984: один корень настроек для CLI и веба. Без --root корень
+    # резолвится от рабочей папки вверх до границы проекта.
+    if args.root is not None:
+        config.set_workspace_root(args.root)
+
+    # issue #1133 (шаг 2): именованный профиль применяется ПОСЛЕ --root (файл
+    # настроек читается из выбранного корня) и ДО всего остального — дальше
+    # аргументы разъезжаются по конфигу и веб-серверу, и профиль, применённый
+    # позже, действовал бы наполовину.
+    apply_launch_profile(args, argv, parser)
+
+    # issue #1136: настройки, выбранные во вкладке «Дополнительно», ложатся
+    # поверх pyproject.toml — и ДО флагов ниже, потому что флаг обязан
+    # перекрывать сохранённое: разовое `--timeout 30` иначе проигрывало бы
+    # значению, выбранному месяц назад.
+    rejected = apply_user_run_settings()
+    if rejected:
+        # Настройка, которая «не сработала» без единого слова, неотличима от
+        # неработающей функции — поэтому отброшенное называется вслух.
+        print(_t("user_settings_rejected", names=", ".join(rejected)))
+
+    # issue #997 (SET-3-03): лимиты правились только в pyproject.toml, которого
+    # у pipx-установки нет. Применяем ДО диспетчеризации — прогон, паспорт
+    # условий и ключ кэша должны видеть одно и то же значение.
+    overrides: dict[str, object] = {}
+    if args.timeout is not None:
+        if args.timeout <= 0:
+            parser.error(f"--timeout: ожидалось положительное число секунд — {args.timeout}")
+        overrides["timeout_seconds"] = args.timeout
+    if args.memory_limit is not None:
+        if args.memory_limit < 0:
+            parser.error(f"--memory-limit: ожидалось 0 или больше — {args.memory_limit}")
+        # 0 — «снять лимит»: в конфиге это None, а не ноль мегабайт.
+        overrides["max_memory_mb"] = args.memory_limit or None
+    # issue #1111: режим сравнения вывода на один прогон. Значения проверяет
+    # argparse (`choices`), поэтому здесь только перенос в конфиг.
+    if args.compare is not None:
+        overrides["compare_mode"] = args.compare
+    if overrides:
+        config.override_config(**overrides)
 
     # issue #146: opt-in диагностический лог. --diagnostic → debug; иначе уровень
     # берётся из STEPIK_GRADER_LOG (по умолчанию выключено, файл не создаётся).
@@ -476,7 +626,7 @@ def main(argv: list[str] | None = None) -> None:
         # Имя дистрибутива, а не файла: `grader.py` при src-layout не существует
         # ни как команда, ни как файл в корне (issue #820).
         print(f"stepik-grader {_format_version_for_display(__version__)}")
-        return
+        return ExitCode.OK
 
     if args.clear_cache:
         # issue #816 (DEV-11): чистим ОБА кэша. Раньше флаг трогал только
@@ -487,7 +637,7 @@ def main(argv: list[str] | None = None) -> None:
 
         removed = GraderCache().clear() + clear_stepik_cache()
         print(_t("cache_cleared", count=removed))
-        return
+        return ExitCode.OK
 
     if args.revoke_ai_consent:
         # issue #812 (SECD-06): отозвать согласие было нечем — только правкой
@@ -496,7 +646,7 @@ def main(argv: list[str] | None = None) -> None:
         from stepik_grader.cli.commands import revoke_ai_consent
 
         print(_t("ai_consent_revoked" if revoke_ai_consent() else "ai_consent_absent"))
-        return
+        return ExitCode.OK
 
     if args.purge_history is not None:
         # issue #813 (SECD-03): у локального журнала обучения должен быть
@@ -505,25 +655,44 @@ def main(argv: list[str] | None = None) -> None:
         # (плюс -wal/-shm) — то есть зная о файлах, которых пользователь не
         # создавал. Без аргумента чистим и статистику: это те же личные данные.
         from stepik_grader.core import stats as stats_mod
-        from stepik_grader.core.history import purge_history
+        from stepik_grader.core.history import preview_purge, purge_history
         from stepik_grader.core.history_recording import default_history_db_path
 
         task_key = args.purge_history or None
-        runs_removed = purge_history(default_history_db_path(), task_key=task_key)
+        db_path = default_history_db_path()
+        # issue #990: удаление необратимо, а ключ задачи сейчас совпадает у
+        # одноимённых папок разных курсов — «своя» задача утаскивает чужую.
+        # Поэтому объём показывается ДО удаления, а в интерактивной сессии
+        # спрашивается подтверждение. Без TTY (CI, скрипт) вопрос не задаётся:
+        # зависший на вводе пайплайн хуже, чем отсутствие подтверждения.
+        if not _confirm_purge(preview_purge(db_path, task_key=task_key), task_key):
+            print(_t("history_purge_cancelled"))
+            # Отказ пользователя — не сбой команды: данные целы, как он и просил.
+            return ExitCode.OK
+        runs_removed = purge_history(db_path, task_key=task_key)
         if task_key is None:
             stats_removed = stats_mod.purge_stats()
             print(_t("history_purged", runs=runs_removed, stats=stats_removed))
         else:
             print(_t("history_purged_task", task=task_key, runs=runs_removed))
-        return
+        return ExitCode.OK
 
     if args.stats_summary:
         summary = stats.read_summary()
         if summary["total_runs"] == 0:
-            print(_t("stats_no_data"))
+            # issue #1005 (FZZ-5-06): битый журнал и пустой журнал — разные
+            # причины с разными действиями. Прежнее общее «статистика выключена
+            # или ещё не накопилась» называло причину, которой нет: записи были,
+            # их не удалось прочитать, и чинится это удалением файла — о котором
+            # молчали.
+            skipped = int(summary.get("skipped", 0))
+            if skipped:
+                print(_t("stats_all_entries_broken", skipped=skipped, path=stats.stats_path()))
+            else:
+                print(_t("stats_no_data"))
         else:
             print_stats_summary(summary)
-        return
+        return ExitCode.OK
 
     if args.export_progress:
         from stepik_grader.core import progress_export
@@ -532,20 +701,32 @@ def main(argv: list[str] | None = None) -> None:
         db_path = default_history_db_path()  # issue #818
         report = progress_export.build_progress_report(db_path)
         if report["total_runs"] == 0:
-            print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
-            return
+            # issue #997: под json пустая история — тоже JSON, иначе скрипт
+            # получает русскую прозу там, где ждёт объект.
+            if args.export_progress == "json":
+                print(json.dumps({"reason": "no_history_data", **report}, ensure_ascii=False))
+            else:
+                print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
+            return ExitCode.OK
         fmt = args.export_progress
-        # issue #821: отчёт следует выбранному языку — раньше он всегда выходил
-        # русским, включая атрибут <html lang>, даже под `--lang en`.
-        rendered = (
-            progress_export.render_markdown(report, lang=_LANG)
-            if fmt == "md"
-            else progress_export.render_html(report, lang=_LANG)
-        )
+        # issue #997 (COM-1-07): json — машинный формат со стабильной схемой
+        # (`schema`, `tasks[].task_key/attempts/failure_kinds`). Прежде экспорт
+        # умел только md/html: чтобы свести прогресс по группе, преподавателю
+        # пришлось бы разбирать вёрстку отчёта.
+        if fmt == "json":
+            rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+        else:
+            # issue #821: отчёт следует выбранному языку — раньше он всегда выходил
+            # русским, включая атрибут <html lang>, даже под `--lang en`.
+            rendered = (
+                progress_export.render_markdown(report, lang=_LANG)
+                if fmt == "md"
+                else progress_export.render_html(report, lang=_LANG)
+            )
         out = pathlib.Path.cwd() / f"grader-progress.{fmt}"
         out.write_text(rendered, encoding="utf-8")
         print(_t("progress_exported", path=out))
-        return
+        return ExitCode.OK
 
     if args.insights:
         from stepik_grader import rules
@@ -560,6 +741,11 @@ def main(argv: list[str] | None = None) -> None:
             k=CONFIG.insights_clean_streak_k,
         )
         progress = insights.time_to_first_green(db_path)  # issue #431: TTFG
+        # issue #997 (VIS-1-03): --insights молча игнорировал --output, и
+        # единственным способом забрать сводку скриптом был парсинг таблиц rich.
+        if args.output == "json":
+            print(json.dumps(_insights_payload(cards, progress), ensure_ascii=False, indent=2))
+            return ExitCode.OK
         if not cards and not progress:
             print(_t("insights_no_data"))
         else:
@@ -569,14 +755,14 @@ def main(argv: list[str] | None = None) -> None:
                 print_insights_summary(
                     cards, rules_provider=rules.bundled_rules(), labels=_insights_labels()
                 )
-        return
+        return ExitCode.OK
 
     if args.init_vscode:
         from stepik_grader import ide
 
         written, path = ide.write_vscode_tasks()
         print(_t("vscode_written" if written else "vscode_exists", path=path))
-        return
+        return ExitCode.OK
 
     if args.import_reference:
         # issue #55: закреплённое решение Stepik + топовые как task{N}_{100+}.py.
@@ -592,7 +778,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"✅ Импортировано reference-решений: {len(saved)}")
         for saved_path in saved:
             print(f"   {saved_path.name}")
-        return
+        return ExitCode.OK
 
     if args.serve:
         # issue #396: --sandbox теперь проброшен в web — run_server ставит
@@ -612,20 +798,23 @@ def main(argv: list[str] | None = None) -> None:
                 # issue #395: для --serve история включена по умолчанию
                 # (локальная приватная БД наполняет «Подучить»); --no-history
                 # выключает. Отличие от режимов 1-4, где дефолт — opt-in.
-                record_history=args.history is not False,
+                #
+                # issue #997: раньше здесь стояло `args.history is not False` —
+                # своя, третья лестница приоритета, не знавшая ни про
+                # pyproject, ни про сохранённый тумблер меню. Пользователь
+                # выключал историю пунктом 7 и получал её обратно при первом же
+                # `--serve`. Теперь резолвер один на все поверхности, а дефолт
+                # веба передаётся параметром.
+                record_history=_resolve_record_history(args, default=True),
+                # issue #1131 (LNCH-2-05): выбранный язык доезжает до страницы.
+                # Раньше `--lang en --serve` переводил только сообщения API, а
+                # интерфейс открывался на русском — флаг молча действовал
+                # наполовину.
+                lang=args.lang,
             )
         except SandboxUnavailableError as exc:
             parser.error(_t("sandbox_unavailable", reason=str(exc)))
-        return
-
-    if args.mode is None:
-        _interactive_menu()
-        return
-
-    record_stats = _resolve_record_stats(args)
-    record_history = _resolve_record_history(args)
-    record_lint = args.lint  # разовый флаг режимов 1/2 (issue #349), без config-дефолта
-    ai_hints = args.ai_hints  # разовый флаг AI-подсказок режимов 1–4 (issue #435/#542)
+        return ExitCode.OK
 
     if args.sandbox:
         # issue #266: жёсткий отказ, если backend недоступен на этой машине --
@@ -633,12 +822,28 @@ def main(argv: list[str] | None = None) -> None:
         # --sandbox help и SECURITY.md). Ленивый импорт: core/sandbox тянет
         # ОС-специфичные модули (ctypes на Windows, resource на POSIX) только
         # когда флаг реально запрошен.
+        #
+        # issue #997 (DEV-1-02, LNCH-2-01, SBX-4-03, SEC-2-01 — четыре
+        # независимых среза): блок стоял НИЖЕ ветки меню, поэтому `--sandbox`
+        # без `--mode` не доходил сюда вовсе. Пользователь просил изоляцию,
+        # получал обычное меню и грейдил через LocalRunner — а решение, пишущее
+        # файлы мимо задачи, спокойно их писало. Молчание тут хуже отказа:
+        # флаг о безопасности либо действует, либо честно падает.
         from stepik_grader.core.sandbox import SandboxRunner, SandboxUnavailableError
 
         try:
             set_runner(SandboxRunner())
         except SandboxUnavailableError as exc:
             parser.error(_t("sandbox_unavailable", reason=str(exc)))
+
+    if args.mode is None:
+        _interactive_menu()
+        return ExitCode.OK
+
+    record_stats = _resolve_record_stats(args)
+    record_history = _resolve_record_history(args)
+    record_lint = args.lint  # разовый флаг режимов 1/2 (issue #349), без config-дефолта
+    ai_hints = args.ai_hints  # разовый флаг AI-подсказок режимов 1–4 (issue #435/#542)
 
     if args.mode == 1:
         if not args.file:
@@ -647,7 +852,7 @@ def main(argv: list[str] | None = None) -> None:
         # Режим 1 — один файл; инкрементальность (issue #71) неприменима,
         # поэтому кэш под --watch автоматически не включаем.
         use_cache = _resolve_use_cache(args, incremental=False)
-        _dispatch_with_watch(
+        return _dispatch_with_watch(
             args.file,
             lambda: _run_mode_1(
                 args.file,
@@ -668,7 +873,7 @@ def main(argv: list[str] | None = None) -> None:
         # issue #71: под --watch кэш включается по умолчанию — на событие
         # перезапускается только изменённый файл, остальные строки берутся из кэша.
         use_cache = _resolve_use_cache(args, incremental=args.watch)
-        _dispatch_with_watch(
+        return _dispatch_with_watch(
             args.dir,
             lambda: _run_mode_2(
                 args.dir,
@@ -708,3 +913,17 @@ def main(argv: list[str] | None = None) -> None:
             record_history=record_history,
             ai_hints=ai_hints,
         )
+
+    # issue #936: режимы 3 и 4 — сравнение и микробенч, у них нет вердикта
+    # «правильно/неправильно», по которому строится гейт. Возвращают OK.
+    return ExitCode.OK
+
+
+def run_cli(argv: list[str] | None = None) -> None:
+    """Обёртка консольного скрипта: превращает код исхода в статус процесса.
+
+    issue #936: `main()` остаётся вызываемой из кода и тестов без побочного
+    `SystemExit`, а точка входа `stepik-grader` завершает процесс кодом прогона —
+    иначе CI-гейт, построенный по документации, зеленеет на упавших тестах.
+    """
+    raise SystemExit(main(argv))

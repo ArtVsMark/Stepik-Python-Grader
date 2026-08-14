@@ -26,6 +26,8 @@ import requests
 
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.stepik_client import (
+    OAuthCallbackPortBusy,
+    StepikNetworkError,
     authorize_via_browser,
     create_user_session,
     make_session,
@@ -46,6 +48,8 @@ _log = get_logger("oauth_flow")  # issue #149: диагностический л
 _REFRESH_LOCK = threading.Lock()
 
 __all__ = [
+    "OAuthCallbackPortBusy",
+    "StepikNetworkError",
     "authorize_and_get_token",
     "authorize_via_browser",
     "create_user_session",
@@ -161,6 +165,15 @@ def try_create_session_without_browser(
             token_data = refresh_access_token(client_id, client_secret, refresh_token)
         except requests.HTTPError as exc:
             _log.warning("обновление по refresh_token не удалось: %s", exc)
+            return None
+        except ValueError as exc:
+            # issue #943 (ADD-2-02): ответ 200 с валидным JSON, но без
+            # access_token. Раньше он уходил в secrets как есть: прежний
+            # протухший токен оставался, а expires_at сдвигался в будущее — и
+            # token_is_valid() целый час отвечал True, пока каждый запрос
+            # получал 401 без внятной причины. secrets НЕ трогаем и честно
+            # отдаём None: вызывающая сторона уйдёт на браузерную авторизацию.
+            _log.warning("ответ токен-эндпоинта непригоден: %s", exc)
             return None
         token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
         secrets.update(token_data)

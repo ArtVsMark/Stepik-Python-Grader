@@ -18,6 +18,13 @@ tests/test_microbench.py.
 
 from __future__ import annotations
 
+import pathlib
+import stat
+import sys
+import tempfile
+
+import pytest
+
 from stepik_grader.core import microbench_runner
 from stepik_grader.core.microbench_runner import (
     MicrobenchResult,
@@ -26,6 +33,7 @@ from stepik_grader.core.microbench_runner import (
     apply_relative_ranking,
     run_microbench,
 )
+from stepik_grader.core.runner import RunOutcome
 
 
 def test_microbench_runner_basic_timing() -> None:
@@ -41,6 +49,39 @@ def test_microbench_runner_reports_nonzero_peak_memory() -> None:
     result = run_microbench("data = [0] * 1_000_000\n", stdin_data="", number=1)
     assert result["error"] == ""
     assert result["peak_memory_mb"] > 0.0
+
+
+def test_timing_is_measured_outside_tracemalloc() -> None:
+    """issue #991: замер времени идёт ДО старта профилировщика памяти.
+
+    Накладные расходы ``tracemalloc`` пропорциональны числу аллокаций, поэтому
+    под ним решение, активнее работающее с памятью, выглядит медленнее
+    независимо от реальной скорости — режим 4 ранжировал решения наоборот
+    (расхождение 2175% на паре, где «медленное» решение было быстрее).
+
+    Проверяется порядок в сгенерированном bench-скрипте: это структурный
+    инвариант, а не измеримая величина — сравнение двух решений по времени на
+    CI-раннере было бы флаки-тестом, а не проверкой.
+    """
+    script = microbench_runner._build_bench_script("x = [0] * 100\n", "", 5)
+
+    timing_at = script.index("_timeit.repeat(")
+    tracemalloc_at = script.index("_tm.start()")
+
+    assert timing_at < tracemalloc_at, "замер времени идёт под включённым tracemalloc"
+
+
+def test_memory_pass_runs_the_solution_once_under_tracemalloc() -> None:
+    """Память по-прежнему меряется — отдельным однократным прогоном.
+
+    Пик — максимум по времени жизни, а не сумма, поэтому одного прогона
+    достаточно; цена — один запуск против 5×number в замере времени.
+    """
+    script = microbench_runner._build_bench_script("x = [0] * 100\n", "", 5)
+    after_start = script.split("_tm.start()", 1)[1]
+
+    assert "_timeit.timeit(stmt=_stmt, setup='pass', number=1)" in after_start
+    assert "_tm.get_traced_memory()" in after_start
 
 
 def test_microbench_runner_peak_memory_present_on_error() -> None:
@@ -144,6 +185,59 @@ def test_microbench_runner_uses_public_run_spec(monkeypatch) -> None:
     monkeypatch.setattr(microbench_runner, "run_spec", fake_run_spec)
     run_microbench("x = 1\n", stdin_data="", number=5)
     assert len(calls) == 1  # ровно один прогон, через публичный run_spec
+
+
+def _captured_bench_spec(monkeypatch) -> tuple[pathlib.Path, int]:
+    """Прогнать микробенч, вернув путь bench-скрипта и права его каталога.
+
+    ``run_spec`` подменяется, чтобы снять состояние ДО того, как ``finally``
+    снесёт каталог: после возврата из ``run_microbench`` проверять уже нечего,
+    поэтому права читаются здесь, а не в самом тесте.
+    """
+    seen: list[tuple[pathlib.Path, int]] = []
+
+    def fake_run_spec(spec):
+        # Каталог обязан существовать в момент прогона — иначе раннеру нечего
+        # исполнять; проверяем это здесь же, а не после уборки.
+        assert spec.path.is_file(), spec.path
+        seen.append((spec.path, stat.S_IMODE(spec.path.parent.stat().st_mode)))
+        return RunOutcome()
+
+    monkeypatch.setattr(microbench_runner, "run_spec", fake_run_spec)
+    run_microbench("x = 1\n", stdin_data="", number=5)
+    assert len(seen) == 1
+    return seen[0]
+
+
+def test_bench_script_lives_in_private_dir_not_shared_tmp(monkeypatch) -> None:
+    """bench-скрипт лежит в приватном каталоге, а не прямо в общем temp (#945).
+
+    Каталог скрипта CPython ставит ПЕРВЫМ в ``sys.path`` дочернего процесса:
+    в общем ``/tmp`` посторонний мог подложить свой ``timeit.py``, и строка
+    ``import timeit as _timeit`` bench-скрипта исполнила бы чужой код правами
+    владельца грейдера. Права самого файла (0600) не спасают — атака идёт на
+    каталог, поэтому проверяется именно он.
+    """
+    bench_path, _mode = _captured_bench_spec(monkeypatch)
+
+    shared_tmp = pathlib.Path(tempfile.gettempdir()).resolve()
+    parent = bench_path.parent.resolve()
+    assert parent != shared_tmp, f"bench-скрипт лежит прямо в общем temp: {bench_path}"
+    assert parent.name.startswith("stepik-bench-"), parent
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="права POSIX; на Windows иная модель ACL")
+def test_bench_dir_is_owner_only(monkeypatch) -> None:
+    """Приватный каталог bench-скрипта — 0700, как у runner.py и tracer.py (#945)."""
+    _bench_path, mode = _captured_bench_spec(monkeypatch)
+    assert mode == 0o700, oct(mode)
+
+
+def test_bench_dir_removed_after_run(monkeypatch) -> None:
+    """Каталог со скриптом уносится целиком после прогона, а не остаётся мусором."""
+    bench_path, _mode = _captured_bench_spec(monkeypatch)
+    assert not bench_path.exists(), bench_path
+    assert not bench_path.parent.exists(), bench_path.parent
 
 
 def test_microbench_runner_apply_relative_orders_by_median() -> None:

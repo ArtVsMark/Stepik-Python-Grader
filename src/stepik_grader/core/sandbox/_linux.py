@@ -36,7 +36,6 @@ site-packages venv'а НЕ пробрасываются, поэтому реше
 
 from __future__ import annotations
 
-import math
 import os
 import shutil
 import sys
@@ -45,8 +44,8 @@ from pathlib import Path
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.run_dir import ephemeral_run_dir
-from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
-from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
+from stepik_grader.core.runner import RunOutcome, RunSpec, materialize_spec
+from stepik_grader.core.sandbox import _limits, _posix_bootstrap, _posix_common
 
 __all__ = ["LinuxSandboxRunner", "create_backend"]
 
@@ -87,6 +86,42 @@ def _python_tree_binds() -> list[str]:
     return deduped
 
 
+def _site_packages_mask_args() -> list[str]:
+    """bwrap-аргументы, скрывающие ``site-packages`` грейдера внутри песочницы.
+
+    issue #986 (SEC-2-02/CANON-2-01). Изоляция монтирует дерево интерпретатора
+    целиком, а в venv внутри него лежат зависимости грейдера — решение видело
+    ``requests``/``psutil``/``rich`` и любой пакет, который окажется в окружении.
+    Заявлено ровно обратное: ``supports_project_imports = False`` в самом
+    backend'е и дважды SECURITY.md («биндится только интерпретатор+stdlib, не
+    venv site-packages»).
+
+    Вред не только в расхождении с обещанием. Решение, случайно опершееся на
+    сторонний пакет, проходит локально и падает `ImportError` на Stepik — то
+    есть грейдер выдаёт зелёное там, где проверка на самом деле не пройдена.
+
+    Каталог перекрывается пустой ``tmpfs``: stdlib живёт отдельно
+    (``sysconfig.get_path("stdlib")``, обычно под ``/usr``), поэтому
+    интерпретатор стартует как ни в чём не бывало. Пути вне примонтированных
+    деревьев пропускаем — bwrap отвергает ``--tmpfs`` на несуществующей точке.
+    """
+    trees = _python_tree_binds()
+    masked: list[str] = []
+    for key in ("purelib", "platlib"):
+        raw = sysconfig.get_paths().get(key)
+        if not raw:
+            continue
+        path = str(Path(raw).resolve())
+        inside_tree = any(path == tree or path.startswith(tree + os.sep) for tree in trees)
+        if inside_tree and path not in masked:
+            masked.append(path)
+
+    args: list[str] = []
+    for path in masked:
+        args += ["--tmpfs", path]
+    return args
+
+
 def _usrmerge_symlink_args() -> list[str]:
     """bwrap-аргументы, воссоздающие top-level usrmerge-симлинки внутри песочницы.
 
@@ -107,8 +142,13 @@ def _usrmerge_symlink_args() -> list[str]:
 
 
 def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
-    cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
-    max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
+    # issue #986 (PY-2-01): квота выводится из wall-таймаута прогона, а не
+    # берётся константой — иначе разрешённый пользователем долгий прогон
+    # режется на середине.
+    cpu_seconds = _posix_bootstrap.cpu_quota_seconds(spec.timeout, CONFIG.sandbox_max_cpu_seconds)
+    max_memory_bytes = (
+        _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb) * 1024 * 1024
+    )
     bootstrap = _posix_bootstrap.build_bootstrap_argv(
         sys.executable,
         str(script_path),
@@ -121,6 +161,9 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     argv = [str(bwrap)]
     for tree in _python_tree_binds():
         argv += ["--ro-bind", tree, tree]
+    # issue #986 (SEC-2-02): скрыть site-packages грейдера — ПОСЛЕ bind'ов дерева
+    # интерпретатора, иначе монтирование дерева перекрыло бы саму маску.
+    argv += _site_packages_mask_args()
     # issue #420: воссоздать usrmerge-симлинки (/lib64 -> /usr/lib64 и т.п.) ПОСЛЕ
     # bind'а /usr — иначе ELF-загрузчик решения не находится (см. helper).
     argv += _usrmerge_symlink_args()
@@ -152,6 +195,38 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     return argv
 
 
+# Собственная диагностика bwrap: он префиксует ею каждое своё сообщение об
+# ошибке («bwrap: Creating new namespace failed: Operation not permitted»).
+_BWRAP_ERROR_PREFIX = b"bwrap: "
+
+
+def _as_launch_error_if_bwrap_failed(outcome: RunOutcome) -> RunOutcome:
+    """Отличить отказ песочницы от падения решения (issue #986, SBX-4-01).
+
+    Сломанный ``bwrap`` — нет прав на user namespaces, ядро без нужной опции,
+    урезанный контейнер — не запускает решение вовсе, но выходит ненулевым кодом
+    со своей диагностикой в stderr. Дальше по цепочке это неотличимо от
+    «решение упало»: пользователь получал `RE` и текст `bwrap: Creating new
+    namespace failed` вместо трейсбека своего кода. Верное решение —
+    провалено, причина — не названа.
+
+    Признаки берём вместе: ненулевой код, пустой stdout решения и стартовая
+    строка stderr с префиксом самого bwrap. Порознь любой из них встречается и
+    у настоящего падения решения — например, решение может напечатать что
+    угодно в stderr, но не может сделать это ДО того, как его запустили.
+    """
+    if outcome.launch_error is not None or outcome.returncode == 0:
+        return outcome
+    if outcome.stdout or not outcome.stderr.startswith(_BWRAP_ERROR_PREFIX):
+        return outcome
+    detail = outcome.stderr.decode("utf-8", "replace").strip()
+    outcome.launch_error = (
+        f"песочница (bwrap) не смогла запустить решение: {detail}. "
+        "Решение не выполнялось — это отказ изоляции, а не ошибка кода."
+    )
+    return outcome
+
+
 class LinuxSandboxRunner:
     """``Runner`` изолирующий выполнение через bubblewrap на Linux."""
 
@@ -162,14 +237,15 @@ class LinuxSandboxRunner:
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
-            script_path = run_dir / "solution.py"
+            # issue #992: имя скрипта и файлы-спутники приходят из spec —
+            # в function-режиме обёртку нельзя класть под именем модуля решения.
             try:
-                script_path.write_bytes(spec_source_bytes(spec))
-            except OSError as exc:
+                script_path = materialize_spec(spec, run_dir)
+            except (OSError, ValueError) as exc:
                 return RunOutcome(launch_error=str(exc))
 
             argv = self._build_argv(spec, run_dir, script_path)
-            return _posix_common.run_argv_with_limits(
+            outcome = _posix_common.run_argv_with_limits(
                 argv,
                 stdin=spec.stdin,
                 timeout=spec.timeout,
@@ -179,11 +255,14 @@ class LinuxSandboxRunner:
                 # серверного API под --sandbox молча игнорировался. CONFIG
                 # остаётся значением по умолчанию.
                 max_output_bytes=spec.max_output_bytes or CONFIG.sandbox_max_output_bytes,
-                max_memory_mb=float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024),
+                max_memory_mb=float(
+                    _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb)
+                ),
                 # issue #797: отмена работает и под изоляцией — раньше поле
                 # RunSpec просто не доезжало до цикла ожидания.
                 cancel_event=spec.cancel_event,
             )
+            return _as_launch_error_if_bwrap_failed(outcome)
 
     def _build_argv(self, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
         return _build_bwrap_argv(self._bwrap, spec, run_dir, script_path)

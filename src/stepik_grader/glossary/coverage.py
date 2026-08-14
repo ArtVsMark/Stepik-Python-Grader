@@ -28,7 +28,12 @@ import pathlib
 from dataclasses import dataclass
 from datetime import date
 
-from .json_provider import GlossaryError, JsonGlossaryProvider, append_missing_entries
+from .json_provider import (
+    BUNDLED_GLOSSARY_DIR,
+    GlossaryError,
+    JsonGlossaryProvider,
+    append_missing_entries,
+)
 from .models import GlossaryMissingEntry, MissingKind
 from .stdlib_inventory import InventoryKind, StdlibItem, build_stdlib_inventory
 
@@ -252,7 +257,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--cards",
         default=None,
         help="Путь к базе карточек глоссария (файл или директория с *.json); "
-        "без флага покрытие считается относительно пустой базы.",
+        "по умолчанию — встроенная база пакета.",
+    )
+    parser.add_argument(
+        "--empty-base",
+        action="store_true",
+        help="Считать покрытие относительно ПУСТОЙ базы (прежнее поведение без "
+        "--cards): каждая сущность stdlib окажется пробелом.",
     )
     parser.add_argument(
         "--missing-out",
@@ -279,10 +290,17 @@ def main(argv: list[str] | None = None) -> None:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
 
+    # issue #957: без ``--cards`` база считалась пустой, и команда из
+    # документации печатала «0/1009 covered» — то есть отчёт о полностью
+    # непокрытом глоссарии при полной базе рядом, в самом пакете. Хуже:
+    # вместе с ``--missing-out`` в очередь пополнения уходила почти тысяча
+    # ложных пробелов. Дефолт — встроенная база; пустая осталась доступной
+    # явным ``--empty-base``, потому что как режим отладки она осмысленна.
     known: set[str] = set()
-    if args.cards:
+    if not args.empty_base:
+        cards = pathlib.Path(args.cards) if args.cards else BUNDLED_GLOSSARY_DIR
         try:
-            provider = JsonGlossaryProvider.load(pathlib.Path(args.cards))
+            provider = JsonGlossaryProvider.load(cards)
         except GlossaryError as exc:
             parser.error(str(exc))
             return  # недостижимо (parser.error поднимает SystemExit); для mypy

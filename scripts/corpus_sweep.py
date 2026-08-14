@@ -61,10 +61,12 @@ from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import run_tests
 from stepik_grader.core.microbench_runner import run_microbench
 from stepik_grader.core.progress_export import build_progress_report, render_markdown
+from stepik_grader.core.runprofile import current_profile
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
 from stepik_grader.core.tracer import trace_code
 from stepik_grader.glossary.detector import scan_code_concepts
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "MODULE_KEYS",
@@ -217,6 +219,24 @@ def _collect_solutions(task_dir: pathlib.Path) -> tuple[pathlib.Path, ...]:
     return tuple(preferred + others)
 
 
+def _missing_attachments(task: SweepTask) -> list[str]:
+    """Имена вложений условия, которых нет на диске (issue #1112).
+
+    Источник правды — ``meta.json``: загрузчик пишет туда отчёт по каждому
+    вложению. Старые задачи, скачанные до появления отчёта, поля не имеют —
+    для них список пуст, и поведение прежнее.
+    """
+    entries = task.meta.get("attachments")
+    if not isinstance(entries, list):
+        return []
+    missing: list[str] = []
+    for entry in entries:
+        name = str(entry.get("name") or "") if isinstance(entry, dict) else ""
+        if name and not (task.task_dir / name).is_file():
+            missing.append(name)
+    return missing
+
+
 def pick_reference(
     task: SweepTask, *, timeout: float = DEFAULT_TIMEOUT
 ) -> tuple[pathlib.Path | None, str]:
@@ -237,6 +257,15 @@ def pick_reference(
         return None, "нет директории tests/"
     if not task.solutions:
         return None, "нет файлов-решений"
+
+    # issue #1112: задача с вложением условия невоспроизводима, пока файла нет
+    # рядом с решением: оно откроет его по имени и упадёт `FileNotFoundError`.
+    # Это дефицит ДАННЫХ, а не ядра, и называть его надо своим именем — иначе
+    # он приходит в отчёт как «ни одно решение не прошло тесты» и уводит разбор
+    # в ядро (ровно так и было на первом прогоне по реальной базе).
+    missing_attachments = _missing_attachments(task)
+    if missing_attachments:
+        return None, "нет вложений условия: " + ", ".join(missing_attachments)
 
     tried: list[str] = []
     for candidate in task.solutions:
@@ -533,8 +562,17 @@ def sweep_extras(
         cache = GraderCache(work_dir)
         solution_sha = hash_solution(reference)
         tests_sha = hash_tests(task.test_dir)
-        cache.get(reference, solution_sha, tests_sha)
-        cache.put(reference, solution_sha, tests_sha, {"total": len(cases), "passed": len(cases)})
+        # issue #984: отпечаток условий прогона — третий ключ кэша наравне с
+        # хешами решения и тестов; стенд снимает его так же, как это делает CLI.
+        env = current_profile().fingerprint
+        cache.get(reference, solution_sha, tests_sha, env=env)
+        cache.put(
+            reference,
+            solution_sha,
+            tests_sha,
+            {"total": len(cases), "passed": len(cases)},
+            env=env,
+        )
         cache.save()
     except Exception as exc:
         findings.append(Finding(task.slug, "extras", "error", f"кэш: {type(exc).__name__}: {exc}"))
@@ -639,6 +677,8 @@ def _parse_modules(raw: str) -> list[str]:
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Точка входа CLI: прогнать базу задач по выбранным группам подсистем."""
+    # issue #1108: отчёт печатает пути и названия реальных задач курса.
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description="Сквозной прогон подсистем грейдера по локальной базе задач."
     )

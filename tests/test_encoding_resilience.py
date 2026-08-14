@@ -19,6 +19,7 @@ import pathlib
 from stepik_grader.core import lint, stats
 from stepik_grader.core.cache import GraderCache
 from stepik_grader.core.mode_detector import _detect_run_mode
+from stepik_grader.core.test_loader import load_test_cases
 from stepik_grader.core.user_settings import load_settings
 
 # Байт 0xff недопустим в UTF-8 в любой позиции — самый короткий способ
@@ -125,7 +126,7 @@ def test_cache_get_survives_non_dict_entry(tmp_path: pathlib.Path) -> None:
     cache = GraderCache(cache_dir=cache_dir)
     cache._data["entries"] = {cache._key(solution): "не словарь"}
 
-    assert cache.get(solution, "sha-solution", "sha-tests") is None
+    assert cache.get(solution, "sha-solution", "sha-tests", env="sha-env") is None
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +154,63 @@ def test_run_mode_detection_survives_cp1251_type_file(tmp_path: pathlib.Path) ->
 
     # Не «function»: строка не совпала с маркером — но и не падение.
     assert _detect_run_mode(solution, tests_dir) == "function"  # по AST: файл function-only
+
+
+# ---------------------------------------------------------------------------
+# REV-1-02 (issue #987) — тот же `.type`, но со стороны загрузчика набора
+#
+# PY-03 починил детектор режима и остановился на нём: второй читатель того же
+# файла — `test_loader` — остался с голым `read_text`. Это ровно шаблон
+# «вернувшегося дефекта»: симптом воспроизводится через соседний вызов, хотя
+# находка числится закрытой.
+# ---------------------------------------------------------------------------
+
+
+def test_case_loading_survives_cp1251_type_file(tmp_path: pathlib.Path) -> None:
+    """Не-UTF8 байт в `.type` не роняет загрузку набора тест-кейсов.
+
+    Соседний `load_text_lines` то же отклонение переживает с заменой символа,
+    поэтому падение здесь означало, что набор не загрузится целиком из-за
+    файла в две строки.
+    """
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "1").write_text("5\n", encoding="utf-8")
+    (tests_dir / "1.clue").write_text("5\n", encoding="utf-8")
+    (tests_dir / "1.type").write_bytes("функция".encode("cp1251"))
+
+    cases = load_test_cases(tests_dir)
+
+    # Маркер не совпал — тип остаётся stdin, но набор загружен, а не потерян.
+    assert [c.test_type for c in cases] == ["stdin"]
+
+
+def test_case_loading_reads_type_marker_with_bom(tmp_path: pathlib.Path) -> None:
+    """`.type`, сохранённый «Блокнотом» с BOM, всё равно значит `function`.
+
+    `strip()` BOM не срезает (U+FEFF не пробельный), поэтому кейс типа
+    `function` молча становился `stdin` — и верное решение получало WA.
+    """
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "1").write_text("5\n", encoding="utf-8")
+    (tests_dir / "1.clue").write_text("5\n", encoding="utf-8")
+    (tests_dir / "1.type").write_text("function", encoding="utf-8-sig")
+
+    cases = load_test_cases(tests_dir)
+
+    assert [c.test_type for c in cases] == ["function"]
+
+
+def test_run_mode_detection_reads_type_marker_with_bom(tmp_path: pathlib.Path) -> None:
+    """Тот же BOM со стороны детектора режима — второй вызов того же класса."""
+    solution = tmp_path / "task.py"
+    solution.write_text("print(input())\n", encoding="utf-8")  # по AST: не function-only
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "1.type").write_text("function", encoding="utf-8-sig")
+
+    assert _detect_run_mode(solution, tests_dir) == "function"
 
 
 # ---------------------------------------------------------------------------

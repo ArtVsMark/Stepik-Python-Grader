@@ -18,9 +18,20 @@ import argparse
 import pathlib
 import sys
 
-from stepik_grader.config import CONFIG
+from stepik_grader import config
+from stepik_grader.config import COMPARE_MODES, CONFIG, CONFIG_FLAG
+from stepik_grader.core import user_settings
+from stepik_grader.core.i18n import load_locale_messages
+from stepik_grader.stdio_encoding import force_utf8_stdio
+
+# issue #997 (INS-5-03): язык нужен и парсеру, и предпроходу, который
+# узнаёт --lang до сборки парсера, — держим одним местом.
+DEFAULT_LANG = "ru"
+SUPPORTED_LANGS = ("ru", "en")
 
 __all__ = [
+    "DEFAULT_LANG",
+    "SUPPORTED_LANGS",
     "_build_arg_parser",
     "_force_utf8_stdio",
     "_program_name",
@@ -28,17 +39,20 @@ __all__ = [
     "_resolve_record_stats",
     "_resolve_use_cache",
     "_resolve_verbosity",
+    "apply_launch_profile",
+    "flag_present",
+    "peek_lang",
 ]
 
 # Эпилог справки: обе рабочие формы запуска. При src-layout файла grader.py в
 # корне нет, поэтому usage обязан называть то, что пользователь может набрать.
-_EPILOG = """\
-Запуск:
-  stepik-grader --mode 1 --file task.py          (после pip install)
-  python -m stepik_grader --mode 1 --file task.py
-
-Без --mode открывается интерактивное меню.
-"""
+#
+# issue #997 (INS-5-06, JRN-1-04): справка отвечала «как запустить», но молчала
+# о двух вещах, без которых запускать нечего, — откуда взять задачу и как
+# устроен каталог с тестами. Первый вопрос новичка («у меня нет task.py») не
+# имел ответа в самом инструменте, а раскладку `tests/` он узнавал, только
+# провалившись: подсказка при отсутствии тестов зовёт в формат `tests/1`,
+# который в документации значится легаси.
 
 
 def _program_name() -> str:
@@ -55,255 +69,314 @@ def _program_name() -> str:
     return stem if stem.startswith("stepik-grader") else "python -m stepik_grader"
 
 
-def _build_arg_parser() -> argparse.ArgumentParser:
+def _help_texts(lang: str) -> dict[str, str]:
+    """Тексты справки на ``lang`` с откатом на русские (issue #997, INS-5-03).
+
+    Справка собиралась из строк, зашитых в код, поэтому ``--lang en --help``
+    печатал целиком русский текст: единственная поверхность, которую англоязычный
+    пользователь видит ПЕРВОЙ, игнорировала его выбор языка. Откат на ``ru``
+    оставлен намеренно — пропущенный ключ должен показать текст, а не KeyError
+    посреди `--help`.
+    """
+    russian = load_locale_messages("ru")
+    if lang == "ru":
+        return russian
+    return {**russian, **load_locale_messages(lang)}
+
+
+def peek_lang(argv: list[str] | None = None) -> str:
+    """Узнать ``--lang`` до сборки основного парсера (issue #997, INS-5-03).
+
+    Язык нужен раньше, чем существует парсер, — иначе тексты справки уже
+    зафиксированы. Отдельный лёгкий проход: неизвестное значение здесь молча
+    даёт дефолт, а ругается на него основной парсер, у которого для этого есть
+    ``choices`` и внятное сообщение.
+    """
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--lang", default=DEFAULT_LANG)
+    try:
+        known, _ = pre.parse_known_args(argv)
+    except SystemExit:  # pragma: no cover - разбор без choices не падает
+        return DEFAULT_LANG
+    lang = str(known.lang)
+    return lang if lang in SUPPORTED_LANGS else DEFAULT_LANG
+
+
+def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
+    t = _help_texts(lang)
     parser = argparse.ArgumentParser(
         prog=_program_name(),
-        description="Stepik Python Grader — проверка и сравнение решений.",
-        epilog=_EPILOG,
+        description=t["cli_description"],
+        epilog=t["cli_epilog"],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--version", action="store_true", help="Показать версию грейдера и выйти.")
+    parser.add_argument("--version", action="store_true", help=t["cli_help_version"])
     parser.add_argument(
         "--mode",
         type=int,
         choices=[1, 2, 3, 4],
-        help="Режим запуска (без --mode показывается интерактивное меню).",
+        help=t["cli_help_mode"],
     )
-    parser.add_argument(
-        "--file", type=pathlib.Path, help="Путь к файлу решения (обязателен для --mode 1)."
-    )
+    parser.add_argument("--file", type=pathlib.Path, help=t["cli_help_file"])
     parser.add_argument(
         "--dir",
         type=pathlib.Path,
-        help="Путь к папке с решениями (обязателен для --mode 2/3/4).",
+        help=t["cli_help_dir"],
     )
     parser.add_argument(
         "--repeats",
         type=int,
         default=15,
-        help="Число повторов на тест-кейс для --mode 3 (по умолчанию 15).",
+        help=t["cli_help_repeats"],
     )
     parser.add_argument(
         "--number",
         type=int,
         default=1000,
-        help="Число вызовов timeit для --mode 4 (по умолчанию 1000).",
+        help=t["cli_help_number"],
     )
     parser.add_argument(
         "--lang",
-        choices=["ru", "en"],
-        default="ru",
-        help="Язык меню и сообщений (по умолчанию ru).",
+        choices=list(SUPPORTED_LANGS),
+        default=DEFAULT_LANG,
+        help=t["cli_help_lang"],
+    )
+    parser.add_argument(
+        CONFIG_FLAG,
+        type=pathlib.Path,
+        default=None,
+        metavar="PATH",
+        help=t["cli_help_config"],
     )
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument(
         "--verbose",
         action="store_true",
-        help="Подробный вывод с diff для --mode 1/2 (для --mode 1 это уже поведение по умолчанию).",
+        help=t["cli_help_verbose"],
     )
     verbosity.add_argument(
         "--quiet",
         action="store_true",
-        help="Только итог, без подробного diff, для --mode 1/2.",
+        help=t["cli_help_quiet"],
     )
     parser.add_argument(
         "--diagnostic",
         action="store_true",
-        help="Диагностический лог сети/OAuth/загрузки в stepik_diagnostics/grader.log "
-        "(с редакцией секретов). То же — переменной STEPIK_GRADER_LOG=debug.",
+        help=t["cli_help_diagnostic"],
     )
     parser.add_argument(
         "--output",
         choices=["text", "json", "csv", "markdown"],
         default="text",
-        help=(
-            "Формат вывода: text (по умолчанию), json/csv для CI-пайплайнов "
-            "или markdown для отчётов."
-        ),
+        help=t["cli_help_output"],
     )
     parser.add_argument(
         "--watch",
         action="store_true",
-        help=(
-            "Перезапускать --mode 1/2 при изменении файла решения "
-            "(требует: pip install stepik-python-grader[watch]). Для --mode 2 "
-            "перезапуск инкрементальный — кэш прогоняет только изменённый файл "
-            "(--no-cache отключает)."
-        ),
+        help=t["cli_help_watch"],
     )
     parser.add_argument(
         "--cache",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help=(
-            "Кэшировать результаты --mode 1/2 в .grader_cache/ и пропускать "
-            "неизменённые решения (--no-cache отключает). По умолчанию из "
-            "[tool.stepik-grader] use_cache; под --watch --mode 2 включён "
-            "автоматически (инкрементальный перезапуск)."
-        ),
+        help=t["cli_help_cache"],
     )
     parser.add_argument(
         "--clear-cache",
         action="store_true",
-        help="Удалить .grader_cache/ и .stepik_cache/ и выйти.",
+        help=t["cli_help_clear_cache"],
     )
     parser.add_argument(
         "--revoke-ai-consent",
         action="store_true",
-        help=(
-            "Отозвать согласие на отправку кода AI-провайдеру и выйти. "
-            "При следующем --ai-hints согласие спросят заново."
-        ),
+        help=t["cli_help_revoke_ai_consent"],
     )
     parser.add_argument(
         "--purge-history",
         nargs="?",
         const="",
         metavar="TASK_KEY",
-        help=(
-            "Удалить локальную историю обучения (.grader_history.db) и журнал "
-            "статистики (.grader_stats.jsonl) и выйти. С аргументом — только "
-            "прогоны указанной задачи; статистика при этом не трогается."
-        ),
+        help=t["cli_help_purge_history"],
     )
     parser.add_argument(
         "--stats",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help=(
-            "Писать локальную статистику запусков (режим/вердикты/ОС) в "
-            ".grader_stats.jsonl (--no-stats отключает). По умолчанию из "
-            "[tool.stepik-grader] record_stats. Только локально, без сети."
-        ),
+        help=t["cli_help_stats"],
     )
     parser.add_argument(
         "--stats-summary",
         action="store_true",
-        help="Показать сводку локальной статистики запусков и выйти.",
+        help=t["cli_help_stats_summary"],
     )
     parser.add_argument(
         "--history",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help=(
-            "Писать историю прогонов (режимы/кейсы/вердикты) в локальную "
-            "SQLite-базу .grader_history.db (--no-history отключает). По "
-            "умолчанию из [tool.stepik-grader] record_history. Основа разделов "
-            "«Правила»/«Подучить», только локально."
-        ),
+        help=t["cli_help_history"],
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SEC",
+        help=t["cli_help_timeout"],
+    )
+    parser.add_argument(
+        "--memory-limit",
+        type=int,
+        default=None,
+        metavar="MB",
+        help=t["cli_help_memory_limit"],
+    )
+    parser.add_argument(
+        "--compare",
+        choices=COMPARE_MODES,
+        default=None,
+        help=t["cli_help_compare"],
     )
     parser.add_argument(
         "--insights",
         action="store_true",
-        help=(
-            "Показать сводку карточек «Подучить» (частые ошибки и их затухание) "
-            "из накопленной истории прогонов и выйти. Требует включённую "
-            "--history."
-        ),
+        help=t["cli_help_insights"],
     )
     parser.add_argument(
         "--export-progress",
-        choices=["md", "html"],
+        choices=["md", "html", "json"],
         default=None,
-        metavar="{md,html}",
-        help=(
-            "Экспортировать агрегаты прогресса (попыток/времени до первого AC по "
-            "задачам, тали вердиктов и типов падений — без исходников решений) из "
-            ".grader_history.db в самодостаточный файл grader-progress.md/.html и "
-            "выйти."
-        ),
+        metavar="{md,html,json}",
+        help=t["cli_help_export_progress"],
     )
     parser.add_argument(
         "--lint",
         action="store_true",
-        help=(
-            "После проверки режимов 1/2 показать блок «Стиль» — нарушения PEP 8 "
-            "от ruff (требует extra: pip install stepik-python-grader[lint]). "
-            "Не влияет на вердикт."
-        ),
+        help=t["cli_help_lint"],
     )
     parser.add_argument(
         "--ai-hints",
         action="store_true",
-        help=(
-            "После проверки режимов 1–4 показать AI-объяснение упавших кейсов "
-            "(WA/RE; в бенчмарк-режимах 3/4 — решений с ошибкой исполнения) через "
-            "OpenAI-совместимый endpoint (BYOK, ADR-0003). По умолчанию выключено; "
-            "без ai_base_url/ai_model в pyproject.toml — тихий пропуск с подсказкой. "
-            "Ничего не уходит в сеть без настройки. Не влияет на вердикт."
-        ),
+        help=t["cli_help_ai_hints"],
     )
     parser.add_argument(
         "--serve",
         action="store_true",
-        help="Запустить локальный веб-интерфейс (только localhost) вместо CLI.",
+        help=t["cli_help_serve"],
     )
     parser.add_argument(
         "--port",
         type=int,
         default=8000,
-        help="Порт для --serve (по умолчанию 8000).",
+        help=t["cli_help_port"],
     )
     parser.add_argument(
         "--root",
         type=pathlib.Path,
         default=None,
-        help=(
-            "Рабочая директория --serve: пути из запросов вне неё отклоняются "
-            "403-м (по умолчанию — cwd на момент запуска)."
-        ),
+        help=t["cli_help_root"],
     )
     parser.add_argument(
         "--no-root-confinement",
         action="store_true",
-        help=(
-            "Отключить проверку путей запросов относительно --root — доступ "
-            "к любому пути на диске, как раньше. Явный откат пользователя, "
-            "не дефолт."
-        ),
+        help=t["cli_help_no_root_confinement"],
     )
     parser.add_argument(
         "--sandbox",
         action="store_true",
-        help=(
-            "Исполнять решения --mode 1/2/3/4 в ОС-изолированной песочнице "
-            "(SandboxRunner) вместо обычного subprocess — bubblewrap на "
-            "Linux, sandbox-exec на macOS, Job Objects на Windows. Гарантии "
-            "различаются по ОС (см. SECURITY.md); при недоступности backend'а "
-            "на этой машине — явная ошибка, без тихого отката на обычный "
-            "запуск."
-        ),
+        help=t["cli_help_sandbox"],
+    )
+    # issue #1133 (шаг 2): именованный профиль запуска — тот же набор, что
+    # выбирается в окне лаунчера. Без флага в CLI профиль остался бы сущностью
+    # одного окна, а граница эпика требует обратного.
+    parser.add_argument(
+        "--profile",
+        metavar="NAME",
+        default=None,
+        help=t["cli_help_profile"],
     )
     parser.add_argument(
         "--init-vscode",
         action="store_true",
-        help=(
-            "Сгенерировать .vscode/tasks.json в текущей папке (грейдинг из VS Code "
-            "по Ctrl+Shift+B)."
-        ),
+        help=t["cli_help_init_vscode"],
     )
     parser.add_argument(
         "--import-reference",
         type=pathlib.Path,
         metavar="TASK_DIR",
-        help=(
-            "Импортировать закреплённое решение Stepik (+топовые по лайкам) из "
-            "ветки решений в папку задачи как task{N}_{100+}.py для сравнения в "
-            "режимах 2–4 и выйти. Читает meta.json из TASK_DIR (нужна скачанная "
-            "задача и OAuth)."
-        ),
+        help=t["cli_help_import_reference"],
     )
     parser.add_argument(
         "--import-top",
         type=int,
         default=5,
         metavar="N",
-        help=(
-            "Сколько топовых по лайкам решений импортировать сверх закреплённого "
-            "(--import-reference). По умолчанию 5; нулёвые по лайкам не берутся."
-        ),
+        help=t["cli_help_import_top"],
     )
     return parser
+
+
+def flag_present(argv: list[str] | None, *names: str) -> bool:
+    """Передан ли пользователем один из флагов ЯВНО (issue #1133).
+
+    argparse не различает «не указан» и «указан со значением, равным дефолту»:
+    у ``--port`` дефолт 8000, у ``--lang`` — ru. Для профиля разница
+    принципиальна — иначе он либо всегда проигрывает дефолту, либо всегда
+    выигрывает у явного флага. Смотрим сырой ``argv``: это точный ответ на
+    вопрос «пользователь это писал?», в отличие от сравнения с дефолтом.
+    """
+    raw = list(sys.argv[1:] if argv is None else argv)
+    return any(arg == name or arg.startswith(f"{name}=") for arg in raw for name in names)
+
+
+def _profile_message(args: argparse.Namespace, key: str, /, **params: object) -> str:
+    """Строка каталога на языке, выбранном в этом запуске."""
+    messages = load_locale_messages(getattr(args, "lang", DEFAULT_LANG)) or load_locale_messages(
+        DEFAULT_LANG
+    )
+    template = messages.get(key, key)
+    return template.format(**params) if params else template
+
+
+def apply_launch_profile(
+    args: argparse.Namespace,
+    argv: list[str] | None,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Применить именованный профиль к аргументам ``--serve`` (issue #1133).
+
+    Профиль — база, явные флаги её перекрывают: приоритет остаётся прежним
+    (``флаг → профиль → user-state → pyproject → дефолт``), и это единственный
+    порядок, при котором «запустить профиль, но на другом порту» выражается без
+    правки самого профиля.
+
+    Неизвестное имя — ``parser.error`` со списком доступных, а не молчаливый
+    запуск с дефолтами: пользователь просил конкретный набор, и тихая подмена
+    дала бы, например, сервер без изоляции там, где её ждали.
+
+    Raises:
+        SystemExit: профиль не найден или указан без ``--serve``.
+    """
+    if args.profile is None:
+        return
+    if not args.serve:
+        parser.error(_profile_message(args, "profile_requires_serve"))
+    settings = user_settings.load_settings(
+        user_settings.default_settings_path(config.workspace_root())
+    )
+    profile = settings.launch_profiles.get(args.profile.strip())
+    if profile is None:
+        known = ", ".join(sorted(settings.launch_profiles)) or "—"
+        parser.error(_profile_message(args, "profile_unknown", name=args.profile, known=known))
+        return  # недостижимо (parser.error поднимает SystemExit); для mypy
+    if profile.sandbox and not flag_present(argv, "--sandbox"):
+        args.sandbox = True
+    if profile.record_history is not None and not flag_present(argv, "--history", "--no-history"):
+        args.history = profile.record_history
+    if profile.lang is not None and not flag_present(argv, "--lang"):
+        args.lang = profile.lang
+    if profile.port is not None and not flag_present(argv, "--port"):
+        args.port = profile.port
+    if profile.workdir is not None and not flag_present(argv, "--root"):
+        args.root = profile.workdir
 
 
 def _resolve_verbosity(args: argparse.Namespace, *, default: bool) -> bool:
@@ -350,34 +423,62 @@ def _resolve_record_stats(args: argparse.Namespace) -> bool:
     return CONFIG.record_stats
 
 
-def _resolve_record_history(args: argparse.Namespace) -> bool:
+def _resolve_record_history(args: argparse.Namespace, *, default: bool | None = None) -> bool:
     """Разрешить --history/--no-history в конкретное bool-значение (issue #344).
 
-    Приоритет: явный --history/--no-history (``args.history is not None``)
-    выигрывает; иначе — дефолт из pyproject (``[tool.stepik-grader]
-    record_history``). Симметрично ``_resolve_record_stats``.
+    Единая лестница приоритета (issue #997: LNCH-3-02, FZZ-5-04, LNCH-2-03,
+    LNCH-3-01, LNCH-5-01, SET-2-03):
+
+    1. явный ``--history``/``--no-history`` — разовое решение этого запуска;
+    2. персистентный тумблер из ``.grader_settings.json`` — то, что пользователь
+       переключил в меню (пункт 7) или в вебе, и ждёт, что это запомнено;
+    3. ``[tool.stepik-grader] record_history`` из ``pyproject.toml``;
+    4. ``default`` — дефолт поверхности (``--serve`` включает историю, ADR-0002
+       оставляет CLI opt-in).
+
+    Прежде лестниц было три, и они не сходились: режимы 1–4 читали только флаг и
+    ``CONFIG``, ``--serve`` — только флаг, а тумблер в ``.grader_settings.json``
+    не читал никто. Пользователь выключал историю в меню, запускал `--serve` и
+    получал запись, которую явно отключил, — четыре независимых среза аудита
+    пришли к одному и тому же месту.
+
+    Ограничение, которое честнее назвать: ``record_history = false`` в
+    ``pyproject.toml`` неотличимо от «не задано» (``bool`` с дефолтом ``False``),
+    поэтому выключить им историю в ``--serve`` нельзя — для этого есть
+    ``--no-history`` и тумблер меню.
     """
     if args.history is not None:
         return bool(args.history)
-    return CONFIG.record_history
+    toggle = _persistent_history_toggle()
+    if toggle is not None:
+        return toggle
+    if CONFIG.record_history:
+        return True
+    return CONFIG.record_history if default is None else default
+
+
+def _persistent_history_toggle() -> bool | None:
+    """Сохранённый выбор пользователя из ``.grader_settings.json``; ``None`` — не задан.
+
+    Best-effort, как и всё чтение настроек: битый или недоступный файл — это
+    «пользователь не переопределял», а не повод отказать в запуске.
+    """
+    settings = user_settings.load_settings(
+        user_settings.default_settings_path(config.workspace_root())
+    )
+    return settings.record_history
 
 
 def _force_utf8_stdio() -> None:
     """Принудительно переключить stdout/stderr на UTF-8.
 
     Git Bash / cmd на Windows по умолчанию используют cp1251 — rich-вывод
-    (рамки таблиц, ✓/✗, кириллица) роняет процесс с UnicodeEncodeError.
-    ``errors="replace"`` гарантирует отсутствие краша даже на терминалах,
-    которые не могут отобразить конкретный символ. Убирает необходимость
-    в ручном ``PYTHONIOENCODING=utf-8`` от пользователя (issue #64).
+    (рамки таблиц, ✓/✗, кириллица) роняет процесс с UnicodeEncodeError
+    (issue #64).
 
-    No-op на потоках без ``reconfigure`` (например, перехваченных pytest
-    или уже находящихся в UTF-8).
+    Реализация переехала в leaf-модуль ``stepik_grader.stdio_encoding``
+    (issue #1108): приём понадобился всем точкам входа и скриптам стенда, а
+    жил здесь — в модуле, который тянет за собой половину CLI. Имя оставлено
+    в ``__all__`` как есть: на него ссылаются тесты и соседние скрипты.
     """
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is None:
-            continue
-        enc = (getattr(stream, "encoding", "") or "").lower()
-        if enc not in {"utf-8", "utf8"}:
-            reconfigure(encoding="utf-8", errors="replace")
+    force_utf8_stdio()

@@ -65,6 +65,34 @@ class TestRedact:
         )
         assert "TOKENVAL" not in out and "REFRESHVAL" not in out
 
+    @pytest.mark.parametrize(
+        "text,why",
+        [
+            ("StepikClient(access_token='ya29.TOKENVAL')", "repr вызова с одинарными кавычками"),
+            ('StepikAPI(token="ya29.TOKENVAL")', "то же с двойными"),
+            ("client_secret='TOKENVAL'", "не только token: любой ключ из списка"),
+            ("вызов: get(url, params={'code': 'TOKENVAL'})", "внутри вложенной структуры"),
+        ],
+    )
+    def test_quoted_assignment_redacted(self, text: str, why: str) -> None:
+        """`key='value'` — форма traceback'а, которую пользователь копирует в форму (#964).
+
+        Паттерн `key=value` требовал, чтобы после `=` шла НЕ кавычка, а
+        JSON-паттерн — кавычек вокруг самого ключа. Между ними была щель ровно
+        того размера, чтобы живой токен уехал в prefilled-URL публичного issue.
+        """
+        out = diag_log.redact(text)
+
+        assert "TOKENVAL" not in out, why
+        assert "***redacted***" in out
+
+    def test_quoted_assignment_keeps_the_rest_of_the_line(self) -> None:
+        """Маскируется значение, а не хвост строки: смешанные кавычки не съедают всё."""
+        out = diag_log.redact("token='TOKENVAL' и дальше важный текст")
+
+        assert "TOKENVAL" not in out
+        assert "и дальше важный текст" in out
+
     def test_registered_secret_redacted_anywhere(self, tmp_path: pathlib.Path) -> None:
         diag_log.register_secret("supersecretvalue12345")
         out = _log_and_read(tmp_path, "случайно логируем supersecretvalue12345 в тексте")

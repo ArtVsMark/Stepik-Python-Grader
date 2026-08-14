@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from stepik_grader.core.grader_core import TestCase
 
 __all__ = [
+    "escape_control_chars",
     "fmt_time",
     "format_benchmark_row",
     "format_correctness_row",
@@ -488,7 +489,11 @@ def print_progress_summary(progress: list[Any], *, labels: Mapping[str, str] | N
     lbl = _labels(_PROGRESS_LABELS, labels)
     rows = [
         (
-            p.task_key or lbl["no_task"],
+            # issue #990: показываем имя папки, а ключ (`step:<id>`) оставляем
+            # внутренним. Fallback на ключ — для задач, записанных до появления
+            # имени, и для папок, скачанных не downloader'ом: там ключ и есть
+            # имя папки.
+            p.display_name or p.task_key or lbl["no_task"],
             "✅" if p.solved else "…",
             str(p.attempts),
             _fmt_duration(p.seconds_to_first_ac, lbl),
@@ -551,13 +556,40 @@ def _cprint(text: str, *, style: str = "") -> None:
         print(text)
 
 
+def escape_control_chars(value: str) -> str:
+    """Обезвредить управляющие символы вывода решения перед печатью (issue #981).
+
+    Грейдер — инструмент оценивания, и его отчёт не должен подчиняться тому,
+    кого он оценивает. Вывод печатался сырым, поэтому решение, печатающее
+    ``\\x1b[2J\\x1b[H``, стирало уже напечатанный отчёт и рисовало на его месте
+    зелёный «AC», которого грейдер не выносил. Достаточно `print` со строкой из
+    интернета — сценарий не теоретический: решения копируют из чужих
+    репозиториев и из «Подсмотреть решения» на Stepik.
+
+    Экранируются все C0-символы и ``DEL``, кроме ``\\n`` и ``\\t``: перевод
+    строки и табуляция — обычные данные вывода, а вот ``\\r`` уже опасен (он
+    возвращает каретку и затирает строку). Форма ``\\x1b`` выбрана вместо
+    ``^[``, потому что читается как то, чем является, и не путается с реальным
+    текстом решения.
+    """
+    return "".join(
+        ch if ch in "\n\t" or (ord(ch) >= 32 and ord(ch) != 127) else f"\\x{ord(ch):02x}"
+        for ch in value
+    )
+
+
 def _clip_value(value: str) -> str:
     """Обрезать однострочное значение до ``_VERBOSE_MAX_VALUE_CHARS`` (issue #824).
 
     Хвост объявляется числом отброшенных символов: «обрезано» без объёма врёт не
     меньше, чем молчаливая обрезка — по нему не понять, потерялся ли один символ
     или сто тысяч.
+
+    issue #981: экранирование идёт ДО обрезки. Иначе счёт вёлся по сырым
+    символам, а рез приходился на середину управляющей последовательности —
+    её незакрытый остаток съедал само уведомление об обрезке.
     """
+    value = escape_control_chars(value)
     if len(value) <= _VERBOSE_MAX_VALUE_CHARS:
         return value
     dropped = len(value) - _VERBOSE_MAX_VALUE_CHARS
@@ -565,8 +597,13 @@ def _clip_value(value: str) -> str:
 
 
 def _clip_diff_lines(diff: str) -> tuple[list[str], int]:
-    """Первые ``_VERBOSE_MAX_DIFF_LINES`` строк diff и число отброшенных (issue #824)."""
-    lines = diff.splitlines()
+    """Первые ``_VERBOSE_MAX_DIFF_LINES`` строк diff и число отброшенных (issue #824).
+
+    issue #981: строки diff тоже приходят из вывода решения, поэтому
+    экранируются — иначе подделать отчёт можно было бы через diff вместо
+    строки ``Actual:``.
+    """
+    lines = [escape_control_chars(line) for line in diff.splitlines()]
     if len(lines) <= _VERBOSE_MAX_DIFF_LINES:
         return lines, 0
     return lines[:_VERBOSE_MAX_DIFF_LINES], len(lines) - _VERBOSE_MAX_DIFF_LINES
@@ -590,7 +627,12 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     _cprint(f"  {icon} Test {case.index}: {result.verdict}", style=color)
 
     if result.error:
-        _cprint(f"    [ERROR] {result.error}", style="red")
+        # issue #981: текст ошибки — это stderr решения целиком
+        # (grader_core: error=stderr.strip()), то есть строка, которую пишет
+        # проверяемый код. Печать её сырой оставляла открытым тот же канал
+        # подделки отчёта, что и `Actual:`, и даже удобнее: решению достаточно
+        # намеренно упасть, чтобы попасть в эту ветку.
+        _cprint(f"    [ERROR] {_clip_value(result.error)}", style="red")
         # issue #72/#356: подсказка по типу исключения из общей базы карточек
         # (bundled JSON → компактная карта fallback). Ссылки наружу нет
         # (issue #684) — полная карточка живёт в своём разделе «Глоссарий»

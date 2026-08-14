@@ -158,6 +158,11 @@ def test_sandbox_runner_dispatches_by_platform(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(sandbox_pkg.platform, "system", lambda: "Linux")
     monkeypatch.setitem(sys.modules, "stepik_grader.core.sandbox._linux", _FakeLinuxModule)
+    # issue #992: `from ... import _linux` берёт АТРИБУТ пакета, если модуль уже
+    # импортирован по-настоящему, и подмена только в sys.modules перестаёт
+    # действовать. Тест зеленел лишь пока никто до него не создавал настоящий
+    # SandboxRunner — то есть зависел от порядка файлов в прогоне.
+    monkeypatch.setattr(sandbox_pkg, "_linux", _FakeLinuxModule, raising=False)
 
     runner = sandbox_pkg.SandboxRunner()
 
@@ -183,6 +188,7 @@ def test_sandbox_runner_propagates_backend_unavailable(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(sandbox_pkg.platform, "system", lambda: "Linux")
     monkeypatch.setitem(sys.modules, "stepik_grader.core.sandbox._linux", _FakeLinuxModule)
+    monkeypatch.setattr(sandbox_pkg, "_linux", _FakeLinuxModule, raising=False)  # issue #992
 
     with pytest.raises(sandbox_pkg.SandboxUnavailableError, match="bwrap not found"):
         sandbox_pkg.SandboxRunner()

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import pathlib
 
 import pytest
 
+from stepik_grader import cli, config
 from stepik_grader.config import CONFIG, GraderConfig, load_config
+from stepik_grader.core.runprofile import current_profile
 
 
 def test_grader_config_defaults() -> None:
@@ -185,7 +188,7 @@ def test_legacy_fallback_used_when_search_and_env_find_nothing(
     import stepik_grader.config as config_module
 
     monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
-    monkeypatch.setattr(config_module, "_find_pyproject", lambda *a, **k: None)
+    monkeypatch.setattr(config_module, "_find_config_source", lambda *a, **k: None)
 
     cfg = config_module.load_config()
 
@@ -236,6 +239,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "ai_grounding_k",  # issue #812: сколько карточек в заземлении промпта
         "ai_system_prompt",  # issue #812: свой системный промпт вместо встроенного
         "history_db_path",  # issue #818: где лежит база истории обучения
+        "compare_mode",  # issue #1111: stepik (как чекер платформы) или strict
     }
 
 
@@ -542,3 +546,330 @@ class TestConfigReadAtCallTime:
         from stepik_grader.core import grader_core
 
         assert isinstance(grader_core.TIMEOUT_SECONDS, float)
+
+
+# ---------------------------------------------------------------------------
+# issue #993/#984 — детерминизм окружения: вердикт не зависит от того, что
+# лежит в родительских каталогах и откуда запущен грейдер.
+# ---------------------------------------------------------------------------
+
+
+class TestConfigDeterminism:
+    """Границы поиска конфига, устойчивость к битому TOML, явные источники."""
+
+    @staticmethod
+    def _write(path: pathlib.Path, text: str) -> pathlib.Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_foreign_pyproject_without_grader_section_is_skipped(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """pyproject.toml без [tool.stepik-grader] — чужой, поиск идёт мимо него.
+
+        Прежде выигрывал первый файл вверх по дереву, каким бы он ни был.
+        """
+        import stepik_grader.config as config_module
+
+        self._write(tmp_path / "pyproject.toml", "[tool.ruff]\nline-length = 100\n")
+        self._write(
+            tmp_path / "course" / "pyproject.toml",
+            "[tool.stepik-grader]\ntimeout_seconds = 42.0\n",
+        )
+        nested = tmp_path / "course" / "task"
+        nested.mkdir(parents=True)
+        monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
+        monkeypatch.chdir(nested)
+
+        cfg = config_module.load_config()
+
+        assert cfg.timeout_seconds == 42.0
+        assert config_module.config_source() == tmp_path.resolve() / "course" / "pyproject.toml"
+
+    def test_search_stops_at_project_boundary(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Выше границы проекта (.git) конфиг не читается — это чужая территория.
+
+        Репро INS-4-01: ``timeout_seconds = 0.001`` этажом выше превращал верное
+        решение в ``FAIL`` по таймауту.
+        """
+        import stepik_grader.config as config_module
+
+        self._write(tmp_path / "pyproject.toml", "[tool.stepik-grader]\ntimeout_seconds = 0.001\n")
+        project = tmp_path / "project"
+        (project / ".git").mkdir(parents=True)
+        task = project / "task"
+        task.mkdir()
+        monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
+        monkeypatch.chdir(task)
+
+        assert config_module._find_pyproject(task) is None
+
+    def test_broken_pyproject_above_cwd_warns_instead_of_raising(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Битый TOML в родительском каталоге — предупреждение, а не трейсбек.
+
+        Репро INS-1-01: синтаксическая ошибка в чужом файле роняла любую
+        команду, включая ``--help``.
+        """
+        import stepik_grader.config as config_module
+
+        broken = self._write(
+            tmp_path / "pyproject.toml", "[tool.stepik-grader\ntimeout_seconds = ??\n"
+        )
+        nested = tmp_path / "task"
+        nested.mkdir()
+        monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
+        monkeypatch.chdir(nested)
+
+        with pytest.warns(UserWarning, match="TOML") as warned:
+            cfg = config_module.load_config()
+
+        assert isinstance(cfg, config_module.GraderConfig)  # не исключение
+        assert str(broken) in str(warned[0].message)  # путь назван
+        assert config_module.config_source() != broken  # и не применён
+
+    def test_broken_explicit_config_does_not_silently_pick_another(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Битый явный конфиг → дефолты, а не подстановка найденного по дереву."""
+        import stepik_grader.config as config_module
+
+        broken = self._write(tmp_path / "broken.toml", "[tool.stepik-grader\n")
+        self._write(tmp_path / "pyproject.toml", "[tool.stepik-grader]\ntimeout_seconds = 33.0\n")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv(config_module._ENV_CONFIG_PATH, str(broken))
+
+        with pytest.warns(UserWarning, match="TOML"):
+            cfg = config_module.load_config()
+
+        assert cfg.timeout_seconds == config_module.GraderConfig().timeout_seconds
+
+    def test_explicit_path_wins_over_env_and_search(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """set_config_path() (то есть --config) — источник высшего приоритета."""
+        import stepik_grader.config as config_module
+
+        chosen = self._write(
+            tmp_path / "chosen.toml", "[tool.stepik-grader]\ntimeout_seconds = 7.0\n"
+        )
+        from_env = self._write(
+            tmp_path / "env.toml", "[tool.stepik-grader]\ntimeout_seconds = 99.0\n"
+        )
+        self._write(tmp_path / "pyproject.toml", "[tool.stepik-grader]\ntimeout_seconds = 33.0\n")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv(config_module._ENV_CONFIG_PATH, str(from_env))
+        config_module.set_config_path(chosen)
+
+        assert config_module.load_config().timeout_seconds == 7.0
+        assert config_module.config_source() == chosen
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["--mode", "1", "--config", "cfg.toml"],
+            ["--config=cfg.toml", "--mode", "1"],
+        ],
+    )
+    def test_config_flag_is_read_from_argv(self, argv: list[str]) -> None:
+        """Обе формы флага разбираются до argparse — CONFIG связывается на импорте."""
+        import stepik_grader.config as config_module
+
+        found = config_module._path_from_argv(argv)
+
+        assert found is not None and found.name == "cfg.toml"
+
+    def test_workspace_root_stops_at_marker(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Корень настроек — ближайший каталог с маркером проекта."""
+        import stepik_grader.config as config_module
+
+        project = tmp_path / "project"
+        (project / ".git").mkdir(parents=True)
+        nested = project / "a" / "b"
+        nested.mkdir(parents=True)
+        monkeypatch.chdir(nested)
+
+        assert config_module.workspace_root() == project.resolve()
+
+    def test_explicit_workspace_root_wins(self, tmp_path: pathlib.Path) -> None:
+        """--root у --serve задаёт корень настроек напрямую (issue #984)."""
+        import stepik_grader.config as config_module
+
+        config_module.set_workspace_root(tmp_path)
+
+        assert config_module.workspace_root() == tmp_path.resolve()
+
+    def test_same_verdict_from_nested_dir_with_foreign_pyproject(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Критерий приёмки #993: прогон из вложенной папки не зависит от соседей.
+
+        Полный прогон подпроцессом (а не ``load_config()``): проверяется то, что
+        видит пользователь, — вердикт. Чужой ``pyproject.toml`` этажом выше
+        требует ``timeout_seconds = 0.001``; до фикса верное решение получало
+        ``FAIL`` по таймауту, теперь граница проекта этот файл не пускает.
+        """
+        import json
+        import subprocess
+        import sys
+
+        self._write(tmp_path / "pyproject.toml", "[tool.stepik-grader]\ntimeout_seconds = 0.001\n")
+        project = tmp_path / "project"
+        (project / ".git").mkdir(parents=True)
+        self._write(project / "tests" / "1", "4")
+        self._write(project / "tests" / "1.clue", "5")
+        self._write(project / "solution.py", "print(int(input()) + 1)\n")
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "stepik_grader",
+                "--mode",
+                "1",
+                "--file",
+                "solution.py",
+                "--output",
+                "json",
+            ],
+            cwd=project,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        assert completed.returncode == 0, completed.stderr
+        payload = json.loads(completed.stdout.strip().splitlines()[-1])
+        assert [case["passed"] for case in payload["cases"]] == [True]
+
+
+# ---------------------------------------------------------------------------
+# Лимиты задаются из CLI — issue #997 (SET-3-03)
+# ---------------------------------------------------------------------------
+
+
+class TestRuntimeLimitFlags:
+    """--timeout / --memory-limit перекрывают pyproject.toml на один запуск.
+
+    Значения лимитов правились только в ``[tool.stepik-grader]``, а у
+    установки через pipx такого файла нет вовсе: единственным способом разово
+    поднять таймаут было «заведите проект».
+    """
+
+    def _slow_task(self, tmp_path: pathlib.Path, seconds: float) -> pathlib.Path:
+        task = tmp_path / "task1"
+        (task / "tests").mkdir(parents=True)
+        (task / "task1_1.py").write_text(
+            f"import time\ntime.sleep({seconds})\nprint(int(input()) * 2)\n", encoding="utf-8"
+        )
+        (task / "tests" / "1").write_text("5", encoding="utf-8")
+        (task / "tests" / "1.clue").write_text("10", encoding="utf-8")
+        return task
+
+    def _verdicts(self, capsys) -> list[str]:
+        payload = json.loads(capsys.readouterr().out)
+        return [case["verdict"] for case in payload["cases"]]
+
+    def test_timeout_flag_makes_slow_solution_fail(self, tmp_path, monkeypatch, capsys):
+        task = self._slow_task(tmp_path, 2.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(
+            [
+                "--mode",
+                "1",
+                "--file",
+                str(task / "task1_1.py"),
+                "--timeout",
+                "0.5",
+                "--output",
+                "json",
+            ]
+        )
+
+        assert self._verdicts(capsys) == ["TLE"]
+
+    def test_timeout_flag_lets_slow_solution_pass(self, tmp_path, monkeypatch, capsys):
+        """Тот же код с большим таймаутом проходит — флаг действительно применён."""
+        task = self._slow_task(tmp_path, 1.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(
+            [
+                "--mode",
+                "1",
+                "--file",
+                str(task / "task1_1.py"),
+                "--timeout",
+                "20",
+                "--output",
+                "json",
+            ]
+        )
+
+        assert self._verdicts(capsys) == ["AC"]
+
+    def test_timeout_is_visible_to_run_profile(self, tmp_path, monkeypatch, capsys):
+        """Паспорт условий и ключ кэша обязаны видеть то же значение."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--timeout", "7"])
+        capsys.readouterr()
+
+        assert current_profile().timeout_seconds == 7.0
+
+    def test_memory_limit_zero_means_unlimited(self, tmp_path, monkeypatch, capsys):
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--memory-limit", "0"])
+        capsys.readouterr()
+
+        assert current_profile().max_memory_mb is None
+
+    def test_compare_flag_reaches_the_config(self, tmp_path, monkeypatch, capsys):
+        """`--compare strict` доезжает до конфига, а не остаётся в argparse (issue #1111)."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--compare", "strict"])
+        capsys.readouterr()
+
+        assert config.get_config().compare_mode == "strict"
+
+    def test_compare_defaults_to_stepik(self, tmp_path, monkeypatch, capsys):
+        """Без флага — режим платформы: он и есть дефолт продукта (issue #1111)."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        cli.main(["--mode", "1", "--file", str(task / "task1_1.py")])
+        capsys.readouterr()
+
+        assert config.get_config().compare_mode == "stepik"
+
+    def test_unknown_compare_mode_is_rejected(self, tmp_path, monkeypatch):
+        """Опечатка в режиме — отказ argparse, а не молчаливый откат на дефолт."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--compare", "strikt"])
+
+    def test_non_positive_timeout_is_rejected(self, tmp_path, monkeypatch):
+        """Опечатка не должна тихо превращаться в «без таймаута»."""
+        task = self._slow_task(tmp_path, 0.0)
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--timeout", "0"])
+
+    def test_override_config_rejects_unknown_field(self):
+        with pytest.raises(ValueError):
+            config.override_config(timeuot_seconds=1.0)

@@ -9,6 +9,14 @@ T6: ``[tool.pytest.ini_options] timeout = 120`` действует только 
 
 from __future__ import annotations
 
+import contextlib
+import os
+import sys
+import tempfile
+from collections.abc import Iterable, Iterator
+from pathlib import Path
+from types import ModuleType
+
 import pytest
 
 # pytest-timeout регистрирует pytest11 entry point с именем "timeout"; под ним же
@@ -31,6 +39,147 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
 
+# Артефакты самого прогона, а не тестов: pytest/coverage/hypothesis/линтеры
+# пишут их в корень репозитория и делают это законно. Префиксом — потому что
+# `coverage` в параллельном режиме кладёт `.coverage.<host>.<pid>.<rand>`.
+_RUN_ARTEFACT_NAMES = frozenset(
+    {".pytest_cache", ".hypothesis", ".mypy_cache", ".ruff_cache", "htmlcov", "coverage.xml"}
+)
+_RUN_ARTEFACT_PREFIXES = (".coverage",)
+
+
+def _is_run_artefact(name: str) -> bool:
+    """Запись верхнего уровня создана инструментом прогона, а не тестом."""
+    return name in _RUN_ARTEFACT_NAMES or name.startswith(_RUN_ARTEFACT_PREFIXES)
+
+
+def _top_level_names(place: Path) -> set[str]:
+    """Имена записей ВЕРХНЕГО уровня каталога; недоступный каталог → пустое множество.
+
+    Только верхний уровень и только имена: обход в глубину пришлось бы делать
+    после каждого теста, а прецеденты загрязнения — ``C:\\some\\dir``,
+    ``~/.stepik-grader/``, ``~/.grader_history.db``, ``.grader_cache/`` в корне
+    репозитория — все видны сразу, новой записью верхнего уровня.
+    """
+    try:
+        with os.scandir(place) as entries:
+            return {entry.name for entry in entries}
+    except OSError:
+        return set()
+
+
+def _tolerated_names(place: Path, protected: Iterable[Path]) -> set[str]:
+    """Имена внутри ``place``, ведущие к легальным для записи корням.
+
+    ``--basetemp`` и ``TMPDIR`` разработчик вправе направить куда угодно, в том
+    числе внутрь репозитория или домашней папки (на этой машине системный
+    ``%TEMP%`` недоступен из песочницы инструментов, и ``--basetemp`` —
+    единственный способ прогнать набор). Запись, ведущая в такой корень, — не
+    загрязнение.
+    """
+    names: set[str] = set()
+    for root in protected:
+        try:
+            relative = root.resolve().relative_to(place)
+        except ValueError:
+            continue
+        if relative.parts:
+            names.add(relative.parts[0])
+    return names
+
+
+def _guarded_places(config: pytest.Config) -> list[Path]:
+    """Каталоги, за появлением новых записей в которых следит guard.
+
+    Корень репозитория и рабочая директория ловят ``.grader_cache/``,
+    ``.grader_settings.json`` и прочие следы прогона грейдера без ``chdir``;
+    домашняя папка — пользовательские базы (``~/.stepik-grader/``); корень
+    диска — выдуманный абсолютный путь, который на Windows превращается из
+    ``/some/dir`` в ``C:\\some\\dir``.
+    """
+    places = [Path(config.rootpath), Path.cwd()]
+    with contextlib.suppress(RuntimeError):  # домашняя папка может быть не определена
+        places.append(Path.home())
+    places.append(Path(Path(config.rootpath).anchor))
+    unique: dict[Path, None] = {}
+    for place in places:
+        resolved = place.resolve()
+        if resolved.is_dir():
+            unique[resolved] = None
+    return list(unique)
+
+
+@pytest.fixture(scope="session")
+def _known_filesystem_entries(
+    request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory
+) -> dict[Path, set[str]]:
+    """Слепок опасных мест на старте прогона: ``{каталог: имена верхнего уровня}``."""
+    protected = (tmp_path_factory.getbasetemp(), Path(tempfile.gettempdir()))
+    return {
+        place: _top_level_names(place) | _tolerated_names(place, protected)
+        for place in _guarded_places(request.config)
+    }
+
+
+@pytest.fixture(autouse=True)
+def _no_writes_outside_tmp(
+    request: pytest.FixtureRequest, _known_filesystem_entries: dict[Path, set[str]]
+) -> Iterator[None]:
+    """Ни один тест не трогает РЕАЛЬНУЮ файловую систему за пределами tmp_path.
+
+    Прецедент: тест ``--serve`` передавал в ``cli.main`` выдуманный путь
+    ``--root /some/dir``. Пока ``--root`` задавал только корень раздачи, это
+    было безобидно; когда он стал ещё и корнем настроек, резолвер начал читать
+    и писать по этому пути — на диске появился ``C:\\some\\dir`` с
+    ``.grader_settings.json``. Через несколько недель этот файл сломал сам тест:
+    ``record_history`` резолвился в ``False`` вместо ожидаемого ``True``, причём
+    ТОЛЬКО на машине, где каталог успел появиться, — в CI тест был зелёным.
+
+    Исчезнувшие записи проверяются наравне с появившимися, и по более дорогому
+    прецеденту (issue #818): тесты ``--purge-history`` удалили настоящую
+    ``~/.grader_history.db`` разработчика. Появление файла стоит недоумения,
+    удаление — данных.
+
+    Guard объявляет находку сразу и с именем виновника, вместо того чтобы ждать,
+    пока она вернётся падением в другом месте через месяц. Сам он ничего не
+    удаляет и не восстанавливает: файл может оказаться чужим, а решение о судьбе
+    постороннего файла на диске разработчика — не за набором тестов.
+
+    Определена ПЕРВОЙ из autouse-фикстур намеренно: финализаторы отрабатывают в
+    обратном порядке, поэтому проверка идёт последней — после того как соседние
+    фикстуры откатили свои подмены.
+    """
+    yield
+    created: list[str] = []
+    removed: list[str] = []
+    for place, known in _known_filesystem_entries.items():
+        now = _top_level_names(place)
+        appeared = {name for name in now - known if not _is_run_artefact(name)}
+        vanished = {name for name in known - now if not _is_run_artefact(name)}
+        # Приводим слепок к факту: иначе один тест-виновник уронит и все следующие.
+        known |= appeared
+        known -= vanished
+        created.extend(str(place / name) for name in sorted(appeared))
+        removed.extend(str(place / name) for name in sorted(vanished))
+    if created or removed:
+        found = "; ".join(
+            part
+            for part in (
+                f"создано: {', '.join(created)}" if created else "",
+                f"удалено: {', '.join(removed)}" if removed else "",
+            )
+            if part
+        )
+        pytest.fail(
+            f"{request.node.nodeid} тронул файловую систему вне tmp_path — {found}. "
+            "Тесты работают только в tmp_path/tmp_path_factory: выдуманный абсолютный "
+            "путь в аргументах адресует настоящий диск разработчика, и следующий "
+            "прогон читает оттуда чужие настройки (а удаление уносит его данные). "
+            "Если запись тронул посторонний процесс, а не тест, добавьте её в "
+            "_RUN_ARTEFACT_NAMES."
+        )
+
+
 @pytest.fixture(autouse=True)
 def _isolate_history_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
     """Ни один тест не пишет в РЕАЛЬНУЮ базу истории пользователя (issue #818).
@@ -51,6 +200,42 @@ def _isolate_history_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -
         "STEPIK_GRADER_HISTORY_DB",
         str(tmp_path_factory.mktemp("history-isolated") / "history.db"),
     )
+
+
+def _loaded_config_modules() -> list[ModuleType]:
+    """Все живые экземпляры ``stepik_grader.config`` (обычно один).
+
+    Второй появляется после ``test_bare_import_does_not_read_pyproject_toml``:
+    он переимпортирует модуль, и в ``sys.modules`` встаёт НОВЫЙ объект, тогда
+    как ``cli``/``web`` держат ссылку на прежний. Сбрасывать нужно оба, иначе
+    переопределение останется жить в том, который видит код под тестом.
+    """
+    candidates = [
+        sys.modules.get("stepik_grader.config"),
+        getattr(sys.modules.get("stepik_grader.cli"), "config", None),
+        getattr(sys.modules.get("stepik_grader.web.server"), "config", None),
+    ]
+    unique: dict[int, ModuleType] = {}
+    for module in candidates:
+        if module is not None and hasattr(module, "set_config_path"):
+            unique[id(module)] = module
+    return list(unique.values())
+
+
+@pytest.fixture(autouse=True)
+def _reset_config_overrides() -> Iterator[None]:
+    """Ни один тест не оставляет процессный источник конфига следующему (issue #993).
+
+    ``--config`` и ``--root`` фиксируют источник конфигурации и корень настроек
+    на весь процесс — это их назначение в реальном запуске, но в одном процессе
+    pytest такое переопределение утекает в соседние тесты: прогон ``--serve
+    --root /some/dir`` уводил чтение ``.grader_settings.json`` в чужую папку у
+    всех тестов после него.
+    """
+    yield
+    for module in _loaded_config_modules():
+        module.set_config_path(None)
+        module.set_workspace_root(None)
 
 
 @pytest.fixture(autouse=True)

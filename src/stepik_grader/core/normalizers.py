@@ -15,7 +15,14 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["normalize_floats", "normalize_whitespace", "sort_lines", "split_output_lines"]
+__all__ = [
+    "floats_equal_with_precision",
+    "normalize_floats",
+    "normalize_whitespace",
+    "sort_lines",
+    "split_output_lines",
+    "strip_trailing_blanks",
+]
 
 # issue #843: ``str.splitlines()`` считает переводом строки ещё восемь символов
 # сверх ``\n`` — VT, FF, FS/GS/RS, NEL и U+2028/U+2029. Для сравнения вывода это
@@ -46,6 +53,44 @@ def split_output_lines(text: str) -> list[str]:
     if lines[-1] == "":
         lines.pop()
     return lines
+
+
+#: Что снимается с конца строки в режиме ``stepik``: обычный пробел и
+#: табуляция, и ничего больше. Голый ``str.rstrip()`` здесь **нельзя**: он
+#: считает пробельными ещё и ``\x0b``/``\x0c``, а по #843 они — ДАННЫЕ внутри
+#: строки, а не разделители. С ``rstrip()`` мутация ``vertical_tab`` из каталога
+#: корпуса начала получать AC — ровно тот ложный AC, который #843 и закрывал.
+_TRAILING_BLANKS = " \t"
+
+
+def strip_trailing_blanks(lines: list[str]) -> list[str]:
+    """Убрать хвостовые пробелы каждой строки и пустые строки в конце (issue #1111).
+
+    Нормализация режима сравнения ``stepik``: ровно то, что не различает чекер
+    платформы, и ничего сверх. Ведущие и внутренние пробелы, порядок строк,
+    регистр и число содержательных строк остаются значимыми — ни один из
+    закрытых ложных AC (#843, #940, #1031) этим не возвращается.
+
+    Снимаются только пробел и табуляция. Вертикальная табуляция, перевод
+    страницы и неразрывный пробел — данные: `a<VT>` и `a` остаются разными
+    выводами.
+
+    Зачем понадобилось: на реальной базе курса решения, **принятые Stepik**,
+    получали у нас ``WA`` — расхождение было в хвостовом пробеле (`print(x,
+    end=' ')`) и в «ноль строк против одной пустой». Побайтовая сверка живёт в
+    режиме ``strict``.
+
+    Примеры:
+        ``["a ", "b\\t"]``   → ``["a", "b"]``
+        ``["a", "", ""]``    → ``["a"]``
+        ``[""]``             → ``[]``
+        ``["", "a"]``        → ``["", "a"]``   (пустая строка В НАЧАЛЕ значима)
+        ``["a\\x0b"]``        → ``["a\\x0b"]``   (VT — данные, issue #843)
+    """
+    trimmed = [line.rstrip(_TRAILING_BLANKS) for line in lines]
+    while trimmed and not trimmed[-1]:
+        trimmed.pop()
+    return trimmed
 
 
 # issue #410 (B5): lookbehind/lookahead не дают матчить float ВНУТРИ версии/
@@ -81,6 +126,46 @@ def normalize_floats(text: str) -> str:
             return m.group()
 
     return "\n".join(_FLOAT_RE.sub(_round_float, line) for line in text.split("\n"))
+
+
+def _decimal_digits(number: str) -> int:
+    """Сколько знаков после запятой в десятичной записи числа.
+
+    Экспоненциальная запись (``1e-07``) даёт 0: разрядность там не выражена и
+    требованием формата быть не может.
+    """
+    if "e" in number or "E" in number:
+        return 0
+    _, _, frac = number.partition(".")
+    return len(frac)
+
+
+def floats_equal_with_precision(actual: str, expected: str) -> bool:
+    """Сравнить строки с float-толерантностью, не теряя требования разрядности.
+
+    issue #940: толерантность к записи float нужна — ``0.30000000000000004``
+    против ``0.3`` обязано быть ``AC``, иначе двоичное представление делает
+    грейдер бесполезным. Но она же стирала **незначащие нули**: ожидание
+    ``12.30`` и вывод ``12.3`` после ``round(..., 9)`` превращались в одну
+    строку, и задача «вывести с точностью до сотых» принимала решение, которое
+    её требование не выполняет. Направление вреда худшее из возможных —
+    грейдер зеленее платформы: локальный ``AC``, ``WA`` на Stepik.
+
+    Поэтому толерантность сохраняется, но не там, где ожидание требует **больше**
+    знаков, чем напечатало решение. Если число float-совпадений в строках
+    различается, проверка разрядности пропускается: это случай разных форм
+    записи (``1e-07`` против ``0.0000001``), где сравнивать знаки нечего.
+    """
+    if normalize_floats(actual) != normalize_floats(expected):
+        return False
+    actual_numbers = _FLOAT_RE.findall(actual)
+    expected_numbers = _FLOAT_RE.findall(expected)
+    if len(actual_numbers) != len(expected_numbers):
+        return True
+    return all(
+        _decimal_digits(a) >= _decimal_digits(e)
+        for a, e in zip(actual_numbers, expected_numbers, strict=True)
+    )
 
 
 def sort_lines(output: str) -> str:

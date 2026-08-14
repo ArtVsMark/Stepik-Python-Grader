@@ -184,6 +184,86 @@ def test_outcome_as_dict_is_json_ready() -> None:
     assert json.loads(json.dumps(payload, ensure_ascii=False))["task"] == "double"
 
 
+# ── Исходы алгоритмических мутаций: набор вердиктов и нейтральность (#1057) ──
+
+
+def test_outcome_accepts_alternative_verdict() -> None:
+    """RE вместо WA — совпадение, если каталог объявил его равно приемлемым.
+
+    Сужение диапазона обычно даёт WA, но там, где по нему идёт индексация, — RE.
+    Без набора вердиктов такая задача давала бы ложное расхождение.
+    """
+    outcome = _MODULE.CheckOutcome(
+        task="sum",
+        check="off_by_one_range",
+        expected="WA",
+        actual="RE",
+        detail="…",
+        alternatives=("RE",),
+        may_be_neutral=True,
+    )
+
+    assert outcome.matched
+    assert not outcome.mismatched
+    assert not outcome.neutral
+
+
+def test_outcome_marks_unproven_algorithmic_mutation_neutral() -> None:
+    """AC на алгоритмической мутации — «не проявилась», а не дефект ядра."""
+    outcome = _MODULE.CheckOutcome(
+        task="sum",
+        check="boundary_flip",
+        expected="WA",
+        actual="AC",
+        detail="…",
+        may_be_neutral=True,
+    )
+
+    assert outcome.neutral
+    assert not outcome.matched
+    assert not outcome.mismatched  # прогон таким исходом не роняется
+    assert outcome.as_dict()["neutral"] is True
+
+
+def test_outcome_ac_on_output_mutation_stays_mismatch() -> None:
+    """Порча вывода нейтральной быть не может: AC здесь — ложный AC ядра.
+
+    Это граница послабления. Если бы нейтральность распространялась на всё
+    семейство `output`, худший дефект учебного инструмента — принятое неверное
+    решение — уходил бы в отчёт строкой «не проявилась».
+    """
+    outcome = _MODULE.CheckOutcome(
+        task="sum", check="trailing_space", expected="WA", actual="AC", detail="…"
+    )
+
+    assert outcome.mismatched
+    assert not outcome.neutral
+
+
+def test_neutral_outcome_keeps_exit_code_zero(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Нейтральная мутация не роняет прогон, но названа в отчёте.
+
+    Задача сравнивает с границей 10, а данные её не задевают: сдвиг `>=` → `>`
+    ответ не меняет.
+    """
+    _make_task(
+        tmp_path,
+        solution="print(len([v for v in [3, 25] if v >= 10]))\n",
+        cases=(("", "1\n"),),
+    )
+
+    exit_code = _MODULE.main(
+        ["--corpus", str(tmp_path), "--mutation", "boundary_flip"],
+    )
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "нейтральных мутаций: 1" in output
+    assert "не проявилась" in output
+
+
 def test_select_mutations_rejects_unknown_key() -> None:
     with pytest.raises(SystemExit, match="Неизвестная мутация"):
         _MODULE._select_mutations(["нет-такой"])

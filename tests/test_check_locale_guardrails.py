@@ -199,3 +199,263 @@ def test_clean_en_locale_passes(monkeypatch, tmp_path: Path) -> None:
     errors: list[str] = []
     module.check_en_locale_has_no_cyrillic(errors)
     assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (INS-5-02, LINK-1-05, READER-1-04): ссылки ведут наружу
+#
+# Строки звали читать `docs/use/installation.md` и `README` — то есть файлы,
+# которых у поставившего через pip/pipx на диске нет вовсе. Подсказка в никуда
+# хуже её отсутствия: пользователь ищет несуществующее и решает, что сломан он.
+# ---------------------------------------------------------------------------
+
+
+def _locales(tmp_path: Path, ru: dict[str, str], en: dict[str, str]) -> Path:
+    """Подготовить пару локалей во временной папке и вернуть её путь."""
+    locales_dir = tmp_path / "locales"
+    locales_dir.mkdir()
+    (locales_dir / "ru.json").write_text(json.dumps(ru, ensure_ascii=False), encoding="utf-8")
+    (locales_dir / "en.json").write_text(json.dumps(en, ensure_ascii=False), encoding="utf-8")
+    return locales_dir
+
+
+def test_repo_relative_doc_path_is_caught(monkeypatch, tmp_path: Path) -> None:
+    """Тот самый дефект: сообщение зовёт в docs/, которых при pipx нет."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"auth": "Подробнее об OAuth: docs/use/installation.md"},
+            {"auth": "More about OAuth: docs/use/installation.md"},
+        ),
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert any("ru.json:auth" in e and "en.json:auth" in e for e in errors), errors
+
+
+def test_bare_readme_mention_is_caught(monkeypatch, tmp_path: Path) -> None:
+    """«см. README» — тот же тупик: файла у пользователя пакета нет."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"k": "см. README"}, {"k": "see README"})
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert any("README" in e for e in errors), errors
+
+
+def test_absolute_url_to_the_same_document_passes(monkeypatch, tmp_path: Path) -> None:
+    """Тот же путь внутри абсолютного URL — это и есть решение, не нарушение."""
+    module = _load_module()
+    url = "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/use/installation.md"
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(tmp_path, {"auth": f"OAuth: {url}"}, {"auth": f"OAuth: {url}"}),
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert errors == []
+
+
+def test_generated_file_name_is_not_a_repo_path(monkeypatch, tmp_path: Path) -> None:
+    """`grader-progress.md` продукт создаёт сам — запрет его не касается."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"exp": "Экспорт в grader-progress.md рядом с задачей"},
+            {"exp": "Export to grader-progress.md next to the task"},
+        ),
+    )
+
+    errors: list[str] = []
+    module.check_locales_link_outside_the_repo(errors)
+
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (ED-2-06): один стиль кавычек в английской локали
+# ---------------------------------------------------------------------------
+
+
+def test_guillemets_in_en_locale_are_caught(monkeypatch, tmp_path: Path) -> None:
+    """Русские «ёлочки» в en.json — то, что проверка на кириллицу пропускает."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(tmp_path, {"k": "Раздел «Подучить»"}, {"k": "The «Learn» section"}),
+    )
+
+    errors: list[str] = []
+    module.check_en_locale_uses_one_quote_style(errors)
+
+    assert any("k" in e for e in errors), errors
+
+
+def test_english_quotes_pass(monkeypatch, tmp_path: Path) -> None:
+    """Английские “лапки” — принятый стиль, претензий нет."""
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(tmp_path, {"k": "Раздел «Подучить»"}, {"k": "The “Learn” section"}),
+    )
+
+    errors: list[str] = []
+    module.check_en_locale_uses_one_quote_style(errors)
+
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #960 (ED-2-03): guard видит не только веб
+#
+# Проверка ловила два имени веб-каталога, а основные потребители зовутся иначе:
+# CLI через `ctx.t(...)`, загрузчик и диагностика через `_t(...)`. 83 из 85
+# call-site'ов ей были не видны, поэтому переименование ключа в CLI оставляло
+# гейт зелёным — и студент видел служебный идентификатор вместо текста ошибки.
+# ---------------------------------------------------------------------------
+
+
+def _package_with(module_source: str, tmp_path: Path) -> Path:
+    """Мини-пакет из одного модуля — вход для проверки полноты ключей."""
+    pkg_dir = tmp_path / "stepik_grader"
+    pkg_dir.mkdir()
+    (pkg_dir / "mod.py").write_text(module_source, encoding="utf-8")
+    return pkg_dir
+
+
+def test_cli_call_site_is_seen(monkeypatch, tmp_path: Path) -> None:
+    """Ключ, использованный только через `ctx.t(...)`, обязан ронять guard."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_PKG_DIR", _package_with('ctx.t("no_such_key")\n', tmp_path))
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"other": "текст"}, {"other": "text"})
+    )
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+
+    assert any("no_such_key" in error for error in errors), errors
+
+
+def test_downloader_call_site_is_seen(monkeypatch, tmp_path: Path) -> None:
+    """То же для `_t(...)` — загрузчик и диагностика зовут каталог так."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_PKG_DIR", _package_with('_t("dl_missing_key")\n', tmp_path))
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"other": "текст"}, {"other": "text"})
+    )
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+
+    assert any("dl_missing_key" in error for error in errors), errors
+
+
+def test_known_cli_key_passes(monkeypatch, tmp_path: Path) -> None:
+    """Существующий ключ через `ctx.t(...)` претензий не вызывает."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_PKG_DIR", _package_with('ctx.t("known")\n', tmp_path))
+    monkeypatch.setattr(
+        module, "_LOCALES_DIR", _locales(tmp_path, {"known": "текст"}, {"known": "text"})
+    )
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (RUN-5-06) — подсказки pip install называют настоящий пакет
+# ---------------------------------------------------------------------------
+
+
+def test_wrong_package_name_in_hint_is_caught(monkeypatch, tmp_path: Path) -> None:
+    """Чужое имя дистрибутива в подсказке — ошибка гейта.
+
+    Сообщение про `--watch` советовало `pip install "stepik-grader[watch]"` —
+    имя, под которым проект не публикуется: выполнив подсказку, пользователь
+    получал либо ошибку, либо ЧУЖОЙ пакет. Соседние строки того же файла имя
+    писали верно, поэтому глазами расхождение не ловилось.
+    """
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"watch_missing": 'нужен watchfiles: pip install "stepik-grader[watch]"'},
+            {"watch_missing": 'watchfiles needed: pip install "stepik-grader[watch]"'},
+        ),
+    )
+    monkeypatch.setattr(module, "distribution_name", lambda: "stepik-python-grader")
+
+    errors: list[str] = []
+    module.check_locales_name_the_real_package(errors)
+
+    assert any("watch_missing" in error for error in errors), errors
+
+
+def test_correct_package_name_passes(monkeypatch, tmp_path: Path) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"watch_missing": 'pip install "stepik-python-grader[watch]"'},
+            {"watch_missing": 'pip install "stepik-python-grader[watch]"'},
+        ),
+    )
+    monkeypatch.setattr(module, "distribution_name", lambda: "stepik-python-grader")
+
+    errors: list[str] = []
+    module.check_locales_name_the_real_package(errors)
+
+    assert errors == []
+
+
+def test_foreign_package_names_are_not_touched(monkeypatch, tmp_path: Path) -> None:
+    """Чужие пакеты с extras — не наша забота: проверяем только своё имя.
+
+    Иначе гейт запретил бы законную подсказку вида `pip install "uvicorn[standard]"`.
+    """
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "_LOCALES_DIR",
+        _locales(
+            tmp_path,
+            {"other": 'поставьте pip install "uvicorn[standard]"'},
+            {"other": 'run pip install "uvicorn[standard]"'},
+        ),
+    )
+    monkeypatch.setattr(module, "distribution_name", lambda: "stepik-python-grader")
+
+    errors: list[str] = []
+    module.check_locales_name_the_real_package(errors)
+
+    assert errors == []
+
+
+def test_distribution_name_comes_from_pyproject() -> None:
+    """Имя берётся из pyproject, а не хардкодится в гейте."""
+    module = _load_module()
+
+    assert module.distribution_name() == "stepik-python-grader"

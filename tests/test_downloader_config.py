@@ -64,10 +64,15 @@ class TestConfigFunctions:
         assert result["root_dir"] == "r"
 
     def test_load_existing_with_change(self, tmp_path: pathlib.Path):
-        """Пользователь отвечает 'y' → перезапуск создания конфига."""
+        """Пользователь отвечает 'y' → перезапуск создания конфига.
+
+        ``input_is_available`` мокается явно: под pytest ``stdin`` не терминал,
+        а с issue #1109 вопрос задаётся только там, где есть кому отвечать.
+        """
         cfg_path = tmp_path / "cfg.json"
         downloader_config.save_json_file(cfg_path, {"root_dir": "r", "secrets_path": "s"})
         with (
+            patch("stepik_grader.downloader_config.input_is_available", return_value=True),
             patch("builtins.input", return_value="y"),
             patch(
                 "stepik_grader.downloader_config.create_or_update_config", return_value={"new": 1}
@@ -177,3 +182,79 @@ def test_unknown_language_falls_back_to_russian(tmp_path, monkeypatch, capsys) -
     out = capsys.readouterr().out
     assert "Настройка конфигурации" in out
     assert "dl_config_heading" not in out
+
+
+class TestNonInteractiveConfig:
+    """issue #1109: без интерактивного ввода мастер молчит, а не падает.
+
+    Прежде `load_or_create_config` спрашивал «Нужно изменить настройку?»
+    ВСЕГДА. На закрытом stdin (пайп, скрипт, CI, GUI-обёртка) это давало
+    `EOFError`, а вызывающий печатал «Ошибка работы с конфигом… исправьте файл
+    или удалите его» — совет удалить ИСПРАВНЫЙ файл вместе с путём к базе задач.
+    """
+
+    @staticmethod
+    def _existing_config(tmp_path: pathlib.Path) -> pathlib.Path:
+        config_path = tmp_path / "stepik_config.json"
+        config_path.write_text(
+            '{"root_dir": "Tasks", "secrets_path": "secrets.json"}', encoding="utf-8"
+        )
+        return config_path
+
+    def test_ask_to_change_false_does_not_prompt(self, tmp_path):
+        """URL передан аргументом — спрашивать нечего, пользователь уже сказал."""
+        config_path = self._existing_config(tmp_path)
+
+        with patch("builtins.input", side_effect=AssertionError("вопрос задан")) as ask:
+            config = load_or_create_config(config_path, ask_to_change=False)
+
+        assert config["root_dir"] == "Tasks"
+        ask.assert_not_called()
+
+    def test_non_tty_stdin_does_not_prompt(self, tmp_path):
+        """Пайп и CI: ввода нет физически — вопрос был бы адресован никому."""
+        config_path = self._existing_config(tmp_path)
+
+        with (
+            patch("stepik_grader.downloader_config.input_is_available", return_value=False),
+            patch("builtins.input", side_effect=AssertionError("вопрос задан")) as ask,
+        ):
+            config = load_or_create_config(config_path)
+
+        assert config["root_dir"] == "Tasks"
+        ask.assert_not_called()
+
+    def test_eof_during_prompt_keeps_the_config(self, tmp_path):
+        """Ввод пропал уже после проверки — это не повод объявлять конфиг сломанным."""
+        config_path = self._existing_config(tmp_path)
+
+        with (
+            patch("stepik_grader.downloader_config.input_is_available", return_value=True),
+            patch("builtins.input", side_effect=EOFError),
+        ):
+            config = load_or_create_config(config_path)
+
+        assert config["root_dir"] == "Tasks"
+
+    def test_interactive_run_still_asks(self, tmp_path):
+        """Обратная сторона: в терминале вопрос остаётся — поведение не сломано."""
+        config_path = self._existing_config(tmp_path)
+
+        with (
+            patch("stepik_grader.downloader_config.input_is_available", return_value=True),
+            patch("builtins.input", return_value="n") as ask,
+        ):
+            load_or_create_config(config_path)
+
+        ask.assert_called_once()
+
+    def test_input_is_available_survives_a_broken_stream(self, monkeypatch):
+        """Подменённый или закрытый stdin — «ввода нет», а не исключение."""
+
+        class _Closed:
+            def isatty(self) -> bool:
+                raise ValueError("I/O operation on closed file")
+
+        monkeypatch.setattr("sys.stdin", _Closed())
+
+        assert downloader_config.input_is_available() is False

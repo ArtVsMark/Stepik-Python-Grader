@@ -41,6 +41,7 @@ from stepik_grader.core.grader_core import run_tests
 from stepik_grader.core.result import CaseResult, Verdict
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
+from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
     "BASELINE",
@@ -109,11 +110,34 @@ class CheckOutcome:
     expected: Verdict
     actual: Verdict
     detail: str
+    alternatives: tuple[Verdict, ...] = ()
+    may_be_neutral: bool = False
+
+    @property
+    def accepted(self) -> tuple[Verdict, ...]:
+        """Все вердикты, которые считаются совпадением с ожиданием."""
+        return (self.expected, *self.alternatives)
 
     @property
     def matched(self) -> bool:
-        """Совпал ли фактический вердикт с ожидаемым."""
-        return self.expected == self.actual
+        """Попал ли фактический вердикт в число приемлемых."""
+        return self.actual in self.accepted
+
+    @property
+    def neutral(self) -> bool:
+        """Мутация не проявилась на данных этой задачи (issue #1057).
+
+        Только для алгоритмических мутаций: ошибка в решении может не задеть ни
+        одного тест-кейса — тогда `AC` означает «портить было нечего», а не
+        «ядро проглядело поломку». Такой исход не совпадение и не расхождение,
+        поэтому считается отдельно и прогон им не роняется.
+        """
+        return self.may_be_neutral and not self.matched and self.actual == "AC"
+
+    @property
+    def mismatched(self) -> bool:
+        """Расхождение, которое требует разбора: не совпало и не нейтрально."""
+        return not self.matched and not self.neutral
 
     def as_dict(self) -> dict[str, Any]:
         """Представление для JSON-отчёта."""
@@ -121,8 +145,10 @@ class CheckOutcome:
             "task": self.task,
             "check": self.check,
             "expected": self.expected,
+            "accepted": list(self.accepted),
             "actual": self.actual,
             "matched": self.matched,
+            "neutral": self.neutral,
             "detail": self.detail,
         }
 
@@ -239,7 +265,7 @@ def check_task(
     with tempfile.TemporaryDirectory(prefix="corpus-mutant-") as tmp_name:
         mutant_path = pathlib.Path(tmp_name) / "task_1.py"
         for mutation in catalog:
-            if not mutation.applies_to(expected_lines):
+            if not mutation.applies_to(expected_lines, source):
                 continue
             mutant_path.write_text(mutation.apply(source), encoding="utf-8")
             verdict, detail = run_verdict(mutant_path, task.test_dir, timeout=timeout)
@@ -250,6 +276,8 @@ def check_task(
                     expected=mutation.expected,
                     actual=verdict,
                     detail=f"{mutation.title}: {detail}",
+                    alternatives=mutation.alternatives,
+                    may_be_neutral=mutation.may_be_neutral,
                 )
             )
 
@@ -294,37 +322,55 @@ def _print_text_report(tasks: Sequence[CorpusTask], outcomes: Sequence[CheckOutc
         rows = [o for o in outcomes if o.task == task.slug]
         if not rows:
             continue
-        mismatched = sum(1 for o in rows if not o.matched)
+        mismatched = sum(1 for o in rows if o.mismatched)
         head = "✗" if mismatched else "✓"
         print(f"\n{head} {task.slug} — {titles[task.slug]} ({len(rows)} проверок)")
         for outcome in rows:
             if outcome.matched:
-                print(f"    ✓ {outcome.check:<18} {outcome.expected:<3} — {outcome.detail}")
+                print(f"    ✓ {outcome.check:<18} {outcome.actual:<3} — {outcome.detail}")
+            elif outcome.neutral:
+                print(
+                    f"    ~ {outcome.check:<18} не проявилась на данных этой задачи "
+                    f"— {outcome.detail}"
+                )
             else:
                 print(
-                    f"    ✗ {outcome.check:<18} ожидался {outcome.expected}, "
+                    f"    ✗ {outcome.check:<18} ожидался {'/'.join(outcome.accepted)}, "
                     f"получен {outcome.actual} — {outcome.detail}"
                 )
 
 
 def _print_summary(outcomes: Sequence[CheckOutcome]) -> None:
-    """Напечатать итоговую сводку и перечислить расхождения."""
-    mismatches = [o for o in outcomes if not o.matched]
-    print(f"\nПроверок: {len(outcomes)}, расхождений: {len(mismatches)}")
+    """Напечатать итоговую сводку, расхождения и нейтральные мутации."""
+    mismatches = [o for o in outcomes if o.mismatched]
+    neutral = [o for o in outcomes if o.neutral]
+    tail = f", нейтральных мутаций: {len(neutral)}" if neutral else ""
+    print(f"\nПроверок: {len(outcomes)}, расхождений: {len(mismatches)}{tail}")
+
+    if neutral:
+        # Не дефект, но и не проверка: мутация не задела ни одного кейса, то есть
+        # эта задача её просто не проверяет. Молчать нельзя — иначе «✓ по всему
+        # корпусу» читается как «всё покрыто».
+        print("\nНе проявились на данных задачи (покрытия здесь нет):")
+        for outcome in neutral:
+            print(f"  ~ {outcome.task}/{outcome.check}: {outcome.detail}")
+
     if not mismatches:
-        print("OK: вердикты ядра совпали с ожиданием на всём корпусе.")
+        print("\nOK: вердикты ядра совпали с ожиданием на всём корпусе.")
         return
 
     print("\nРасхождения (каждое — дефект ядра с готовым репро):")
     for outcome in mismatches:
         print(
-            f"  - {outcome.task}/{outcome.check}: ожидался {outcome.expected}, "
+            f"  - {outcome.task}/{outcome.check}: ожидался {'/'.join(outcome.accepted)}, "
             f"получен {outcome.actual} ({outcome.detail})"
         )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Точка входа CLI: прогнать корпус и сообщить о расхождениях."""
+    # issue #1108: вывод несёт названия задач и diff'ы чужого вывода.
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description="Прогонный корпус: сверка вердиктов грейдера с ожидаемыми."
     )
@@ -378,7 +424,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for task in tasks:
         outcomes.extend(check_task(task, timeout=args.timeout, mutations=mutations))
 
-    mismatches = [o for o in outcomes if not o.matched]
+    mismatches = [o for o in outcomes if o.mismatched]
 
     if args.output == "json":
         print(
@@ -387,6 +433,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "checks": [o.as_dict() for o in outcomes],
                     "total": len(outcomes),
                     "mismatched": len(mismatches),
+                    "neutral": sum(1 for o in outcomes if o.neutral),
                 },
                 ensure_ascii=False,
             )

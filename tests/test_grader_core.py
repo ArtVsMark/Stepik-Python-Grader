@@ -17,7 +17,7 @@ import warnings
 import pytest
 
 from stepik_grader import grader
-from stepik_grader.core import mode_detector
+from stepik_grader.core import grader_core, mode_detector
 
 # ---------------------------------------------------------------------------
 # _is_python_code_block  (parametrized — replaces 4 separate test functions)
@@ -204,9 +204,165 @@ def test_load_test_cases_format2(tmp_path: pathlib.Path):
     assert cases[0].expected_lines == ["25"]
 
 
+def test_load_test_cases_format2_missing_expected_warns(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 warns when an input_N.txt has no matching expected_N.txt."""
+    (tmp_path / "input_2.txt").write_text("5\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="expected_2.txt"):
+        grader.load_test_cases(tmp_path)
+
+
+def test_load_test_cases_format2_preserves_leading_zero(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 loads input_03.txt instead of losing the case."""
+    (tmp_path / "input_03.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_03.txt").write_text("25\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].index == 3
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["25"]
+
+
+def test_load_test_cases_format2_distinguishes_leading_zero(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 does not collapse input_2.txt and input_02.txt."""
+    (tmp_path / "input_2.txt").write_text("2\n", encoding="utf-8")
+    (tmp_path / "expected_2.txt").write_text("20\n", encoding="utf-8")
+    (tmp_path / "input_02.txt").write_text("2\n", encoding="utf-8")
+    (tmp_path / "expected_02.txt").write_text("200\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2
+    assert [c.expected_lines for c in cases] == [["20"], ["200"]]
+
+
 def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     """An empty directory yields no cases."""
     assert grader.load_test_cases(tmp_path) == []
+
+
+def test_load_test_cases_cp1251_does_not_raise(tmp_path: pathlib.Path) -> None:
+    """Файлы тестов не в UTF-8 не роняют прогон трейсбеком (issue #939).
+
+    До фикса `UnicodeDecodeError` уходил наружу, а в режиме 2 обрывал пачку,
+    унося результаты остальных решений.
+    """
+    (tmp_path / "input.txt").write_bytes("# TEST_1:\nМир\n".encode("cp1251"))
+    (tmp_path / "output.txt").write_bytes("# TEST_1:\nОК\n".encode("cp1251"))
+
+    with pytest.warns(UserWarning, match="не в utf-8"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format3_with_bom(tmp_path: pathlib.Path) -> None:
+    """BOM в начале файла не обнуляет набор кейсов (issue #939).
+
+    До фикса `U+FEFF` оставался в строке маркера, `# TEST_1:` не матчился,
+    и прогон печатал «NO TESTS» с кодом возврата 0.
+    """
+    (tmp_path / "input.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n5\n")
+    (tmp_path / "output.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n10\n")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["10"]
+
+
+def test_load_test_cases_format3_without_markers_warns(tmp_path: pathlib.Path) -> None:
+    """Файлы формата 3 без маркеров дают подсказку, а не молчаливый пустой набор."""
+    (tmp_path / "input.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("10\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"TEST_1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert cases == []
+
+
+def test_load_test_cases_format3_clean_files_do_not_warn(tmp_path: pathlib.Path) -> None:
+    """Ровный UTF-8 без BOM и с маркерами не поднимает предупреждений (issue #939)."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format1_missing_clue_warns(tmp_path: pathlib.Path) -> None:
+    """Формат 1: файл N без N.clue пропускается с предупреждением (issue #932).
+
+    До фикса набор молча усекался, и «OK 1/1» относилось к неполному набору.
+    """
+    (tmp_path / "1").write_text("1\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
+    (tmp_path / "2").write_text("2\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"2\.clue"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert [c.index for c in cases] == [1]
+
+
+def test_load_test_cases_mixed_format1_and_format2_warns(tmp_path: pathlib.Path) -> None:
+    """Форматы 1 и 2 рядом: предупреждение, оба набора загружены (issue #932)."""
+    (tmp_path / "1").write_text("5\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("999\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="форматы 1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2
+
+
+def test_load_test_cases_colliding_indexes_are_unique(tmp_path: pathlib.Path) -> None:
+    """Пересечение индексов не даёт двух «Тестов 1» (issue #932).
+
+    Кейс не выбрасывается — он получает свободный номер, иначе фикс лечил бы
+    один способ потерять кейс, вводя другой.
+    """
+    (tmp_path / "1").write_text("5\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("999\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning):
+        cases = grader.load_test_cases(tmp_path)
+
+    indexes = [c.index for c in cases]
+    assert len(indexes) == len(set(indexes)), f"индексы задвоились: {indexes}"
+
+
+def test_load_test_cases_no_warning_on_clean_set(tmp_path: pathlib.Path) -> None:
+    """Ровный набор не поднимает предупреждений (issue #932).
+
+    Guard на пустом входе: без этой проверки предупреждения могли бы сыпаться
+    на каждой нормальной задаче и обесцениться.
+    """
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("25\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert [c.index for c in cases] == [1]
 
 
 def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Path) -> None:
@@ -477,6 +633,113 @@ def test_format3_print_block_still_uses_call_wrapper(tmp_path: pathlib.Path) -> 
 def test_block_invokes_solution_predicate(block: str, func: str, expected: bool) -> None:
     """Предикат маршрутизации различает «блок печатает сам» и «блок — это данные»."""
     assert mode_detector._block_invokes_solution(block, func) is expected
+
+
+def test_block_invokes_solution_accepts_any_of_several_names() -> None:
+    """Вызов ЛЮБОЙ функции решения означает драйвер, а не только первой (issue #938)."""
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper", "show"}) is True
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper"}) is False
+
+
+def test_ast_function_name_prefers_public_over_helper(tmp_path: pathlib.Path) -> None:
+    """Целевой считается первая ПУБЛИЧНАЯ функция, а не первая по порядку (issue #938).
+
+    Раньше `_helper`, объявленный выше целевой функции, попадал в обёртку — и
+    вердикт зависел от порядка объявлений в файле пользователя.
+    """
+    solution = tmp_path / "task.py"
+    solution.write_text("def _helper(x):\n    return x\n\n\ndef show(n):\n    print(n)\n")
+
+    assert mode_detector._ast_function_name(solution) == "show"
+    assert mode_detector._ast_function_names(solution) == ["_helper", "show"]
+
+
+def test_helper_declared_first_does_not_break_verdict(tmp_path: pathlib.Path) -> None:
+    """Верное решение с вспомогательной функцией первой даёт AC (issue #938, RUN-2-02).
+
+    До фикса — `RE NameError: name 'show' is not defined`; перестановка функций
+    местами давала AC, то есть вердикт зависел от порядка объявлений.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "def _helper(x):\n    return x * 10\n\n\ndef show(n):\n    print(n + 1)\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nshow(5)\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n6\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_stdin_block_with_assignments_stays_stdin(tmp_path: pathlib.Path) -> None:
+    """Блок `x = 5` не уводит stdin-решение в function-режим (issue #938, RUN-2-01).
+
+    Присваивание похоже на Python-код, но вызывать в решении нечего — там нет
+    ни одного `def`. До фикса верное решение получало
+    `RE function_name not found`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'import sys\nprint(sum(int(line.split(" = ")[1]) for line in sys.stdin if line.strip()))\n',
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nx = 5\ny = 7\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n12\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_class_only_solution_keeps_function_route(tmp_path: pathlib.Path) -> None:
+    """Решение из одного класса остаётся на function-маршруте (issue #938).
+
+    Граница отката «function → stdin»: первая версия проверки смотрела только на
+    `def`, и задача ООП-курса — один `class Vector` плюс блок
+    `vector = Vector()` / `print(vector.abs())` — падала в stdin-маршрут.
+    Поймано интеграционными тестами на реальных задачах, поэтому закреплено
+    отдельно.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "class Counter:\n    def __init__(self, n):\n        self.n = n\n\n"
+        "    def double(self):\n        return self.n * 2\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text(
+        "# TEST_1:\nc = Counter(21)\nprint(c.double())\n", encoding="utf-8"
+    )
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n42\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_param_named_like_stdlib_gets_test_value(tmp_path: pathlib.Path) -> None:
+    """Параметр с именем `date` получает значение теста, а не класс stdlib (issue #938).
+
+    До фикса `all(_n in _local_vars ...)` находил `date` среди импортов самой
+    обёртки, связывал параметр с `datetime.date` и не давал сработать
+    позиционному fallback — верное решение печатало `+5` вместо `2020-01-01+5`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'def days_between(date, delta):\n    print(f"{date}+{delta}")\n', encoding="utf-8"
+    )
+    (task_dir / "tests" / "1").write_text('d = "2020-01-01"\ndelta = 5\n', encoding="utf-8")
+    (task_dir / "tests" / "1.clue").write_text("2020-01-01+5\n", encoding="utf-8")
+    (task_dir / "tests" / "1.type").write_text("function\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
 
 
 def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(
@@ -785,3 +1048,46 @@ class TestWrapperBuilderLegacyBlock:
         result = run_tests(solution, tests_dir)
 
         assert result["passed"] == 1, result
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (MTX-3-05) — режимы 3/4 называют номер провалившегося кейса
+# ---------------------------------------------------------------------------
+
+
+def test_preflight_reports_number_of_first_failing_case(tmp_path: pathlib.Path) -> None:
+    """Пре-флайт возвращает НОМЕР первого провала, а не только его вердикт.
+
+    Режимы 1/2 в отчёте кейс называют, а 3/4 говорили лишь «не прошёл
+    проверку»: воспроизвести падение было не с чего, хотя номер известен ровно
+    здесь. Третий кейс, а не первый — иначе тест прошёл бы и на заглушке,
+    возвращающей единицу.
+    """
+    solution = tmp_path / "task.py"
+    solution.write_text("n = int(input())\nprint(n if n < 5 else n + 100)\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    for number, (given, expected) in enumerate([("1", "1"), ("2", "2"), ("7", "7")], start=1):
+        (tests_dir / str(number)).write_text(given, encoding="utf-8")
+        (tests_dir / f"{number}.clue").write_text(expected, encoding="utf-8")
+
+    report = grader_core.preflight_solution(solution, tests_dir, timeout=10)
+
+    assert report["ok"] is False
+    assert report["verdict"] == "WA"
+    assert report["case"] == 3
+
+
+def test_preflight_case_is_zero_when_everything_passes(tmp_path: pathlib.Path) -> None:
+    """Провала нет — номера тоже нет: ноль читается как «называть нечего»."""
+    solution = tmp_path / "task.py"
+    solution.write_text("print(input())\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "1").write_text("ok", encoding="utf-8")
+    (tests_dir / "1.clue").write_text("ok", encoding="utf-8")
+
+    report = grader_core.preflight_solution(solution, tests_dir, timeout=10)
+
+    assert report["ok"] is True
+    assert report["case"] == 0

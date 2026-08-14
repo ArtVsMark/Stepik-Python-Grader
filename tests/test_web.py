@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import pytest
 
 from stepik_grader import web
+from stepik_grader.core.ai_hints import AiHintOutcome
 from stepik_grader.web import runs, viewmodels
 from stepik_grader.web import server as web_server
 from stepik_grader.web import viewmodels as web_vm
@@ -770,6 +771,7 @@ def server_factory():
         confine: bool = True,
         sandbox: bool = False,
         record_history: bool = True,
+        lang: str = "ru",
     ) -> str:
         httpd = web_server._GraderServer(
             ("127.0.0.1", 0),
@@ -778,6 +780,7 @@ def server_factory():
             confine=confine,
             sandbox=sandbox,
             record_history=record_history,
+            lang=lang,
         )
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()
@@ -883,6 +886,38 @@ class TestHttpHandler:
         page = body.decode("utf-8")
         assert 'data-sandbox="true"' in page
         assert 'data-record-history="false"' in page
+
+    def test_index_injects_start_lang_default_ru(self, server: str) -> None:
+        """issue #1131: стартовый язык страницы приходит от сервера, дефолт — ru."""
+        _, body = _get(server + "/")
+        page = body.decode("utf-8")
+        assert 'data-start-lang="ru"' in page
+        assert "__START_LANG__" not in page
+
+    def test_index_start_lang_follows_the_flag(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """`--serve --lang en` открывает английскую страницу, а не русскую.
+
+        Находка LNCH-2-05: фронт брал язык только из localStorage с откатом на
+        «ru», поэтому единственный явный выбор языка игнорировался — флаг
+        переводил сообщения API и молчал про интерфейс.
+        """
+        url = server_factory(tmp_path, lang="en")
+
+        _, body = _get(url + "/")
+
+        assert 'data-start-lang="en"' in body.decode("utf-8")
+
+    def test_index_start_lang_falls_back_on_garbage(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """Неизвестная локаль — не 500 и не пустая страница, а откат на ru."""
+        url = server_factory(tmp_path, lang="klingon")
+
+        _, body = _get(url + "/")
+
+        assert 'data-start-lang="ru"' in body.decode("utf-8")
 
     def test_index_injects_onboarding_seen_default_false(self, server: str) -> None:
         """issue #660: чистый workspace → онбординг ещё не закрыт (флаг false)."""
@@ -1121,6 +1156,44 @@ class TestSecurityHeaders:
         data = json.loads(body)
         assert data["kind"] == "error"
         assert data["message_id"] == "source_not_a_solution"
+        assert b"SECRET-XYZ" not in body
+
+    def test_api_save_solution_refuses_non_python_target(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """issue #963 (SEC-1-03): ручка сохраняет РЕШЕНИЕ, а не любой файл.
+
+        Замерено до фикса живым сервером: `path=secrets.json` возвращал 200 и
+        затирал токен Stepik текстом решения. Optimistic-lock не мешал — без
+        `expected_mtime` проверки нет вовсе.
+        """
+        secrets = tmp_path / "secrets.json"
+        secrets.write_text('{"client_secret": "SECRET-XYZ"}', encoding="utf-8")
+        payload = json.dumps(
+            {"folder": str(tmp_path), "path": str(secrets), "code": "print(1)"}
+        ).encode()
+
+        status, body = _post(server + "/api/save-solution", payload)
+
+        assert status == 403
+        assert json.loads(body)["message_id"] == "source_not_a_solution"
+        assert "SECRET-XYZ" in secrets.read_text(encoding="utf-8"), "файл затёрт"
+
+    def test_api_hint_refuses_non_python_path(self, server: str, tmp_path: pathlib.Path) -> None:
+        """issue #963 (SEC-1-01): здесь файл не показывается, а увозится наружу.
+
+        Содержимое `path` уходит в промпт внешнему AI-провайдеру, и следов в
+        интерфейсе не остаётся — в ответе только подсказка. Гейт обязан стоять
+        до чтения файла, а не после.
+        """
+        secrets = tmp_path / "secrets.json"
+        secrets.write_text('{"access_token": "SECRET-XYZ"}', encoding="utf-8")
+        payload = json.dumps({"verdict": "WA", "path": str(secrets), "consent": True}).encode()
+
+        status, body = _post(server + "/api/v1/hint", payload)
+
+        assert status == 403
+        assert json.loads(body)["message_id"] == "source_not_a_solution"
         assert b"SECRET-XYZ" not in body
 
     def test_api_source_still_reads_uppercase_py(self, server: str, tmp_path: pathlib.Path) -> None:
@@ -2017,8 +2090,13 @@ class TestRunsApiCancel:
         assert create_status == 202
         run_id = json.loads(create_body)["run_id"]
 
-        assert wait_until(pidfile.exists, timeout=10.0), "child process never started"
-        pid = int(pidfile.read_text().strip())
+        # Wait for the *content*, not just the file: `write_text` creates the
+        # file first and fills it after, so `exists()` goes true while the file
+        # is still empty and `int("")` blows up. Seen as a real CI failure, not
+        # a hypothetical -- once per few hundred runs, on an unrelated PR.
+        raw_pid = wait_until(lambda: pidfile.read_text().strip() if pidfile.exists() else "")
+        assert raw_pid, "child process never started"
+        pid = int(raw_pid)
 
         cancel_status, cancel_body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
         assert cancel_status == 200
@@ -3137,8 +3215,8 @@ class TestReferenceAdapterUnit:
 class TestAiHintApi:
     """POST /api/v1/hint (issue #543): async AI-подсказка + обязательный consent.
 
-    Мокаем канал на уровне ``runs.explain_failure``/``runs.is_configured`` (сам
-    explain_failure покрыт в test_ai_hints.py) — проверяем плумбинг эндпоинт →
+    Мокаем канал на уровне ``runs.explain_failure_detailed``/``runs.is_configured``
+    (сам канал покрыт в test_cli_ai_hints.py) — проверяем плумбинг эндпоинт →
     job → результат, consent-гейт и graceful skip.
     """
 
@@ -3147,24 +3225,28 @@ class TestAiHintApi:
     def test_hint_requires_consent_nothing_sent(self, server, monkeypatch) -> None:
         """Без согласия → 403 consent_required; провайдер НЕ вызывается (в сеть 0)."""
         called: list[int] = []
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: called.append(1) or "x")
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: called.append(1) or AiHintOutcome(text="x", reason=None),
+        )
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         body = json.dumps({"verdict": "WA", "actual": "6", "expected": "5"}).encode()
         status, resp = _post(server + "/api/v1/hint", body)
         assert status == 403
         assert json.loads(resp)["message_id"] == "consent_required"
-        assert called == []  # job не поставлен, explain_failure не вызван
+        assert called == []  # job не поставлен, канал не вызван
 
     def test_hint_configured_returns_marked_hint(self, server, monkeypatch) -> None:
         """consent:true + настроенный канал → 202 → job отдаёт hint отдельным полем;
         контекст собран из полей тела (verdict/actual/expected/stdin)."""
         captured: dict[str, object] = {}
 
-        def _fake(fc: object, cfg: object) -> str:
+        def _fake(fc: object, cfg: object) -> AiHintOutcome:
             captured["fc"] = fc
-            return self._HINT
+            return AiHintOutcome(text=self._HINT, reason=None)
 
-        monkeypatch.setattr(runs, "explain_failure", _fake)
+        monkeypatch.setattr(runs, "explain_failure_detailed", _fake)
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         body = json.dumps(
             {"verdict": "WA", "stdin": "4", "expected": "5", "actual": "6", "consent": True}
@@ -3173,7 +3255,7 @@ class TestAiHintApi:
         assert status == 202
         data = _poll_run(server, json.loads(resp)["run_id"])
         assert data["status"] == "done"
-        assert data["result"] == {"hint": self._HINT, "configured": True}
+        assert data["result"] == {"hint": self._HINT, "configured": True, "reason": None}
         fc = captured["fc"]
         assert fc.verdict == "WA"  # type: ignore[attr-defined]
         assert fc.actual == "6" and fc.expected == "5"  # type: ignore[attr-defined]
@@ -3182,7 +3264,9 @@ class TestAiHintApi:
     def test_hint_not_configured_graceful_null(self, server, monkeypatch) -> None:
         """consent:true, провайдер не настроен → job done с hint=null (graceful)."""
         monkeypatch.setattr(runs, "is_configured", lambda cfg: False)
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: None)
+        monkeypatch.setattr(
+            runs, "explain_failure_detailed", lambda fc, cfg: AiHintOutcome(text=None, reason=None)
+        )
         body = json.dumps(
             {"verdict": "RE", "error": "ZeroDivisionError: x", "consent": True}
         ).encode()
@@ -3190,11 +3274,15 @@ class TestAiHintApi:
         assert status == 202
         data = _poll_run(server, json.loads(resp)["run_id"])
         assert data["status"] == "done"
-        assert data["result"] == {"hint": None, "configured": False}
+        assert data["result"] == {"hint": None, "configured": False, "reason": None}
 
     def test_hint_consent_persists_across_requests(self, server, tmp_path, monkeypatch) -> None:
         """consent:true фиксируется в .grader_settings.json; далее без consent проходит."""
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: self._HINT)
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         first = json.dumps({"verdict": "WA", "actual": "6", "consent": True}).encode()
         status1, resp1 = _post(server + "/api/v1/hint", first)
@@ -3210,7 +3298,11 @@ class TestAiHintApi:
 
     def test_hint_path_outside_workspace_rejected(self, server, monkeypatch) -> None:
         """consent даёт согласие, но path вне workspace → 403 path_outside_workspace."""
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: self._HINT)
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         body = json.dumps({"verdict": "WA", "path": "../../etc/passwd", "consent": True}).encode()
         status, resp = _post(server + "/api/v1/hint", body)

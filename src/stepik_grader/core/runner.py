@@ -50,6 +50,7 @@ except ImportError:
 from stepik_grader.config import CONFIG
 
 __all__ = [
+    "TRUNCATION_MARKER",
     "LocalRunner",
     "RunOutcome",
     "RunSpec",
@@ -112,6 +113,20 @@ class RunSpec:
     # CONFIG внутри раннера: модуль намеренно config-agnostic, как timeout и
     # max_memory_mb выше.
     max_output_bytes: int | None = None
+    # issue #992 (SBX-1-01): под каким именем материализовать скрипт. Backend'ы
+    # изоляции всегда писали его как ``solution.py``, и в function-режиме это
+    # ломало верные решения поголовно: исполняемый скрипт там — сгенерированная
+    # обёртка, которая импортирует модуль решения по имени. Записанная под тем же
+    # именем, она импортировала саму себя и падала «cannot import name ... from
+    # partially initialized module» — 3/3 OK без изоляции превращались в 0/3 FAIL.
+    # ``None`` — прежнее поведение (``solution.py``), оно верно для stdin-режима.
+    script_name: str | None = None
+    # issue #992 (SBX-1-02): файлы, которые обязаны лежать рядом со скриптом
+    # внутри изоляции — сам модуль решения для обёртки и соседние модули, что
+    # решение импортирует. ``{имя файла: содержимое}``. Вне изоляции решение
+    # исполняется на месте и соседи доступны сами собой; изоляция видит только
+    # то, что ей отдали, — поэтому список нужен явный.
+    aux_files: tuple[tuple[str, bytes], ...] = ()
     cancel_event: threading.Event | None = None
 
     def __post_init__(self) -> None:
@@ -137,6 +152,33 @@ def spec_source_bytes(spec: RunSpec) -> bytes:
         return spec.code
     assert spec.path is not None  # инвариант __post_init__: задан path или code
     return spec.path.read_bytes()
+
+
+def materialize_spec(spec: RunSpec, run_dir: pathlib.Path) -> pathlib.Path:
+    """Разложить скрипт и его файлы-спутники в ``run_dir``; вернуть путь скрипта.
+
+    Единая точка материализации для всех backend'ов изоляции (issue #992). Раньше
+    каждый писал ``run_dir / "solution.py"`` сам, и три копии одной строки
+    разошлись бы при первой же правке — а именно эта строка и ломала
+    function-режим: обёртка получала имя модуля решения и импортировала саму
+    себя.
+
+    Имена спутников берутся как есть, но только базовые: путь с разделителем или
+    ``..`` означал бы запись за пределы ``run_dir`` — то есть побег из изоляции
+    через её же механизм подготовки.
+
+    Raises:
+        OSError: не удалось записать файл (передаётся вызывающему backend'у,
+            который превращает это в ``launch_error``, а не в провал решения).
+        ValueError: имя файла-спутника не базовое.
+    """
+    script_path = run_dir / (spec.script_name or "solution.py")
+    script_path.write_bytes(spec_source_bytes(spec))
+    for name, content in spec.aux_files:
+        if pathlib.Path(name).name != name or name in {"", ".", ".."}:
+            raise ValueError(f"aux file name must be a bare file name, got {name!r}")
+        (run_dir / name).write_bytes(content)
+    return script_path
 
 
 @dataclass
@@ -414,9 +456,15 @@ class _OutputBudget:
             return chunk[:room]
 
 
+# issue #935: маркер выделен в константу, потому что по нему теперь опознают
+# факт обрезки выше по стеку (grader_core). Поиск по вольной подстроке
+# развалился бы от любой правки текста; общая константа делает связь явной.
+TRUNCATION_MARKER = "[stepik-grader] вывод обрезан"
+
+
 def _truncation_note(limit: int | None) -> bytes:
     """Пометка в stderr о том, что вывод обрезан (issue #629)."""
-    return f"\n[stepik-grader] вывод обрезан: превышен лимит {limit} байт\n".encode()
+    return f"\n{TRUNCATION_MARKER}: превышен лимит {limit} байт\n".encode()
 
 
 def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
