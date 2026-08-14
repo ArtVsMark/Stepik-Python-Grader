@@ -76,6 +76,7 @@ from stepik_grader.cli.options import (
     _resolve_record_stats,
     _resolve_use_cache,
     _resolve_verbosity,
+    apply_launch_profile,
     peek_lang,
 )
 from stepik_grader.cli.prompts import EXPLICIT_YES
@@ -576,6 +577,12 @@ def main(argv: list[str] | None = None) -> ExitCode:
     # резолвится от рабочей папки вверх до границы проекта.
     if args.root is not None:
         config.set_workspace_root(args.root)
+
+    # issue #1133 (шаг 2): именованный профиль применяется ПОСЛЕ --root (файл
+    # настроек читается из выбранного корня) и ДО всего остального — дальше
+    # аргументы разъезжаются по конфигу и веб-серверу, и профиль, применённый
+    # позже, действовал бы наполовину.
+    apply_launch_profile(args, argv, parser)
 
     # issue #997 (SET-3-03): лимиты правились только в pyproject.toml, которого
     # у pipx-установки нет. Применяем ДО диспетчеризации — прогон, паспорт

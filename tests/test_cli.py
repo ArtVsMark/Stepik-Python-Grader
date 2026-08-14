@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib.metadata
 import json
 import pathlib
@@ -16,7 +17,9 @@ import tomllib
 
 import pytest
 
-from stepik_grader import cli
+from stepik_grader import cli, config
+from stepik_grader.cli import options
+from stepik_grader.core import user_settings
 
 # Ссылка на настоящую функцию диалога ДО того, как autouse-фикстура её
 # подменит — нужна тестам, проверяющим саму graceful-деградацию (issue #79).
@@ -1809,3 +1812,116 @@ class TestMachineOutputAndMessages:
         assert r"\|" in body  # черта экранирована, а не потеряна
         assert "<br>" in body  # перевод строки сохранён видимым
         assert len(table.splitlines()) == 3  # шапка, разделитель, одна строка
+
+
+# ---------------------------------------------------------------------------
+# issue #1133 (шаг 2) — профиль запуска доступен из CLI, а не только из окна
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchProfileFlag:
+    """`--profile NAME` применяет сохранённый набор к `--serve`.
+
+    Без флага профиль остался бы сущностью одного окна — граница эпика #1130
+    требует обратного: одно и то же имя работает и в окне, и в терминале.
+    """
+
+    @staticmethod
+    def _resolve(argv: list[str], root: pathlib.Path) -> argparse.Namespace:
+        parser = options._build_arg_parser("ru")
+        args = parser.parse_args(argv)
+        config.set_workspace_root(root)
+        options.apply_launch_profile(args, argv, parser)
+        return args
+
+    @pytest.fixture
+    def workspace(self, tmp_path: pathlib.Path):
+        """Корень настроек с одним профилем; конфиг возвращается на место."""
+        user_settings.save_launch_profile(
+            user_settings.default_settings_path(tmp_path),
+            "с изоляцией",
+            user_settings.LaunchChoice(
+                sandbox=True, port=8123, lang="en", record_history=False, workdir=tmp_path
+            ),
+        )
+        try:
+            yield tmp_path
+        finally:
+            config.set_workspace_root(None)
+
+    def test_profile_fills_every_saved_field(self, workspace: pathlib.Path) -> None:
+        args = self._resolve(["--serve", "--profile", "с изоляцией"], workspace)
+
+        assert args.sandbox is True
+        assert args.port == 8123
+        assert args.lang == "en"
+        assert args.history is False
+        assert args.root == workspace
+
+    def test_explicit_flag_beats_profile(self, workspace: pathlib.Path) -> None:
+        """«Тот же профиль, но на другом порту» — без правки профиля.
+
+        Проверяется именно порт: у него дефолт 8000, то есть argparse не
+        отличает «не указан» от «указан 8000», и без разбора argv профиль либо
+        всегда проигрывал бы дефолту, либо всегда выигрывал у явного флага.
+        """
+        args = self._resolve(["--serve", "--profile", "с изоляцией", "--port", "9999"], workspace)
+
+        assert args.port == 9999
+        assert args.sandbox is True  # остальное по-прежнему из профиля
+
+    def test_explicit_lang_beats_profile(self, workspace: pathlib.Path) -> None:
+        """У `--lang` дефолт ru — тот же случай неразличимости, что и у порта."""
+        args = self._resolve(["--serve", "--profile", "с изоляцией", "--lang", "ru"], workspace)
+
+        assert args.lang == "ru"
+
+    def test_no_history_flag_beats_profile(self, workspace: pathlib.Path) -> None:
+        user_settings.save_launch_profile(
+            user_settings.default_settings_path(workspace),
+            "с историей",
+            user_settings.LaunchChoice(record_history=True),
+        )
+
+        args = self._resolve(["--serve", "--profile", "с историей", "--no-history"], workspace)
+
+        assert args.history is False
+
+    def test_unknown_profile_lists_available(
+        self, workspace: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Тихая подмена дала бы сервер без изоляции там, где её ждали."""
+        with pytest.raises(SystemExit):
+            self._resolve(["--serve", "--profile", "нет такого"], workspace)
+
+        err = capsys.readouterr().err
+        assert "нет такого" in err
+        assert "с изоляцией" in err, "список доступных профилей не показан"
+
+    def test_profile_without_serve_is_refused(self, workspace: pathlib.Path) -> None:
+        """Профиль описывает запуск сервера — молча игнорировать его нельзя."""
+        with pytest.raises(SystemExit):
+            self._resolve(["--profile", "с изоляцией"], workspace)
+
+    def test_without_profile_nothing_changes(self, workspace: pathlib.Path) -> None:
+        args = self._resolve(["--serve"], workspace)
+
+        assert args.sandbox is False
+        assert args.port == 8000
+        assert args.history is None
+
+
+class TestFlagPresent:
+    """Разбор сырого argv: единственный точный ответ «пользователь это писал?»."""
+
+    def test_detects_separate_value(self) -> None:
+        assert options.flag_present(["--serve", "--port", "9000"], "--port") is True
+
+    def test_detects_equals_form(self) -> None:
+        assert options.flag_present(["--port=9000"], "--port") is True
+
+    def test_absent_flag_is_false(self) -> None:
+        assert options.flag_present(["--serve"], "--port") is False
+
+    def test_any_of_several_names(self) -> None:
+        assert options.flag_present(["--no-history"], "--history", "--no-history") is True
