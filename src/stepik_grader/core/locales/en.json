@@ -126,6 +126,7 @@
   "dl_step_url_prompt": "Step URL",
   "dl_submissions_saved": "  📝 Submission history: {count} → {path}",
   "dl_table_extracted": "  📋 Tests extracted from the table: {count}",
+  "dl_tests_backed_up": "  🗂 Previous tests/ contents ({count}) moved to {path} — manually added cases are kept",
   "dl_tests_not_found": "  ⚠️ No tests found (no ZIP, table or GitHub links) — the other files are saved",
   "dl_zip_downloaded": "  📦 Tests downloaded from ZIP: {count}",
   "dl_zip_found": "  📦 ZIP link found: {url}",
