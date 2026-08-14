@@ -219,7 +219,7 @@ of runtime versions/licenses and vendor web assets, plus `pip-audit` in CI —
 Configuration is required if you want to **automatically download problem data** from Stepik
 or **submit a solution to Stepik** directly from the web interface (the
 "Submit to Stepik" button in mode 1; see
-[grader-workflow.md](grader-workflow.md#web-interface---serve)). Grading
+[grader-workflow.md](grader-workflow.md#веб-интерфейс---serve)). Grading
 local solutions (see [grader-workflow.md](grader-workflow.md)) works without
 OAuth.
 
