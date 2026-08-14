@@ -182,7 +182,7 @@ def _no_writes_outside_tmp(
 
 @pytest.fixture(scope="session", autouse=True)
 def _history_db_safety_net(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
-    """Изоляция истории держится и МЕЖДУ тестами, а не только внутри них (#1166).
+    """Изоляция истории держится и МЕЖДУ тестами, а не только внутри них (#1169).
 
     Изоляция ниже — per-test, и её ``monkeypatch`` откатывается на границе
     теста. В окне между откатом одного теста и установкой следующего
