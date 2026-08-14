@@ -19,6 +19,8 @@ from types import ModuleType
 
 import pytest
 
+from stepik_grader.core import user_settings
+
 # pytest-timeout регистрирует pytest11 entry point с именем "timeout"; под ним же
 # плагин виден в pluginmanager. Проверяем и каноничное имя модуля — на случай
 # иной схемы регистрации в будущих версиях.
@@ -207,6 +209,39 @@ def _history_db_safety_net(tmp_path_factory: pytest.TempPathFactory) -> Iterator
             str(tmp_path_factory.mktemp("history-safety-net") / "history.db"),
         )
         yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _user_settings_safety_net(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """То же для файла настроек: изоляция держится и МЕЖДУ тестами (issue #948).
+
+    Настройки стали общими (``~/.stepik-grader/settings.json``), то есть
+    попадают в ту же категорию, что и база истории: без подмены прогон набора
+    писал бы в домашнюю папку разработчика. Причина отдельной сессионной
+    страховки — ровно та же, что у истории (#1169): per-test изоляция
+    откатывается на границе теста, а поток веб-пула этот момент застаёт.
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv(
+            user_settings.SETTINGS_ENV_VAR,
+            str(tmp_path_factory.mktemp("settings-safety-net") / "settings.json"),
+        )
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_user_settings(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
+    """Свой файл настроек на каждый тест (issue #948).
+
+    Переменная окружения, а не подмена функции: её видит и грейдер, запущенный
+    подпроцессом, — тот же приём, что у ``STEPIK_GRADER_HISTORY_DB``. Тесты,
+    проверяющие сам резолв пути, снимают переменную сами
+    (``monkeypatch.delenv``).
+    """
+    monkeypatch.setenv(
+        user_settings.SETTINGS_ENV_VAR,
+        str(tmp_path_factory.mktemp("settings-isolated") / "settings.json"),
+    )
 
 
 @pytest.fixture(autouse=True)

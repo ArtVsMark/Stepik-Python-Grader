@@ -792,6 +792,9 @@ def server_factory():
     for httpd, thread in started:
         httpd.shutdown()
         httpd.server_close()
+        # Не клиентский таймаут: здесь ждём завершения потока сервера уже
+        # ПОСЛЕ shutdown(). Пять секунд — с запасом, а больше только оттянуло бы
+        # диагноз, если поток всё же завис.
         thread.join(timeout=5)
 
 
@@ -802,10 +805,24 @@ def server(tmp_path: pathlib.Path, server_factory) -> str:
     return server_factory(tmp_path)
 
 
+# Клиентский таймаут HTTP-запросов набора. Пять секунд, стоявшие здесь раньше,
+# годились для статики, но тем же хелпером ходят запросы, которые ИСПОЛНЯЮТ
+# решение: `/api/grade` поднимает подпроцесс Python и ждёт его завершения.
+# На windows-раннере под coverage холодный старт интерпретатора съедал этот
+# лимит целиком, и `test_confine_false_allows_path_outside_workspace` падал
+# `TimeoutError: timed out` — на PR, где менялись только .md-файлы.
+#
+# Это технический предохранитель от вечного зависания, а не проверка скорости:
+# ни один тест не утверждает «ответ быстрее пяти секунд». Значение поднято до
+# минуты — заведомо больше любого честного ответа и заведомо меньше таймаута
+# самого прогона (pytest-timeout, 120 с), чтобы падение оставалось читаемым.
+_CLIENT_TIMEOUT_S = 60
+
+
 def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
     req = urllib.request.Request(url, headers=headers or {})
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=_CLIENT_TIMEOUT_S) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
@@ -934,7 +951,7 @@ class TestHttpHandler:
 
         user_settings.save_settings(
             user_settings.UserSettings(onboarding_seen=True),
-            tmp_path / user_settings.SETTINGS_FILE_NAME,
+            user_settings.default_settings_path(tmp_path),
         )
         url = server_factory(tmp_path)
         _, body = _get(url + "/")
@@ -952,7 +969,9 @@ class TestHttpHandler:
         )
         assert status == 200
         assert (
-            user_settings.load_settings(tmp_path / user_settings.SETTINGS_FILE_NAME).onboarding_seen
+            user_settings.load_settings(
+                user_settings.default_settings_path(tmp_path)
+            ).onboarding_seen
             is True
         )
 
@@ -962,7 +981,7 @@ class TestHttpHandler:
         """issue #660: снятая галка «не показывать» (POST false) возвращает авто-показ."""
         from stepik_grader.core import user_settings
 
-        settings_path = tmp_path / user_settings.SETTINGS_FILE_NAME
+        settings_path = user_settings.default_settings_path(tmp_path)
         user_settings.save_settings(user_settings.UserSettings(onboarding_seen=True), settings_path)
         url = server_factory(tmp_path)
         status, _ = _post(
@@ -978,13 +997,13 @@ class TestHttpHandler:
     # -- static routes (issue #125 — JS/CSS extracted from _INDEX_HTML) ------
 
     def test_static_app_css_served(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/static/app.css", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.status == 200
             assert "text/css" in resp.headers["Content-Type"]
             assert b":root" in resp.read()
 
     def test_static_app_js_served(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.js", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/static/app.js", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.status == 200
             assert "javascript" in resp.headers["Content-Type"]
             # issue #426: app.js is now the ES-module entry that imports the
@@ -1003,7 +1022,9 @@ class TestHttpHandler:
         ],
     )
     def test_static_font_served(self, server: str, name: str) -> None:
-        with urllib.request.urlopen(server + "/static/fonts/" + name, timeout=5) as resp:
+        with urllib.request.urlopen(
+            server + "/static/fonts/" + name, timeout=_CLIENT_TIMEOUT_S
+        ) as resp:
             assert resp.status == 200
             assert resp.headers["Content-Type"] == "font/woff2"
             body = resp.read()
@@ -1051,7 +1072,9 @@ class TestUiLocaleCatalog:
     и его согласованность с data-i18n-разметкой index.html."""
 
     def test_ui_locales_served_as_json(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/locales/ui.json", timeout=5) as resp:
+        with urllib.request.urlopen(
+            server + "/static/locales/ui.json", timeout=_CLIENT_TIMEOUT_S
+        ) as resp:
             assert resp.status == 200
             assert "application/json" in resp.headers["Content-Type"]
             # _send ставит nosniff на все ответы (issue #563)
@@ -1087,7 +1110,7 @@ class TestSecurityHeaders:
     """issue #563: CSP + X-Content-Type-Options на ответах и read-timeout."""
 
     def test_html_response_carries_csp_and_nosniff(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/", timeout=_CLIENT_TIMEOUT_S) as resp:
             csp = resp.headers["Content-Security-Policy"]
             assert resp.headers["X-Content-Type-Options"] == "nosniff"
         for token in (
@@ -1109,18 +1132,18 @@ class TestSecurityHeaders:
         режет — без этих заголовков жертва кликает по невидимым кнопкам
         «Проверить»/«Скачать» своего же грейдера.
         """
-        with urllib.request.urlopen(server + "/", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert "frame-ancestors 'none'" in resp.headers["Content-Security-Policy"]
             # X-Frame-Options — для браузеров, не понимающих frame-ancestors.
             assert resp.headers["X-Frame-Options"] == "DENY"
 
     def test_static_css_carries_nosniff(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/static/app.css", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.headers["X-Content-Type-Options"] == "nosniff"
 
     def test_api_json_carries_nosniff(self, server: str) -> None:
         # /api/grade без path → JSON-ошибка (200), заголовок nosniff всё равно есть.
-        with urllib.request.urlopen(server + "/api/grade", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/api/grade", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.headers["X-Content-Type-Options"] == "nosniff"
 
     def test_no_inline_styles_in_served_static(self) -> None:
@@ -1315,7 +1338,7 @@ def _post(url: str, body: bytes, headers: dict[str, str] | None = None) -> tuple
     for name, value in (headers or {}).items():
         req.add_header(name, value)
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=_CLIENT_TIMEOUT_S) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
@@ -1332,7 +1355,7 @@ def _post_raw(
     Content-Length (issue #259).
     """
     parsed = urllib.parse.urlparse(server)
-    conn = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=5)
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=_CLIENT_TIMEOUT_S)
     try:
         conn.putrequest("POST", path)
         conn.putheader("Content-Type", "application/json")
@@ -3455,7 +3478,9 @@ class TestAiHintApi:
         status1, resp1 = _post(server + "/api/v1/hint", first)
         assert status1 == 202
         _poll_run(server, json.loads(resp1)["run_id"])
-        settings_file = tmp_path / ".grader_settings.json"
+        from stepik_grader.core import user_settings
+
+        settings_file = user_settings.default_settings_path(tmp_path)
         assert settings_file.exists()
         assert json.loads(settings_file.read_text(encoding="utf-8"))["ai_hint_consent"] is True
         # Второй запрос БЕЗ поля consent — согласие уже запомнено сервером.

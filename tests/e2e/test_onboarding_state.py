@@ -36,7 +36,7 @@ def _server_with_onboarding_pending(tmp_path: Path) -> tuple[str, Any]:
 
 
 def _saved_seen(tmp_path: Path) -> object:
-    raw = (tmp_path / user_settings.SETTINGS_FILE_NAME).read_text(encoding="utf-8")
+    raw = user_settings.default_settings_path(tmp_path).read_text(encoding="utf-8")
     return json.loads(raw).get("onboarding_seen")
 
 
@@ -87,7 +87,7 @@ def test_saved_choice_is_shown_on_reopen(page: Any, tmp_path: Path) -> None:
     а окно каждый раз предлагало «не показывать» — и достаточно было закрыть его,
     чтобы выбор молча перевернулся.
     """
-    user_settings.save_fields(tmp_path / user_settings.SETTINGS_FILE_NAME, onboarding_seen=True)
+    user_settings.save_fields(user_settings.default_settings_path(tmp_path), onboarding_seen=True)
     base, httpd = _server_with_onboarding_pending(tmp_path)
     try:
         page.goto(base + "/")

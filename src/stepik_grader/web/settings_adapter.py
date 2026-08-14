@@ -19,8 +19,8 @@ import pathlib
 from stepik_grader.config import get_config
 from stepik_grader.core.ai_hints import consent_endpoint
 from stepik_grader.core.user_settings import (
-    SETTINGS_FILE_NAME,
     UserSettings,
+    default_settings_path,
     load_settings,
     save_fields,
 )
@@ -36,7 +36,14 @@ __all__ = [
 
 
 def _path_for(workspace: pathlib.Path) -> pathlib.Path:
-    return workspace / SETTINGS_FILE_NAME
+    """Файл настроек рабочей директории — тот же, что видит CLI (issue #948).
+
+    Раньше путь собирался здесь руками (``workspace / SETTINGS_FILE_NAME``), и
+    после переезда настроек в общий ``~/.stepik-grader/settings.json`` веб
+    продолжал бы читать и писать папочный файл — то есть тумблер в браузере и
+    тумблер в меню разъехались бы окончательно.
+    """
+    return default_settings_path(workspace)
 
 
 def read_settings(workspace: pathlib.Path) -> UserSettings:
