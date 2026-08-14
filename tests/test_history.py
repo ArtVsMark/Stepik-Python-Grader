@@ -553,6 +553,114 @@ def test_migration_v1_to_v2_backfills_task_progress(tmp_path: Path) -> None:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
 
 
+def _seed_v1_database(db_path: Path, runs: list[tuple[int, str]]) -> None:
+    """Создать базу схемы v1 с готовыми прогонами (``[(mode, verdict), ...]``)."""
+    from stepik_grader import db as db_module
+
+    with contextlib.closing(db_module.connect(db_path)) as conn:
+        db_module.apply_schema(conn, version=1, ddl=history._SCHEMA_V1)
+        for i, (mode, verdict) in enumerate(runs, 1):
+            conn.execute(
+                "INSERT INTO runs (id, ts_utc, mode, source, task_key) "
+                "VALUES (?, ?, ?, 'cli', 't')",
+                (i, f"2026-08-{i:02d}T10:00:00Z", mode),
+            )
+            conn.execute(
+                "INSERT INTO case_results (run_id, case_no, verdict) VALUES (?, 1, ?)",
+                (i, verdict),
+            )
+        conn.commit()
+
+
+def test_concurrent_migration_v1_to_v2_does_not_double_task_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #947: два одновременных входа в миграцию 1→2 не удваивают агрегат.
+
+    Бэкфилл не идемпотентен (``runs_total = runs_total + 1`` на каждый прогон),
+    а мигрирует и путь ЧТЕНИЯ: «Прогресс» в веб-интерфейсе открывает базу так
+    же, как запись прогона из CLI. Раньше версия читалась вне транзакции —
+    оба процесса видели ``user_version = 1`` и оба гнали бэкфилл, после чего
+    «попытки» студента удваивались молча.
+
+    Гонка воспроизводится детерминированно, а не «как повезёт»: барьер внутри
+    ``db.user_version`` держит оба потока ровно в том окне, где они уже
+    прочитали старую версию, но ещё не мигрировали. Ожидание срабатывает один
+    раз на поток (``threading.local``) — под write-lock'ом версия перечитывается
+    тем же вызовом, и повторное ожидание повесило бы тест вместо проверки.
+    """
+    from stepik_grader import db as db_module
+
+    db = _db(tmp_path)
+    _seed_v1_database(db, [(1, "WA"), (3, "SIMILAR"), (1, "AC")])
+
+    barrier = threading.Barrier(2, timeout=30)
+    state = threading.local()
+    real_user_version = db_module.user_version
+
+    def synced_user_version(conn: sqlite3.Connection) -> int:
+        version = real_user_version(conn)
+        if not getattr(state, "synced", False):
+            state.synced = True
+            barrier.wait()
+        return version
+
+    monkeypatch.setattr(db_module, "user_version", synced_user_version)
+
+    results: list[list[dict[str, object]]] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        progress = history.read_task_progress(db)
+        with lock:
+            results.append(progress)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=60)
+
+    monkeypatch.undo()
+    (progress,) = history.read_task_progress(db)
+    # Два прогона режима 1 (бенчмарк-прогон в агрегат не входит), а не четыре.
+    assert progress["runs_total"] == 2, "бэкфилл выполнен дважды — агрегат удвоен"
+    assert progress["attempts_to_first_ac"] == 2
+    assert len(results) == 2, "поток не дождался миграции соседа"
+
+
+def test_migration_is_atomic_when_backfill_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #947: сбой посреди миграции откатывает её целиком, а не наполовину.
+
+    Без транзакции DDL уже был применён, а ``user_version`` — ещё нет: база
+    оставалась «полумигрированной», и следующий запуск гнал бэкфилл заново
+    поверх частично заполненного агрегата.
+    """
+    from stepik_grader import db as db_module
+
+    db = _db(tmp_path)
+    _seed_v1_database(db, [(1, "AC")])
+
+    def boom(conn: sqlite3.Connection) -> None:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(history, "_backfill_task_progress", boom)
+    assert history.read_task_progress(db) == []  # best-effort: не падаем наружу
+    monkeypatch.undo()
+
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        assert db_module.user_version(conn) == 1, "версия поднята при незавершённой миграции"
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    assert "task_progress" not in tables, "DDL не откачен — база полумигрирована"
+
+    (progress,) = history.read_task_progress(db)  # повторная попытка проходит целиком
+    assert progress["runs_total"] == 1
+
+
 def test_task_progress_repository_satisfies_protocol(tmp_path: Path) -> None:
     """Новый метод не выводит SqliteHistoryRepository из-под протокола (ADR-0009)."""
     repo = history.SqliteHistoryRepository(_db(tmp_path))
