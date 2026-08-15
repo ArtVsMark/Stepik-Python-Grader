@@ -13,7 +13,9 @@ grader_core.py (нет UI-опции "сравнивать вывод без у�
 
 from __future__ import annotations
 
+import math
 import re
+from decimal import Decimal, InvalidOperation
 
 __all__ = [
     "floats_equal_with_precision",
@@ -140,6 +142,70 @@ def _decimal_digits(number: str) -> int:
     return len(frac)
 
 
+#: Значащих цифр, которые ещё различает double. Запись длиннее этого предела
+#: округляется при `float()` — и два РАЗНЫХ числа становятся одним.
+_DOUBLE_SIGNIFICANT_DIGITS = 17
+
+
+def _significant_digits(number: str) -> int:
+    """Сколько значащих цифр в записи числа (нули слева и знак не считаются)."""
+    digits = number.lstrip("-+").replace(".", "").lstrip("0")
+    return len(digits)
+
+
+def _beyond_double(number: str) -> bool:
+    """Теряет ли запись информацию при переводе во ``float`` (issue #996).
+
+    Два случая, и оба означают, что ``round(float(x), 9)`` сравнивать уже
+    нечего — исходные числа до него не доживают:
+
+    * **переполнение** — ``1.0e400`` даёт ``inf``, и любое другое переполнение
+      даёт тот же ``inf`` (``PY-1-02``);
+    * **больше значащих цифр, чем держит double** — ``123456789012345678.0`` и
+      ``…679.0`` получают один repr (``MTX-8-02``).
+
+    Оба — не следствие контракта «сравниваем до девяти знаков», а следствие
+    ограничений двоичного представления. Поэтому здесь толерантность неуместна:
+    числа сравниваются точно.
+    """
+    if _significant_digits(number) > _DOUBLE_SIGNIFICANT_DIGITS:
+        return True
+    try:
+        return not math.isfinite(float(number))
+    except (ValueError, OverflowError):  # pragma: no cover — regex даёт валидный синтаксис
+        return True
+
+
+def _distinguishable_by_value(actual: str, expected: str) -> bool:
+    """Разные ли это числа там, где ``float`` их уже не различает (issue #996).
+
+    ``normalize_floats`` округляет до девяти знаков, и это осознанный контракт
+    сравнения: «до девяти знаков после запятой» — обычное требование задачи, а
+    двоичный шум (``0.30000000000000004`` против ``0.3``) обязан считаться
+    совпадением, иначе грейдер бесполезен на дробях (issue #940).
+
+    Но там, где число **не доживает** до округления, контракт ни при чём:
+    ``1.0e400`` превращается в ``inf`` наравне с любым другим переполнением, а
+    восемнадцатизначное целое теряет последнюю цифру. Такие пары сравниваются
+    точно, через ``Decimal`` — он не переполняется и держит все цифры записи.
+
+    Что осталось **намеренно** склеенным: числа меньше 5e-10. ``0.0000000002``
+    по-прежнему принимается за ``0.0000000001``, потому что оба укладываются в
+    девять знаков после запятой; сузить это — значит завернуть законное
+    ``print(0.1234567894)`` при ожидании ``0.123456789``. Находки ``MTX-8-01`` и
+    ``MTX-8-03`` в этой части отклонены: они описывают сам контракт, а не
+    отступление от него.
+
+    ``True`` означает «это разные числа, вердикт не должен их путать».
+    """
+    if not (_beyond_double(actual) or _beyond_double(expected)):
+        return False
+    try:
+        return Decimal(actual) != Decimal(expected)
+    except InvalidOperation:  # pragma: no cover — _FLOAT_RE даёт валидный синтаксис
+        return False
+
+
 def floats_equal_with_precision(actual: str, expected: str) -> bool:
     """Сравнить строки с float-толерантностью, не теряя требования разрядности.
 
@@ -155,6 +221,11 @@ def floats_equal_with_precision(actual: str, expected: str) -> bool:
     знаков, чем напечатало решение. Если число float-совпадений в строках
     различается, проверка разрядности пропускается: это случай разных форм
     записи (``1e-07`` против ``0.0000001``), где сравнивать знаки нечего.
+
+    issue #996: округление до девяти знаков **абсолютное**, поэтому там, где
+    double не решает, оно склеивало РАЗНЫЕ числа и выдавало ложный ``AC``.
+    Три таких случая (все воспроизведены на этом пути) проверяются точно, до
+    округления, — см. :func:`_distinguishable_by_value`.
     """
     if normalize_floats(actual) != normalize_floats(expected):
         return False
@@ -162,6 +233,11 @@ def floats_equal_with_precision(actual: str, expected: str) -> bool:
     expected_numbers = _FLOAT_RE.findall(expected)
     if len(actual_numbers) != len(expected_numbers):
         return True
+    if any(
+        _distinguishable_by_value(a, e)
+        for a, e in zip(actual_numbers, expected_numbers, strict=True)
+    ):
+        return False
     return all(
         _decimal_digits(a) >= _decimal_digits(e)
         for a, e in zip(actual_numbers, expected_numbers, strict=True)
