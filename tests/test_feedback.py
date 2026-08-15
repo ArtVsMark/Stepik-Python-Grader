@@ -507,3 +507,84 @@ class TestPrepareIssue:
         assert "webbrowser" not in source
         assert "urllib.request" not in source
         assert "requests" not in source
+
+
+class TestBudgetIsMeasuredInUrlCharacters:
+    """issue #996 (ADD-4-04) — бюджет поля и лимит URL мерились разным.
+
+    `FIELD_BUDGET_CHARS` считает исходные символы, `MAX_URL_LENGTH` — символы
+    percent-encoded ссылки. Для латиницы меры совпадают, для кириллицы
+    расходятся вшестеро, и русский текст платил за переполнение вдвое больше
+    нужного: поле сжималось «вдвое» независимо от того, сколько именно не
+    влезло.
+    """
+
+    def _kept(self, filler: str, *, count: int = 1500) -> int:
+        prepared = feedback.prepare_issue(
+            feedback.FeedbackKind.BUG,
+            {"what-happened": "падает", "logs": filler * count},
+        )
+        return len(prepared.fields.get("logs", ""))
+
+    def test_cyrillic_keeps_more_than_half_of_the_budget(self) -> None:
+        """Именно этот случай и назван находкой: доезжала ровно половина."""
+        kept = self._kept("я")
+
+        assert kept > 750, "русский лог по-прежнему режется вдвое"
+
+    def test_latin_of_the_same_length_is_untouched(self) -> None:
+        """Контроль: латиница проходила целиком и должна проходить дальше."""
+        assert self._kept("a") == 1500
+
+    def test_url_uses_the_budget_it_took(self) -> None:
+        """Сжатие «вдвое» отдавало лимиту больше, чем тот просил.
+
+        Раньше ссылка выходила на ~1.3 тыс. символов короче потолка — эта
+        разница и была текстом, выброшенным впустую.
+        """
+        prepared = feedback.prepare_issue(
+            feedback.FeedbackKind.BUG,
+            {"what-happened": "падает", "logs": "я" * 1500},
+        )
+
+        assert len(prepared.url) <= feedback.MAX_URL_LENGTH
+        assert len(prepared.url) > feedback.MAX_URL_LENGTH - 200
+
+    def test_encoded_length_matches_the_real_encoder(self) -> None:
+        """Мера обязана совпадать со сборкой ссылки, иначе расчёт мимо.
+
+        `urlencode` кодирует пробел как `+` (один символ); `quote` дал бы `%20`
+        (три) и завышал бы оценку на каждом пробеле — в логе их сотни.
+        """
+        value = "ошибка в файле a b c"
+        prepared = feedback.prepare_issue(feedback.FeedbackKind.IDEA, {"idea": value})
+
+        assert feedback._encoded_len(value) == len(urllib.parse.quote_plus(value))
+        assert urllib.parse.quote_plus(value) in prepared.url
+
+    def test_shrink_never_dips_below_the_floor(self) -> None:
+        """Запрошено больше, чем есть — отдаём минимум, а не пустую строку.
+
+        Вызывающая сторона отличает «сжато» от «сжимать нечего» по длине; если
+        бы `_shrink_by` вернул пустоту, поле молча исчезло бы вместо честного
+        попадания в `dropped`.
+        """
+        squeezed = feedback._shrink_by("я" * 200, 10**6)
+
+        assert squeezed
+        assert len(squeezed) <= feedback._MIN_KEPT_CHARS
+
+    def test_mixed_text_stays_within_the_limit(self) -> None:
+        """Смешанный текст: цена символа разная, поиск границы обязан сойтись."""
+        prepared = feedback.prepare_issue(
+            feedback.FeedbackKind.BUG,
+            {
+                "environment": feedback.collect_environment(channel="CLI"),
+                "what-happened": "решение падает на " + "тесте " * 200,
+                "steps": "run grader " * 200,
+                "logs": "Ошибка: no such file " * 300,
+            },
+        )
+
+        assert len(prepared.url) <= feedback.MAX_URL_LENGTH
+        assert "what-happened" in prepared.fields
