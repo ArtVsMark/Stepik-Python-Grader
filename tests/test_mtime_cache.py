@@ -1,4 +1,4 @@
-"""Тесты core/mtime_cache.py — generic mtime-инвалидируемый кеш (issue #345)."""
+"""Тесты mtime_cache.py.py — generic mtime-инвалидируемый кеш (issue #345)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from stepik_grader.core.mtime_cache import MtimeCache, mtime_signature
+from stepik_grader.mtime_cache import MtimeCache, mtime_signature
 
 
 def test_mtime_signature_is_max_of_files(tmp_path) -> None:

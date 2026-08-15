@@ -3,7 +3,7 @@
 Тонкий слой между HTTP-эндпоинтами (`/api/rules`, `/api/rules/{code}`) и
 доменным провайдером карточек правил (`rules.bundled_rules`). По образцу
 `web/glossary_adapter.py`: отдаёт готовые dict'ы, кеш bundled-базы по mtime —
-внутри провайдера (общий `core/mtime_cache`), адаптер его не дублирует.
+внутри провайдера (общий top-level `mtime_cache`), адаптер его не дублирует.
 """
 
 from __future__ import annotations

@@ -20,7 +20,7 @@ PEP-ссылка, bad/good примеры), преждевременная аб�
 - `rules/models.py` — модель `RuleCard` (Domain, leaf).
 - `rules/json_provider.py` — `JsonRulesProvider` (`from_file`/`from_directory`/
   `load`), `RulesError`, `bundled_rules()` (кеш по mtime через
-  `core/mtime_cache`).
+  `mtime_cache`).
 - `rules/data/pep8_ru.json` — комплектная база (≥30 частых кодов
   pycodestyle/pyflakes: E1xx–E7xx, W2xx/W3xx, W605, F401/F811/F821/F841),
   попадает в wheel через package-data.
@@ -69,7 +69,7 @@ AST/tokenize-чекер не пишем — не дублируем pycodestyle 
 
 Набор строится в `rules/` (там же, где карточки), а `core/lint.py` принимает его
 параметром — иначе `core` пришлось бы импортировать `rules`, а `rules` уже
-зависит от `core/mtime_cache`. Прикладной слой (`cli/commands._collect_lint`,
+зависит от `mtime_cache`. Прикладной слой (`cli/commands._collect_lint`,
 `web/viewmodels._web_lint_records`) передаёт один и тот же набор, поэтому CLI и
 web не могут разойтись. Пустая база (битый источник) → пустой `select` → ruff не
 запускается.
