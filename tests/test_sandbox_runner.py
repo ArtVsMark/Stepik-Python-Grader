@@ -13,6 +13,7 @@ Structure:
 from __future__ import annotations
 
 import functools
+import logging
 import os
 import pathlib
 import shutil
@@ -138,6 +139,126 @@ def test_ephemeral_run_dir_gives_up_without_raising(monkeypatch: pytest.MonkeyPa
     with pytest.warns(UserWarning, match="could not remove ephemeral run dir"):
         with _run_dir.ephemeral_run_dir():
             pass
+
+
+# ---------------------------------------------------------------------------
+# issue #996 (OPS-1-07) — осиротевшие каталоги прошлых прогонов.
+#
+# У `finally` есть предел: SIGKILL, падение интерпретатора, выключение машины
+# посреди прогона — и каталог остаётся в temp навсегда. Подметает их первый за
+# процесс вызов `ephemeral_run_dir`. Границы узкие: чужой каталог удаляется
+# только по возрасту, и только если он заведомо наш.
+# ---------------------------------------------------------------------------
+
+
+class TestSweepOrphanedRunDirs:
+    def _aged(self, path: pathlib.Path, hours: float) -> None:
+        stamp = time.time() - hours * 3600
+        os.utime(path, (stamp, stamp), follow_symlinks=False)
+
+    def test_stale_dir_of_ours_is_removed(self, tmp_path: pathlib.Path) -> None:
+        from stepik_grader.core import run_dir as _run_dir
+
+        orphan = tmp_path / f"{_run_dir.RUN_DIR_PREFIX}dead"
+        orphan.mkdir()
+        (orphan / "wrapper.py").write_text("x", encoding="utf-8")
+        self._aged(orphan, hours=48)
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 1
+        assert not orphan.exists()
+
+    def test_fresh_dir_is_left_alone(self, tmp_path: pathlib.Path) -> None:
+        """Рядом может работать другой грейдер — его каталог трогать нельзя."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        live = tmp_path / f"{_run_dir.RUN_DIR_PREFIX}live"
+        live.mkdir()
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 0
+        assert live.is_dir()
+
+    def test_foreign_names_are_never_touched(self, tmp_path: pathlib.Path) -> None:
+        """Подметается только свой префикс: в temp живёт не только грейдер."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        alien = tmp_path / "pytest-of-root"
+        alien.mkdir()
+        self._aged(alien, hours=48)
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 0
+        assert alien.is_dir()
+
+    def test_symlink_is_not_followed(self, tmp_path: pathlib.Path) -> None:
+        """`rmtree` по ссылке ушёл бы удалять чужое дерево целиком."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        target = tmp_path / "precious"
+        target.mkdir()
+        (target / "data.txt").write_text("важное", encoding="utf-8")
+        link = tmp_path / f"{_run_dir.RUN_DIR_PREFIX}link"
+        link.symlink_to(target)
+        self._aged(link, hours=48)
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 0
+        assert (target / "data.txt").exists()
+
+    def test_unreadable_temp_does_not_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Уборка мусора не вправе ронять прогон, ради которого её позвали."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        def _boom(self: object, pattern: str) -> object:
+            raise PermissionError("temp закрыт")
+
+        monkeypatch.setattr(pathlib.Path, "glob", _boom)
+
+        assert _run_dir.sweep_orphans() == 0
+
+    def test_sweep_runs_once_per_process(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Иначе при сотне кейсов temp сканировался бы сто раз."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        calls = {"n": 0}
+        monkeypatch.setattr(_run_dir, "_swept", False)
+        monkeypatch.setattr(
+            _run_dir, "sweep_orphans", lambda *a, **kw: calls.__setitem__("n", calls["n"] + 1)
+        )
+
+        for _ in range(3):
+            with _run_dir.ephemeral_run_dir():
+                pass
+
+        assert calls["n"] == 1
+
+
+def test_failed_cleanup_reaches_the_diagnostic_log(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """issue #996 (OPS-1-07): единственным следом отказа было `warnings.warn`.
+
+    В CLI оно по умолчанию не показывается, поэтому симптом «temp пухнет»
+    приходил без причины — а диагностический лог для того и заведён.
+    """
+    from stepik_grader.core import run_dir as _run_dir
+
+    monkeypatch.setattr(_run_dir.shutil, "rmtree", _raise_permission_error)
+    monkeypatch.setattr(_run_dir.time, "sleep", lambda _seconds: None)
+    # `configure_diagnostics` гасит propagate у корневого логгера пакета, и в
+    # полном прогоне (test_diag_log.py) это состояние доживает сюда: без явного
+    # восстановления тест зелен в одиночку и красен в наборе.
+    monkeypatch.setattr(logging.getLogger("stepik_grader"), "propagate", True)
+
+    with caplog.at_level(logging.WARNING, logger=_run_dir._log.name):
+        with pytest.warns(UserWarning, match="could not remove ephemeral run dir"):
+            with _run_dir.ephemeral_run_dir():
+                pass
+
+    assert any(
+        "не удалось удалить временный каталог" in record.getMessage() for record in caplog.records
+    )
+
+
+def _raise_permission_error(path: object) -> None:
+    raise PermissionError("stuck forever")
 
 
 # ---------------------------------------------------------------------------
