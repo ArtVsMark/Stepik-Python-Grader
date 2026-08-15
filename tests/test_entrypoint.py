@@ -103,3 +103,89 @@ def test_console_script_runs_mode_1_end_to_end(tmp_path: Path) -> None:
     assert proc.returncode == 0
     assert '"passed": 1' in proc.stdout
     assert '"failed": 0' in proc.stdout
+
+
+# ---------------------------------------------------------------------------
+# issue #996 (INS-3-01) — файл-однофамилец stdlib в каталоге задачи.
+#
+# `python -m` кладёт cwd ПЕРВЫМ в sys.path, а грейдер запускают из каталога с
+# решением студента. `json.py`, `string.py`, `random.py`, `logging.py` — обычные
+# имена для учебной задачи, и каждый перекрывал настоящий stdlib-модуль: грейдер
+# падал трейсбеком в свои внутренности, не показав ни одного экрана.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("shadow", ["json", "string", "random", "logging"])
+def test_module_entrypoint_survives_stdlib_shadow(tmp_path: Path, shadow: str) -> None:
+    """Запуск из каталога, где лежит файл с именем stdlib-модуля."""
+    (tmp_path / f"{shadow}.py").write_text("raise SystemExit('подмена')\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "stepik_grader", "--version"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "stepik-grader" in result.stdout
+
+
+def test_stdlib_shadow_needed_by_runpy_is_out_of_reach(tmp_path: Path) -> None:
+    """Граница фикса, названная вслух: `types.py` не чинится и чиниться не может.
+
+    Модули, нужные самому `runpy`, загружаются ДО первой строки `__main__.py` —
+    интерпретатор печатает «Could not import runpy module» и до нашего кода
+    управление не доходит. Тест фиксирует это как известный предел, чтобы
+    следующий читатель не считал фикс полным и не искал регрессию.
+    """
+    (tmp_path / "types.py").write_text("X = 1\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "stepik_grader", "--version"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode != 0
+    assert "types" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# issue #996 (PKG-1-06, AUD-1-04) — метаданные пакета.
+# ---------------------------------------------------------------------------
+
+
+def test_package_exports_version() -> None:
+    """`stepik_grader.__version__` — то же, что печатает `--version`."""
+    import stepik_grader
+
+    assert stepik_grader.__all__ == ["__version__"]
+    assert stepik_grader.__version__
+    assert isinstance(stepik_grader.__version__, str)
+
+
+def test_package_version_agrees_with_cli() -> None:
+    """Три места читают одни метаданные — значение обязано совпадать."""
+    import stepik_grader
+    from stepik_grader import cli
+
+    assert stepik_grader.__version__ == cli.__version__
+
+
+def test_core_package_declares_empty_all() -> None:
+    """`core/` ничего не реэкспортирует — звёздочка не должна ничего приносить."""
+    import stepik_grader.core
+
+    assert stepik_grader.core.__all__ == []
+
+
+def test_core_docstring_is_russian() -> None:
+    """CLAUDE.md § Язык артефактов: докстринги — по-русски (issue #996, AUD-1-04)."""
+    import stepik_grader.core
+
+    doc = stepik_grader.core.__doc__ or ""
+    assert any("а" <= letter.lower() <= "я" for letter in doc), doc
