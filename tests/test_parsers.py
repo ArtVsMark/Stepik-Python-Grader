@@ -141,3 +141,59 @@ class TestParseTestblockFile:
         """Количество возвращённых блоков совпадает с числом маркеров."""
         result = parse_testblock_file(text)
         assert len(result) == expected_count
+
+
+class TestMarkerRecognition:
+    """issue #996: маркер блока и номера в нём.
+
+    Файлы формата 3 пишет и генератор, и человек: обе находки — про то, что
+    отклонение от канонической записи проходило молча и меняло НАБОР кейсов.
+    """
+
+    def test_lowercase_marker_starts_a_block(self) -> None:
+        """MTX-5-05: `# test_2:` строчными уезжал в данные предыдущего блока.
+
+        Следствие двойное и оба раза немое: ожидание первого кейса разрасталось
+        чужими строками, а второй кейс исчезал вовсе.
+        """
+        blocks = parse_testblock_file("# TEST_1:\n5\n# test_2:\n7\n")
+
+        assert blocks == ["5", "7"]
+
+    @pytest.mark.parametrize("marker", ["# Test_2:", "# TEST_2:", "#test_2:", "# tEsT_2:"])
+    def test_marker_case_and_spacing_variants(self, marker: str) -> None:
+        """Регистр и пробел после решётки на разбор не влияют."""
+        assert parse_testblock_file(f"# TEST_1:\n5\n{marker}\n7\n") == ["5", "7"]
+
+    def test_gap_in_numbering_is_reported(self) -> None:
+        """PY-1-03: `# TEST_1:` и `# TEST_7:` дают два кейса, а не семь.
+
+        Спаривание позиционное и таким остаётся — номера в input и output могут
+        не совпадать, а рассинхрон стоил бы вердикта. Но автор набора, написавший
+        такие маркеры, думает, что кейсов семь, и должен об этом узнать.
+        """
+        with pytest.warns(UserWarning, match="не подряд"):
+            blocks = parse_testblock_file("# TEST_1:\n5\n# TEST_7:\n7\n")
+
+        assert blocks == ["5", "7"], "предупреждение не должно менять разбор"
+
+    def test_sequential_numbering_is_silent(self) -> None:
+        """Обычный набор не должен шуметь: предупреждение про подряд идущие номера — ложное."""
+        import warnings as _warnings
+
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            parse_testblock_file("# TEST_1:\n5\n# TEST_2:\n7\n# TEST_3:\n9\n")
+
+        assert [w for w in caught if "не подряд" in str(w.message)] == []
+
+    def test_numbering_may_start_from_any_number(self) -> None:
+        """Набор с 5 по 7 — тоже подряд: важна непрерывность, а не начало с единицы."""
+        import warnings as _warnings
+
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            blocks = parse_testblock_file("# TEST_5:\na\n# TEST_6:\nb\n# TEST_7:\nc\n")
+
+        assert blocks == ["a", "b", "c"]
+        assert [w for w in caught if "не подряд" in str(w.message)] == []
