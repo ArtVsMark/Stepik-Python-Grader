@@ -58,7 +58,7 @@
 | `core/sandbox/` | Infrastructure | `SandboxRunner`/`SandboxUnavailableError` (`--sandbox`) — ОС-специфичный backend по платформе: `_linux.py` (bubblewrap), `_macos.py` (sandbox-exec/Seatbelt), `_windows.py` (Job Objects, ctypes); `_posix_bootstrap.py`/`_posix_common.py` — общий POSIX-код лимитов (CPU/FS/processes) для Linux и macOS; `_run_dir.py` — эфемерная run-директория. Реализует тот же `Runner`-протокол, что `LocalRunner` — см. [server-mode.md § Runner-слой](design/server-mode.md), гарантии по ОС — [SECURITY.md](../../SECURITY.md) |
 | `core/stats.py` | Infrastructure / Utilities | Opt-in локальная статистика запусков: `record_run`/`read_summary`, JSON Lines `.grader_stats.jsonl`, best-effort (переживает битый/отсутствующий файл), size-based ротация |
 | `core/history.py` | Infrastructure / Utilities | Opt-in SQLite-история прогонов: `record_run`/`read_recent_runs`/`read_task_progress`, база `.grader_history.db` (runs/case_results/lint_violations + агрегат `task_progress` «до первого зачёта», неуязвимый к retention), WAL + `user_version`-миграции, best-effort (но не молча: повреждённая база и откат версии схемы называются один раз за процесс — иначе они неотличимы от «истории нет»). Фундамент разделов «Правила»/«Подучить» |
-| `core/mtime_cache.py` | Infrastructure / Utilities | Generic mtime-инвалидируемый кеш загрузки: `mtime_signature`/`MtimeCache[T]`; переиспользуется провайдерами glossary и rules (не копипаст) |
+| `mtime_cache.py` | Infrastructure / Utilities | Generic mtime-инвалидируемый кеш загрузки: `mtime_signature`/`MtimeCache[T]`; переиспользуется провайдерами glossary и rules (не копипаст) |
 | `core/lint.py` | Infrastructure / Utilities | Opt-in PEP-проверка через ruff: `run_lint`→`list[Violation]`, `ruff_available`, `LintUnavailable`; extra `[lint]`, best-effort, НЕ влияет на вердикт |
 | `core/insights.py` | Infrastructure / Utilities | Таксономия падений + затухание карточек «Подучить»: `failure_kind`/`classify_status`/`learning_cards` — чистые функции + агрегация из истории, статусы active/fading/archived/watch по номерам прогонов (не по календарю) |
 | `core/history_recording.py` | Application-service | Сборка записей истории из результатов грейдинга: `cases_from_test_results`/`cases_from_bench_results`/`lint_records_from_violations`/`default_history_db_path`. Здесь же ЕДИНАЯ точка резолва пути к базе: настройка → существующая база рядом/выше → `~/.stepik-grader/history.db`. Вынесено из `cli/commands.py`, чтобы и CLI (режимы 1-4), и web (`web/viewmodels`) наполняли `.grader_history.db` одним кодом (web не импортирует cli) |
@@ -72,7 +72,7 @@
 | `core/stepik_reference.py` | Application | Импорт закреплённых/топовых решений Stepik как reference-competitor'ов для режимов 2–4 (`--import-reference`/`--import-top`): `import_references_from_task_dir`; НЕ часть grading-core (вторичный конкурент, не источник первичной проверки) |
 | `core/attachments.py` | Application | Вложения условия рядом с решением: `download_attachments` скачивает файлы из `media/attachments`, на которые ссылается текст задачи, и возвращает отчёт по каждому (`saved`/`exists`/`failed`/`skipped`) для `meta.json`. Существующий файл не перезаписывается — его правят руками. Имя санируется до basename: HTML недоверенный, а имя становится путём на диске |
 | `core/submission_archive.py` | Application | История своих отправок по шагу в `<задача>/submissions/`: файл кода на каждую попытку + `meta.json` с вердиктом платформы, `hint` и временем (`save_submission_history`). Ничего не затирает — в отличие от `solution.py`, который хранит только последнюю отправку; имена намеренно вне маски `_SOLUTION_FILE_RE`, иначе старые попытки пришли бы в режимы 2–4 конкурентами |
-| `rules/` (пакет) | Domain | Карточки правил PEP 8: `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет `core/mtime_cache` — не leaf |
+| `rules/` (пакет) | Domain | Карточки правил PEP 8: `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет top-level `mtime_cache` — ребра в `core/` нет (ADR-0011) |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
 | `core/storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
@@ -148,12 +148,12 @@ web/viewmodels.py      ──→  web/grading.py  (grade/bench/microbench/RunSpe
 web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint для error card при RE)
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
-web/viewmodels.py      ──→  core/history.py, core/lint.py, core/mtime_cache.py, rules/  (запись прогонов, блок «Стиль», кеш по mtime, карточки правил)
+web/viewmodels.py      ──→  core/history.py, core/lint.py, mtime_cache.py, rules/  (запись прогонов, блок «Стиль», кеш по mtime, карточки правил)
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/stepik_client.py  (read_step_id — meta.json скачанной задачи), core/storage.py, core/test_loader.py
 web/settings_adapter.py   ──→  core/user_settings.py  (чтение/переключение флагов настроек — единственная точка web-слоя)
 web/settings_adapter.py   ──→  core/ai_hints.py, config.py  (получатель согласия на AI-подсказку: адрес провайдера резолвится ЗДЕСЬ, чтобы роутер не ходил в core — чтобы роутер оставался тонким)
 web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve)
-web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, glossary/taxonomy.py, glossary/lookup.py, config.py  (stdlib_inventory для code_terms; классификация и индексы — в домене, адаптер их только вызывает)
+web/glossary_adapter.py   ──→  core/glossary.py, mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, glossary/taxonomy.py, glossary/lookup.py, config.py  (stdlib_inventory для code_terms; классификация и индексы — в домене, адаптер их только вызывает)
 glossary/taxonomy.py      ──→  glossary/models.py  (семейства разделов, EN-подписи, сортировки, приватность карточки)
 glossary/lookup.py        ──→  glossary/models.py, glossary/taxonomy.py  (индекс концепций из кода → карточка)
 web/rules_adapter.py       ──→  rules/  (bundled_rules), core/history_recording.py  (резолв пути БД), core/insights.py  (подсветка лично нарушенных правил)
@@ -217,7 +217,7 @@ glossary/json_provider.py ──→  glossary/models.py, db.py  (очередь 
 glossary/detector.py      ──→  glossary/models.py
 glossary/stdlib_inventory.py  (только stdlib — интроспекция builtins/исключений/курируемых модулей; project-импортов нет)
 glossary/coverage.py      ──→  glossary/stdlib_inventory.py, glossary/models.py, glossary/json_provider.py
-rules/json_provider.py    ──→  core/mtime_cache.py, rules/models.py  (кеш bundled-базы; пакет rules/ не leaf)
+rules/json_provider.py    ──→  mtime_cache.py, rules/models.py  (кеш bundled-базы; хелпер top-level, поэтому ребра rules → core нет — ADR-0011)
 cli/__init__.py / downloader.py / diagnostic_stepik.py / core/stepik_client.py / core/oauth_flow.py  ──→  core/diag_log.py  (opt-in диаг-логирование с редакцией секретов; сам diag_log — leaf, только stdlib)
 ```
 

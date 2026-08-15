@@ -23,7 +23,6 @@ from stepik_grader import rules
 from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core import history, history_recording, lint
 from stepik_grader.core.error_glossary import resolve_error_hint
-from stepik_grader.core.mtime_cache import MtimeCache
 from stepik_grader.core.result import BenchResult
 from stepik_grader.glossary.detector import MissingConceptDetector
 from stepik_grader.glossary.json_provider import (
@@ -31,6 +30,7 @@ from stepik_grader.glossary.json_provider import (
     JsonGlossaryProvider,
     append_missing_entries,
 )
+from stepik_grader.mtime_cache import MtimeCache
 from stepik_grader.web.grading import (
     apply_reference_ranking,
     apply_relative_ranking,

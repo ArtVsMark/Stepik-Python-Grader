@@ -49,6 +49,11 @@ _LEAF_MODULES = (
     "stepik_grader.core.glossary",
     "stepik_grader.atomic_io",
     "stepik_grader.db",
+    # ``mtime_cache`` (issue #996, ARCH-3-01) — по той же причине top-level: кеш
+    # нужен ``rules/json_provider``, а подпакеты ``core/`` не импортируют. Пока
+    # модуль лежал в ``core/``, единственным способом им воспользоваться было
+    # ребро ``rules → core`` — ровно то, которое инвариант ниже запрещает.
+    "stepik_grader.mtime_cache",
     # ``stdio_encoding`` (issue #1108) — по той же причине top-level: переключатель
     # вывода на UTF-8 нужен всем точкам входа и скриптам стенда, а раньше жил в
     # ``cli/options`` и тянул за собой половину CLI.
@@ -725,4 +730,37 @@ def test_cross_layer_edges_are_documented() -> None:
         + "\n".join(f"  {s} ──→ {t}" for s, t in missing)
         + "\nДопишите их в блок графа — он источник истины для решения "
         "«можно ли добавить импорт»."
+    )
+
+
+# ---------------------------------------------------------------------------
+# issue #996 (ARCH-3-01) — независимые подпакеты не тянут core/.
+#
+# Инвариант заявлен в CLAUDE.md § «Архитектурные инварианты» и в ADR-0011, и на
+# нём построен весь перенос общих хелперов на верхний уровень (`atomic_io`,
+# `db`, `stdio_encoding`, `mtime_cache`). Проверять его было нечем: нарушение
+# жило в `rules/json_provider.py` и выглядело безобидно — «утилитарный импорт».
+# ---------------------------------------------------------------------------
+
+#: Подпакеты-острова: домен без зависимости от ядра проверки. Ребро отсюда в
+#: ``core/`` означает, что общий хелпер лежит не там, где должен, — лечится
+#: переносом хелпера на верхний уровень, а не расширением этого списка.
+_CORE_INDEPENDENT_PACKAGES = ("stepik_grader.glossary", "stepik_grader.rules")
+
+
+@pytest.mark.parametrize("package", _CORE_INDEPENDENT_PACKAGES)
+def test_island_packages_do_not_import_core(package: str) -> None:
+    offenders = sorted(
+        (module, target)
+        for module, targets in _build_import_graph().items()
+        if module == package or module.startswith(f"{package}.")
+        for target in targets
+        if target.startswith("stepik_grader.core")
+    )
+    assert not offenders, (
+        f"{package} импортирует core/ — инвариант CLAUDE.md § «Архитектурные "
+        "инварианты» и ADR-0011 нарушен:\n"
+        + "\n".join(f"  {source} ──→ {target}" for source, target in offenders)
+        + "\nОбщий хелпер выносится на верхний уровень (как atomic_io/db/"
+        "mtime_cache), а не импортируется из core/."
     )
