@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import pathlib
 from collections.abc import Iterable
 
@@ -195,7 +194,21 @@ def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
     """Прочитать function_name из meta.json рядом с файлом решения.
 
     Ищет meta.json в той же директории, что и solution_path.
-    Возвращает None если файл не найден или поле отсутствует.
+    Возвращает None если файл не найден, повреждён или поле отсутствует —
+    тогда режим определяется эвристикой по AST решения.
+
+    issue #996 (PY-3-04): ловится ``ValueError``, а не только
+    ``JSONDecodeError``. Тот — его подкласс, но мимо прежнего перехвата шли ещё
+    два реальных случая: не-UTF8 байт в файле даёт ``UnicodeDecodeError``
+    (тоже подкласс ``ValueError``), а JSON с массивом в корне — голый
+    ``ValueError`` из ``load_json_file``. Оба роняли **весь прогон** там, где
+    достаточно откатиться на эвристику: `meta.json` — подсказка, а не источник
+    истины, и повреждённая подсказка не повод не проверять решение.
+
+    Проверено по всем одиннадцати вызовам ``load_json_file`` в проекте: узкий
+    перехват был только здесь, остальные ловят ``(OSError, ValueError)`` либо
+    намеренно пробрасывают ошибку наверх (конфиг и секреты — там молчать
+    нельзя).
     """
     meta_path = solution_path.parent / "meta.json"
     if not meta_path.exists():
@@ -204,7 +217,7 @@ def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
         meta = load_json_file(meta_path)
         name = meta.get("function_name")
         return str(name) if name else None
-    except (json.JSONDecodeError, OSError):
+    except (ValueError, OSError):
         return None
 
 
