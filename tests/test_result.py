@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from stepik_grader.core.result import TestResult
 from stepik_grader.grader import TestCase, run_single_test
 
@@ -32,6 +34,7 @@ def test_from_dict_full_ac_roundtrip() -> None:
         "memory": 1.5,
         "error": "",
         "timed_out": False,
+        "exit_code": 0,
     }
     result = TestResult.from_dict(raw)
     assert result == TestResult(
@@ -44,6 +47,7 @@ def test_from_dict_full_ac_roundtrip() -> None:
         memory=1.5,
         error="",
         timed_out=False,
+        exit_code=0,
     )
     assert result.to_dict() == raw
 
@@ -59,6 +63,7 @@ def test_from_dict_wa_with_diff() -> None:
         "memory": 1.2,
         "error": "",
         "timed_out": False,
+        "exit_code": 0,
     }
     result = TestResult.from_dict(raw)
     assert result.verdict == "WA"
@@ -77,6 +82,7 @@ def test_from_dict_re_with_error() -> None:
         "memory": 0.0,
         "error": "NameError: name 'x' is not defined",
         "timed_out": False,
+        "exit_code": 0,
     }
     result = TestResult.from_dict(raw)
     assert result.verdict == "RE"
@@ -95,6 +101,7 @@ def test_from_dict_tle_with_timed_out() -> None:
         "memory": 0.0,
         "error": "",
         "timed_out": True,
+        "exit_code": 0,
     }
     result = TestResult.from_dict(raw)
     assert result.verdict == "TLE"
@@ -188,3 +195,63 @@ def test_real_tle_case_maps_onto_test_result(tmp_path: pathlib.Path) -> None:
     assert result.passed is False
     assert result.verdict == "TLE"
     assert result.timed_out is True
+
+
+class TestRoundTripCoversTheWholeContract:
+    """issue #996 (ARCH-1-06, QA-1-05): `to_dict()` терял контрактное поле.
+
+    `CaseResult` объявляет `exit_code` обязательным, и его пишут обе ветки ядра
+    (`_fail_result`, `_map_outcome_to_result`). `TestResult` этого поля не имел
+    вовсе, поэтому `to_dict()` возвращал словарь, контракту НЕ удовлетворяющий.
+
+    Прежний round-trip-тест был зелёным по построению: фикстура не содержала
+    `exit_code`, и потеря поля физически не могла проявиться. Здесь round-trip
+    идёт от ПОЛНОГО набора ключей контракта — тест обязан краснеть на любом
+    следующем потерянном поле, а не только на этом.
+    """
+
+    def _full_case(self) -> dict[str, object]:
+        return {
+            "passed": False,
+            "verdict": "RE",
+            "output": [],
+            "expected": ["8"],
+            "diff": "",
+            "time": 0.125,
+            "memory": 4.2,
+            "error": "IndexError: list index out of range",
+            "timed_out": False,
+            "exit_code": 1,
+        }
+
+    def test_round_trip_keeps_every_contract_key(self) -> None:
+        source = self._full_case()
+
+        restored = TestResult.from_dict(source).to_dict()
+
+        assert set(restored) == set(source), "round-trip потерял ключ контракта"
+        assert restored == source
+
+    def test_exit_code_survives(self) -> None:
+        """Именно по нему отличают «упало» от «отработало с ненулевым статусом»."""
+        assert TestResult.from_dict(self._full_case()).exit_code == 1
+
+    def test_missing_exit_code_becomes_none(self) -> None:
+        """Кейс не запускался — «не измерялось», а не ноль: ноль означал бы успех."""
+        source = self._full_case()
+        del source["exit_code"]
+
+        assert TestResult.from_dict(source).exit_code is None
+
+    @pytest.mark.parametrize("value", ["1", 1.5, True, [], None])
+    def test_garbage_exit_code_degrades_to_none(self, value: object) -> None:
+        """Словарь приходит из JSON и от сторонних потребителей контракта.
+
+        Одно испорченное значение не должно ронять разбор всего результата —
+        та же терпимость, что у остальных полей `from_dict`. `True` отсекается
+        отдельно: bool — подкласс int, и кодом возврата он не бывает.
+        """
+        source = self._full_case()
+        source["exit_code"] = value
+
+        assert TestResult.from_dict(source).exit_code is None
