@@ -1091,3 +1091,152 @@ def test_preflight_case_is_zero_when_everything_passes(tmp_path: pathlib.Path) -
 
     assert report["ok"] is True
     assert report["case"] == 0
+
+
+# ---------------------------------------------------------------------------
+# issue #996 (RUN-1-06) — блок-драйвер, вызывающий решение на верхнем уровне.
+#
+# Один function-режим давал ТРИ разных исхода на одном и том же решении, в
+# зависимости от формы записи блока: с `print(...)` — AC, без него и с классом —
+# RE с трейсбеком в /tmp/stepik-wrapper-*/wrapper.py, без него и с функцией — WA
+# с пустым `Actual`. Тесты бьют по поверхности (реальный прогон), а не по строке
+# сгенерированного исходника: дефект был именно в вердикте.
+# ---------------------------------------------------------------------------
+
+
+class TestDriverBlockCallsSolutionAtTopLevel:
+    """Решение ООП-курса — один класс; блок создаёт объект и зовёт метод."""
+
+    def _oop_solution(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        solution = tmp_path / "task.py"
+        solution.write_text(
+            "class Vector:\n"
+            "    def __init__(self, x: int) -> None:\n"
+            "        self.x = x\n"
+            "\n"
+            "    def length(self) -> int:\n"
+            "        return abs(self.x)\n",
+            encoding="utf-8",
+        )
+        return solution
+
+    def _run(self, solution: pathlib.Path, block: str, expected: str) -> dict[str, object]:
+        case = grader.TestCase(
+            index=1,
+            input_lines=block.split("\n"),
+            expected_lines=[expected],
+            test_type="function",
+        )
+        return grader.run_single_test(solution, case, measure_memory=False)
+
+    def test_class_call_without_print_is_accepted(self, tmp_path: pathlib.Path) -> None:
+        """Именно этот кейс падал: класса не было среди «вызываемых имён» решения.
+
+        Блок уходил в legacy-обёртку, которая импортирует ФУНКЦИЮ, — а при
+        отсутствии функций верхнего уровня эвристика доставала вложенный
+        `__init__`. Пользователь получал `NameError: name 'Vector' is not
+        defined` с трейсбеком в файл, которого не писал, про имя, которое в его
+        решении есть.
+        """
+        result = self._run(self._oop_solution(tmp_path), "Vector(-5).length()", "5")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["5"]
+
+    def test_same_block_with_print_agrees(self, tmp_path: pathlib.Path) -> None:
+        """Вердикт не должен зависеть от того, печатает ли блок сам."""
+        solution = self._oop_solution(tmp_path)
+
+        bare = self._run(solution, "Vector(-5).length()", "5")
+        printed = self._run(solution, "print(Vector(-5).length())", "5")
+
+        assert bare["verdict"] == printed["verdict"] == "AC"
+        assert bare["output"] == printed["output"]
+
+    def test_traceback_never_names_the_generated_wrapper(self, tmp_path: pathlib.Path) -> None:
+        """Щит на исходный симптом: чужой файл в трейсбеке пользователя."""
+        result = self._run(self._oop_solution(tmp_path), "Vector(-5).length()", "5")
+
+        assert "wrapper.py" not in str(result["error"])
+        assert "NameError" not in str(result["error"])
+
+    def test_function_call_without_print_prints_the_value(self, tmp_path: pathlib.Path) -> None:
+        """Тот же блок с функцией давал WA с пустым `Actual` — значение терялось."""
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return a + b\n", encoding="utf-8")
+
+        result = self._run(solution, "solve(1, 2)", "3")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["3"]
+
+    def test_self_printing_function_gains_no_extra_none(self, tmp_path: pathlib.Path) -> None:
+        """Граница issue #785: функция печатает сама и возвращает None.
+
+        Печатать безусловно — значит дописать ей строку `None` и завернуть
+        верное решение. Проверка `is not None` в call-обёртке та же, что в
+        legacy-обёртке, — иначе два маршрута одного режима снова разошлись бы.
+        """
+        solution = tmp_path / "task.py"
+        solution.write_text("def show(a):\n    print(a * 2)\n", encoding="utf-8")
+
+        result = self._run(solution, "show(4)", "8")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["8"]
+
+    def test_multi_statement_block_runs_verbatim(self, tmp_path: pathlib.Path) -> None:
+        """Блок из нескольких инструкций не переписывается: печатает он сам."""
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return a + b\n", encoding="utf-8")
+
+        result = self._run(solution, "x = solve(1, 2)\nprint(x)", "3")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["3"]
+
+
+class TestFunctionModeComparesPrintedValue:
+    """issue #996 (MTX-4-03) — контракт, а не дефект: сравнивается текст.
+
+    Находка «мутация `return str` вместо `int` проходит как AC» верна
+    фактически, но её второй вариант починки нерабочий: у чисел, списков и
+    словарей `repr()` совпадает со `str()`, а строкам он добавил бы кавычки и
+    завернул бы все задачи со строковым ответом. Поэтому поведение закреплено
+    тестом и описано в configuration.md, а не «исправлено».
+    """
+
+    def _verdict(self, tmp_path: pathlib.Path, body: str) -> str:
+        solution = tmp_path / "task.py"
+        solution.write_text(f"def solve(a, b):\n    {body}\n", encoding="utf-8")
+        case = grader.TestCase(
+            index=1,
+            input_lines=["a = 1", "b = 2"],
+            expected_lines=["3"],
+            test_type="function",
+        )
+        return str(grader.run_single_test(solution, case, measure_memory=False)["verdict"])
+
+    def test_return_type_does_not_affect_verdict(self, tmp_path: pathlib.Path) -> None:
+        assert self._verdict(tmp_path, "return a + b") == "AC"
+        assert self._verdict(tmp_path, "return str(a + b)") == "AC"
+
+    def test_printed_text_still_decides(self, tmp_path: pathlib.Path) -> None:
+        """Типы не различаются — значения различаются по-прежнему."""
+        assert self._verdict(tmp_path, "return a + b + 1") == "WA"
+
+    def test_type_check_is_expressible_in_the_test_block(self, tmp_path: pathlib.Path) -> None:
+        """Кому тип важен — проверяет его блоком; формат 3 это позволяет."""
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return str(a + b)\n", encoding="utf-8")
+        case = grader.TestCase(
+            index=1,
+            input_lines=["print(type(solve(1, 2)).__name__)"],
+            expected_lines=["int"],
+            test_type="function",
+        )
+
+        result = grader.run_single_test(solution, case, measure_memory=False)
+
+        assert result["verdict"] == "WA"
+        assert result["output"] == ["str"]

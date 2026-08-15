@@ -78,6 +78,7 @@ __all__ = [
 # timeit-бенчмарка и нормализации float-вывода, не затронуты этим разбиением.
 from stepik_grader.core.microbench_runner import apply_relative_ranking, run_microbench
 from stepik_grader.core.mode_detector import (
+    _ast_class_names,
     _ast_function_name,
     _ast_function_names,
     _block_invokes_solution,
@@ -390,7 +391,22 @@ def _prepare_run_spec(
     # а не ту одну, что выбрана для legacy-обёртки. Иначе вердикт зависел от
     # порядка объявлений: `def _helper` выше целевой функции уводил блок
     # `show(5)` в legacy-обёртку и давал NameError на верном решении.
-    known_names = {*_ast_function_names(solution_path), *([func_name] if func_name else [])}
+    #
+    # issue #996 (RUN-1-06): классы — такие же вызываемые имена решения, как
+    # функции, и `test_loader.py` тот же набор уже считает обоими (`callables`).
+    # Здесь их не было, и решение ООП-курса из одного `class Vector` при блоке
+    # `Vector(-5).length()` драйвером не признавалось: блок уходил в
+    # legacy-обёртку, которая импортирует ФУНКЦИЮ, — а `_ast_function_name` при
+    # отсутствии функций верхнего уровня доставала вложенный `__init__`.
+    # Пользователь получал `NameError: name 'Vector' is not defined` с
+    # трейсбеком в /tmp/stepik-wrapper-*/wrapper.py — файл, которого он не писал,
+    # про имя, которое в его решении есть. Тот же блок с `print(...)` работал:
+    # вердикт зависел от наличия печати, а не от решения.
+    known_names = {
+        *_ast_function_names(solution_path),
+        *_ast_class_names(solution_path),
+        *([func_name] if func_name else []),
+    }
     if _block_invokes_solution(input_data, known_names):
         # python-generation function-call: блок уже содержит print(func(...))
         wrapper_src = _build_call_wrapper(solution_path, input_data)
