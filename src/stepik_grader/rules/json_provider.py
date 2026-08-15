@@ -1,7 +1,7 @@
 """json_provider.py — загрузка/поиск базы карточек правил PEP 8 (issue #345).
 
 Архитектурный слой: Domain. Зависит только от ``rules/models.py`` (stdlib) и
-общего ``core/mtime_cache.py`` — не тянет web/CLI, DAG остаётся ацикличным,
+общего ``mtime_cache.py.py`` — не тянет web/CLI, DAG остаётся ацикличным,
 провайдер работает без web-слоя (для CLI-витрины #349).
 
 ``JsonRulesProvider`` читает карточки из одного JSON-файла или директории
@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from stepik_grader.core.mtime_cache import MtimeCache
+from stepik_grader.mtime_cache import MtimeCache
 
 from .models import RuleCard
 
@@ -145,7 +145,7 @@ class JsonRulesProvider:
         return [card for card in self._cards if needle in {t.lower() for t in card.tags}]
 
 
-# Кеш bundled-провайдера по mtime каталога (общий механизм core/mtime_cache,
+# Кеш bundled-провайдера по mtime каталога (общий механизм mtime_cache.py,
 # тот же, что у глоссария #339) — парсим ~30 карточек один раз.
 _BUNDLED_CACHE: MtimeCache[JsonRulesProvider] = MtimeCache()
 

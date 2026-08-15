@@ -23,6 +23,7 @@ Stepik-Python-Grader/
 │       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
 │       ├── atomic_io.py           # Utilities: atomic_write_json (temp+os.replace, leaf, ADR-0011)
 │       ├── db.py                  # Utilities: общий SQLite-коннектор connect/user_version/apply_schema (leaf, ADR-0011)
+│       ├── mtime_cache.py         # Utilities: mtime_signature/MtimeCache[T] — кеш загрузки (leaf, ADR-0011)
 │       ├── stdio_encoding.py      # Utilities: force_utf8_stdio — вывод точек входа в UTF-8 (leaf)
 │       ├── web/                   # Локальный веб-интерфейс (--serve)
 │       │   ├── __init__.py        # Публичный API пакета (реэкспорт для back-compat)
@@ -89,7 +90,6 @@ Stepik-Python-Grader/
 │           ├── locales/          # JSON-локали меню/CLI: en.json, ru.json (читает i18n.py)
 │           ├── stats.py          # Opt-in локальная статистика запусков
 │           ├── history.py        # Opt-in SQLite-история прогонов
-│           ├── mtime_cache.py    # Generic mtime-кеш загрузки
 │           ├── lint.py           # Opt-in PEP-проверка через ruff, extra [lint]
 │           ├── insights.py       # Таксономия падений + затухание карточек «Подучить»
 │           ├── history_recording.py # Сборка записей истории из грейдинга для CLI+web
@@ -127,7 +127,7 @@ Stepik-Python-Grader/
 │       └── rules/                # Domain: карточки правил PEP 8
 │           ├── __init__.py       # Публичный API пакета rules
 │           ├── models.py         # RuleCard (leaf, только stdlib)
-│           ├── json_provider.py  # JsonRulesProvider + bundled_rules() (кеш core/mtime_cache)
+│           ├── json_provider.py  # JsonRulesProvider + bundled_rules() (кеш top-level mtime_cache)
 │           └── data/pep8_ru.json # Комплектная база ≥30 карточек правил (package-data)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
 ├── tests/                     # pytest-набор (число — в CI-прогоне / бейджах README)

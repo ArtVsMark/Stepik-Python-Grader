@@ -13,7 +13,7 @@ JSON-база не настроена (``CONFIG.glossary_store is None``), — �
 (``glossary/lookup.py``) и наборы имён для сканера
 (``glossary/stdlib_inventory.scanner_name_sets``) — живут в домене и доступны
 любому потребителю, не только HTTP. Здесь остаётся web-специфичное: разрешение
-источника с кешем по mtime (``core/mtime_cache``), сборка JSON-словарей ответа и
+источника с кешем по mtime (``mtime_cache.py``), сборка JSON-словарей ответа и
 zero-config fallback на ``core/glossary`` — ребро на ``core/*``, которого в
 ``glossary/`` быть не должно (ADR-0011).
 """
@@ -25,7 +25,6 @@ from typing import Any, NamedTuple
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import all_entries
-from stepik_grader.core.mtime_cache import MtimeCache
 from stepik_grader.glossary.detector import MissingConceptDetector, scan_code_concepts
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
@@ -49,6 +48,7 @@ from stepik_grader.glossary.taxonomy import (
     section_label,
     sort_cards,
 )
+from stepik_grader.mtime_cache import MtimeCache
 
 __all__ = [
     "code_terms",
@@ -76,7 +76,7 @@ def _fallback_cards() -> list[GlossaryCard]:
 # Кеш распарсенных карточек по источнику (issue #339): раньше каждый запрос к
 # /api/glossary*, /api/code-terms заново читал и парсил всю бандл-базу (1.2 МБ
 # JSON, ~1400 карточек). Теперь парсим один раз и держим в памяти, инвалидируя
-# по mtime через общий core/mtime_cache.MtimeCache (issue #345 — тот же
+# по mtime через общий mtime_cache.py.MtimeCache (issue #345 — тот же
 # механизм переиспользует провайдер правил, не копипастя его; правка store
 # подхватывается, read-only бандл-база после первой загрузки стабильна).
 # Потребители карточки не мутируют (glossary_search/card_index строят новые
