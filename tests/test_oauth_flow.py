@@ -687,7 +687,7 @@ class TestAuthorizeAndGetToken:
 
     def test_tokens_written_with_0600_permissions(self, tmp_path, monkeypatch):
         """issue #400: токены пишутся через save_secrets (атомарно, 0600), а не
-        save_json_file (0644, world/group-readable) — иначе обходится фикс #243."""
+        общий atomic_write_json (наследует права цели) — иначе обходится фикс #243."""
         import os
         import stat
 

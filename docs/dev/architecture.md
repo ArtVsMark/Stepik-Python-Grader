@@ -75,7 +75,7 @@
 | `rules/` (пакет) | Domain | Карточки правил PEP 8: `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет `core/mtime_cache` — не leaf |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
-| `core/storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
+| `core/storage.py` | Infrastructure / Utilities | Чтение JSON (`load_json_file`) и запись секретов с принудительными 0600 (`save_secrets`); обычная атомарная запись JSON — одна на пакет, в top-level `atomic_io` (ADR-0011); нет зависимостей от других модулей проекта |
 | `atomic_io.py` (top-level) | Infrastructure / Utilities (leaf) | Общий атомарный JSON-писатель `atomic_write_json` (ADR-0011): temp в той же директории (`mkstemp`) + `os.replace`, опциональный `fsync`. Живёт вне `core/` намеренно — им пользуются и `core/user_settings`, и независимые от `core/` подпакеты (`glossary/`), без ребра `glossary → core`. Stdlib-only, project-импортов нет |
 | `stdio_encoding.py` (top-level) | Infrastructure / Utilities (leaf) | `force_utf8_stdio()` — переключение `stdout`/`stderr` на UTF-8 с `errors="replace"`. Консоль Windows работает в cp1251, и печать символа вне неё роняет процесс: падало и на строках локали, и на заголовках уроков из Stepik. Top-level по той же причине, что `atomic_io`/`db` — зовут все точки входа (`cli/`, `downloader`, `diagnostic_stepik`, `launcher`) и скрипты стенда, а прежнее место (`cli/options`) тянуло за собой половину CLI. Stdlib-only, project-импортов нет |
 | `db.py` (top-level) | Infrastructure / Utilities (leaf) | Общий SQLite-коннектор (ADR-0011): `connect` (PRAGMA WAL/FK/`busy_timeout` + callback-миграция + close-on-fail) и примитивы `user_version`/`set_user_version`/`apply_schema` (версия в базе выше ожидаемой — `SchemaTooNewError`, потомок `sqlite3.DatabaseError`, а не молчаливый no-op). Вынесен из `core/history`; им пользуются и `core/history`, и очередь пополнения глоссария (`glossary/json_provider`, SQLite/WAL). Top-level (как `atomic_io`), чтобы `glossary/` не тянул `core/`. Stdlib-only (`sqlite3`), project-импортов нет |
@@ -111,12 +111,12 @@
 > `test_graph_edges_fit_one_line`.
 
 ```
-downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
+downloader.py          ──→  core/stepik_client.py, core/oauth_flow.py, atomic_io.py  (meta.json — общим атомарным писателем)
 downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py, core/test_source_fetcher.py, core/step_content.py  (реэкспорт публичных имён)
 downloader.py          ──→  downloader_config.py  (конфиг+интерактив)
 downloader.py          ──→  core/submission_archive.py  (история отправок в <задача>/submissions/)
 downloader.py          ──→  core/attachments.py  (вложения условия рядом с task.md; сеть — через stepik_client)
-downloader_config.py   ──→  core/storage.py
+downloader_config.py   ──→  core/storage.py, atomic_io.py  (конфиг — общим атомарным писателем)
 core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, core/tests_writer.py  (НЕ импортирует downloader)
 core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
 core/stepik_client.py ──→  core/storage.py
@@ -149,7 +149,7 @@ web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint д
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
 web/viewmodels.py      ──→  core/history.py, core/lint.py, core/mtime_cache.py, rules/  (запись прогонов, блок «Стиль», кеш по mtime, карточки правил)
-web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/stepik_client.py  (read_step_id — meta.json скачанной задачи), core/storage.py, core/test_loader.py
+web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/stepik_client.py  (read_step_id — meta.json скачанной задачи), core/storage.py, core/test_loader.py, atomic_io.py
 web/settings_adapter.py   ──→  core/user_settings.py  (чтение/переключение флагов настроек — единственная точка web-слоя)
 web/settings_adapter.py   ──→  core/ai_hints.py, config.py  (получатель согласия на AI-подсказку: адрес провайдера резолвится ЗДЕСЬ, чтобы роутер не ходил в core — чтобы роутер оставался тонким)
 web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve)
@@ -186,10 +186,11 @@ web/reference_adapter.py ──→  core/stepik_reference.py, core/oauth_flow.py
 core/history_recording.py ──→  core/history.py, core/insights.py, core/glossary.py, config.py  (записи RunRecord/CaseRecord/LintRecord; config — путь БД из [tool.stepik-grader] history_db_path)
 core/progress_export.py   ──→  core/history.py, core/insights.py  (агрегаты прогресса)
 core/ai_hints.py          ──→  core/diag_log.py  (редакция ключа; config передаётся вызывающим, requests — вне проекта)
-core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py
-core/submission_archive.py ──→  core/step_content.py, core/storage.py, core/diag_log.py  (раскладка истории отправок; сеть — на стороне вызывающего)
+core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py, atomic_io.py
+core/submission_archive.py ──→  core/step_content.py, core/storage.py, core/diag_log.py, atomic_io.py  (раскладка истории отправок; сеть — на стороне вызывающего)
 core/user_settings.py     ──→  atomic_io.py  (.grader_settings.json атомарно; иначе stdlib-leaf)
 core/stats.py             ──→  atomic_io.py  (ротация .grader_stats.jsonl атомарной заменой)
+core/cache.py             ──→  core/storage.py, atomic_io.py  (чтение .grader_cache/ и запись общим атомарным писателем)
 downloader.py / downloader_config.py / diagnostic_stepik.py  ──→  core/i18n.py  (сообщения мастера скачивания и диагностики на языке меню)
 core/history.py           ──→  db.py  (.grader_history.db через общий SQLite-коннектор; иначе stdlib-leaf)
 cli/options.py / downloader.py / diagnostic_stepik.py / launcher.py  ──→  stdio_encoding.py  (вывод в UTF-8 до первой печати; иначе консоль cp1251 роняет процесс)

@@ -23,9 +23,10 @@ from typing import Any
 import requests
 
 from stepik_grader import downloader
+from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.oauth_flow import load_secrets_dict, try_create_session_without_browser
 from stepik_grader.core.stepik_client import read_step_id
-from stepik_grader.core.storage import load_json_file, save_json_file
+from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
 
 __all__ = [
@@ -110,7 +111,7 @@ def write_config(
     new_secrets = (
         secrets_path if secrets_path is not None else _absolute(current["secrets_path"], workspace)
     )
-    save_json_file(
+    atomic_write_json(
         workspace / downloader.CONFIG_FILE,
         {"root_dir": str(new_root), "secrets_path": str(new_secrets)},
     )

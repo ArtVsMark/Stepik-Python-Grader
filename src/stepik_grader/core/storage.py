@@ -1,11 +1,22 @@
-"""storage.py — утилиты для чтения и записи JSON-файлов.
+"""storage.py — чтение JSON-файлов и запись секретов.
 
 Архитектурный слой: Infrastructure / Utilities.
-Не имеет зависимостей от других модулей проекта.
+Не имеет зависимостей от других модулей проекта (leaf — только stdlib).
 Отвечает исключительно за:
   - чтение JSON-файлов с диска,
-  - запись dict в JSON-файл,
-  - сохранение secrets dict в файл.
+  - сохранение secrets dict в файл с правами 0600.
+
+issue #996 (``ARCH-3-05``): обычной атомарной записи JSON здесь больше нет —
+она одна на весь пакет и живёт в top-level ``atomic_io.atomic_write_json``.
+Было два «единых» писателя с разной семантикой прав: здешний наследовал права
+уже существующего файла, а общий всегда оставлял 0600. Один и тот же
+`chmod g+r` на конфиг сохранялся или отменялся в зависимости от того, какой
+модуль его записал. Наследование прав переехало в общий писатель, потребители
+(`cache`, `downloader`, `downloader_config`, `stepik_reference`,
+`submission_archive`, `web/downloader_adapter`) зовут его напрямую.
+
+``save_secrets`` остался здесь намеренно: у него ДРУГОЙ контракт — 0600
+принудительно, права цели не наследуются никогда (см. его докстринг).
 """
 
 from __future__ import annotations
@@ -19,7 +30,6 @@ from typing import Any
 
 __all__ = [
     "load_json_file",
-    "save_json_file",
     "save_secrets",
 ]
 
@@ -39,43 +49,6 @@ def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Ожидался JSON-объект в файле {file_path}")
     return data
-
-
-def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
-    """Атомарно сохраняет dict как JSON-файл, создавая родительские директории.
-
-    issue #408: пишем во временный файл в ТОЙ ЖЕ директории и заменяем цель
-    через ``os.replace`` (атомарный rename на POSIX и Windows) — прерывание,
-    краш или конкурентная запись не оставляют усечённый файл, а читатель видит
-    либо старую, либо новую полную версию (прежний ``open("w")`` сначала обрезал
-    целевой файл). Temp рядом с целью — чтобы replace шёл в пределах одной ФС
-    (rename между ФС не атомарен). Общий атомарный писатель для
-    cache.py/meta.json/downloader-config (все зовут эту функцию).
-    """
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    data = json.dumps(payload, ensure_ascii=False, indent=2)
-    # mkstemp в той же директории → уникальное имя (параллельные писатели не
-    # делят temp) и приватные права 0600 на время записи.
-    fd, tmp_name = tempfile.mkstemp(
-        dir=file_path.parent, prefix=f".{file_path.name}.", suffix=".tmp"
-    )
-    tmp_path = pathlib.Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as file:
-            file.write(data)
-            file.flush()
-            os.fsync(file.fileno())
-        # Сохранить права уже существующего файла (mkstemp даёт 0600); для нового
-        # файла остаётся 0600 — не секрет, но owner-only безопаснее и локально
-        # достаточно. На Windows chmod по сути no-op (права — NTFS ACL).
-        with contextlib.suppress(OSError):
-            tmp_path.chmod(file_path.stat().st_mode & 0o777)
-        tmp_path.replace(file_path)
-    except OSError:
-        # best-effort уборка temp при сбое записи/replace — цель не тронута.
-        with contextlib.suppress(OSError):
-            tmp_path.unlink()
-        raise
 
 
 def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
@@ -111,14 +84,19 @@ def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
             file.write(payload)
             file.flush()
             os.fsync(file.fileno())
-        # В отличие от save_json_file права цели НЕ наследуются: секреты всегда
-        # приводятся к 0600, даже если старый файл остался с более широкими
-        # правами от прежней версии (issue #243). os.replace переносит режим
-        # temp-файла на цель, поэтому гарантия сохраняется и после замены.
+        # В отличие от `atomic_io.atomic_write_json` права цели НЕ наследуются:
+        # секреты всегда приводятся к 0600, даже если старый файл остался с
+        # более широкими правами от прежней версии (issue #243). os.replace
+        # переносит режим temp-файла на цель, поэтому гарантия сохраняется и
+        # после замены. Ради этого отличия функция и живёт отдельно от общего
+        # писателя (issue #996, ARCH-3-05).
         with contextlib.suppress(OSError):
             tmp_path.chmod(0o600)
         tmp_path.replace(secrets_path)
-    except OSError:
+    except BaseException:
+        # issue #996 (PY-3-05): не только OSError. Ctrl+C — `KeyboardInterrupt`,
+        # он `BaseException` и мимо прежнего перехвата проходил насквозь,
+        # оставляя temp с СЕКРЕТАМИ (0600, но навсегда) рядом с целью.
         with contextlib.suppress(OSError):
             tmp_path.unlink()
         raise

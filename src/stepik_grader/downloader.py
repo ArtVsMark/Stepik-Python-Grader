@@ -10,7 +10,7 @@
 После SRP-разбиения (issue #302) специализированные роли вынесены; downloader
 реэкспортирует их публичные имена для обратной совместимости (см. импорты):
   - HTTP/OAuth               → core/stepik_client.py, core/oauth_flow.py
-  - файловый I/O             → core/storage.py
+  - файловый I/O             → atomic_io.py (общий атомарный писатель JSON)
   - разбор HTML текста задачи → core/task_page_parser.py
   - запись форматов тестов   → core/tests_writer.py
   - скачивание ZIP/GitHub    → core/test_source_fetcher.py
@@ -34,6 +34,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 
 from stepik_grader import downloader_config
+from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.attachments import download_attachments
 from stepik_grader.core.diag_log import configure_diagnostics, get_logger
 from stepik_grader.core.i18n import load_locale_messages
@@ -58,7 +59,6 @@ from stepik_grader.core.stepik_client import (
     fetch_submission_history,
     fetch_unit_data,
 )
-from stepik_grader.core.storage import save_json_file
 from stepik_grader.core.submission_archive import archive_dir_for, save_submission_history
 
 # issue #302 (SRP): downloader.py стал координатором. Вынесены — чистый разбор
@@ -335,7 +335,7 @@ def save_task_files(
         # None если задача не является функциональной (stdin-режим).
         "function_name": function_name,
     }
-    save_json_file(task_dir / "meta.json", meta)
+    atomic_write_json(task_dir / "meta.json", meta)
 
     block: dict[str, Any] = step.get("block") or {}
     text = str(block.get("text", ""))
@@ -413,7 +413,7 @@ def _save_attachments(
     failed = [item for item in report if item["status"] not in {"saved", "exists"}]
 
     meta["attachments"] = report
-    save_json_file(task_dir / "meta.json", meta)
+    atomic_write_json(task_dir / "meta.json", meta)
 
     if saved:
         _print(_t("dl_attachments_saved", count=len(saved)))

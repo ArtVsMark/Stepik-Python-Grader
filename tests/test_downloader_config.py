@@ -35,7 +35,7 @@ class TestConfigFunctions:
     """create/load/normalize конфига — интерактивные ветки."""
 
     def test_create_or_update_config_writes(self, tmp_path: pathlib.Path):
-        """Запрашивает поля и сохраняет конфиг через save_json_file."""
+        """Запрашивает поля и сохраняет конфиг через общий atomic_write_json."""
         cfg_path = tmp_path / "cfg.json"
         with patch(
             "stepik_grader.downloader_config.ask_value", side_effect=["/root", "secrets.json"]
@@ -58,7 +58,7 @@ class TestConfigFunctions:
     def test_load_existing_no_change(self, tmp_path: pathlib.Path):
         """Существующий конфиг, пользователь не хочет менять → возвращается как есть."""
         cfg_path = tmp_path / "cfg.json"
-        downloader_config.save_json_file(cfg_path, {"root_dir": "r", "secrets_path": "s"})
+        downloader_config.atomic_write_json(cfg_path, {"root_dir": "r", "secrets_path": "s"})
         with patch("builtins.input", return_value="n"):
             result = load_or_create_config(cfg_path)
         assert result["root_dir"] == "r"
@@ -70,7 +70,7 @@ class TestConfigFunctions:
         а с issue #1109 вопрос задаётся только там, где есть кому отвечать.
         """
         cfg_path = tmp_path / "cfg.json"
-        downloader_config.save_json_file(cfg_path, {"root_dir": "r", "secrets_path": "s"})
+        downloader_config.atomic_write_json(cfg_path, {"root_dir": "r", "secrets_path": "s"})
         with (
             patch("stepik_grader.downloader_config.input_is_available", return_value=True),
             patch("builtins.input", return_value="y"),
