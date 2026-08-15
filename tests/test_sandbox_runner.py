@@ -153,8 +153,15 @@ def test_ephemeral_run_dir_gives_up_without_raising(monkeypatch: pytest.MonkeyPa
 
 class TestSweepOrphanedRunDirs:
     def _aged(self, path: pathlib.Path, hours: float) -> None:
+        """Состарить каталог — обычным ``os.utime``, без ``follow_symlinks``.
+
+        `os.utime(..., follow_symlinks=False)` на Windows поднимает
+        `NotImplementedError` — поймано CI на трёх job'ах разом. Сюда приходят
+        только настоящие каталоги; ссылку состаривать не нужно вовсе, у неё
+        состаривается цель (см. `test_symlink_is_not_followed`).
+        """
         stamp = time.time() - hours * 3600
-        os.utime(path, (stamp, stamp), follow_symlinks=False)
+        os.utime(path, (stamp, stamp))
 
     def test_stale_dir_of_ours_is_removed(self, tmp_path: pathlib.Path) -> None:
         from stepik_grader.core import run_dir as _run_dir
@@ -189,18 +196,33 @@ class TestSweepOrphanedRunDirs:
         assert alien.is_dir()
 
     def test_symlink_is_not_followed(self, tmp_path: pathlib.Path) -> None:
-        """`rmtree` по ссылке ушёл бы удалять чужое дерево целиком."""
+        """Ссылка не разыменовывается: чужое дерево за ней остаётся целым.
+
+        Состаривается ЦЕЛЬ, а не ссылка: `stat()` следует по ссылке, поэтому
+        старая цель — единственный способ довести ссылку до проверки возраста.
+
+        Тест **характеризующий**, и это осознанно: снять `is_symlink()` из кода
+        он не заметит — `shutil.rmtree` отказывается удалять директорный симлинк
+        сам, а отказ гасится общим `except OSError`. Проверка в коде оставлена
+        как явная граница: полагаться на то, что `rmtree` откажется, значит
+        зависеть от поведения, которое для junction на Windows описано иначе, —
+        а проверить это из облачной сессии нельзя (CLAUDE.md § Два окна).
+        """
         from stepik_grader.core import run_dir as _run_dir
 
         target = tmp_path / "precious"
         target.mkdir()
         (target / "data.txt").write_text("важное", encoding="utf-8")
         link = tmp_path / f"{_run_dir.RUN_DIR_PREFIX}link"
-        link.symlink_to(target)
-        self._aged(link, hours=48)
+        try:
+            link.symlink_to(target, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:  # Windows без прав разработчика
+            pytest.skip(f"символические ссылки недоступны: {exc}")
+        self._aged(target, hours=48)
 
         assert _run_dir.sweep_orphans(root=tmp_path) == 0
         assert (target / "data.txt").exists()
+        assert link.is_symlink()
 
     def test_unreadable_temp_does_not_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Уборка мусора не вправе ронять прогон, ради которого её позвали."""
