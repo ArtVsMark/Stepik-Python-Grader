@@ -122,7 +122,7 @@ def _resolve_source(
 
     ``cache_key``/``files`` — сигнатура источника (issue #404): по ней и
     ``_CARDS_CACHE``, и ``_INDEX_CACHE`` инвалидируются вместе. Для fallback —
-    ``("fallback", [])``: ``mtime_signature([]) == 0.0`` стабильна, а статические
+    ``("fallback", [])``: ``mtime_signature([]) == (0, 0.0)`` стабильна, а статические
     карточки ``core/glossary.py`` не меняются, поэтому производный индекс тоже
     кешируется корректно.
     """
