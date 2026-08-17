@@ -35,7 +35,7 @@ pipx install stepik-python-grader
 ```
 
 Full install (from source, virtualenv, Windows notes, Stepik OAuth setup) —
-[docs/use/installation.md](docs/use/installation.md).
+[docs/use/installation.en.md](docs/use/installation.en.md).
 
 ---
 
@@ -71,8 +71,8 @@ Grade a plain "add 1 to a number" solution against your own tests.
 
 You get a per-case verdict (AC / WA / TLE / RE) with a diff on mismatch. Modes,
 CLI flags and task downloading are covered in
-[docs/use/grader-workflow.md](docs/use/grader-workflow.md) (see the step-by-step
-[first example](docs/use/grader-workflow.md#первый-пример-за-2-минуты)).
+[docs/use/grader-workflow.en.md](docs/use/grader-workflow.en.md) (see the step-by-step
+[first example](docs/use/grader-workflow.en.md#first-example-in-2-minutes)).
 
 `stepik-grader-gui` is the lowest-barrier entry point: a small window where you
 pick plain or isolated (`--sandbox`) startup, the port and the working folder,
