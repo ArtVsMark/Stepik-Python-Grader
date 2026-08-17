@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 import stat
 import sys
 
 import pytest
 
-from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
+from stepik_grader.atomic_io import atomic_write_json
+from stepik_grader.core.storage import load_json_file, save_secrets
 
 # ── load_json_file ────────────────────────────────────────────────────────────
 
@@ -68,77 +68,6 @@ def test_load_json_file_cyrillic_values(tmp_path: pathlib.Path) -> None:
     assert load_json_file(file) == {"имя": "Артём"}
 
 
-# ── save_json_file ────────────────────────────────────────────────────────────
-
-
-def test_save_json_file_creates_file(tmp_path: pathlib.Path) -> None:
-    """Создаёт файл и записывает корректный JSON."""
-    file = tmp_path / "out.json"
-    save_json_file(file, {"hello": "world"})
-    assert file.exists()
-    assert json.loads(file.read_text(encoding="utf-8")) == {"hello": "world"}
-
-
-def test_save_json_file_creates_parent_dirs(tmp_path: pathlib.Path) -> None:
-    """Создаёт родительские директории при необходимости."""
-    file = tmp_path / "a" / "b" / "c" / "data.json"
-    save_json_file(file, {"x": 1})
-    assert file.exists()
-
-
-def test_save_json_file_uses_indent_2(tmp_path: pathlib.Path) -> None:
-    """Файл содержит отступы в 2 пробела (indent=2)."""
-    file = tmp_path / "pretty.json"
-    save_json_file(file, {"a": 1})
-    content = file.read_text(encoding="utf-8")
-    assert "  " in content
-
-
-def test_save_json_file_no_ascii_escape(tmp_path: pathlib.Path) -> None:
-    """Кириллица сохраняется без \\uXXXX-экранирования (ensure_ascii=False)."""
-    file = tmp_path / "ru.json"
-    save_json_file(file, {"город": "Москва"})
-    content = file.read_text(encoding="utf-8")
-    assert "Москва" in content
-    assert "\\u" not in content
-
-
-def test_save_json_file_roundtrip(tmp_path: pathlib.Path) -> None:
-    """Сохранённый файл полностью восстанавливается через load_json_file."""
-    file = tmp_path / "roundtrip.json"
-    original = {"list": [1, 2, 3], "nested": {"ok": True}}
-    save_json_file(file, original)
-    assert load_json_file(file) == original
-
-
-def test_save_json_file_atomic_keeps_original_on_write_failure(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """issue #408: сбой на шаге публикации (os.replace) не оставляет усечённый
-    файл — цель сохраняет прежнее полное содержимое, temp убран."""
-    file = tmp_path / "cache.json"
-    save_json_file(file, {"v": 1})  # исходная полная версия
-
-    def _boom(*_a: object, **_k: object) -> None:
-        raise OSError("simulated crash before publish")
-
-    monkeypatch.setattr(os, "replace", _boom)
-    with pytest.raises(OSError):
-        save_json_file(file, {"v": 2})
-
-    assert load_json_file(file) == {"v": 1}  # не усечён — старая версия цела
-    assert {p.name for p in tmp_path.iterdir()} == {"cache.json"}  # temp убран
-
-
-def test_save_json_file_leaves_no_temp_on_success(tmp_path: pathlib.Path) -> None:
-    """Успешная атомарная запись (и перезапись) не оставляет .tmp рядом с целью."""
-    file = tmp_path / "meta.json"
-    save_json_file(file, {"a": 1})
-    save_json_file(file, {"a": 2})  # перезапись — тоже атомарна
-    assert load_json_file(file) == {"a": 2}
-    assert {p.name for p in tmp_path.iterdir()} == {"meta.json"}
-
-
 # ── save_secrets ──────────────────────────────────────────────────────────────
 
 
@@ -151,19 +80,19 @@ def test_save_secrets_creates_file(tmp_path: pathlib.Path) -> None:
     assert json.loads(secrets_file.read_text(encoding="utf-8")) == data
 
 
-def test_save_secrets_same_json_format_as_save_json_file(tmp_path: pathlib.Path) -> None:
-    """save_secrets сериализует так же, как save_json_file (issue #243: own
-    write path for chmod, но формат JSON не меняется)."""
+def test_save_secrets_same_json_format_as_atomic_write_json(tmp_path: pathlib.Path) -> None:
+    """save_secrets сериализует так же, как общий `atomic_write_json`
+    (issue #243: свой путь записи ради chmod, но формат JSON тот же)."""
     file_a = tmp_path / "a.json"
     file_b = tmp_path / "b.json"
     data = {"token": "secret123"}
     save_secrets(file_a, data)
-    save_json_file(file_b, data)
+    atomic_write_json(file_b, data)
     assert file_a.read_text(encoding="utf-8") == file_b.read_text(encoding="utf-8")
 
 
 def test_save_secrets_creates_parent_dirs(tmp_path: pathlib.Path) -> None:
-    """save_secrets создаёт недостающие родительские директории, как save_json_file."""
+    """save_secrets создаёт недостающие родительские директории, как общий писатель."""
     secrets_file = tmp_path / "nested" / "dir" / "secrets.json"
     save_secrets(secrets_file, {"client_id": "abc"})
     assert secrets_file.exists()

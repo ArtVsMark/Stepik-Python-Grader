@@ -35,7 +35,8 @@ import warnings
 from collections.abc import Mapping
 from typing import Any
 
-from stepik_grader.core.storage import load_json_file, save_json_file
+from stepik_grader.atomic_io import atomic_write_json
+from stepik_grader.core.storage import load_json_file
 
 __all__ = [
     "CACHE_DIR_NAME",
@@ -207,7 +208,7 @@ class GraderCache:
         """
         self.prune()
         try:
-            save_json_file(self.cache_file, self._data)
+            atomic_write_json(self.cache_file, self._data)
         except OSError as e:
             if not self._save_warned:
                 self._save_warned = True

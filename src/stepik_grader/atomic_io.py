@@ -132,6 +132,23 @@ def file_lock(path: pathlib.Path, *, timeout: float = 10.0) -> Iterator[bool]:
         os.close(fd)
 
 
+def _inherit_mode(tmp_path: pathlib.Path, target: pathlib.Path) -> None:
+    """Перенести на temp права уже существующей цели (issue #996, ``ARCH-3-05``).
+
+    ``mkstemp`` даёт 0600, и для НОВОГО файла так и остаётся: не секрет, но
+    owner-only безопаснее и локально достаточно. А вот у существующего файла
+    права — решение пользователя, и замена содержимого не повод его отменять:
+    сделанный когда-то `chmod g+r` на общий конфиг молча переставал работать.
+
+    Прежде это умел только `core/storage.save_json_file`, и два «единых»
+    атомарных писателя расходились ровно здесь. На Windows ``chmod`` по сути
+    no-op (права — NTFS ACL), поэтому и там, и при отсутствии цели тихо ничего
+    не происходит.
+    """
+    with contextlib.suppress(OSError):
+        tmp_path.chmod(target.stat().st_mode & 0o777)
+
+
 def atomic_write_text(path: pathlib.Path, text: str, *, fsync: bool = True) -> None:
     """Атомарно записать ``text`` в ``path`` (создавая директории).
 
@@ -152,8 +169,9 @@ def atomic_write_text(path: pathlib.Path, text: str, *, fsync: bool = True) -> N
             if fsync:
                 fh.flush()
                 os.fsync(fh.fileno())
+        _inherit_mode(tmp_path, path)
         tmp_path.replace(path)
-    except OSError:
+    except BaseException:  # issue #996 (PY-3-05) — см. `atomic_write_json`
         with contextlib.suppress(OSError):
             tmp_path.unlink()
         raise
@@ -184,9 +202,15 @@ def atomic_write_json(path: pathlib.Path, data: Any, *, fsync: bool = True) -> N
             if fsync:
                 fh.flush()
                 os.fsync(fh.fileno())
+        _inherit_mode(tmp_path, path)
         tmp_path.replace(path)
-    except OSError:
-        # best-effort уборка temp при сбое записи/replace — цель не тронута.
+    except BaseException:
+        # issue #996 (PY-3-05): ловится ВСЁ, что прервало запись, а не только
+        # `OSError`. Ctrl+C приходит `KeyboardInterrupt`, а он `BaseException`
+        # и мимо прежнего `except OSError` проходил насквозь — temp-файл
+        # `.<имя>.<случайное>.tmp` оставался рядом с целью навсегда, и никто
+        # его не подметал. Исключение всегда пробрасывается дальше: уборка
+        # temp'а не превращает сбой записи в успех.
         with contextlib.suppress(OSError):
             tmp_path.unlink()
         raise

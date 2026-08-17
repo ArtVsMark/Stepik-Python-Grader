@@ -15,8 +15,9 @@ import re
 import sys
 from typing import Any
 
+from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.i18n import load_locale_messages
-from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
+from stepik_grader.core.storage import load_json_file, save_secrets
 
 __all__ = [
     "DEFAULT_REDIRECT_URI",
@@ -170,7 +171,7 @@ def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     root_dir = ask_value(_t("dl_config_root_dir"), DEFAULT_ROOT_DIR)
     secrets_path = ask_value(_t("dl_config_secrets_path"), "secrets.json")
     config: dict[str, Any] = {"root_dir": root_dir, "secrets_path": secrets_path}
-    save_json_file(config_path, config)
+    atomic_write_json(config_path, config)
     _print(_t("dl_config_saved", path=config_path.resolve()))
     return config
 
@@ -260,5 +261,5 @@ def normalize_config_paths(
         "root_dir": str(root_dir),
         "secrets_path": str(secrets_path),
     }
-    save_json_file(config_path, normalized)
+    atomic_write_json(config_path, normalized)
     return normalized

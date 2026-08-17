@@ -35,9 +35,10 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.step_content import extract_submission_code
-from stepik_grader.core.storage import load_json_file, save_json_file
+from stepik_grader.core.storage import load_json_file
 
 __all__ = [
     "ARCHIVE_META_NAME",
@@ -183,7 +184,7 @@ def save_submission_history(
         key=lambda entry: (str(entry.get("time") or ""), int(entry.get("submission_id") or 0)),
     )
     meta_path.parent.mkdir(parents=True, exist_ok=True)
-    save_json_file(meta_path, {"submissions": ordered})
+    atomic_write_json(meta_path, {"submissions": ordered})
     _log.info("история отправок: %d записей (%s)", len(ordered), meta_path.parent)
 
     return [

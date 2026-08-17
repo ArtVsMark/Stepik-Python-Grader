@@ -25,6 +25,7 @@ from typing import Any
 
 import requests
 
+from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.core.step_content import extract_submission_code, pick_solutions_thread
@@ -34,7 +35,7 @@ from stepik_grader.core.stepik_client import (
     fetch_discussion_threads,
     fetch_step_data,
 )
-from stepik_grader.core.storage import load_json_file, save_json_file
+from stepik_grader.core.storage import load_json_file
 
 __all__ = [
     "DEFAULT_MAX_TOP",
@@ -260,5 +261,5 @@ def import_references_from_task_dir(
     # привязка ранее импортированных файлов исчезала из meta.json, а сами
     # файлы оставались на диске «ничьими».
     meta["stepik_references"] = refs_meta
-    save_json_file(meta_path, meta)
+    atomic_write_json(meta_path, meta)
     return saved

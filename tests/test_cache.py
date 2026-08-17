@@ -148,7 +148,7 @@ def test_cache_save_survives_unwritable_target(
     def _refuse(*_args: object, **_kwargs: object) -> None:
         raise OSError(13, "Permission denied")
 
-    monkeypatch.setattr(cache_mod, "save_json_file", _refuse)
+    monkeypatch.setattr(cache_mod, "atomic_write_json", _refuse)
 
     with pytest.warns(UserWarning, match="кэш"):
         cache.save()
