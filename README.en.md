@@ -35,7 +35,7 @@ pipx install stepik-python-grader
 ```
 
 Full install (from source, virtualenv, Windows notes, Stepik OAuth setup) —
-[docs/use/installation.md](docs/use/installation.md).
+[docs/use/installation.en.md](docs/use/installation.en.md).
 
 ---
 
