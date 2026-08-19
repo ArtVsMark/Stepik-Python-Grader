@@ -17,6 +17,7 @@
   "ai_skipped_consent_required": "AI hints (--ai-hints) skipped: a one-time explicit consent to send code to the AI provider is required, and this session is non-interactive. Run the grader interactively once to give consent (or enable hints in the web interface). Nothing was sent over the network.",
   "ai_skipped_insecure_url": "AI hints (--ai-hints) skipped: provider address {url} is not accepted. Allowed are https (any host) and http only to the local loopback (http://localhost:11434/v1 for ollama). Over http to a remote host your solution code and key would travel in clear text. Nothing was sent over the network.",
   "ai_skipped_no_provider": "AI hints (--ai-hints) skipped: no provider configured. Set [tool.stepik-grader] ai_base_url and ai_model (the key lives in the env variable named by ai_api_key_env), e.g. ollama http://localhost:11434/v1 (no key) or a cloud OpenAI-compatible endpoint. Without configuration nothing is sent over the network. See https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/use/grader-workflow.md.",
+  "attachment_not_found": "Attachment '{name}' is not available.",
   "bench_profile_1": "    1  low       —   5 runs",
   "bench_profile_2": "    2  medium    —  15 runs",
   "bench_profile_3": "    3  high      —  50 runs",

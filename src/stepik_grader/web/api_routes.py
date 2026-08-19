@@ -45,6 +45,7 @@ from stepik_grader.web.settings_adapter import (
     revoke_ai_consent,
     set_flag,
 )
+from stepik_grader.web.statement_adapter import read_image, read_statement
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
@@ -140,6 +141,8 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/commands": "_get_commands",
         "/api/solutions": "_get_solutions",
         "/api/source": "_get_source",
+        "/api/task/statement": "_get_task_statement",
+        "/api/task/image": "_get_task_image",
         "/api/auth/status": "_get_auth_status",
         "/api/downloader/config": "_get_downloader_config",
     }
@@ -359,6 +362,74 @@ class _ApiRoutesMixin(_GuardMixin):
             else:
                 data = read_source(confined, lang=lang)
         self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_task_statement(self, parsed: Any, lang: str) -> None:
+        """GET /api/task/statement?path=<каталог задачи> (issue #1177).
+
+        Отдаёт условие скачанной задачи: шапку из ``meta.json``, очищенное тело
+        и список вложений. В сеть не ходит — работает с тем, что уже на диске.
+
+        **Параметр — каталог, а не файл.** Соседний ``_get_source`` вынужден
+        фильтровать расширение (issue #811: без фильтра он отдавал `200` с
+        `client_secret` на `?path=secrets.json`), потому что имя файла приходит
+        от вызывающего. Здесь имя не приходит вовсе: адаптер сам читает
+        ``task.html`` внутри названного каталога, поэтому назвать чужой файл
+        нечем. Конфайнмент в workspace всё равно обязателен — он отвечает на
+        другой вопрос, «внутри ли рабочей папки».
+        """
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил 403
+            data = read_statement(confined)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_task_image(self, parsed: Any, lang: str) -> None:
+        """GET /api/task/image?path=<каталог задачи>&name=<файл> (issue #1177).
+
+        Отдаёт байты картинки-вложения, на которую ссылается условие. Ручка
+        нужна потому, что в браузере ``src="pic.png"`` разрешается относительно
+        корня сервера, а не каталога задачи: без неё переписанный ``src`` давал
+        бы 404 на каждой иллюстрации.
+
+        **Имя сверяется со списком вложений из ``meta.json``, а не берётся как
+        путь**, и расширение обязано быть картиночным. Иначе это была бы вторая
+        серия issue #811: ручка чтения произвольного файла, только теперь ещё и
+        отдающая его ``inline`` со своего origin. SVG не отдаётся вовсе — он
+        носит скрипт и обошёл бы всю очистку HTML.
+        """
+        qs = parse_qs(parsed.query)
+        raw_dir = (qs.get("path") or [""])[0].strip()
+        name = (qs.get("name") or [""])[0].strip()
+        if not raw_dir or not name:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_path_folder", lang)}),
+            )
+            return
+
+        confined = self._confined_path(raw_dir, lang)
+        if confined is None:
+            return  # _confined_path уже отправил 403
+
+        found = read_image(confined, name)
+        if found is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("attachment_not_found", lang, name=name)}),
+            )
+            return
+        body, content_type = found
+        self._send(200, content_type, body)
 
     def _get_auth_status(self, parsed: Any, lang: str) -> None:
         # issue #402: валиден ли токен Stepik. issue #723: путь к secrets.json —
