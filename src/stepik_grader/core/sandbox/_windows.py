@@ -316,8 +316,13 @@ class WindowsSandboxRunner:
                     proc.kill()
 
         def _drain(pipe: Any, sink: list[bytes]) -> None:
+            # issue #1143: `read1`, а не `read`. `read(65536)` ждёт ЛИБО полные
+            # 65536 байт, ЛИБО EOF; решение, оставившее живого внука с открытым
+            # stdout, EOF не даёт, `join(timeout=1.0)` ниже истекает — и sink
+            # остаётся пустым на ВЕРНОМ решении. То же исправление, что в
+            # `LocalRunner` (issue #952): там его сделали, сюда не перенесли.
             try:
-                for chunk in iter(lambda: pipe.read(65536), b""):
+                for chunk in iter(lambda: pipe.read1(65536), b""):
                     sink.append(chunk)
                     _on_chunk(len(chunk))
             except (OSError, ValueError):

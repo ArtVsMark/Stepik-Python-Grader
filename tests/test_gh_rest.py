@@ -21,6 +21,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import ssl
 import sys
 import time
 import urllib.error
@@ -476,3 +477,95 @@ class TestCli:
         )
         assert module.main(["merge", "1242"]) == module.EXIT_FAIL
         assert "не смержен" in capsys.readouterr().out
+
+
+class TestStrictCertificateFormIsNotDistrust:
+    """Python 3.13 включил `VERIFY_X509_STRICT` в `create_default_context()`.
+
+    Флаг требует от CA-сертификата расширения `keyUsage` по RFC 5280, а у
+    перехватывающих корпоративных прокси его часто нет. Итог наблюдался прямо в
+    этом окружении: на Python 3.11 модуль работает, на 3.13 падает
+    «certificate verify failed: CA cert does not include key usage extension» —
+    при одном и том же бандле, том же OpenSSL и исправном соединении.
+
+    Цена промаха несимметрична: модуль заведён затем, чтобы конвейер не ходил
+    по GraphQL, и его отказ возвращает окно к инструментам, выжигающим квоту за
+    несколько операций. Поэтому повтор — со снятым флагом ФОРМЫ и только на
+    этом отказе; доверие, имя хоста и срок действия остаются под проверкой.
+    """
+
+    def _verification_error(self, text: str) -> urllib.error.URLError:
+        reason = ssl.SSLCertVerificationError(text)
+        return urllib.error.URLError(reason)
+
+    def test_key_usage_rejection_is_recognised(self, module: ModuleType) -> None:
+        error = self._verification_error(
+            "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: "
+            "CA cert does not include key usage extension"
+        )
+
+        assert module._is_strict_ca_rejection(error)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "certificate verify failed: self-signed certificate in chain",
+            "certificate verify failed: certificate has expired",
+            "certificate verify failed: Hostname mismatch",
+        ],
+    )
+    def test_real_distrust_is_not_recognised(self, module: ModuleType, text: str) -> None:
+        """Просроченный, самоподписанный, чужой — это отказ по существу.
+
+        Их повтор с ослабленным флагом ничего бы не изменил, но сама попытка
+        стёрла бы границу между «форма CA» и «сертификату нельзя верить».
+        """
+        assert not module._is_strict_ca_rejection(self._verification_error(text))
+
+    def test_plain_network_failure_is_not_recognised(self, module: ModuleType) -> None:
+        assert not module._is_strict_ca_rejection(urllib.error.URLError(OSError("сеть недоступна")))
+
+    def test_relaxed_context_keeps_verification_on(self, module: ModuleType) -> None:
+        """Снят ровно один флаг — иначе это было бы отключением проверки."""
+        context = module._relaxed_context()
+
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname is True
+        assert not context.verify_flags & ssl.VERIFY_X509_STRICT
+
+    def test_opener_retries_once_without_the_strict_flag(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Провод: распознать мало — надо ещё повторить и вернуть ответ."""
+        calls: list[Any] = []
+        answer = _FakeResponse({"ok": True})
+
+        def _urlopen(request: Any, timeout: float = 0, context: Any = None) -> Any:
+            calls.append(context)
+            if context is None:
+                raise self._verification_error(
+                    "certificate verify failed: CA cert does not include key usage extension"
+                )
+            return answer
+
+        monkeypatch.setattr(module.urllib.request, "urlopen", _urlopen)
+
+        assert module._default_opener(urllib.request.Request("https://api.github.com/x")) is answer
+        assert len(calls) == 2
+        assert calls[0] is None and calls[1] is not None
+
+    def test_opener_does_not_retry_other_failures(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Повтор на всём подряд превратил бы один отказ в два ожидания."""
+        calls: list[Any] = []
+
+        def _urlopen(request: Any, timeout: float = 0, context: Any = None) -> Any:
+            calls.append(context)
+            raise urllib.error.URLError(OSError("сеть недоступна"))
+
+        monkeypatch.setattr(module.urllib.request, "urlopen", _urlopen)
+
+        with pytest.raises(urllib.error.URLError):
+            module._default_opener(urllib.request.Request("https://api.github.com/x"))
+        assert len(calls) == 1

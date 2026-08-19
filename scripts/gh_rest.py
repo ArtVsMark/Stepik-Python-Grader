@@ -55,6 +55,7 @@ import json
 import os
 import pathlib
 import shutil
+import ssl
 import subprocess
 import sys
 import time
@@ -400,9 +401,54 @@ def request(
     return Response(status=status, data=data, etag=etag)
 
 
+def _relaxed_context() -> ssl.SSLContext:
+    """Проверка сертификата БЕЗ строгих требований RFC 5280 к его форме.
+
+    Снимается ровно один флаг — ``VERIFY_X509_STRICT``. Цепочка по-прежнему
+    проверяется против настроенного бандла, имя хоста сверяется, срок действия
+    сверяется: выключено не доверие, а придирчивость к оформлению CA.
+    """
+    context = ssl.create_default_context()
+    context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    return context
+
+
+def _is_strict_ca_rejection(exc: urllib.error.URLError) -> bool:
+    """Отказ именно из-за строгой проверки ФОРМЫ CA, а не из-за недоверия."""
+    reason = exc.reason
+    if not isinstance(reason, ssl.SSLCertVerificationError):
+        return False
+    return "key usage" in str(reason).lower()
+
+
 def _default_opener(req: urllib.request.Request) -> Any:
-    """Реальный ``urlopen`` с таймаутом — подменяется в тестах."""
-    return urllib.request.urlopen(req, timeout=_TIMEOUT)
+    """Реальный ``urlopen`` с таймаутом — подменяется в тестах.
+
+    Повтор без ``VERIFY_X509_STRICT`` — про корпоративный TLS-прокси, а не про
+    ослабление безопасности. **Python 3.13 включил этот флаг по умолчанию** в
+    ``ssl.create_default_context()``; он требует от CA-сертификата расширения
+    ``keyUsage`` по RFC 5280, а у перехватывающих прокси его часто нет. Итог:
+    на 3.11 модуль работает, на 3.13 падает «certificate verify failed: CA cert
+    does not include key usage extension» — при одном и том же бандле, том же
+    OpenSSL и полностью исправном соединении.
+
+    Цена промаха здесь высока и несимметрична: модуль заведён ровно затем,
+    чтобы конвейер не ходил по GraphQL, и его отказ возвращает окно к
+    инструментам, выжигающим квоту за несколько операций.
+
+    Повторяем ТОЛЬКО на этом отказе и ТОЛЬКО сняв флаг формы: доверие, сверка
+    имени хоста и срока действия остаются. Публичные CA от повтора не страдают
+    — с ними проходит первая попытка, и до второй дело не доходит.
+
+    Переменной окружения не обойтись: ``SSL_CERT_FILE`` уже указывает на нужный
+    бандл, и именно он строгую проверку не проходит.
+    """
+    try:
+        return urllib.request.urlopen(req, timeout=_TIMEOUT)
+    except urllib.error.URLError as exc:
+        if not _is_strict_ca_rejection(exc):
+            raise
+        return urllib.request.urlopen(req, timeout=_TIMEOUT, context=_relaxed_context())
 
 
 def _get(path: str, **kwargs: Any) -> Any:
