@@ -3,7 +3,7 @@ import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectR
 import { $, SECTIONS, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, syncSectionHash, t } from "./core.js";
 import { downloadTask, handleDownloaderClick, loadAuthStatus, loadDownloaderConfig } from "./downloader.js";
 import { initFeedback, refreshFeedbackDraft } from "./feedback.js";
-import { cancelActiveRun, findReference, findSolutions, grade, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, scheduleCheckTerms, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
+import { cancelActiveRun, findReference, findSolutions, startNavigation, grade, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, scheduleCheckTerms, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
 import { drawMemArrows, renderTraceStep } from "./trace-player.js";
 
@@ -417,6 +417,10 @@ routeFromHash(); // открыть карточку из #/glossary/<id>, есл
 // Восстановить последний путь.
 const savedPath = localStorage.getItem("grader_path");
 if (savedPath) $("#path").value = savedPath;
+
+// issue #1179: инвентарь скачанных задач для панели навигации. После
+// восстановления пути — он же корень обхода.
+startNavigation();
 
 // issue #565: показать статус OS-изоляции и (однократно) уведомить о истории.
 initExecModeBadge();

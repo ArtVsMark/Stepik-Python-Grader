@@ -82,6 +82,7 @@ Stepik-Python-Grader/
 │           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
 │           ├── task_page_parser.py   # Разбор HTML текста задачи: таблица кейсов, ссылки (leaf)
+│           ├── task_index.py       # Дерево скачанных задач по иерархии meta.json (leaf)
 │           ├── html_sanitizer.py    # Очистка условия по whitelist перед показом (leaf)
 │           ├── html_to_markdown.py   # Условие задачи из HTML в читаемый Markdown (leaf)
 │           ├── tests_writer.py       # Запись Format 1/3 тест-кейсов на диск (leaf)

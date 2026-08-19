@@ -90,6 +90,39 @@
           </div>
 
           <div class="panel-body">
+            <!-- issue #1179: выбор задачи навигацией — АЛЬТЕРНАТИВА вводу пути,
+                 а не замена. Работа с произвольной папкой вне скачанного курса
+                 остаётся рабочим сценарием и к тому же первым по времени:
+                 сначала пробуют одну задачу, курс качают потом. -->
+            <div id="nav-switch" class="mode-row" role="group"
+                 aria-label="Способ выбора задачи" data-i18n-aria-label="nav.switch_aria">
+              <button id="nav-tab-browse" class="mode-btn" type="button" aria-pressed="false"
+                      data-i18n="nav.tab_browse">Навигация</button>
+              <button id="nav-tab-path" class="mode-btn active" type="button" aria-pressed="true"
+                      data-i18n="nav.tab_path">Путь</button>
+            </div>
+
+            <div id="nav-panel" class="nav-panel" hidden>
+              <div class="nav-controls">
+                <button id="nav-prev" class="btn-icon" type="button" disabled
+                        aria-label="Предыдущая" data-i18n-aria-label="nav.prev_aria">‹</button>
+                <label class="sr-only" for="nav-level" data-i18n="nav.level_label">Уровень листания</label>
+                <select id="nav-level" class="form-input nav-level">
+                  <option value="course" data-i18n="nav.level_course">Курс</option>
+                  <option value="section" data-i18n="nav.level_section">Глава</option>
+                  <option value="step" selected data-i18n="nav.level_step">Шаг</option>
+                </select>
+                <button id="nav-next" class="btn-icon" type="button" disabled
+                        aria-label="Следующая" data-i18n-aria-label="nav.next_aria">›</button>
+                <span id="nav-counter" class="nav-counter"></span>
+                <button id="nav-list-toggle" class="btn-icon" type="button"
+                        aria-expanded="false" aria-controls="nav-list"
+                        aria-label="Список" data-i18n-aria-label="nav.list_aria">☰</button>
+              </div>
+              <p id="nav-context" class="nav-context"></p>
+              <ul id="nav-list" class="nav-list" role="listbox" tabindex="-1" hidden></ul>
+            </div>
+
             <div class="form-group">
               <label class="form-label" for="path" data-i18n="check.path_label">Папка с решениями</label>
               <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__" list="recent-paths-datalist"

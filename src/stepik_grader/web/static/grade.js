@@ -1,5 +1,6 @@
 // grade.js — проверка (режимы 1–4), рендер результата, карточки действий (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
+import { initNavigation, syncFromPath } from "./navigation.js";
 import { $, SECTIONS, codeBlock, cycleTheme, errorSummary, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, stripAnsi, t, toast, tp } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
@@ -414,10 +415,23 @@ async function refreshSolutionsList() {
     }
     state.solutions = data.files || [];
     renderSolutionsList();
+    // issue #1179: путь известен — панель навигации встаёт на эту задачу либо
+    // честно показывает «вне курса». Не ждём: список решений уже показан.
+    syncFromPath(folder);
   } catch (e) {
     state.solutions = [];
     list.innerHTML = '<li class="empty">' + esc(t("common.request_error")) + "</li>";
   }
+}
+
+// issue #1179: навигация выбирает задачу, а дальше всё как при ручном вводе
+// пути — ищем решения. Панель об этом не знает: ей передан колбэк.
+function startNavigation() {
+  initNavigation(path => {
+    $("#path").value = path;
+    localStorage.setItem("grader_path", path);
+    findSolutions();
+  });
 }
 
 // issue #55: импорт закреплённого решения Stepik (+топовые) в папку задачи как
@@ -1518,6 +1532,7 @@ function renderRecentPaths(recent) {
 // «Списки», «Кортежи», «Словари», «Множества» — отдельные чипы (в отличие от
 // внешнего Glossary-Python, где они слиты в «Списки · кортежи»/«Словари · множества»).
 export {
+  startNavigation,
   addRecentPath,
   cancelActiveRun,
   findReference,

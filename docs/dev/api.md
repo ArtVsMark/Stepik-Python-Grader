@@ -25,6 +25,7 @@
 - [`GET /api/source`](#get-apisource)
 - [`GET /api/task/statement`](#get-apitaskstatement)
 - [`GET /api/task/image`](#get-apitaskimage)
+- [`GET /api/tasks/index`](#get-apitasksindex)
 - [`GET /api/glossary`](#get-apiglossary)
 - [`GET /api/glossary/missing`](#get-apiglossarymissing)
 - [`GET /api/glossary/<id>`](#get-apiglossaryid)
@@ -231,6 +232,35 @@ curl "http://127.0.0.1:8000/api/task/statement?path=StepikTasks/course/section/l
 
 ```
 curl "http://127.0.0.1:8000/api/task/image?path=StepikTasks/course/section/lesson/04&name=pic.png"
+```
+
+## `GET /api/tasks/index`
+
+Дерево скачанных задач со статусами — данные для панели навигации.
+
+| Параметр | Обязателен |
+|---|---|
+| `path` | да — **корень** скачанных задач (`root_dir` из конфига загрузчика) |
+| `refresh` | нет — `1` пересобирает индекс, минуя кеш |
+
+Порядок берётся из иерархии `meta.json` (`course_id` / `section_id` /
+`lesson_id` / `step_position`), а **не** из файловой системы: алфавит каталогов
+ставит `task10` перед `task9`, а папки ещё и переименовывают.
+
+Статусы шагов приходят из истории (`task_progress`): `solved` — был `AC`,
+`in_progress` — прогоны были без `AC`, `untouched` — записи нет. История
+opt-in; при выключенной или отсутствующей базе все шаги `untouched`, и это не
+ошибка — навигация про «где я в курсе», а не про «что я решил».
+
+Кеш инвалидируется подписью дерева (число задач + свежий `mtime`): скачали
+главу — список обновился без перезапуска сервера. Удаление задачи максимум
+`mtime` не двигает, поэтому в подписи есть и счётчик.
+
+Ответ: `kind: "index"` с полями `schema` / `courses` / `total`. Пустое дерево —
+обычный ответ, а не ошибка: скачанных задач может не быть вовсе.
+
+```
+curl "http://127.0.0.1:8000/api/tasks/index?path=StepikTasks"
 ```
 
 ## `GET /api/glossary`
