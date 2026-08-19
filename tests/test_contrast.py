@@ -155,3 +155,98 @@ def test_check_reports_coverage_gap_together_with_ratio_failures(tmp_path: Path)
     module = _load_module()
     css = _css_with_extra(tmp_path, ".made-up { color: var(--color-faint); }")
     assert any("не покрыт ни одной парой" in f for f in module.check(css))
+
+
+# ---------------------------------------------------------------------------
+# issue #921 (AUD-2-02): палитра темы «авто» — та, что видят по умолчанию.
+# Раньше гейт её не читал вовсе и верил комментарию «те же значения».
+# ---------------------------------------------------------------------------
+
+
+def _themed_css(module: ModuleType, *, auto: dict[str, str] | None = None) -> str:
+    """CSS с тремя блоками: light, dark и media-блок темы «авто»."""
+
+    def _block(tokens: dict[str, str]) -> str:
+        return "\n".join(f"  {name}: {value};" for name, value in tokens.items())
+
+    light = _min_tokens(module, dark=False)
+    dark = _min_tokens(module, dark=True)
+    auto_tokens = dict(dark) if auto is None else {**dark, **auto}
+    return (
+        f':root, [data-theme="light"] {{\n{_block(light)}\n}}\n'
+        f'[data-theme="dark"] {{\n{_block(dark)}\n}}\n'
+        "@media (prefers-color-scheme: dark) {\n"
+        f"  :root:not([data-theme]) {{\n{_block(auto_tokens)}\n  }}\n"
+        "}\n"
+    )
+
+
+def test_auto_theme_matching_dark_is_quiet(tmp_path: Path) -> None:
+    """Совпали — контраст «авто» доказан тёмной темой, второй раз не считаем."""
+    module = _load_module()
+    css = tmp_path / "app.css"
+    css.write_text(_themed_css(module), encoding="utf-8")
+
+    assert module.check_auto_theme_matches_dark(css) == []
+
+
+def test_drifted_auto_theme_is_flagged(tmp_path: Path) -> None:
+    """Расхождение означает: проверено одно, а показывается другое."""
+    module = _load_module()
+    css = tmp_path / "app.css"
+    css.write_text(_themed_css(module, auto={"--color-text": "#3a3a3a"}), encoding="utf-8")
+
+    failures = module.check_auto_theme_matches_dark(css)
+
+    assert len(failures) == 1
+    assert "--color-text" in failures[0] and "#3a3a3a" in failures[0]
+
+
+def test_missing_auto_block_is_a_failure(tmp_path: Path) -> None:
+    """Не «нечего проверять»: без блока тёмной темы нет у большинства."""
+    module = _load_module()
+    css = tmp_path / "app.css"
+    light = "\n".join(f"  {k}: {v};" for k, v in _min_tokens(module, dark=False).items())
+    dark = "\n".join(f"  {k}: {v};" for k, v in _min_tokens(module, dark=True).items())
+    css.write_text(
+        f':root, [data-theme="light"] {{\n{light}\n}}\n[data-theme="dark"] {{\n{dark}\n}}\n',
+        encoding="utf-8",
+    )
+
+    assert module.check_auto_theme_matches_dark(css)
+
+
+def test_token_nobody_paints_with_is_out_of_scope(tmp_path: Path) -> None:
+    """Мёртвый токен ничего не красит — требовать его в «авто» незачем.
+
+    В самом `app.css` таких четыре (`--color-blue`/`gold`/`orange`/`purple`):
+    объявлены в обеих темах, не используются нигде. Гейт, считающий мёртвые
+    значения, шумит — а шумящий гейт обходят.
+    """
+    module = _load_module()
+    css = tmp_path / "app.css"
+    text = _themed_css(module)
+    text = text.replace("  --color-unused: #123456;\n", "")
+    # Токен есть в dark, но не в «авто» — и ни в одной паре.
+    text = text.replace(
+        '[data-theme="dark"] {\n', '[data-theme="dark"] {\n  --color-unused: #123456;\n', 1
+    )
+    css.write_text(text, encoding="utf-8")
+
+    assert module.check_auto_theme_matches_dark(css) == []
+
+
+def test_check_runs_the_auto_theme_guard(tmp_path: Path) -> None:
+    """Провод: `check()` обязан звать проверку, а не только объявлять её."""
+    module = _load_module()
+    css = tmp_path / "app.css"
+    css.write_text(_themed_css(module, auto={"--color-text": "#3a3a3a"}), encoding="utf-8")
+
+    assert any("авто" in f for f in module.check(css))
+
+
+def test_real_stylesheet_has_the_auto_block() -> None:
+    """Страховка от тихого исчезновения блока темы по умолчанию."""
+    module = _load_module()
+
+    assert module.check_auto_theme_matches_dark() == []

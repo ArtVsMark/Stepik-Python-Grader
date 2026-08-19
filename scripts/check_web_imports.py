@@ -13,10 +13,24 @@
 работал, поэтому дефект жил незамеченным.
 
 Проверка статическая и грубая намеренно: ищем вызовы `name(` для имён,
-экспортируемых `core.js`, и сверяем с фактическим списком импорта. Обращения
-без вызова (константы вроде `SECTIONS`, `state`) сюда не попадают — их
-пропуск дал бы ту же ошибку, но регулярка на «идентификатор где угодно» шумит
-на совпадениях в строках и комментариях, а вызов — надёжный признак.
+экспортируемых соседним модулем, и сверяем с фактическим списком импорта.
+Обращения без вызова (константы вроде `SECTIONS`, `state`) сюда не попадают —
+их пропуск дал бы ту же ошибку, но регулярка на «идентификатор где угодно»
+шумит на совпадениях в строках и комментариях, а вызов — надёжный признак.
+
+**Стережём ВСЕ рёбра импорта, а не одно** (issue #921, находки AUD-2-03 и
+AUD-2-04). Прежняя редакция знала только про `core.js` и обходила лишь верхний
+уровень `static/`:
+
+- девять остальных рёбер (`content.js`, `grade.js`, `sandbox.js`,
+  `trace-player.js`, …) не проверялись вовсе, хотя ломаются они одинаково;
+- `glob("*.js")` вместо `rglob` означал, что переезд модуля в подкаталог
+  ослепляет гейт молча — он продолжает печатать «no missing imports».
+
+Сломанный guard по определению не виден: он проходит. Поэтому имя, определённое
+в самом модуле, из проверки вычитается — иначе обобщение начало бы краснеть на
+локальном `render()`, который у соседа тоже экспортируется, и гейт, кричащий
+без причины, обошли бы.
 
 По образцу `check_locale_guardrails.py`: чистый stdlib, без сборщика и без
 Node — детерминированно и кроссплатформенно.
@@ -35,7 +49,9 @@ from pathlib import Path
 __all__ = [
     "check_core_imports",
     "core_exports",
+    "exported_names",
     "imported_names",
+    "local_definitions",
     "main",
     "missing_imports",
     "module_files",
@@ -45,10 +61,17 @@ _ROOT = Path(__file__).resolve().parent.parent
 _STATIC = _ROOT / "src" / "stepik_grader" / "web" / "static"
 _CORE = _STATIC / "core.js"
 
-# Блок `export { a, b, c };` в конце core.js.
+# Блок `export { a, b, c };` в конце модуля.
 _EXPORT_BLOCK = re.compile(r"export\s*\{([^}]+)\}")
 # `import { a, b } from "./core.js"` — модуль может импортировать несколькими.
 _CORE_IMPORT = re.compile(r"import\s*\{([^}]+)\}\s*from\s*[\"']\./core\.js[\"']")
+# То же для ЛЮБОГО локального модуля: группа 1 — имена, группа 2 — путь.
+_LOCAL_IMPORT = re.compile(r"import\s*\{([^}]+)\}\s*from\s*[\"'](\.[^\"']+\.js)[\"']")
+# Объявления верхнего уровня: имя, которое модуль определяет САМ.
+_DEFINITION = re.compile(
+    r"^\s*(?:export\s+)?(?:async\s+)?(?:function\s*\*?|class|const|let|var)\s+([A-Za-z_$][\w$]*)",
+    re.MULTILINE,
+)
 
 
 def _names(block: str) -> set[str]:
@@ -76,9 +99,33 @@ def imported_names(source: str) -> set[str]:
     return names
 
 
+def exported_names(path: Path) -> set[str]:
+    """Имена, экспортируемые модулем (все блоки `export { … }`)."""
+    source = path.read_text(encoding="utf-8")
+    names: set[str] = set()
+    for match in _EXPORT_BLOCK.finditer(source):
+        names |= _names(match.group(1))
+    return names
+
+
+def local_definitions(source: str) -> set[str]:
+    """Имена, объявленные в самом модуле на верхнем уровне.
+
+    Вычитаются из проверки: локальный `render()` не обязан импортироваться
+    только потому, что сосед экспортирует такое же имя. Без этого обобщение
+    гейта на все рёбра начало бы краснеть без причины.
+    """
+    return set(_DEFINITION.findall(source))
+
+
 def module_files() -> list[Path]:
-    """JS-модули статики, кроме самого `core.js`."""
-    return [p for p in sorted(_STATIC.glob("*.js")) if p.name != _CORE.name]
+    """JS-модули статики, кроме самого `core.js`.
+
+    `rglob`, а не `glob`: переезд модуля в подкаталог иначе ослепляет гейт —
+    он продолжает печатать «no missing imports», проверив пустоту (issue #921,
+    находка AUD-2-03).
+    """
+    return [p for p in sorted(_STATIC.rglob("*.js")) if p.name != _CORE.name]
 
 
 def missing_imports(source: str, exports: set[str]) -> list[str]:
@@ -94,7 +141,12 @@ def missing_imports(source: str, exports: set[str]) -> list[str]:
 
 
 def check_core_imports(errors: list[str]) -> None:
-    """Каждый вызываемый экспорт `core.js` импортирован в своём модуле."""
+    """Каждый вызываемый экспорт `core.js` импортирован в своём модуле.
+
+    Отдельная функция ради ошибки «в статике нет ни одного модуля»: у `core.js`
+    ребро особое — его импортируют все, и пустой список здесь означает, что
+    гейт проверяет пустоту.
+    """
     exports = core_exports()
     if not exports:
         errors.append(f"не разобран блок export в {_CORE} — проверять нечего")
@@ -105,18 +157,48 @@ def check_core_imports(errors: list[str]) -> None:
         errors.append(f"в {_STATIC} нет ни одного .js кроме core.js — проверять нечего")
         return
 
-    total_missing = 0
     for path in modules:
-        for name in missing_imports(path.read_text(encoding="utf-8"), exports):
-            total_missing += 1
+        source = path.read_text(encoding="utf-8")
+        for name in missing_imports(source, exports - local_definitions(source)):
             errors.append(
                 f"{path.name}: вызывает {name}() из core.js, но не импортирует его "
                 "(ReferenceError в рантайме, а не при загрузке)"
             )
-    if not total_missing:
+
+
+def check_all_edges(errors: list[str]) -> None:
+    """То же для ОСТАЛЬНЫХ рёбер: модуль ↔ модуль, не только через `core.js`.
+
+    Ломаются они одинаково — `ReferenceError` в момент рендера, — а
+    проверялось прежде одно ребро из десяти (issue #921, находка AUD-2-04).
+    Ребро на `core.js` здесь пропускается: его стережёт функция выше, и
+    дублировать сообщение незачем.
+    """
+    modules = module_files()
+    exports_by_name = {path.name: exported_names(path) for path in modules}
+    exports_by_name[_CORE.name] = core_exports()
+
+    checked = 0
+    for path in modules:
+        source = path.read_text(encoding="utf-8")
+        local = local_definitions(source)
+        for match in _LOCAL_IMPORT.finditer(source):
+            target = Path(match.group(2)).name
+            if target == _CORE.name or target not in exports_by_name:
+                continue
+            checked += 1
+            available = exports_by_name[target] - local
+            imported = _names(match.group(1))
+            for name in sorted(available - imported):
+                if re.search(rf"(?<![\w.]){re.escape(name)}\s*\(", source):
+                    errors.append(
+                        f"{path.name}: вызывает {name}() из {target}, но не импортирует его "
+                        "(ReferenceError в рантайме, а не при загрузке)"
+                    )
+    if not errors:
         print(
-            f"web imports: {len(modules)} module(s) checked against "
-            f"{len(exports)} core.js export(s), no missing imports."
+            f"web imports: {len(modules)} module(s), {checked} module-to-module edge(s) "
+            f"plus core.js checked, no missing imports."
         )
 
 
@@ -124,6 +206,7 @@ def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_core_imports(errors)
+    check_all_edges(errors)
 
     if errors:
         print("\nFAIL: web module imports violated:")
