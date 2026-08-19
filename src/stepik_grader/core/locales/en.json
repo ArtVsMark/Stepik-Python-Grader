@@ -259,6 +259,8 @@
   "launcher_tasks_found_partial": "Tasks found: {count}, with tests: {with_tests}",
   "launcher_tasks_found_zero": "No tasks found — download one with the downloader or pick the folder where they live",
   "launcher_window_title": "Stepik Python Grader — web interface launcher",
+  "launcher_window_title_dev": "Stepik Python Grader {version} · dev — web interface launcher",
+  "launcher_window_title_versioned": "Stepik Python Grader {version} — web interface launcher",
   "launcher_workdir": "Working folder:",
   "launcher_workdir_missing": "Working folder not found",
   "lint_block_title": "Style (does not affect the verdict):",

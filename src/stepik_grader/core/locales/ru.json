@@ -259,6 +259,8 @@
   "launcher_tasks_found_partial": "Найдено задач: {count}, из них с тестами: {with_tests}",
   "launcher_tasks_found_zero": "Задач не найдено — скачайте задачу загрузчиком или выберите папку, где они лежат",
   "launcher_window_title": "Stepik Python Grader — запуск веб-интерфейса",
+  "launcher_window_title_dev": "Stepik Python Grader {version} · dev — запуск веб-интерфейса",
+  "launcher_window_title_versioned": "Stepik Python Grader {version} — запуск веб-интерфейса",
   "launcher_workdir": "Рабочая папка:",
   "launcher_workdir_missing": "Рабочая папка не найдена",
   "lint_block_title": "Стиль (не влияет на вердикт):",

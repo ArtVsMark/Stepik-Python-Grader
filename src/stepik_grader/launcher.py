@@ -74,6 +74,7 @@ __all__ = [
     "DEFAULT_HOST",
     "DEFAULT_PORT",
     "LANG_ENV_VAR",
+    "TRANSLATABLE_KEYS",
     "LaunchDefaults",
     "LauncherApp",
     "ServerController",
@@ -99,6 +100,7 @@ __all__ = [
     "remembered_profile_name",
     "resolve_version",
     "serve_without_gui",
+    "window_title",
 ]
 
 DEFAULT_HOST = "127.0.0.1"
@@ -213,6 +215,61 @@ def load_ui_messages(lang: str) -> dict[str, str]:
     return {}
 
 
+# Подписи и кнопки вкладки «Запуск», которые обязаны переводиться при смене
+# языка (issue #1180). Список нужен и коду, и тесту: прогон окна на локальной
+# машине показал en-окно с русскими «Профиль запуска:», «Порт:», «Рабочая
+# папка:» — виджеты создавались анонимно, и переводить их было нечего.
+TRANSLATABLE_KEYS: tuple[str, ...] = (
+    "launcher_profile",
+    "launcher_profile_save",
+    "launcher_profile_delete",
+    "launcher_mode_heading",
+    "launcher_mode_simple",
+    "launcher_mode_sandbox",
+    "launcher_mode_sandbox_note",
+    "launcher_history",
+    "launcher_lang",
+    "launcher_port",
+    "launcher_workdir",
+    "launcher_browse",
+    "launcher_open_browser",
+    "launcher_create_shortcut",
+)
+
+
+def _is_dev_version(raw_version: str) -> bool:
+    """dev-сборка или релиз: локальный сегмент PEP 440 после ``+`` (issue #163).
+
+    Тот же критерий, что у ``--version`` (``cli._is_dev_build``). Дублируется
+    осознанно: ребро launcher → cli между двумя точками входа не оправдано
+    одной строкой, а согласованность стережёт тест
+    ``test_dev_criterion_matches_cli``.
+    """
+    return "+" in raw_version
+
+
+def window_title(messages: dict[str, str], version: str | None = None) -> str:
+    """Заголовок окна с версией; у сборки вне тега — маркер dev (issue #1208).
+
+    Отдельно от окна, потому что ``tkinter`` не собран ни в облачной сессии, ни
+    в CI: формат строки и наличие ключей в обеих локалях иначе проверить нечем.
+
+    Args:
+        messages: каталог подписей нужного языка.
+        version: версия пакета; ``None`` — спросить у ``resolve_version()``.
+
+    Returns:
+        Строку заголовка. Каталог без нужного ключа откатывается на прежний
+        заголовок без версии — окно всё равно открывается.
+    """
+    raw = resolve_version() if version is None else version
+    key = "launcher_window_title_dev" if _is_dev_version(raw) else "launcher_window_title_versioned"
+    template = messages.get(key)
+    if not template:
+        return messages.get("launcher_window_title", key)
+    return template.format(version=raw)
+
+
 def _find_stepik_config(start: Path) -> Path | None:
     """Найти ``stepik_config.json``: от ``start`` вверх, затем в домашней папке.
 
@@ -268,6 +325,18 @@ def default_workdir(cwd: Path | None = None) -> Path:
     return config.parent if root.resolve().is_relative_to(config.parent) else root
 
 
+def _looks_like_project_root(path: Path) -> bool:
+    """Корень репозитория, а не задача курса (issue #1180).
+
+    Рабочая папка по умолчанию — корень проекта (issue #823), а у клона
+    грейдера есть собственный каталог ``tests``: по правилу «папка с ``tests``
+    — задача» окно засчитывало сам репозиторий и показывало на единицу больше,
+    чем задач на диске. Маркеры берём самые дешёвые — у скачанной задачи ни
+    ``pyproject.toml``, ни ``.git`` не бывает.
+    """
+    return (path / "pyproject.toml").is_file() or (path / ".git").exists()
+
+
 def count_tasks(workdir: Path, *, max_depth: int = _TASK_SCAN_DEPTH) -> tuple[int, int]:
     """Сколько папок задач видно в рабочей папке и сколько из них с тестами.
 
@@ -295,7 +364,7 @@ def count_tasks(workdir: Path, *, max_depth: int = _TASK_SCAN_DEPTH) -> tuple[in
         except OSError:
             continue
         has_tests = any(child.name == "tests" for child in children)
-        if has_tests:
+        if has_tests and not _looks_like_project_root(current):
             tasks += 1
             with_tests += 1
         elif (current / "meta.json").is_file():
@@ -885,6 +954,14 @@ class LauncherApp:
         self._opened_url = ""
         self._last_url = ""
         self._poll_id: str | None = None
+        # issue #1180: что уже показано статус-строкой ОТ ИМЕНИ СЕРВЕРА. Опрос
+        # идёт четыре раза в секунду, и раньше каждый тик перезаписывал строку
+        # заново — сообщения окна («Порт занят. Ближайший свободный — …»,
+        # отказ валидации, «Профиль сохранён») жили 250 мс и не читались.
+        self._server_status_shown: tuple[str, str, str] | None = None
+        # issue #1180: виджет → ключ каталога, чтобы смена языка переводила
+        # окно целиком. Заполняется при сборке через `_translated`.
+        self._translatable: dict[Any, str] = {}
         # issue #1133: окно открывается там, где его закрыли. Раньше каждый
         # запуск начинался с нуля — и пользователь, работающий с изоляцией,
         # включал её заново каждый раз, пока однажды не забывал. Тихая потеря
@@ -896,7 +973,10 @@ class LauncherApp:
         self._lang = initial.lang
         self._messages = load_ui_messages(self._lang)
 
-        root.title(self._t("launcher_window_title"))
+        # issue #1208: версия прямо в заголовке — иначе «у меня нет этой
+        # вкладки» разбирается git-археологией, как это уже было со вкладкой
+        # «Дополнительно» на сборке, отставшей от main на 180 коммитов.
+        root.title(window_title(self._messages))
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.port_var = tk.StringVar(value=str(initial.port))
@@ -943,9 +1023,7 @@ class LauncherApp:
         # issue #1133 (шаг 2): профиль — первая строка окна намеренно. Он ЗАДАЁТ
         # остальные поля, и стоя ниже он бы стирал только что введённое: человек
         # заполняет форму, потом применяет профиль — и его ввод исчезает.
-        ttk.Label(frame, text=self._t("launcher_profile")).grid(
-            row=0, column=0, sticky="w", pady=(0, 8)
-        )
+        self._label(frame, "launcher_profile").grid(row=0, column=0, sticky="w", pady=(0, 8))
         self.profile_box = ttk.Combobox(
             frame,
             textvariable=self.profile_var,
@@ -964,7 +1042,7 @@ class LauncherApp:
         )
         self.profile_delete_btn.grid(row=1, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
 
-        ttk.Label(frame, text=self._t("launcher_mode_heading")).grid(
+        self._label(frame, "launcher_mode_heading").grid(
             row=2, column=0, columnspan=3, sticky="w", pady=(0, 4)
         )
         self.radio_simple = ttk.Radiobutton(
@@ -993,9 +1071,7 @@ class LauncherApp:
         # issue #1131 (LNCH-1-01): запись истории — тумблер, а не молчаливый
         # дефолт. Это настройка приватности: решения студента ложатся в
         # локальную базу, и отказаться от этого он должен уметь до старта.
-        ttk.Label(frame, text=self._t("launcher_history")).grid(
-            row=6, column=0, sticky="w", pady=(0, 8)
-        )
+        self._label(frame, "launcher_history").grid(row=6, column=0, sticky="w", pady=(0, 8))
         self.history_box = ttk.Combobox(
             frame,
             textvariable=self.history_var,
@@ -1014,9 +1090,7 @@ class LauncherApp:
 
         # issue #1131 (LNCH-2-05): язык выбирается на старте и доезжает до
         # браузера — до этого фикса страница всегда открывалась на русском.
-        ttk.Label(frame, text=self._t("launcher_lang")).grid(
-            row=7, column=0, sticky="w", pady=(0, 8)
-        )
+        self._label(frame, "launcher_lang").grid(row=7, column=0, sticky="w", pady=(0, 8))
         self.lang_box = ttk.Combobox(
             frame,
             textvariable=self.lang_var,
@@ -1028,16 +1102,12 @@ class LauncherApp:
         self.lang_box.bind("<<ComboboxSelected>>", lambda _event: self._on_lang_changed())
 
         # Порт
-        ttk.Label(frame, text=self._t("launcher_port")).grid(
-            row=8, column=0, sticky="w", pady=(0, 8)
-        )
+        self._label(frame, "launcher_port").grid(row=8, column=0, sticky="w", pady=(0, 8))
         self.port_entry = ttk.Entry(frame, textvariable=self.port_var, width=10)
         self.port_entry.grid(row=8, column=1, columnspan=2, sticky="w", pady=(0, 8))
 
         # Рабочая папка
-        ttk.Label(frame, text=self._t("launcher_workdir")).grid(
-            row=9, column=0, sticky="w", pady=(0, 8)
-        )
+        self._label(frame, "launcher_workdir").grid(row=9, column=0, sticky="w", pady=(0, 8))
         self.workdir_entry = ttk.Entry(frame, textvariable=self.workdir_var)
         self.workdir_entry.grid(row=9, column=1, sticky="ew", pady=(0, 8))
         self.browse_btn = ttk.Button(
@@ -1089,6 +1159,21 @@ class LauncherApp:
             frame, textvariable=self.status_var, wraplength=420, justify="left"
         )
         self.status_label.grid(row=13, column=0, columnspan=3, sticky="w", pady=(12, 0))
+
+        # issue #1180: именованные виджеты помечаются переводимыми одной
+        # пачкой — они созданы выше, и оборачивать каждое присваивание значило
+        # бы спрятать список, который сверяет тест против TRANSLATABLE_KEYS.
+        for widget, key in (
+            (self.profile_save_btn, "launcher_profile_save"),
+            (self.profile_delete_btn, "launcher_profile_delete"),
+            (self.radio_simple, "launcher_mode_simple"),
+            (self.radio_sandbox, "launcher_mode_sandbox"),
+            (self.sandbox_note, "launcher_mode_sandbox_note"),
+            (self.browse_btn, "launcher_browse"),
+            (self.open_btn, "launcher_open_browser"),
+            (self.shortcut_btn, "launcher_create_shortcut"),
+        ):
+            self._translated(widget, key)
 
         self._build_advanced_tab()
 
@@ -1344,6 +1429,22 @@ class LauncherApp:
         template = self._messages.get(key, key)
         return template.format(**params) if params else template
 
+    def _translated(self, widget: Any, key: str) -> Any:
+        """Пометить виджет переводимым и вернуть его (issue #1180).
+
+        Регистрация в момент создания — единственный способ не забыть виджет:
+        перечисление в ``_on_lang_changed`` руками уже разошлось с окном, и
+        полокна оставалось на прежнем языке.
+        """
+        self._translatable[widget] = key
+        return widget
+
+    def _label(self, parent: Any, key: str) -> Any:
+        """Подпись поля, переводимая при смене языка (issue #1180)."""
+        from tkinter import ttk
+
+        return self._translated(ttk.Label(parent, text=self._t(key)), key)
+
     def _refresh_tasks_found(self) -> None:
         """Обновить строку «найдено задач: N» под полем рабочей папки (issue #823)."""
         raw = self.workdir_var.get().strip()
@@ -1572,14 +1673,18 @@ class LauncherApp:
         пересборка окна ради смены подписей уронила бы состояние запущенного
         сервера, а язык обязан переключаться и на работающем лаунчере.
         """
+        # issue #1180: выбор человека переживает смену языка. Раньше строка
+        # ниже безусловно ставила «как в настройках»: выключил запись истории,
+        # переключил язык — и молча получил её обратно.
+        record_history = self.selected_record_history()
+        profile = self._selected_profile_name()
         self._lang = self.lang_var.get()
         self._messages = load_ui_messages(self._lang)
-        self.root.title(self._t("launcher_window_title"))
-        self.radio_simple.config(text=self._t("launcher_mode_simple"))
-        self.radio_sandbox.config(text=self._t("launcher_mode_sandbox"))
-        self.sandbox_note.config(text=self._t("launcher_mode_sandbox_note"))
-        self.browse_btn.config(text=self._t("launcher_browse"))
-        self.open_btn.config(text=self._t("launcher_open_browser"))
+        self.root.title(window_title(self._messages))
+        # issue #1180: переводится всё зарегистрированное, а не перечисленное
+        # здесь руками — именно ручной список и разошёлся с окном.
+        for widget, key in self._translatable.items():
+            widget.config(text=self._t(key))
         self.history_box.config(
             values=[
                 self._t("launcher_history_inherit"),
@@ -1587,7 +1692,10 @@ class LauncherApp:
                 self._t("launcher_history_off"),
             ]
         )
-        self.history_box.set(self._t("launcher_history_inherit"))
+        self.history_box.set(self._history_label(record_history))
+        # Список профилей содержит переводимый пункт «свой набор», поэтому
+        # пересобирается целиком — с сохранением выбранного имени.
+        self._refresh_profiles(selected=profile)
         self._retranslate_advanced()
         self._refresh_tasks_found()
         self._refresh_command_preview()
@@ -1636,7 +1744,14 @@ class LauncherApp:
         self._poll_id = self.root.after(250, self._poll)
 
     def _render(self, status: ServerStatus) -> None:
-        """Привести кнопки/поля/статус в соответствие снимку состояния."""
+        """Привести кнопки/поля/статус в соответствие снимку состояния.
+
+        Статус-строка переписывается ТОЛЬКО при смене состояния сервера
+        (issue #1180). Опрос идёт четыре раза в секунду, и безусловная запись
+        стирала всё, что окно сказало от себя: отказ валидации, «Порт 8077
+        занят. Ближайший свободный — 8078», «Профиль сохранён». Замер на живом
+        окне: сообщение жило 251 мс — прочитать его было нельзя.
+        """
         state = status.state
         if state == ServerState.RUNNING:
             self.action_btn.config(text=self._t("launcher_stop"))
@@ -1646,7 +1761,7 @@ class LauncherApp:
             # его хочется создать и после остановки сервера.
             self.shortcut_btn.config(state="normal")
             self._set_inputs_enabled(False)
-            self._set_status(self._t("launcher_status_running", url=status.url))
+            self._show_server_status(state, self._t("launcher_status_running", url=status.url))
             if status.url and status.url != self._opened_url:
                 # Авто-открытие браузера один раз на переход в RUNNING.
                 self._opened_url = status.url
@@ -1656,7 +1771,7 @@ class LauncherApp:
             self.action_btn.config(text=self._t("launcher_stop"))
             self.open_btn.config(state="disabled")
             self._set_inputs_enabled(False)
-            self._set_status(self._t("launcher_status_starting"))
+            self._show_server_status(state, self._t("launcher_status_starting"))
         elif state == ServerState.ERROR:
             self.action_btn.config(text=self._t("launcher_start"))
             self.open_btn.config(state="disabled")
@@ -1664,15 +1779,30 @@ class LauncherApp:
             self._opened_url = ""
             # Текст ошибки — из stderr сервера: он приходит на языке сервера и
             # переводу здесь не подлежит; переводится только запасная подпись.
-            self._set_status(
-                _last_line(status.error) or self._t("launcher_status_error"), error=True
+            self._show_server_status(
+                state,
+                _last_line(status.error) or self._t("launcher_status_error"),
+                error=True,
             )
         else:  # STOPPED
             self.action_btn.config(text=self._t("launcher_start"))
             self.open_btn.config(state="disabled")
             self._set_inputs_enabled(True)
             self._opened_url = ""
-            self._set_status(self._t("launcher_status_stopped"))
+            self._show_server_status(state, self._t("launcher_status_stopped"))
+
+    def _show_server_status(self, state: ServerState, text: str, *, error: bool = False) -> None:
+        """Показать состояние сервера, не затирая сообщение окна (issue #1180).
+
+        Ключ — пара «состояние + текст»: повторный тик опроса с тем же
+        состоянием молчит, а настоящий переход (или другая строка stderr при
+        новой ошибке) говорит.
+        """
+        signature = (state.value, text, str(error))
+        if signature == self._server_status_shown:
+            return
+        self._server_status_shown = signature
+        self._set_status(text, error=error)
 
     def _set_inputs_enabled(self, enabled: bool) -> None:
         """Блокировать порт/папку/sandbox/настройки во время работы сервера."""
