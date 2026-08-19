@@ -10,8 +10,12 @@
 
 from __future__ import annotations
 
+import ast
+import os
 import pathlib
 import re
+import subprocess
+import sys
 
 import pytest
 
@@ -37,11 +41,18 @@ _ENTRY_POINTS = (
 # не подходит — проверяем, что копия на месте.
 _STANDALONE_SCRIPTS = (
     "scripts/check_docs_guardrails.py",
+    "scripts/check_pr_ready.py",
     "scripts/check_test_isolation.py",
     "scripts/check_work_overlap.py",
     "scripts/extract_release_notes.py",
+    "scripts/preflight.py",
     "scripts/skip_inventory.py",
 )
+
+# Гейты, которые обязаны печатать в любой консоли: их запускают перед КАЖДЫМ
+# коммитом и мержем, и падение вывода подменяет настоящий результат проверки
+# своей собственной ошибкой. Проверяются не чтением исходника, а запуском.
+_GATES = ("scripts/preflight.py", "scripts/check_pr_ready.py")
 
 # Защита засчитывается в любой из двух форм: вызов хелпера (общего или
 # собственного) либо прямой `reconfigure` на уровне модуля — так сделано в
@@ -124,3 +135,87 @@ class TestEntryPointCoverage:
             f"хелпер stdio_encoding, а не собственная копия"
         )
         assert _CALL_RE.search(source), f"{relative}: потеряна собственная защита кодировки"
+
+
+class TestSubprocessDecodesUtf8:
+    """Guard: текстовый ``subprocess`` не полагается на кодировку системы.
+
+    Симметричная половина той же беды. Печать чинит ``force_utf8_stdio``, а
+    ЧТЕНИЕ чужого вывода — нет: ``text=True`` без ``encoding`` декодирует в
+    локаль машины, и русский ответ (`gh api` с темами коммитов, вывод git,
+    сообщение PowerShell) падает ``UnicodeDecodeError`` на cp1251.
+
+    Прецедент, ради которого guard написан: `check_pr_ready.py` так ронял свой
+    вызов `gh api`, а `UnicodeDecodeError` — подкласс `ValueError` и попадал в
+    `except (OSError, CalledProcessError, ValueError)`. Гейт молча уходил на
+    анонимный REST, упирался в лимит 60 запросов в час и отвечал «rate limit
+    exceeded» вместо «готов / не готов» — то есть переставал работать вовсе,
+    ничего не сломав видимо.
+    """
+
+    @staticmethod
+    def _text_calls_without_encoding(source: str) -> list[int]:
+        """Строки вызовов ``subprocess``, читающих текст без явной кодировки."""
+        found: list[int] = []
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.Call):
+                continue
+            names = {kw.arg for kw in node.keywords if kw.arg}
+            textual = {"text", "universal_newlines"} & names
+            if not textual or "encoding" in names:
+                continue
+            if any(
+                isinstance(kw.value, ast.Constant) and kw.value.value is True
+                for kw in node.keywords
+                if kw.arg in textual
+            ):
+                found.append(node.lineno)
+        return found
+
+    @pytest.mark.parametrize(
+        "relative",
+        sorted(
+            str(path.relative_to(_ROOT).as_posix())
+            for path in [*(_ROOT / "scripts").glob("*.py"), *(_ROOT / "src").rglob("*.py")]
+        ),
+    )
+    def test_no_locale_dependent_decoding(self, relative: str) -> None:
+        source = (_ROOT / relative).read_text(encoding="utf-8")
+
+        lines = self._text_calls_without_encoding(source)
+
+        assert not lines, (
+            f"{relative}: строки {lines} читают вывод процесса с text=True без "
+            f"encoding — на машине с cp1251 русский ответ упадёт UnicodeDecodeError, "
+            f"а он подкласс ValueError и обычно проглатывается вместе с ним"
+        )
+
+
+class TestGatesSurviveNarrowConsole:
+    """Гейты печатают справку в однобайтовой консоли, а не падают на рамке.
+
+    Чтение исходника ловит отсутствие вызова, но не его позицию: защита, вызванная
+    после первой печати, guard'у неотличима от рабочей. Поэтому гейты — те самые
+    команды, которые запускают перед каждым коммитом и мержем, — проверяются
+    запуском. `PYTHONIOENCODING=cp1251` воспроизводит русскую консоль Windows на
+    любой ОС: кириллица в неё кодируется, а `─`, `→` и `…` из рамок отчёта — нет.
+    """
+
+    @pytest.mark.parametrize("relative", _GATES)
+    def test_help_prints_in_cp1251(self, relative: str) -> None:
+        result = subprocess.run(
+            [sys.executable, str(_ROOT / relative), "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env={**os.environ, "PYTHONIOENCODING": "cp1251"},
+            cwd=_ROOT,
+            timeout=60,
+        )
+
+        assert "UnicodeEncodeError" not in (result.stderr or ""), (
+            f"{relative} --help упал на кодировке консоли: гейт сообщает свою "
+            f"ошибку вместо результата проверки (issue #1108, четвёртый возврат)"
+        )
+        assert result.returncode == 0, f"{relative} --help вернул {result.returncode}"
