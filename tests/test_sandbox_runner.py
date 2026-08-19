@@ -1086,3 +1086,42 @@ class TestGoldenComparisonAgainstLocalRunner:
         local, sandboxed = self._both_outcomes(tmp_path, "while True:\n    pass\n")
         assert local.timed_out is True
         assert sandboxed.timed_out is True
+
+    def test_output_survives_a_lingering_grandchild(self, tmp_path: pathlib.Path) -> None:
+        """issue #1143: вывод не теряется, если решение оставило живого внука.
+
+        Внук наследует stdout и держит трубу открытой, EOF не приходит. Дренаж
+        песочницы читал `pipe.read(65536)` — тот отдаёт накопленное только по
+        EOF или по заполнении буфера, то есть здесь никогда: `join(timeout=1.0)`
+        истекал, поток бросали, и ВЕРНОЕ решение получало пустой вывод.
+
+        `LocalRunner` это уже прошёл (issue #952, RUN-4-01) и был исправлен, а
+        backend'ы песочницы — нет. Поэтому проверка стоит именно в паритетном
+        классе: расхождение двух runner'ов на одном решении и есть дефект.
+        """
+        from stepik_grader.core.runner import LocalRunner
+        from stepik_grader.core.sandbox import SandboxRunner
+
+        path = _write_script(
+            tmp_path,
+            "import subprocess, sys\n"
+            "print('ok')\n"
+            "sys.stdout.flush()\n"
+            "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n",
+        )
+
+        # Лимит вывода задаётся явно, как это делает боевой путь
+        # (`grader_core` берёт его из конфига): без него `LocalRunner` уходит в
+        # одиночный `communicate()` и теряет вывод сам — это отдельный дефект,
+        # и он бы замаскировал проверяемое здесь расхождение backend'ов.
+        def _spec() -> RunSpec:
+            return RunSpec(path=path, stdin=None, timeout=5.0, max_output_bytes=1_000_000)
+
+        local = LocalRunner().run(_spec())
+        sandboxed = SandboxRunner().run(_spec())
+
+        assert local.stdout.decode().strip() == "ok"
+        assert sandboxed.stdout.decode().strip() == "ok", (
+            "вывод потерян под изоляцией — верное решение получит WA с пустым Actual"
+        )
+        assert sandboxed.timed_out is False, "прогон не должен ждать внука"

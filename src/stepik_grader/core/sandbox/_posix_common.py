@@ -41,8 +41,20 @@ __all__ = ["run_argv_with_limits"]
 
 
 def _drain(pipe: Any, sink: list[bytes], on_chunk: Any) -> None:
+    """Слить трубу в ``sink``, отдавая байты по мере прихода (issue #1143).
+
+    ``read1``, а не ``read``: последний ждёт ЛИБО полные 65536 байт, ЛИБО EOF, и
+    отдаёт накопленное только тогда. Решение, оставившее живого внука с открытым
+    stdout, EOF не даёт — «7» лежит в буфере, ``proc.wait()`` уже вернулся по
+    основному процессу, ``join(timeout=1.0)`` истекает, поток бросают, и sink
+    остаётся ПУСТЫМ. Верное решение получает ``WA`` с пустым ``Actual``.
+
+    То же исправление, что в ``LocalRunner`` (issue #952, RUN-4-01): там его
+    сделали, а в backend'ы песочницы не перенесли — и контракт паритета
+    ``--sandbox`` (issue #986) держался лишь до первого такого решения.
+    """
     try:
-        for chunk in iter(lambda: pipe.read(65536), b""):
+        for chunk in iter(lambda: pipe.read1(65536), b""):
             sink.append(chunk)
             on_chunk(len(chunk))
     except (OSError, ValueError):
