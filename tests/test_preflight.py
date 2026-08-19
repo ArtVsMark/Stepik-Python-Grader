@@ -411,3 +411,89 @@ class TestPushGate:
         monkeypatch.setenv(preflight._SKIP_ENV, "1")
 
         assert preflight._gate_push() == 0
+
+
+@pytest.fixture
+def worktree(
+    repo: pathlib.Path, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> pathlib.Path:
+    """Рабочее дерево `git worktree`: `.git` внутри — ФАЙЛ, а не каталог."""
+    path = tmp_path / "wt"
+    _git(repo, "worktree", "add", "-b", "feat/wt", str(path))
+    monkeypatch.setattr(sys.modules["_preflight"], "_ROOT", path)
+    return path
+
+
+class TestWorktreeLayout:
+    """Служебные пути гейта в `git worktree` (PR #PRNUM).
+
+    В рабочем дереве, добавленном `git worktree add`, `.git` — файл с одной
+    строкой `gitdir: ...`, а настоящий каталог служебных файлов лежит в
+    основном репозитории. Пути вида `root / ".git" / ...` там не просто
+    указывают не туда: `mkdir(parents=True, exist_ok=True)` падает
+    `FileExistsError`, потому что `exist_ok` прощает существующий КАТАЛОГ, а
+    по пути лежит обычный файл. Гейт умирал до первой проверки.
+    """
+
+    def test_dot_git_in_worktree_is_a_file(self, worktree: pathlib.Path) -> None:
+        """Предпосылка теста: именно из-за неё падал `mkdir` (иначе он бессмыслен)."""
+        assert (worktree / ".git").is_file()
+
+    def test_stamp_is_written_in_worktree(
+        self, preflight: ModuleType, worktree: pathlib.Path
+    ) -> None:
+        """Штамп прогона пишется и читается: раньше `write_stamp` падал."""
+        preflight.write_stamp(worktree, "abc123", tests=True)
+
+        assert preflight.stamp_is_current(worktree)
+
+    def test_lock_is_acquired_in_worktree(
+        self, preflight: ModuleType, worktree: pathlib.Path
+    ) -> None:
+        """Блокировка прогона занимается: ровно на ней гейт и умирал."""
+        lock = preflight.lock_path(worktree)
+
+        assert preflight._acquire_lock(lock)
+        assert lock.exists()
+
+    def test_logs_dir_is_creatable_in_worktree(
+        self, preflight: ModuleType, worktree: pathlib.Path
+    ) -> None:
+        """Каталог логов создаётся: `_run_stage` делает тот же `mkdir`."""
+        logs = preflight.logs_dir(worktree)
+        logs.mkdir(parents=True, exist_ok=True)
+
+        assert logs.is_dir()
+
+    def test_stamps_of_two_worktrees_are_independent(
+        self, preflight: ModuleType, repo: pathlib.Path, worktree: pathlib.Path
+    ) -> None:
+        """Штамп — про содержимое ЭТОГО дерева, значит у каждого он свой.
+
+        Общий файл означал бы, что прогон в одном окне обесценивает штамп
+        другого, и pre-push отклонял бы пуш проверенного состояния.
+        """
+        assert preflight.stamp_path(repo) != preflight.stamp_path(worktree)
+
+    def test_lock_is_shared_across_worktrees(
+        self, preflight: ModuleType, repo: pathlib.Path, worktree: pathlib.Path
+    ) -> None:
+        """Блокировка, наоборот, одна на репозиторий.
+
+        Она существует не ради корректности дерева, а ради дескрипторов
+        машины: два параллельных pytest роняют тесты с subprocess пачкой —
+        и неважно, из основного каталога запущен второй или из worktree.
+        """
+        assert preflight.lock_path(repo) == preflight.lock_path(worktree)
+
+    def test_paths_fall_back_to_dot_git_without_git(
+        self, preflight: ModuleType, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Нет git — прежнее поведение, а не отказ: гейт не заложник `git`."""
+        monkeypatch.setattr(preflight, "_git", lambda *args: "")
+        root = tmp_path / "no-git"
+        root.mkdir()
+
+        assert preflight.stamp_path(root) == root / ".git" / "preflight-stamp.json"
+        assert preflight.lock_path(root) == root / ".git" / "preflight.lock"
+        assert preflight.logs_dir(root) == root / ".git" / "preflight-logs"

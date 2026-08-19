@@ -18,7 +18,7 @@
   (дубль работы двух окон);
 * **один прогон за раз** — параллельные ``pytest`` исчерпывают дескрипторы, и
   тесты с subprocess падают пачкой; полдня уходит на разбор 72 «регрессий»,
-  которых нет (файл блокировки ``.git/preflight.lock``);
+  которых нет (файл блокировки ``preflight.lock``);
 * **весь набор, а не выборка** — чужие тесты патчат наши имена, и переименование
   ломает их молча;
 * **вывод прогона целиком в файле** — ``pytest | tail -8`` в фоне отбрасывает
@@ -34,12 +34,19 @@
     python scripts/preflight.py --branch-only  # только гигиена ветки, до начала работы
     python scripts/preflight.py --no-tests     # без pytest (правки только в докáх)
 
-Успешный полный прогон оставляет штамп ``.git/preflight-stamp.json`` с отпечатком
+Успешный полный прогон оставляет штамп ``preflight-stamp.json`` с отпечатком
 проверенного СОДЕРЖИМОГО рабочего дерева — по нему pre-push хук отличает
 «проверено» от «забыл». Привязка к содержимому, а не к ``HEAD``, намеренная:
 прогон всегда идёт до коммита, и штамп на SHA обесценивался бы ближайшим
 ``git commit`` — то есть хук отклонял бы пуш ровно того состояния, которое сам
 же и проверил.
+
+Штамп, блокировка и логи живут в служебном каталоге git, и путь к нему спрашивают
+у самого git (``stamp_path``/``lock_path``/``logs_dir``), а не собирают как
+``<корень>/.git`` (PR #PRNUM). В рабочем дереве ``git worktree`` ``.git`` — это
+ФАЙЛ со строкой ``gitdir: ...``, поэтому собранный путь не просто ведёт не туда:
+``mkdir(parents=True, exist_ok=True)`` падает ``FileExistsError`` — ``exist_ok``
+прощает существующий каталог, а не файл, — и гейт умирал до первой проверки.
 """
 
 from __future__ import annotations
@@ -68,17 +75,21 @@ __all__ = [
     "check_branch_not_taken",
     "check_changelog_buffer",
     "lock_is_active",
+    "lock_path",
+    "logs_dir",
     "main",
     "read_stamp",
     "stamp_is_current",
+    "stamp_path",
     "worktree_fingerprint",
     "write_stamp",
 ]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _BASE = "origin/main"
-_STAMP = ".git/preflight-stamp.json"
-_LOCK = ".git/preflight.lock"
+_STAMP_NAME = "preflight-stamp.json"
+_LOCK_NAME = "preflight.lock"
+_LOGS_NAME = "preflight-logs"
 
 # Аварийный выход: пуш срочного фикса, когда прогон физически негде сделать.
 # Осознанное решение человека, а не значение по умолчанию.
@@ -382,6 +393,57 @@ def check_tests_mentioning_changed_names(git: GitRunner = _git) -> Check:
     return Check(name=title, ok=True, detail=detail or "прямых упоминаний нет", blocking=False)
 
 
+def _git_dir(root: pathlib.Path, *, shared: bool = False) -> pathlib.Path:
+    """Служебный каталог git рабочего дерева ``root`` (PR #PRNUM).
+
+    Путь спрашивается у самого git, а не собирается как ``root / ".git"``: в
+    рабочем дереве ``git worktree`` по этому имени лежит ФАЙЛ со строкой
+    ``gitdir: ...``, а настоящий каталог — в основном репозитории.
+
+    Args:
+        root: Корень рабочего дерева.
+        shared: Общий каталог репозитория (``--git-common-dir``) вместо
+            собственного каталога этого дерева (``--git-dir``). У обычного
+            клона это одно и то же место; расходятся они только в worktree.
+
+    Returns:
+        Каталог служебных файлов; ``root / ".git"`` — если ``git`` недоступен
+        или ``root`` не репозиторий (прежнее поведение, а не отказ: гейт не
+        должен становиться заложником ``git``).
+    """
+    flag = "--git-common-dir" if shared else "--git-dir"
+    resolved = _git("-C", str(root), "rev-parse", flag)
+    if not resolved:
+        return root / ".git"
+    found = pathlib.Path(resolved)
+    return found if found.is_absolute() else root / found
+
+
+def stamp_path(root: pathlib.Path) -> pathlib.Path:
+    """Файл штампа прогона — у КАЖДОГО рабочего дерева свой.
+
+    Штамп описывает содержимое конкретного дерева, поэтому общий файл означал
+    бы, что прогон в одном окне обесценивает штамп другого и pre-push отклоняет
+    пуш уже проверенного состояния.
+    """
+    return _git_dir(root) / _STAMP_NAME
+
+
+def lock_path(root: pathlib.Path) -> pathlib.Path:
+    """Файл блокировки прогона — ОДИН на репозиторий, включая все worktree.
+
+    Блокировка защищает не дерево, а дескрипторы машины: два параллельных
+    ``pytest`` роняют тесты с subprocess пачкой независимо от того, из основного
+    каталога запущен второй прогон или из соседнего рабочего дерева.
+    """
+    return _git_dir(root, shared=True) / _LOCK_NAME
+
+
+def logs_dir(root: pathlib.Path) -> pathlib.Path:
+    """Каталог полных логов прогона — свой у каждого рабочего дерева."""
+    return _git_dir(root) / _LOGS_NAME
+
+
 def lock_is_active(path: pathlib.Path, *, now: float | None = None) -> bool:
     """Активна ли чужая блокировка прогона (протухшая — не помеха)."""
     try:
@@ -434,7 +496,7 @@ def write_stamp(
     root: pathlib.Path, sha: str, *, tests: bool, fingerprint: str = ""
 ) -> pathlib.Path:
     """Записать штамп удачного прогона (``sha`` — коммит на момент прогона)."""
-    path = root / _STAMP
+    path = stamp_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "sha": sha,
@@ -449,7 +511,7 @@ def write_stamp(
 def read_stamp(root: pathlib.Path) -> dict[str, object]:
     """Прочитать штамп; пустой словарь, если его нет или он битый."""
     try:
-        loaded = json.loads((root / _STAMP).read_text(encoding="utf-8"))
+        loaded = json.loads(stamp_path(root).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     return loaded if isinstance(loaded, dict) else {}
@@ -632,7 +694,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.branch_only:
         return 0 if _print_report(checks) else 1
 
-    lock = _ROOT / _LOCK
+    lock = lock_path(_ROOT)
     if not _acquire_lock(lock, force=args.force_lock):
         print(
             f"Прогон уже идёт (блокировка {lock}). Два параллельных pytest исчерпывают\n"
@@ -642,7 +704,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    log_dir = _ROOT / ".git" / "preflight-logs"
+    log_dir = logs_dir(_ROOT)
     try:
         checks.append(
             _run_stage("ruff check", [sys.executable, "-m", "ruff", "check", "."], log_dir)
