@@ -25,6 +25,7 @@ Stepik-Python-Grader/
 │       ├── db.py                  # Utilities: общий SQLite-коннектор connect/user_version/apply_schema (leaf, ADR-0011)
 │       ├── mtime_cache.py         # Utilities: mtime_signature/MtimeCache[T] — кеш загрузки (leaf, ADR-0011)
 │       ├── stdio_encoding.py      # Utilities: force_utf8_stdio — вывод точек входа в UTF-8 (leaf)
+│       ├── build_info.py          # Utilities: логическая версия из _build_info.json для окна (leaf)
 │       ├── web/                   # Локальный веб-интерфейс (--serve)
 │       │   ├── __init__.py        # Публичный API пакета (реэкспорт для back-compat)
 │       │   ├── server.py          # Каркас HTTP-сервера (http.server): собирает хендлер из миксинов, статика
