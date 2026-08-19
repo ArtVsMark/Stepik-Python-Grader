@@ -443,24 +443,51 @@ jobs:
             # issue #835: пул задач для новичка. Сетевой сбой не должен ронять
             # обновление ОСТАЛЬНЫХ бейджей — прошлое честное число остаётся.
             python scripts/generate_good_first_issues_badge.py || true
-            git add .github/badges/
+            # issue #1235: бейджи публикуются в ветку `badges`, а НЕ в `main`.
+            # Защита `main` (обязательные проверки + «up to date») запрещает
+            # прямой push кому угодно, а обход для GitHub Actions личному
+            # репозиторию недоступен: GitHub отвечает «must be part of the
+            # ruleset source or owner organization». Отдельная ветка снимает
+            # противоречие целиком — и заодно убирает badge-коммиты из `main`,
+            # каждый из которых запускал ещё один прогон и вытеснял из очереди
+            # предыдущий, ожидающий (issue #1227).
+            publish="${RUNNER_TEMP:-/tmp}/badges-publish"
+            rm -rf "$publish"
+            if git fetch --depth=1 origin badges 2>/dev/null; then
+              git worktree add -B badges "$publish" FETCH_HEAD >/dev/null
+            else
+              # Ветки ещё нет (первый прогон после перехода) или её удалили:
+              # заводим сиротскую. История `main` бейджам не нужна — они
+              # артефакт сборки, а не исходник.
+              git worktree add --detach "$publish" HEAD >/dev/null
+              git -C "$publish" switch --orphan badges
+              git -C "$publish" rm -rq --cached . 2>/dev/null || true
+              find "$publish" -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
+            fi
+            mkdir -p "$publish/.github/badges"
+            cp .github/badges/*.json "$publish/.github/badges/"
+            git -C "$publish" add .github/badges
             # --cached, not plain `git diff`: coverage-combined.json is a
             # brand-new file the first time this job ever runs -- untracked,
             # so plain `git diff --quiet` (tracked files only) silently sees
             # no change and never commits it (issue #286, the actual bug that
             # left this badge missing/404 on README since #283/#284 merged).
             # Staging first makes the check see additions too.
-            if git diff --cached --quiet; then
+            if git -C "$publish" diff --cached --quiet; then
               echo "Badges unchanged."
+              git worktree remove --force "$publish"
               break
             fi
-            git commit -m "chore(ci): update badges [skip ci]"
-            if git pull --rebase origin main && git push origin HEAD:main; then
-              echo "Badges pushed (attempt $attempt)."
+            git -C "$publish" commit -q -m "chore(ci): update badges [skip ci]"
+            if git -C "$publish" push origin badges; then
+              echo "Badges pushed to the badges branch (attempt $attempt)."
+              git worktree remove --force "$publish"
               break
             fi
-            git rebase --abort 2>/dev/null || true
-            git reset --hard origin/main
+            # Гонка с параллельным прогоном: рабочий каталог сносим целиком,
+            # следующая попытка начнётся со свежего fetch — то же, что делал
+            # прежний `reset --hard origin/main`, только для своей ветки.
+            git worktree remove --force "$publish"
             if [ "$attempt" = 3 ]; then
               echo "::warning::Badge update push raced with a concurrent update and failed after 3 attempts — a later push will catch it up."
             else
