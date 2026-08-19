@@ -31,16 +31,56 @@ fork/exec:
 from __future__ import annotations
 
 import contextlib
+import os
 import subprocess
 import threading
 from typing import Any
 
-__all__ = ["DEFAULT_LAUNCH_TIMEOUT_S", "SpawnTimeout", "guarded_popen", "guarded_run"]
+__all__ = [
+    "DEFAULT_LAUNCH_TIMEOUT_S",
+    "ENV_LAUNCH_TIMEOUT",
+    "SpawnTimeout",
+    "guarded_popen",
+    "guarded_run",
+    "launch_timeout_s",
+]
 
 # Сколько ждём САМ запуск. Здоровый ``Popen`` укладывается в миллисекунды даже
 # на медленном раннере, поэтому запас велик намеренно: цель — отличить
 # «подвисло навсегда» от «система под нагрузкой», а не подгонять порог.
 DEFAULT_LAUNCH_TIMEOUT_S = 20.0
+
+# issue #1232: аварийный подъём порога для конкретного раннера, без правки
+# дефолта в коде. На `macos-latest × 3.14` спавн подпроцесса стабильно не
+# укладывается в двадцать секунд — три разных теста падали по одной причине
+# (#1166, #1149 и `test_local_runner_times_out`, где до проверки таймаута дело
+# не доходило вовсе: падал сам запуск интерпретатора).
+#
+# Почему порог, а не исключение комбинации: экспериментальная 3.14 обещана
+# ``requires-python`` и полезна, пока её падения о чём-то говорят. Но когда они
+# каждый раз про медленный раннер — это шум, в котором утонет настоящая
+# регрессия. Переменная окружения оставляет за нами и покрытие, и тишину.
+#
+# Почему не поднять дефолт: двадцать секунд отличают «подвисло навсегда» от
+# «система под нагрузкой» на машине пользователя. Подняв дефолт до минуты, мы
+# заставили бы каждого ждать минуту на настоящем зависании.
+ENV_LAUNCH_TIMEOUT = "STEPIK_GRADER_LAUNCH_TIMEOUT_S"
+
+
+def launch_timeout_s() -> float:
+    """Действующий дедлайн запуска: переменная окружения или дефолт (issue #1232).
+
+    Читается в момент вызова, а не на импорте: переменную ставит CI-job уже
+    после того, как модуль загружен тестовым процессом. Мусор в значении
+    (пусто, не число, ноль или отрицательное) — это «не задано»: гейт, который
+    падает из-за опечатки в конфиге раннера, хуже отсутствующего.
+    """
+    raw = os.environ.get(ENV_LAUNCH_TIMEOUT, "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_LAUNCH_TIMEOUT_S
+    return value if value > 0 else DEFAULT_LAUNCH_TIMEOUT_S
 
 
 class SpawnTimeout(RuntimeError):
@@ -69,7 +109,7 @@ def guarded_popen(
     # Дефолт читается ЗДЕСЬ, а не в сигнатуре: значение по умолчанию
     # связывается при определении функции, и подмена константы (в тестах или
     # ради разовой настройки) на такой дефолт уже не влияла бы.
-    deadline = DEFAULT_LAUNCH_TIMEOUT_S if launch_timeout is None else launch_timeout
+    deadline = launch_timeout_s() if launch_timeout is None else launch_timeout
     outcome: list[subprocess.Popen[Any] | BaseException] = []
     gave_up = threading.Event()
 
@@ -114,7 +154,7 @@ def guarded_run(
         SpawnTimeout: не уложились в суммарный дедлайн.
         Exception: то же, что бросил бы обычный ``subprocess.run``.
     """
-    deadline = DEFAULT_LAUNCH_TIMEOUT_S if launch_timeout is None else launch_timeout
+    deadline = launch_timeout_s() if launch_timeout is None else launch_timeout
     outcome: list[subprocess.CompletedProcess[Any] | BaseException] = []
 
     def _worker() -> None:
@@ -125,9 +165,13 @@ def guarded_run(
 
     thread = threading.Thread(target=_worker, daemon=True, name="guarded-run")
     thread.start()
-    thread.join(deadline + float(kwargs.get("timeout") or 0.0))
+    total = deadline + float(kwargs.get("timeout") or 0.0)
+    thread.join(total)
     if thread.is_alive() or not outcome:
-        raise SpawnTimeout(f"процесс не завершился в срок: {args[0]}")
+        # Срок называется вслух: «не завершился в срок» без числа не отличить
+        # «висит на запуске» от «долго работает», а на медленном раннере разбор
+        # начинается именно с этого вопроса (issue #1232).
+        raise SpawnTimeout(f"процесс не завершился за {total:g} с: {args[0]}")
     result = outcome[0]
     if isinstance(result, BaseException):
         raise result
