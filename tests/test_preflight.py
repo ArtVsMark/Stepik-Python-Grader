@@ -425,7 +425,7 @@ def worktree(
 
 
 class TestWorktreeLayout:
-    """Служебные пути гейта в `git worktree` (PR #PRNUM).
+    """Служебные пути гейта в `git worktree` (PR #1251).
 
     В рабочем дереве, добавленном `git worktree add`, `.git` — файл с одной
     строкой `gitdir: ...`, а настоящий каталог служебных файлов лежит в

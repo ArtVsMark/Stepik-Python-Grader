@@ -43,7 +43,7 @@
 
 Штамп, блокировка и логи живут в служебном каталоге git, и путь к нему спрашивают
 у самого git (``stamp_path``/``lock_path``/``logs_dir``), а не собирают как
-``<корень>/.git`` (PR #PRNUM). В рабочем дереве ``git worktree`` ``.git`` — это
+``<корень>/.git`` (PR #1251). В рабочем дереве ``git worktree`` ``.git`` — это
 ФАЙЛ со строкой ``gitdir: ...``, поэтому собранный путь не просто ведёт не туда:
 ``mkdir(parents=True, exist_ok=True)`` падает ``FileExistsError`` — ``exist_ok``
 прощает существующий каталог, а не файл, — и гейт умирал до первой проверки.
@@ -394,7 +394,7 @@ def check_tests_mentioning_changed_names(git: GitRunner = _git) -> Check:
 
 
 def _git_dir(root: pathlib.Path, *, shared: bool = False) -> pathlib.Path:
-    """Служебный каталог git рабочего дерева ``root`` (PR #PRNUM).
+    """Служебный каталог git рабочего дерева ``root`` (PR #1251).
 
     Путь спрашивается у самого git, а не собирается как ``root / ".git"``: в
     рабочем дереве ``git worktree`` по этому имени лежит ФАЙЛ со строкой
