@@ -1,6 +1,6 @@
 # Working with the grader
 
-> Installation, setup and OAuth — [installation.md](installation.en.md);
+> Installation, setup and OAuth — [installation.en.md](installation.en.md);
 > documentation map — [../README.md](../README.md); module architecture —
 > [architecture.md](../dev/architecture.md). Reference for configuration,
 > test-case formats, limits and security —
@@ -181,7 +181,93 @@ Equivalent via `python -m`: `python -m stepik_grader --version` or
 
 ---
 
-## IDE integration
+## Web interface (`--serve`)
+
+For anyone to whom the console is a barrier (beginners, work from an IDE) there
+is a local web interface. The "Check solutions" section repeats all four CLI
+modes (the "Mode 1…4" buttons — one file / folder / benchmark /
+micro-benchmark), plus separate "Task downloader", "Glossary" and "Sandbox"
+sections (see [web-interface.md](web-interface.md)):
+
+- **Correctness** (modes 1/2) — an AC/WA table with time and memory; clicking a
+  file name expands the test cases and the diff on WA.
+- **Benchmark** (mode 3) — solutions are ranked by median (fastest first) with a
+  SIMILAR/SLOWER/MUCH_SLOWER verdict, as in CLI mode 3; mode 4 is the
+  micro-benchmark via `timeit`.
+
+Modes 3/4 (benchmark/micro-benchmark) run asynchronously in the web UI
+(`POST /api/v1/runs` + polling) — the tab is not blocked for the whole duration
+of the run: a progress bar is shown and a "Cancel" button is available
+(best-effort, it really does stop the child process). Modes 1/2 (a file or a
+folder with ordinary tests) stay on the previous synchronous `/api/grade`.
+
+When a solution crashes (the RE verdict), an **error card** appears under the
+traceback: the exception type, a short explanation and a link to the detailed
+card in **our own** "Glossary" section (`#/glossary/<id>`). The same hint is
+printed by the CLI in verbose mode (`--mode 1`, or `--mode 2 --verbose`). It
+works offline — all the content is local: a compact set of explanations for the
+common built-in exceptions plus the bundled card database. The hint never links
+out to the external
+[Glossary-Python](https://github.com/ArtVsMark/Glossary-Python): that project is
+a showcase copy of this database, and the link would lead to an outdated version
+of the card.
+
+**Launching without the command line (the launcher) — the lowest barrier.** If
+even the terminal is too much, there is a launcher window: `stepik-grader-gui`
+(after installation; on Windows it is a shortcut without a console window) or
+`python -m stepik_grader.launcher`. The window offers an explicit choice of
+startup variant ("Plain server" / "Server with `--sandbox` isolation"), the port
+(with a "busy" check), the working folder, a "Start" button (which brings the
+server up as a separate `--serve` process and opens the browser) and "Stop" with
+the status and the address. The default working folder is the one where the
+tasks are set up (`root_dir` from `stepik_config.json`, searched from the current
+directory upwards and in the home folder), not the shortcut's directory: under
+the path it says "Tasks found: N", so a wrong folder is visible before the
+browser opens. If there are no tasks, the counter is replaced by the next step —
+download a task with the downloader or pick another folder.
+
+**The launch profile is the first row of the window.** Pick a saved profile and
+the fields are filled from it; "Save as…" stores the current set under a name,
+"Delete" removes the record without touching the form fields (the record is
+deleted, not your current selection). The "— custom set —" item means the fields
+match no saved profile. The same profile is available from the terminal:
+`stepik-grader --serve --profile "name"` (see
+[`--profile`](#--profile--a-saved-set-of-launch-parameters)).
+
+**The choice is remembered between launches.** Isolation, history recording,
+language, port and folder are saved into `.grader_settings.json` at the moment
+the server starts, and the next time the window opens they are pre-filled. This
+matters more than convenience: without that memory, whoever works with
+`--sandbox` had to enable it every time — and one day forgot, silently losing a
+security setting. Worth knowing:
+
+- the write happens **at startup**, not when the window is closed: a window
+  closed right after the server started still leaves its trace;
+- "did not choose" and "chose a value that happens to equal the default" are
+  different states: the first adds nothing to the command and leaves the
+  decision to `pyproject.toml`/the server (see
+  [ADR-0012](../dev/adr/0012-launcher-settings-store.md));
+- the `--lang` flag beats the remembered language — it is a "for now" decision;
+- if the remembered folder is gone (external drive, moved project), the window
+  silently falls back to the computed one: a path that does not exist would show
+  zero tasks and suggest that the tasks are lost rather than the folder.
+
+The isolation mode is switched **only** here or in the CLI, never from the web
+interface itself — otherwise the server would kill itself while sending the
+response.
+
+In a headless environment, or a Python build without `tkinter`, the window is
+not created, but the launcher **brings the web interface up itself** (`--serve`)
+and prints the address to `stderr`: it knows the whole command, and advising you
+to type it by hand would be dishonest — the more so on Windows, where the
+shortcut goes through `pythonw.exe` with no console for anyone to read the advice
+in. The port is chosen the same way as in the window: taken by a stranger — the
+nearest free one is used; taken by an already running server of ours — its
+address is printed and a second one is not started. The exit code comes from the
+server, so a script can tell "came up" from "could not".
+
+From the terminal — the same thing with flags:
+
 
 > Check a solution right from the editor, without switching to the terminal.
 
@@ -332,7 +418,7 @@ default 5; zero-like solutions are not taken) from the step's solutions branch
 into the task folder as `task{N}_{100+}.py` — a ready reference-competitor for
 comparison in modes 2–4, then exits. Reads `meta.json` from `TASK_DIR` (a
 downloaded task and an OAuth token are required, see
-[installation.md](installation.en.md)). Implementation —
+[installation.en.md](installation.en.md)). Implementation —
 `core/stepik_reference.py`; in the web UI — the "Find reference solution"
 button.
 
