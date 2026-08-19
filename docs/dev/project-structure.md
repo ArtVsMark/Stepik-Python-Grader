@@ -140,7 +140,7 @@ Stepik-Python-Grader/
 │   └── corpus_fetch.py        # Сбор локальной базы: обход курса Stepik → downloader
 ├── docs/                      # База знаний (архитектура, структура, версии)
 ├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
-├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
+├── .pre-commit-config.yaml    # Pre-commit хуки: ruff + guardrail-скрипты CI
 ├── pyproject.toml             # Конфигурация проекта (ruff, mypy, pytest, зависимости, packages.find where=["src"])
 ├── LICENSE                    # MIT
 ├── secrets.json.example       # Шаблон файла с OAuth-токеном
