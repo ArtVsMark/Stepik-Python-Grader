@@ -36,6 +36,7 @@ from stepik_grader.web.glossary_adapter import (
 from stepik_grader.web.http_guards import _GuardMixin, _json, _lang_from_query
 from stepik_grader.web.i18n import message_fields
 from stepik_grader.web.insights_adapter import insights_cards, progress_report
+from stepik_grader.web.navigation_adapter import read_task_tree
 from stepik_grader.web.reference_adapter import import_reference
 from stepik_grader.web.rules_adapter import rules_get, rules_search
 from stepik_grader.web.settings_adapter import (
@@ -143,6 +144,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/source": "_get_source",
         "/api/task/statement": "_get_task_statement",
         "/api/task/image": "_get_task_image",
+        "/api/tasks/index": "_get_tasks_index",
         "/api/auth/status": "_get_auth_status",
         "/api/downloader/config": "_get_downloader_config",
     }
@@ -361,6 +363,31 @@ class _ApiRoutesMixin(_GuardMixin):
                 }
             else:
                 data = read_source(confined, lang=lang)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_tasks_index(self, parsed: Any, lang: str) -> None:
+        """GET /api/tasks/index?path=<корень>&refresh=1 (issue #1179).
+
+        Дерево скачанных задач со статусами — данные для панели навигации.
+        В сеть не ходит: работает с тем, что уже на диске.
+
+        Пустое дерево возвращается как обычный ответ, а не как ошибка: у
+        человека может не быть ни одной скачанной задачи, и панель обязана
+        показать «пока пусто», а не сбой.
+        """
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил 403
+            refresh = (qs.get("refresh") or [""])[0] in {"1", "true", "yes"}
+            data = read_task_tree(confined, refresh=refresh)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _get_task_statement(self, parsed: Any, lang: str) -> None:
