@@ -509,6 +509,14 @@ class TestGuiSmoke:
         # _render на снимке RUNNING: кнопка → «Остановить», ввод заблокирован,
         # «Открыть в браузере» активна (webbrowser.open не дёргаем — без url-перехода).
         app = LauncherApp(tk_window, ServerController())
+        # Опрос отменяется ДО ручного рендера, иначе тест гоняется с таймером.
+        # `LauncherApp` каждые 250 мс зовёт `_poll` → `_render(controller.snapshot())`,
+        # а контроллер здесь настоящий и `STOPPED`. Если между конструктором и
+        # `update()` прошло больше 250 мс — а на нагруженном раннере проходило, —
+        # таймер успевает перерисовать кнопку обратно в «Запустить», и тест
+        # падает на ровном месте. Подменять контроллер на `RUNNING` нельзя:
+        # тогда конструктор открыл бы браузер.
+        tk_window.after_cancel(app._poll_id)
         app._opened_url = f"http://{DEFAULT_HOST}:8000"  # подавить авто-открытие
         app._render(ServerStatus(state=ServerState.RUNNING, url=app._opened_url))
         tk_window.update()
