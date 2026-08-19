@@ -578,8 +578,28 @@ def _gate_push() -> int:
     return 1
 
 
+def _force_utf8_stdio() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли (issue #1108).
+
+    Отчёт гейта — русский, в рамке из ``─`` и со стрелками ``→``; в консоли
+    cp1251 таких символов нет, и ``print`` падал ``UnicodeEncodeError`` вместе
+    со всей проверкой. Гейт при этом сообщал СВОЮ ошибку вместо результата —
+    ровно то, ради чего его запускают, узнать было нельзя, включая ``--help``.
+
+    Собственная копия приёма, а не общий ``stepik_grader.stdio_encoding``:
+    скрипт принципиально не импортирует пакет — он работает и там, где пакет не
+    установлен. No-op на потоках без ``reconfigure`` (перехваченных pytest).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Прогнать гигиену ветки и (по умолчанию) весь набор проверок CI."""
+    # Раньше любой печати, включая справку argparse: описание флагов русское.
+    _force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

@@ -19,6 +19,9 @@
 3. **Только REST.** ``gh pr view``/``gh pr checks`` ходят через GraphQL, и
    поллинг в цикле выжигает квоту 5000/час до нуля — посреди работы команды
    ``gh`` просто перестают отвечать. Интервал опроса — не чаще раза в 45-60 с.
+   Сами запросы уходят через общий транспорт ``scripts/gh_rest.py`` (issue
+   #1242): один модуль на весь конвейер — значит и токен, и распознавание
+   исчерпанной квоты, и условные запросы по ``ETag`` одинаковы везде.
 4. **Мерж внахлёст запрещён механикой, а не памятью.** В очереди одной
    concurrency-группы GitHub держит ровно один ОЖИДАЮЩИЙ прогон, и каждый новый
    пуш вытесняет предыдущий pending — тот получает ``cancelled``, не начавшись.
@@ -53,16 +56,19 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
-import os
 import pathlib
 import re
-import shutil
-import subprocess
 import sys
-import urllib.error
-import urllib.request
 from collections.abc import Callable
 from typing import Any
+
+# Сосед по каталогу ``scripts/``, а не пакет: при запуске файлом Python сам
+# кладёт его каталог в ``sys.path``, но тесты грузят скрипт по пути через
+# ``spec_from_file_location`` — там этого не происходит, и импорт надо
+# подстраховать явно.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+import gh_rest
 
 __all__ = [
     "Verdict",
@@ -79,8 +85,7 @@ __all__ = [
 ]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-_REPO = "ArtVsMark/Stepik-Python-Grader"
-_API = "https://api.github.com"
+_REPO = gh_rest.DEFAULT_REPO
 
 # issue #1231: очередь, из-за которой прогоны main отменялись, принадлежит
 # именно этому workflow — его и спрашиваем про занятость ветки.
@@ -104,30 +109,26 @@ class Verdict:
     missing: list[str]
 
 
-def _gh_available() -> bool:
-    """Есть ли ``gh`` в PATH — в локальном окне он обычно уже авторизован."""
-    return shutil.which("gh") is not None
-
-
 def default_fetch(path: str) -> Any:
-    """GET по REST: через ``gh api``, иначе напрямую с токеном из окружения."""
-    if _gh_available():
-        try:
-            raw = subprocess.check_output(
-                ["gh", "api", path], cwd=_ROOT, text=True, stderr=subprocess.DEVNULL
-            )
-            return json.loads(raw)
-        except (OSError, subprocess.CalledProcessError, ValueError):
-            pass
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
-    request = urllib.request.Request(f"{_API}/{path.lstrip('/')}")
-    request.add_header("Accept", "application/vnd.github+json")
-    if token:
-        request.add_header("Authorization", f"Bearer {token}")
+    """GET по REST через общий транспорт ``gh_rest`` (issue #1242).
+
+    Своей реализации запроса здесь больше нет: токен, условные запросы по
+    ``ETag`` и распознавание исчерпанной квоты одинаковы для всего конвейера,
+    и держать их в двух местах значит однажды починить только одно.
+
+    Ошибки транспорта переводятся в ``RuntimeError`` — тип, который ``main``
+    ловил и раньше: вердикт гейта от смены транспорта не меняется. Исчерпанная
+    квота при этом остаётся узнаваемой в тексте: «ждать сброса», а не «REST-
+    запрос не удался».
+
+    Raises:
+        RuntimeError: GitHub недоступен, отказал или квота исчерпана.
+    """
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return gh_rest.request("GET", path).data
+    except gh_rest.RateLimited as exc:
+        raise RuntimeError(exc.describe()) from exc
+    except gh_rest.GitHubError as exc:
         raise RuntimeError(f"REST-запрос не удался ({path}): {exc}") from exc
 
 
@@ -353,8 +354,27 @@ def _expected_names(fetch: Fetch, repo: str, workflows_dir: pathlib.Path) -> set
         return set()
 
 
+def _force_utf8_stdio() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли (issue #1108).
+
+    Вердикт готовности русский и со стрелками ``→``; в консоли cp1251 такой
+    вывод падал ``UnicodeEncodeError``, и вместо ответа «готов / не готов»
+    гейт печатал собственный трейсбек — на нём же спотыкался и ``--help``.
+
+    Собственная копия приёма, а не общий ``stepik_grader.stdio_encoding``:
+    скрипт принципиально не импортирует пакет — он работает и там, где пакет не
+    установлен. No-op на потоках без ``reconfigure`` (перехваченных pytest).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
     """Напечатать вердикт готовности PR; 0 — можно мержить."""
+    # Раньше любой печати, включая справку argparse: описание флагов русское.
+    _force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
