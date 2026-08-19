@@ -19,6 +19,12 @@ on:
   # `merge main` + push, то есть коммит-пустышка в ветке ради перезапуска.
   # Выбор ветки в интерфейсе Actions даёт тот же прогон без мусора в истории.
   workflow_dispatch:
+  # issue #1227: cross-OS покрытие собирается ночью, а не на каждом пуше в main.
+  # Короткий прогон main (одна ОС) собирать нечего — трёх артефактов у него нет,
+  # — а полная матрица на каждый мерж и создала очередь, из-за которой шесть
+  # состояний main уехали вовсе без проверки.
+  schedule:
+    - cron: "17 2 * * *"
 
 # issue #1036 (находки REL-1-02/STR-2-01 аудита 2026-08-10): один прогон на
 # ветку. Без группы каждый пуш и каждое обновление PR запускали ПОЛНУЮ матрицу
@@ -29,8 +35,21 @@ on:
 #
 # main не отменяем: его прогон коммитит бейджи и питает cross-OS покрытие —
 # отмена на середине оставила бы README врать до следующего пуша.
+#
+# issue #1227, ВАЖНО И НЕОЧЕВИДНО: `cancel-in-progress: false` защищает только
+# ВЫПОЛНЯЮЩИЙСЯ прогон. В очереди одной группы GitHub держит максимум один
+# ОЖИДАЮЩИЙ, и каждый новый пуш вытесняет предыдущий pending — тот получает
+# `cancelled`, не начавшись. На эту часть настройка не влияет вовсе, так что
+# «main не отменяем» читать как «прогоны main защищены» нельзя.
+#
+# Замер 19.08.2026: шесть мержей подряд дали шесть `cancelled` прогонов и ни
+# одного выполненного. Лечится не здесь, а тем, что прогон main стал коротким
+# (см. матрицу job `test`) и перестал копить очередь.
+#
+# Ночной прогон живёт в СВОЕЙ группе: иначе он встал бы в очередь к пушам main
+# и вытеснялся бы ими ровно так же.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'schedule' && 'nightly' || 'main' }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -136,29 +155,43 @@ jobs:
     # обновляет ровно один job с `contents: write`, а матрица — read-only.
     permissions:
       contents: read
+    # issue #1227: РАЗМЕР МАТРИЦЫ ЗАВИСИТ ОТ СОБЫТИЯ.
+    #
+    # `pull_request` (и ночной прогон, и ручной запуск) — полная матрица: девять
+    # комбинаций ОС × версия. Проверять надо ДО мержа, здесь и место.
+    #
+    # `push` в main — одна ОС и одна версия. Полная матрица на каждый мерж
+    # упиралась в лимит одновременных job'ов, прогон вставал в очередь, а
+    # следующий мерж вытеснял его оттуда ещё до старта: 19.08.2026 шесть мержей
+    # подряд дали шесть `cancelled` и ни одного выполненного. Короткий прогон
+    # укладывается в минуты, поэтому каждое состояние main наконец проверяется —
+    # пусть и одной ОС. Кросс-платформенное покрытие даёт ночной прогон.
+    #
+    # issue #454: 3.14 (requires-python = ">=3.12" без верхней границы обещает
+    # её) покрывается на всех трёх ОС — sandbox завязан на OS-специфичные
+    # backend'ы, которые смена версии Python задевает вероятнее всего.
+    # experimental: true → continue-on-error, merge не блокируется;
+    # coverage-combine и бейджи фильтруются по 3.12 && !experimental.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.12", "3.13"]
+        os: >-
+          ${{ github.event_name == 'push'
+              && fromJSON('["ubuntu-latest"]')
+              || fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') }}
+        python-version: >-
+          ${{ github.event_name == 'push'
+              && fromJSON('["3.12"]')
+              || fromJSON('["3.12", "3.13"]') }}
         experimental: [false]
-        include:
-          # issue #454: requires-python = ">=3.12" без верхней границы обещает
-          # 3.14 — покрываем её на всех трёх ОС (ubuntu/windows/macOS) для полноты
-          # слепой зоны: sandbox завязан на OS-специфичные backend'ы (bwrap/Job
-          # Objects/sandbox-exec), которые смена версии Python задевает вероятнее
-          # всего. experimental: true → continue-on-error, merge не блокируется;
-          # coverage-combine и бейджи фильтруются по 3.12 && !experimental,
-          # поэтому эти job'ы их не задевают.
-          - os: ubuntu-latest
-            python-version: "3.14"
-            experimental: true
-          - os: windows-latest
-            python-version: "3.14"
-            experimental: true
-          - os: macos-latest
-            python-version: "3.14"
-            experimental: true
+        include: >-
+          ${{ github.event_name == 'push'
+              && fromJSON('[]')
+              || fromJSON('[
+                   {"os": "ubuntu-latest",  "python-version": "3.14", "experimental": true},
+                   {"os": "windows-latest", "python-version": "3.14", "experimental": true},
+                   {"os": "macos-latest",   "python-version": "3.14", "experimental": true}
+                 ]') }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -246,8 +279,9 @@ jobs:
       # job с правом записи (coverage-combine). Тот же фильтр, что и у данных
       # покрытия выше: одна ОС, одна версия Python.
       - name: Upload ubuntu coverage.xml for the badge job (issue #808)
+        # issue #1227: и ночной прогон тоже — он обновляет те же бейджи.
         if: |
-          github.event_name == 'push' &&
+          (github.event_name == 'push' || github.event_name == 'schedule') &&
           matrix.os == 'ubuntu-latest' &&
           matrix.python-version == '3.12' &&
           matrix.experimental == false
@@ -307,7 +341,7 @@ jobs:
       # issue #808 (SUP-04): per-OS отчёт ubuntu-job'а — в отдельный каталог,
       # чтобы combine ниже не перезаписал его своим общим coverage.xml.
       - name: Download ubuntu coverage.xml (issue #808)
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'schedule'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
@@ -320,11 +354,18 @@ jobs:
       # вместо немого недосчёта; строгий --fail-under=90 только при полных данных.
       - name: Combine and report (issue #283/#559)
         id: combine
+        # issue #1227: на коротком прогоне main матрица — одна ОС, поэтому
+        # требовать windows/macos значило бы выдавать ::warning:: на каждом
+        # мерже. Предупреждение, которое горит всегда, перестают читать —
+        # и настоящую деградацию тогда тоже пропустят.
+        env:
+          REQUIRED: >-
+            ${{ github.event_name == 'push'
+                && '--require ubuntu-latest --require sandbox-linux'
+                || '--require ubuntu-latest --require windows-latest --require macos-latest --require sandbox-linux' }}
         run: |
           python scripts/combine_coverage.py \
-            --artifacts coverage-artifacts --fail-under 90 \
-            --require ubuntu-latest --require windows-latest \
-            --require macos-latest --require sandbox-linux
+            --artifacts coverage-artifacts --fail-under 90 $REQUIRED
 
       # issue #808 (SUP-04): единственное место, которое коммитит бейджи. Раньше
       # их было два — этот job и шаг матрицы `test`, ради которого всей матрице
@@ -341,7 +382,7 @@ jobs:
         # ::warning:: из combine_coverage.py выше; прошлый честный бейдж
         # остаётся в силе. Остальные бейджи от sandbox-данных не зависят и
         # обновляются в любом случае.
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'schedule'
         # issue #835: токен нужен только бейджу пула — search API без него
         # упирается в лимит для анонимных запросов с общих IP раннеров.
         env:
@@ -350,7 +391,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
-            if [ "${{ steps.combine.outputs.degraded }}" != "true" ]; then
+            # issue #1227: короткий прогон main видит одну ОС, и его число —
+            # не cross-OS. Публиковать его под бейджем «all OS» значило бы
+            # соврать точнее, чем промолчать: бейдж обновляет ночной прогон.
+            if [ "${{ github.event_name }}" != "push" ] && [ "${{ steps.combine.outputs.degraded }}" != "true" ]; then
               python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json --label "coverage (all OS)"
             fi
             if [ -f ubuntu-coverage/coverage.xml ]; then
@@ -405,6 +449,10 @@ jobs:
   # NOT a new runtime dependency.
   e2e:
     runs-on: ubuntu-latest
+    # issue #1227: короткий прогон main без e2e — браузерные journey уже прошли
+    # на PR по тому же коду, а здесь они стоили бы половины его длительности.
+    # Ночной прогон гоняет полный набор, включая их.
+    if: github.event_name != 'push'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # issue #162: setuptools-scm needs full history + tags to resolve
