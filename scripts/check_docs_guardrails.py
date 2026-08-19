@@ -504,7 +504,10 @@ def check_issue_tail_policy(errors: list[str]) -> None:
 
     Зоны, где номер УМЕСТЕН и потому не проверяются:
 
-    * ``CHANGELOG.md`` и ``docs/archive/`` — это и есть логи;
+    * ``CHANGELOG.md``, ``HISTORY.md`` и ``docs/archive/`` — это и есть логи.
+      ``HISTORY.md`` живёт в корне, а не в ``docs/archive/`` (issue #1181): это
+      витрина уровня README, но жанр у неё исторический, и номера релизных
+      issue в записях — часть содержания, а не журнал работ;
     * ``docs/audit/`` — находки аудита привязаны к задачам по определению;
     * ``docs/dev/adr/`` — ADR отвечает «почему решили так», задача часть ответа;
     * ``docs/dev/design/`` — там номер работает как идентификатор согласованного
@@ -517,7 +520,7 @@ def check_issue_tail_policy(errors: list[str]) -> None:
     Всё остальное (``docs/use/``, ``docs/dev/*.md``, ``README``, ``SECURITY``,
     ``CONTRIBUTING``) должно держать ноль.
     """
-    free_zones = ("CHANGELOG.md", "docs/archive/", "docs/audit/", "docs/dev/adr/")
+    free_zones = ("CHANGELOG.md", "HISTORY.md", "docs/archive/", "docs/audit/", "docs/dev/adr/")
     budgeted = {
         "docs/dev/design/": _DESIGN_TAIL_BUDGET,
         "CLAUDE.md": _AGENT_TAIL_BUDGET,
