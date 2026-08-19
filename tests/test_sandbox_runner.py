@@ -1111,9 +1111,9 @@ class TestGoldenComparisonAgainstLocalRunner:
         )
 
         # Лимит вывода задаётся явно, как это делает боевой путь
-        # (`grader_core` берёт его из конфига): без него `LocalRunner` уходит в
-        # одиночный `communicate()` и теряет вывод сам — это отдельный дефект,
-        # и он бы замаскировал проверяемое здесь расхождение backend'ов.
+        # (`grader_core` берёт его из конфига). До issue #1248 без лимита
+        # `LocalRunner` уходил в одиночный `communicate()` и терял вывод сам,
+        # маскируя проверяемое здесь расхождение backend'ов.
         def _spec() -> RunSpec:
             return RunSpec(path=path, stdin=None, timeout=5.0, max_output_bytes=1_000_000)
 
