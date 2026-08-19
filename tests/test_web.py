@@ -483,6 +483,20 @@ class TestEstimateRunCount:
 # ---------------------------------------------------------------------------
 
 
+# Насколько медленнее «медленное» решение (issue #1244). Вердикт считается от
+# ОТНОСИТЕЛЬНОГО времени, а в него входит запуск интерпретатора — общий для
+# обоих решений. При задержке 0.05 с разрыв тонул в этом старте: стоило машине
+# быть занятой (параллельный прогон, CI), как relative опускалось ниже порога
+# `similar_threshold` (1.15), и «медленное» решение получало SIMILAR. Замер:
+# три одиночных прогона подряд дали passed, passed, failed — без всякой
+# параллельности.
+#
+# 0.3 с держит запас: чтобы разрыв снова утонул, запуск Python должен занять
+# больше двух секунд. Цена — около секунды на тест, и это дешевле флейка,
+# который проще отключить, чем разобрать.
+_SLOW_SOLUTION_DELAY_S = 0.3
+
+
 def _make_bench_pair(tmp_path: pathlib.Path) -> None:
     """task1_1.py (быстрый) + task1_2.py (заметно медленнее) + общий tests/."""
     tests = tmp_path / "tests"
@@ -491,7 +505,8 @@ def _make_bench_pair(tmp_path: pathlib.Path) -> None:
     (tests / "1.clue").write_text("5", encoding="utf-8")
     (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
     (tmp_path / "task1_2.py").write_text(
-        "import time\ntime.sleep(0.05)\nprint(int(input()) + 1)\n", encoding="utf-8"
+        f"import time\ntime.sleep({_SLOW_SOLUTION_DELAY_S})\nprint(int(input()) + 1)\n",
+        encoding="utf-8",
     )
 
 
