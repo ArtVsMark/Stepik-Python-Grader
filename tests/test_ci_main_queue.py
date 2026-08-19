@@ -122,9 +122,15 @@ class TestMatrixIsTheSameForEveryEvent:
     """
 
     def test_matrix_does_not_branch_on_event(self, ci_yml: str) -> None:
-        """Ветвление вернулось бы незаметно: YAML остался бы валидным."""
+        """Ветвление вернулось бы незаметно: YAML остался бы валидным.
+
+        Смотрим именно секцию `matrix`, а не весь job: событие в нём
+        спрашивают и по делу — загрузка coverage-артефакта нужна только на
+        `push`/`schedule`, и запрещать это значило бы ломать соседнюю логику.
+        """
         block = _job_block(ci_yml, "test")
-        assert "github.event_name" not in block, (
+        matrix = block[block.index("matrix:") : block.index("steps:")]
+        assert "github.event_name" not in matrix, (
             "матрица снова различает событие — main опять проверяется не как PR"
         )
 
@@ -271,7 +277,15 @@ class TestDocumentationTellsTheTruth:
         assert "auto-merge" in text
         assert "Обновить ветку из `main`" in text
 
-    def test_claude_md_says_the_badge_is_nightly(self) -> None:
-        """Иначе отставание бейджа на сутки выглядит как поломка."""
+    def test_claude_md_says_the_badge_follows_every_merge(self) -> None:
+        """Раньше здесь сторожилось обратное — «бейдж ночной».
+
+        Это было верно при коротком прогоне: одна ОС не даёт cross-OS числа, и
+        бейдж ждал ночи. С возвратом полной матрицы отставание отпало, а
+        контракт обязан говорить текущее положение — иначе свежий бейдж
+        выглядит подозрительным, а несвежий никого не удивляет.
+        """
         text = " ".join(_CLAUDE_MD.read_text(encoding="utf-8").split())
-        assert "НОЧНУЮ сборку" in text or "ночную сборку" in text
+
+        assert "обновляется каждым мержем" in text
+        assert "Ночной прогон сохранён" in text
