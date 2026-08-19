@@ -16,6 +16,7 @@
 | Документ | Что спроектировано | Связанное решение |
 |---|---|---|
 | [server-mode.md](server-mode.md) | Server mode целиком: Runner-слой (реализован), контракт API удалённого исполнения, требования к sandbox и сетевой изоляции, фазовая миграция | [ADR-0001](../adr/0001-server-mode.md), [ADR-0006](../adr/0006-runner-abstraction.md) |
+| [server-roadmap.md](server-roadmap.md) | Серверный трек: что и в каком порядке делать после решения о пивоте — 11 блоков с фазами и зависимостями, отклонённые цели с причинами. Дизайн не переоткрывает, ссылается | [ADR-0001](../adr/0001-server-mode.md), [ADR-0008](../adr/0008-server-sandbox-backend.md), [ADR-0009](../adr/0009-server-data-model.md) |
 | [server-sandbox-design.md](server-sandbox-design.md) | Контейнерный sandbox-backend: cgroups v2 для CPU/RAM, сетевой namespace, эфемерная ФС, seccomp-профиль, rootless vs privileged | [ADR-0008](../adr/0008-server-sandbox-backend.md) |
 | [server-data-model.md](server-data-model.md) | Доменная модель данных, PostgreSQL поверх локальной SQLite-истории, accounts/workspaces/courses, RBAC, стратегия миграции | [ADR-0009](../adr/0009-server-data-model.md) |
 | [web-design.md](web-design.md) | Замыслы web UI: отложенное и **отклонённое** с причинами — экспорт глоссария наружу, deep-linking через URL-хэш, отложенные action cards, полный a11y-аудит | — |
