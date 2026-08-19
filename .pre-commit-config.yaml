@@ -43,3 +43,71 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
         exclude: *vendor_generated
+
+  # issue #996 (REL-2-08): guardrail-скрипты гонялись ТОЛЬКО в CI, и о нарушении
+  # контрибьютор узнавал после пуша — кругом в 5–10 минут ожидания вместо секунды
+  # на коммите. Все восемь укладываются в ~3.6 с суммарно, а привязка к своим
+  # файлам делает типичный коммит ещё дешевле: правка одного модуля не зовёт
+  # проверку локалей.
+  #
+  # `language: system` — тот же приём, что у ruff выше: интерпретатор берётся из
+  # окружения, второй пин версии не заводится (issue #791).
+  # `pass_filenames: false` — скрипты обходят репозиторий сами и аргументов не
+  # принимают; передать им список файлов значило бы сломать вызов.
+  - repo: local
+    hooks:
+      - id: check-docs-guardrails
+        name: docs guardrails (README, ссылки, индексы docs/)
+        entry: python scripts/check_docs_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '\.md$'
+
+      - id: check-locale-guardrails
+        name: полнота локалей ru/en
+        entry: python scripts/check_locale_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/(core/i18n\.py|web/(i18n\.py|static/.*\.js))$|locales'
+
+      - id: check-ui-locale-guardrails
+        name: UI-строки без хардкода
+        entry: python scripts/check_ui_locale_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/.*\.(py|js|html)$'
+
+      - id: check-web-imports
+        name: ES-модули web — имя вызвано, но не импортировано
+        entry: python scripts/check_web_imports.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/web/static/.*\.js$'
+
+      - id: check-workflow-guardrails
+        name: пины и права в workflow'ах
+        entry: python scripts/check_workflow_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '^\.github/workflows/.*\.ya?ml$'
+
+      - id: check-test-isolation
+        name: тесты не пишут в домашний каталог
+        entry: python scripts/check_test_isolation.py
+        language: system
+        pass_filenames: false
+        files: '^tests/.*\.py$'
+
+      - id: check-ruff-pin
+        name: версия ruff — один источник
+        entry: python scripts/check_ruff_pin.py
+        language: system
+        pass_filenames: false
+        files: '^(pyproject\.toml|\.pre-commit-config\.yaml)$'
+
+      - id: check-version-consistency
+        name: версия в доках не разошлась с тегом
+        entry: python scripts/check_version_consistency.py
+        language: system
+        pass_filenames: false
+        files: '^(pyproject\.toml|CHANGELOG\.md|README\.md|README\.en\.md)$'
