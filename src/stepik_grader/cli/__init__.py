@@ -682,6 +682,20 @@ def main(argv: list[str] | None = None) -> ExitCode:
             print(_t("history_purged_task", task=task_key, runs=runs_removed))
         return ExitCode.OK
 
+    if args.create_shortcut:
+        # issue #1185: ярлык — явное действие пользователя, поэтому отдельная
+        # ветка, а не побочный эффект какой-нибудь другой команды.
+        from stepik_grader.core.shortcut import ShortcutError, create_shortcut
+
+        try:
+            print(_t("shortcut_created", path=create_shortcut()))
+        except ShortcutError as exc:
+            # Причина показывается человеку целиком: «не получилось» без
+            # объяснения оставляет пользователя ровно там же, где он был.
+            print(_t("shortcut_failed", error=exc))
+            return ExitCode.FAILURES
+        return ExitCode.OK
+
     if args.stats_summary:
         summary = stats.read_summary()
         if summary["total_runs"] == 0:

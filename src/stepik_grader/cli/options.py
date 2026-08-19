@@ -112,6 +112,14 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="store_true", help=t["cli_help_version"])
+    # issue #1185: ярлык создаётся ТОЛЬКО явным действием — этим флагом или
+    # кнопкой в лаунчере. Непрошеный ярлык на рабочем столе воспринимается как
+    # навязчивость, поэтому при установке он не появляется никогда.
+    parser.add_argument(
+        "--create-shortcut",
+        action="store_true",
+        help=t["cli_help_create_shortcut"],
+    )
     parser.add_argument(
         "--mode",
         type=int,

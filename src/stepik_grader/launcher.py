@@ -1072,6 +1072,18 @@ class LauncherApp:
         )
         self.open_btn.grid(row=12, column=1, columnspan=2, sticky="e")
 
+        # issue #1185: ярлык предлагается ПОСЛЕ первого успешного старта —
+        # когда человек уже увидел работающий интерфейс и знает, что именно
+        # кладёт себе на рабочий стол. До этого кнопка выключена, и ярлык не
+        # создаётся никогда без явного нажатия.
+        self.shortcut_btn = ttk.Button(
+            frame,
+            text=self._t("launcher_create_shortcut"),
+            command=self._on_create_shortcut,
+            state="disabled",
+        )
+        self.shortcut_btn.grid(row=14, column=0, sticky="w", pady=(12, 0))
+
         # Статус
         self.status_label = ttk.Label(
             frame, textvariable=self.status_var, wraplength=420, justify="left"
@@ -1083,6 +1095,22 @@ class LauncherApp:
         self._poll()
 
     # -- вкладка «Дополнительно» (issue #1136) --------------------------------
+
+    def _on_create_shortcut(self) -> None:
+        """Создать ярлык запуска в системе (issue #1185).
+
+        Ошибка показывается в той же строке статуса, что и остальные исходы:
+        отдельное модальное окно ради «не получилось» — лишний клик там, где
+        человек и так смотрит на статус.
+        """
+        from stepik_grader.core.shortcut import ShortcutError, create_shortcut
+
+        try:
+            path = create_shortcut()
+        except ShortcutError as exc:
+            self.status_var.set(self._t("shortcut_failed", error=exc))
+            return
+        self.status_var.set(self._t("shortcut_created", path=path))
 
     def _build_advanced_tab(self) -> None:
         """Построить вкладку настроек прогона по описаниям из ядра.
@@ -1613,6 +1641,10 @@ class LauncherApp:
         if state == ServerState.RUNNING:
             self.action_btn.config(text=self._t("launcher_stop"))
             self.open_btn.config(state="normal")
+            # issue #1185: ярлык предлагается после того, как человек увидел
+            # работающий интерфейс. Кнопка не гасится обратно: узнав о ярлыке,
+            # его хочется создать и после остановки сервера.
+            self.shortcut_btn.config(state="normal")
             self._set_inputs_enabled(False)
             self._set_status(self._t("launcher_status_running", url=status.url))
             if status.url and status.url != self._opened_url:
