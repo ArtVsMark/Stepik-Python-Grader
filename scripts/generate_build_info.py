@@ -41,13 +41,22 @@ _TARGET = _ROOT / "src" / "stepik_grader" / "_build_info.json"
 
 
 def _git(*args: str) -> str | None:
-    """``git`` в корне репозитория; ``None`` — git недоступен или ответил ошибкой."""
+    """``git`` в корне репозитория; ``None`` — git недоступен или ответил ошибкой.
+
+    Кодировка задана явно: ``text=True`` без неё берёт локальную кодовую
+    страницу, а под Windows это cp1251 — темы коммитов проекта по-русски, и
+    чтение падало бы ``UnicodeDecodeError``. ``errors="replace"`` — битый символ
+    в выводе не должен ронять сборку (issue #1042, тот же разбор в
+    ``scripts/version.py``).
+    """
     try:
         out = subprocess.run(
             ["git", *args],
             cwd=_ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=30,
         )
