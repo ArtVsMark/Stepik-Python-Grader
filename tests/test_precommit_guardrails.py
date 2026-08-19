@@ -34,6 +34,10 @@ _EXEMPT = {
     "check_good_first_issues_bilingual",
     # Сверяет покрытие по артефактам CI-матрицы, которых локально нет.
     "check_coverage_combined",
+    # Разбирает отчёт `pip-audit`, который создаётся шагом того же job'а: без
+    # аргумента-файла скрипту нечего читать, а гонять сам аудит на каждом
+    # коммите — поход в сеть за Advisory DB (issue #921, REL-3-05).
+    "check_pip_audit_report",
 }
 
 
