@@ -112,8 +112,12 @@ def _isolation_label() -> str:
     ``--sandbox`` вердикты другие: два прогона с разным уровнем изоляции
     оставляли неразличимые артефакты, и CI-гейт «проверено в песочнице»
     подтвердить было нечем.
+
+    Считает не сам: то же значение пишет в историю web-слой (issue #1220), и
+    два вычисления «что такое изоляция» разошлись бы при первом же новом
+    backend'е. Канон — ``history_recording.current_isolation()``.
     """
-    return current_profile().sandbox_backend or "none"
+    return history_recording.current_isolation()
 
 
 def _machine_labels(mode: int | None, outcome: ExitCode) -> dict[str, object]:
@@ -740,6 +744,7 @@ def _run_mode_1(
             solution_name=solution.name,
             solution_hash=hash_solution(solution),
             duration_s=result["total_time"],
+            isolation=history_recording.current_isolation(),
             lint=history_recording.lint_records_from_violations(
                 (lint_by_sol or {}).get(solution, [])
             )
@@ -883,6 +888,7 @@ def _run_mode_2(
                 task_key=history.task_key_for(directory.resolve(), _history_base()),
                 task_title=directory.name,
                 duration_s=total_time,
+                isolation=history_recording.current_isolation(),
                 lint=history_recording.lint_records_from_violations(all_violations) or None,
             )
 
@@ -990,6 +996,7 @@ def _run_mode_3(
                 task_key=history.task_key_for(directory.resolve(), _history_base()),
                 task_title=directory.name,
                 duration_s=total_time,
+                isolation=history_recording.current_isolation(),
             )
 
     if output == "json":
@@ -1175,6 +1182,7 @@ def _run_mode_4(
                 task_key=history.task_key_for(directory.resolve(), _history_base()),
                 task_title=directory.name,
                 duration_s=total_time,
+                isolation=history_recording.current_isolation(),
             )
 
     if output == "json":

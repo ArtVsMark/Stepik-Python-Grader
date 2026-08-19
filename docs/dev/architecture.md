@@ -154,11 +154,13 @@ web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint д
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
 web/viewmodels.py      ──→  core/history.py, core/lint.py, mtime_cache.py, rules/  (запись прогонов, блок «Стиль», кеш по mtime, карточки правил)
+web/viewmodels.py      ──→  core/insights.py  (failure_kind в карточке кейса — тот же ключ ошибки, под которым кейс лёг в историю)
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/stepik_client.py  (read_step_id — meta.json скачанной задачи), core/storage.py, core/test_loader.py, atomic_io.py
 web/settings_adapter.py   ──→  core/user_settings.py  (чтение/переключение флагов настроек — единственная точка web-слоя)
 web/settings_adapter.py   ──→  core/ai_hints.py, config.py  (получатель согласия на AI-подсказку: адрес провайдера резолвится ЗДЕСЬ, чтобы роутер не ходил в core — чтобы роутер оставался тонким)
 web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve)
 web/glossary_adapter.py   ──→  core/glossary.py, mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, glossary/taxonomy.py, glossary/lookup.py, config.py  (stdlib_inventory для code_terms; классификация и индексы — в домене, адаптер их только вызывает)
+web/glossary_adapter.py   ──→  core/history.py  (POST /api/glossary/hit — переход в карточку из ошибки; роутер в core не ходит — ARCH-07)
 glossary/taxonomy.py      ──→  glossary/models.py  (семейства разделов, EN-подписи, сортировки, приватность карточки)
 glossary/lookup.py        ──→  glossary/models.py, glossary/taxonomy.py  (индекс концепций из кода → карточка)
 web/rules_adapter.py       ──→  rules/  (bundled_rules), core/history_recording.py  (резолв пути БД), core/insights.py  (подсветка лично нарушенных правил)
@@ -178,6 +180,8 @@ cli/commands.py        ──→  core/history.py, core/lint.py  (--history/--li
 cli/commands.py        ──→  core/ai_hints.py, core/history_recording.py  (--ai-hints + наполнение истории)
 cli/commands.py        ──→  core/runprofile.py  (паспорт условий прогона: шапка отчёта + отпечаток в ключе кэша)
 core/runprofile.py     ──→  config.py, core/runner.py  (действующие настройки + активный Runner; снимается в момент вызова, не на импорте)
+core/history_recording.py ──→  core/runprofile.py  (current_isolation: чем исполнялся прогон — одно значение на CLI-статистику и историю)
+core/submission.py     ──→  core/stepik_client.py, core/history.py  (общий путь отправки: вердикт платформы пишется рядом с нашим, а не веткой веб-слоя)
 cli/__init__.py        ──→  core/progress_export.py  (--export-progress), core/stepik_reference.py  (--import-reference/--import-top)
 cli/__init__.py        ──→  core/history.py  (--purge-history: PurgePreview для предпросмотра удаления; сам purge_history — ленивый импорт в ветке флага)
 cli/interactive.py     ──→  core/user_settings.py  (тумблер записи истории из меню)

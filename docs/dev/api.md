@@ -412,6 +412,29 @@ curl -X POST http://127.0.0.1:8000/api/code-terms \
   -d '{"code": "xs = sorted([3, 1, 2])"}'
 ```
 
+## `POST /api/glossary/hit`
+
+Отметка перехода в карточку глоссария **из ошибки** прогона (issue #1220) —
+deep-link из панели разбора, а не открытие раздела «Глоссарий» руками. Тело:
+`{"card_id", "failure_kind"?, "error_class"?}`; `failure_kind` — тот же ключ
+ошибки, что кладётся в историю (`insights.failure_kind`, приезжает в карточке
+кейса), `error_class` — имя исключения при RE.
+
+**200** `{"kind": "glossary_hit", "recorded": bool}`. `recorded=false` — не
+отказ, а честный ответ «история выключена»: тумблер один на весь журнал
+(`--history`/`--serve --no-history`, ADR-0002), и отдельного согласия эта
+запись не заводит. Пустой `card_id` → **400** `glossary_no_card_id`.
+
+Почему POST, а не параметр к `GET /api/glossary/<id>`: у записи есть побочный
+эффект, а GET браузер волен повторить или предзагрузить — тогда метрика
+«пришёл из ошибки» считала бы кэш и префетчи.
+
+```
+curl -X POST http://127.0.0.1:8000/api/glossary/hit \
+  -H "Content-Type: application/json" \
+  -d '{"card_id": "indexerror", "error_class": "IndexError"}'
+```
+
 ## `GET /api/commands`
 
 Реестр команд действий (`copy_input`/`copy_output`/…), отфильтрованный по

@@ -102,6 +102,7 @@ Stepik-Python-Grader/
 │           ├── user_settings.py  # Персистентные настройки CLI (.grader_settings.json, leaf)
 │           ├── stepik_reference.py # Импорт закреплённых решений Stepik как reference (--import-reference)
 │           ├── submission_archive.py # История своих отправок в <задача>/submissions/ (вердикт + hint)
+│           ├── submission.py     # Общий путь отправки решения: вердикт платформы → история (#1175)
 │           ├── attachments.py      # Вложения условия (media/attachments) рядом с решением
 │           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов
 │           ├── feedback.py       # Обратная связь: prefilled-URL к GitHub Issue Forms, редакция секретов

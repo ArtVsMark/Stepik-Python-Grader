@@ -32,6 +32,7 @@ from stepik_grader.web.glossary_adapter import (
     glossary_missing,
     glossary_search,
     queue_code_gaps,
+    record_glossary_hit,
 )
 from stepik_grader.web.http_guards import _GuardMixin, _json, _lang_from_query
 from stepik_grader.web.i18n import message_fields
@@ -50,6 +51,7 @@ from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
     grade_path,
+    history_db_path_if_enabled,
     list_solutions,
     read_source,
     save_solution,
@@ -158,6 +160,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/stepik/submit": "_handle_stepik_submit",
         "/api/auth/start": "_handle_auth_start",
         "/api/code-terms": "_post_code_terms",
+        "/api/glossary/hit": "_post_glossary_hit",
         "/api/download": "_post_download",
         "/api/feedback": "_post_feedback",
         "/api/downloader/config": "_post_downloader_config",
@@ -288,6 +291,45 @@ class _ApiRoutesMixin(_GuardMixin):
             )
         else:
             self._send(200, "application/json; charset=utf-8", _json(card))
+
+    def _post_glossary_hit(self, parsed: Any) -> None:
+        """POST /api/glossary/hit (issue #1220) — отметить переход в карточку из ошибки.
+
+        Тело: ``{"card_id", "failure_kind"?, "error_class"?}`` → ``200``
+        ``{"kind": "glossary_hit", "recorded": bool}``. ``recorded=false`` — не
+        отказ, а честный ответ «история выключена»: тумблер один на весь журнал
+        (ADR-0002), и отдельного согласия эта запись не заводит.
+
+        Метод POST, а не параметр к ``GET /api/glossary/<id>``: у записи есть
+        побочный эффект, а GET браузер волен повторить или предзагрузить — тогда
+        метрика «пришёл из ошибки» считала бы кэш и префетчи.
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        card_id = str(body.get("card_id") or "").strip()
+        if not card_id:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("glossary_no_card_id", lang)}),
+            )
+            return
+        db_path = history_db_path_if_enabled()
+        recorded = False
+        if db_path is not None:
+            recorded = record_glossary_hit(
+                card_id,
+                db_path=db_path,
+                failure_kind=str(body.get("failure_kind") or "") or None,
+                error_class=str(body.get("error_class") or "") or None,
+            )
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"kind": "glossary_hit", "recorded": recorded}),
+        )
 
     def _get_rules(self, parsed: Any, lang: str) -> None:
         qs = parse_qs(parsed.query)
@@ -883,15 +925,21 @@ class _ApiRoutesMixin(_GuardMixin):
             )
             return
 
+        # Папка задачи нужна не только ради ``step_id``: по ней считается ключ
+        # задачи, под которым вердикт платформы ложится рядом с нашим (#1175).
+        # Поэтому путь разбирается всегда, а не только когда ``step_id`` не
+        # прислали, — иначе привязка терялась ровно у тех клиентов, что уже
+        # знают идентификатор шага.
+        task_dir: pathlib.Path | None = None
+        raw_path = str(body.get("path") or "").strip()
+        if raw_path:
+            confined = self._confined_path(raw_path, lang)
+            if confined is None:
+                return
+            task_dir = confined if confined.is_dir() else confined.parent
         step_id = body.get("step_id")
-        if not isinstance(step_id, int):
-            raw_path = str(body.get("path") or "").strip()
-            if raw_path:
-                confined = self._confined_path(raw_path, lang)
-                if confined is None:
-                    return
-                task_dir = confined if confined.is_dir() else confined.parent
-                step_id = read_step_id(task_dir)
+        if not isinstance(step_id, int) and task_dir is not None:
+            step_id = read_step_id(task_dir)
         if not isinstance(step_id, int):
             self._send(
                 400,
@@ -910,7 +958,12 @@ class _ApiRoutesMixin(_GuardMixin):
             lang,
             "stepik_submit",
             None,
-            {"step_id": step_id, "secrets_path": str(secrets_path)},
+            {
+                "step_id": step_id,
+                "secrets_path": str(secrets_path),
+                "task_dir": str(task_dir) if task_dir is not None else "",
+                "workspace": str(self.server.workspace),
+            },
             code=code,
         )
         if job is None:

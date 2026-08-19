@@ -1968,7 +1968,7 @@ class TestStepikSubmit:
 
         sent: list[int] = []
 
-        def _fake_submit(session, step_id, code, *, cancel_event=None):
+        def _fake_submit(session, step_id, code, **kwargs):
             sent.append(step_id)
             return SimpleNamespace(status="correct", hint="", score=1, submission_id=7)
 

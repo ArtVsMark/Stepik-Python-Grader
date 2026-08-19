@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from stepik_grader import rules
 from stepik_grader.config import CONFIG, get_config
-from stepik_grader.core import history, history_recording, lint
+from stepik_grader.core import history, history_recording, insights, lint
 from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.result import BenchResult
 from stepik_grader.glossary.detector import MissingConceptDetector
@@ -62,6 +62,7 @@ __all__ = [
     "grade_benchmark",
     "grade_microbench",
     "grade_path",
+    "history_db_path_if_enabled",
     "list_solutions",
     "read_source",
     "save_solution",
@@ -288,6 +289,13 @@ def _case_view(
         }
 
     if verdict in _FAILURE_VERDICTS:
+        # issue #1220: тот же ключ ошибки, под которым кейс лёг в историю
+        # (``insights.failure_kind``). Без него браузер не может сказать, ИЗ
+        # ЧЕГО человек ушёл в глоссарий, — и переход не соединяется с карточкой
+        # «Подучить», хотя обе стороны говорят про одну и ту же ошибку.
+        view["failure_kind"] = insights.failure_kind(
+            verdict, error=error, output=case.get("output"), expected=case.get("expected")
+        )
         view["severity"] = "warning" if verdict == "TLE" else "error"
         suggestions: list[str] = []
         if verdict == "RE" and entry is not None:
@@ -463,6 +471,19 @@ def _history_enabled() -> bool:
     return CONFIG.record_history if _web_record_history is None else _web_record_history
 
 
+def history_db_path_if_enabled() -> pathlib.Path | None:
+    """Куда web пишет историю — или ``None``, если запись выключена (issue #1175).
+
+    Гейт согласия живёт здесь, потому что только web-слой знает действующее
+    значение: поверх ``CONFIG.record_history`` лежит оверрайд ``--serve
+    --no-history``. Ядро (``core/submission``) принимает готовый путь и не
+    решает за пользователя — ``None`` означает «не писать».
+    """
+    if not _history_enabled():
+        return None
+    return history_recording.default_history_db_path()
+
+
 @functools.lru_cache(maxsize=1)
 def _ruff_available_cached() -> bool:
     """Доступен ли ruff (extra ``[lint]``), кэш на процесс (issue #403).
@@ -524,6 +545,7 @@ def _record_history_if_enabled(
         solution_name=solution_name,
         solution_hash=solution_hash,
         duration_s=duration_s,
+        isolation=history_recording.current_isolation(),
         lint=lint_records or None,
     )
 
