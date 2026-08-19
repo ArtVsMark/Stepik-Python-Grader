@@ -42,6 +42,7 @@ _ENTRY_POINTS = (
 _STANDALONE_SCRIPTS = (
     "scripts/check_docs_guardrails.py",
     "scripts/check_pr_ready.py",
+    "scripts/gh_rest.py",
     "scripts/check_test_isolation.py",
     "scripts/check_work_overlap.py",
     "scripts/extract_release_notes.py",
@@ -52,7 +53,7 @@ _STANDALONE_SCRIPTS = (
 # Гейты, которые обязаны печатать в любой консоли: их запускают перед КАЖДЫМ
 # коммитом и мержем, и падение вывода подменяет настоящий результат проверки
 # своей собственной ошибкой. Проверяются не чтением исходника, а запуском.
-_GATES = ("scripts/preflight.py", "scripts/check_pr_ready.py")
+_GATES = ("scripts/preflight.py", "scripts/check_pr_ready.py", "scripts/gh_rest.py")
 
 # Защита засчитывается в любой из двух форм: вызов хелпера (общего или
 # собственного) либо прямой `reconfigure` на уровне модуля — так сделано в
