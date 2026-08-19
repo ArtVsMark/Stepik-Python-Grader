@@ -28,10 +28,12 @@
    кэше между запусками процесса.
 
 Чего здесь **нет** и не будет: покрытия всего GitHub API (только операции
-конвейера) и обхода лимитов вторым токеном. Auto-merge остаётся за MCP —
-``enablePullRequestAutoMerge`` существует только в GraphQL, REST-эквивалента у
-него нет; это ровно тот случай «чего нет в REST», ради которого исключение и
-оговорено.
+конвейера), обхода лимитов вторым токеном и **автоматического ослабления
+TLS-проверки** (issue #1259 — доверенный набор задаёт окружение, а не модуль;
+исключение включается только явным ``GH_REST_RELAXED_CA=1`` и не молча).
+Auto-merge остаётся за MCP — ``enablePullRequestAutoMerge`` существует только в
+GraphQL, REST-эквивалента у него нет; это ровно тот случай «чего нет в REST»,
+ради которого исключение и оговорено.
 
 Запуск::
 
@@ -68,6 +70,7 @@ from typing import Any
 __all__ = [
     "API",
     "DEFAULT_REPO",
+    "ENV_RELAXED_CA",
     "EXIT_FAIL",
     "EXIT_OK",
     "EXIT_WAIT",
@@ -78,6 +81,7 @@ __all__ = [
     "Quota",
     "RateLimited",
     "Response",
+    "TlsVerificationError",
     "add_labels",
     "branch_runs",
     "cancel_run",
@@ -95,6 +99,7 @@ __all__ = [
     "pull",
     "pull_checks",
     "rate_limit",
+    "relaxed_ca_enabled",
     "remove_label",
     "request",
     "resolve_token",
@@ -122,11 +127,26 @@ _OK_CONCLUSIONS = frozenset({"success", "skipped", "neutral"})
 _API_VERSION = "2022-11-28"
 _TIMEOUT = 30
 
+# issue #1259: ослабление проверки сертификата — только по явному требованию
+# окружения. Значение ровно «1»: у переключателя безопасности не должно быть
+# догадок о намерении, а опечатка обязана означать «выключено».
+ENV_RELAXED_CA = "GH_REST_RELAXED_CA"
+
 Opener = Callable[[urllib.request.Request], Any]
 
 
 class GitHubError(RuntimeError):
     """GitHub ответил не так, как ожидалось (кроме исчерпанной квоты)."""
+
+
+class TlsVerificationError(GitHubError):
+    """TLS-проверка не прошла — до GitHub запрос не дошёл вовсе.
+
+    Отдельный класс, потому что и причина, и лечение здесь другие: это не
+    «GitHub ответил не так», а «соединение не установлено». Сообщение такой
+    ошибки называет причину и способ починки, поэтому CLI печатает его как
+    есть, без префикса про GitHub.
+    """
 
 
 class MissingToken(GitHubError):
@@ -417,11 +437,59 @@ def _relaxed_context() -> ssl.SSLContext:
 
     Снимается ровно один флаг — ``VERIFY_X509_STRICT``. Цепочка по-прежнему
     проверяется против настроенного бандла, имя хоста сверяется, срок действия
-    сверяется: выключено не доверие, а придирчивость к оформлению CA.
+    сверяется: выключено не доверие, а придирчивость к оформлению CA. Контекст
+    строится только по явному ``GH_REST_RELAXED_CA=1``; сам по себе модуль его
+    не применяет никогда.
     """
     context = ssl.create_default_context()
     context.verify_flags &= ~ssl.VERIFY_X509_STRICT
     return context
+
+
+def relaxed_ca_enabled() -> bool:
+    """Ослабление строгой проверки формы CA запрошено окружением явно.
+
+    Ровно ``GH_REST_RELAXED_CA=1``: «true», «yes» и опечатки читаются как
+    «выключено». Переключатель безопасности не угадывает намерение — цена
+    ошибочного «включено» несравнимо выше цены повторить с правильным
+    значением, а сообщение об отказе называет ожидаемое значение прямо.
+    """
+    return os.environ.get(ENV_RELAXED_CA, "").strip() == "1"
+
+
+def _relaxed_ca_warning() -> str:
+    """Текст предупреждения о работе с ослабленной проверкой формы CA."""
+    return (
+        f"ВНИМАНИЕ: {ENV_RELAXED_CA}=1 — строгая проверка формы CA "
+        "(VERIFY_X509_STRICT) снята для этого запроса. Доверие к бандлу, имя "
+        "хоста и срок действия проверяются по-прежнему; подробности и риск — "
+        "SECURITY.md § Транспорт агентских скриптов."
+    )
+
+
+def _request_context() -> ssl.SSLContext:
+    """TLS-контекст запроса: системный набор доверия, прочитанный сейчас.
+
+    Модуль намеренно **не** задаёт ``cafile`` и не тянет ``certifi``: доверенный
+    набор настраивается окружением (``SSL_CERT_FILE``), тем же, которым ходят
+    ``git`` и остальной инструментарий сессии. ``create_default_context()`` этот
+    набор и читает — то есть контекст не переопределяет доверие, а повторяет
+    системное.
+
+    Строится он на каждый запрос осознанно: ``urlopen`` **без** явного контекста
+    кэширует opener на весь процесс, и доверенный набор в нём фиксируется первым
+    же запросом. Явный контекст стоит несколько миллисекунд и делает поведение
+    честным — окружение решает, а не порядок вызовов.
+
+    Единственное отклонение — явное ``GH_REST_RELAXED_CA=1``, и о нём говорится
+    вслух: предупреждение печатается на КАЖДОМ запросе, а не однажды за процесс.
+    Работа с ослабленной проверкой не должна выглядеть как обычная — молчаливое
+    ослабление ровно и чинит issue #1259.
+    """
+    if not relaxed_ca_enabled():
+        return ssl.create_default_context()
+    print(_relaxed_ca_warning(), file=sys.stderr)
+    return _relaxed_context()
 
 
 def _is_strict_ca_rejection(exc: urllib.error.URLError) -> bool:
@@ -432,34 +500,53 @@ def _is_strict_ca_rejection(exc: urllib.error.URLError) -> bool:
     return "key usage" in str(reason).lower()
 
 
+def _tls_help(exc: urllib.error.URLError) -> str:
+    """Что именно не так с TLS и что с этим делать — без тихого обхода.
+
+    Два разных отказа лечатся по-разному, и общая подсказка про
+    ``SSL_CERT_FILE`` для второго из них была бы ложным следом.
+    """
+    if not _is_strict_ca_rejection(exc):
+        return (
+            f"TLS: сертификат сервера не прошёл проверку ({exc.reason}). "
+            "Обычная причина — доверенный набор без вашего корневого "
+            "сертификата: укажите бандл штатной переменной SSL_CERT_FILE "
+            "(так же настраиваются git и остальной инструментарий). "
+            "Автоматически проверка не ослабляется."
+        )
+    return (
+        "TLS: CA-сертификат отвергнут строгой проверкой ФОРМЫ, а не как "
+        f"недоверенный ({exc.reason}). Python 3.13 включил VERIFY_X509_STRICT "
+        "в ssl.create_default_context(); флаг требует от CA расширения "
+        "keyUsage по RFC 5280, а у перехватывающих корпоративных прокси его "
+        "часто нет. SSL_CERT_FILE здесь не поможет: бандл уже тот, что нужно, "
+        "не проходит именно его оформление. Варианты — исправить CA прокси "
+        "либо, приняв риск, выставить "
+        f"{ENV_RELAXED_CA}=1 (что именно ослабляется — SECURITY.md "
+        "§ Транспорт агентских скриптов). Молча модуль этого не делает."
+    )
+
+
 def _default_opener(req: urllib.request.Request) -> Any:
     """Реальный ``urlopen`` с таймаутом — подменяется в тестах.
 
-    Повтор без ``VERIFY_X509_STRICT`` — про корпоративный TLS-прокси, а не про
-    ослабление безопасности. **Python 3.13 включил этот флаг по умолчанию** в
-    ``ssl.create_default_context()``; он требует от CA-сертификата расширения
-    ``keyUsage`` по RFC 5280, а у перехватывающих прокси его часто нет. Итог:
-    на 3.11 модуль работает, на 3.13 падает «certificate verify failed: CA cert
-    does not include key usage extension» — при одном и том же бандле, том же
-    OpenSSL и полностью исправном соединении.
+    Отката на ослабленную проверку здесь нет ни при каком отказе (issue
+    #1259). Прежняя редакция повторяла запрос со снятым ``VERIFY_X509_STRICT``
+    сама, и это шло против инварианта проекта: невыполнимая гарантия — громкий
+    отказ, а не автоматический обход (ср. недоступный backend песочницы, где
+    ответ — ``parser.error``, а не молчаливый ``LocalRunner``).
 
-    Цена промаха здесь высока и несимметрична: модуль заведён ровно затем,
-    чтобы конвейер не ходил по GraphQL, и его отказ возвращает окно к
-    инструментам, выжигающим квоту за несколько операций.
-
-    Повторяем ТОЛЬКО на этом отказе и ТОЛЬКО сняв флаг формы: доверие, сверка
-    имени хоста и срока действия остаются. Публичные CA от повтора не страдают
-    — с ними проходит первая попытка, и до второй дело не доходит.
-
-    Переменной окружения не обойтись: ``SSL_CERT_FILE`` уже указывает на нужный
-    бандл, и именно он строгую проверку не проходит.
+    Ослабление осталось возможным, но стало решением окружения: только по
+    ``GH_REST_RELAXED_CA=1`` и с предупреждением на каждый запрос. Без
+    переменной сбой TLS превращается в :class:`TlsVerificationError`, чей текст
+    называет настоящую причину и способ починки.
     """
     try:
-        return urllib.request.urlopen(req, timeout=_TIMEOUT)
+        return urllib.request.urlopen(req, timeout=_TIMEOUT, context=_request_context())
     except urllib.error.URLError as exc:
-        if not _is_strict_ca_rejection(exc):
-            raise
-        return urllib.request.urlopen(req, timeout=_TIMEOUT, context=_relaxed_context())
+        if isinstance(exc.reason, ssl.SSLError):
+            raise TlsVerificationError(_tls_help(exc)) from exc
+        raise
 
 
 def _get(path: str, **kwargs: Any) -> Any:
@@ -1162,6 +1249,11 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_WAIT
     except MissingToken as exc:
         print(f"Не могу обратиться к GitHub: {exc}", file=sys.stderr)
+        return EXIT_FAIL
+    except TlsVerificationError as exc:
+        # Без префикса «Ошибка GitHub»: до GitHub запрос не дошёл, а текст уже
+        # называет и причину, и способ починки.
+        print(str(exc), file=sys.stderr)
         return EXIT_FAIL
     except GitHubError as exc:
         print(f"Ошибка GitHub: {exc}", file=sys.stderr)
