@@ -179,6 +179,34 @@ Equivalent via `python -m`: `python -m stepik_grader --version` or
 `python -m stepik_grader.grader --version`, etc. (the package contains
 `__main__.py`, so the short form `python -m stepik_grader` works).
 
+Without `--mode` the usual interactive menu is shown.
+
+### Exit codes
+
+Modes 1 and 2 report the outcome through the **exit code** — that is what a CI
+gate is built on, with no JSON parsing:
+
+| Code | Meaning |
+|---|---|
+| `0` | all test cases passed |
+| `1` | there are failing cases (`WA`, `RE`, timeout) |
+| `2` | there was nothing to check: file or folder not found, no solutions, the case set is empty (`NO TESTS`) |
+
+```bash
+stepik-grader --mode 2 --dir tasks/ || echo "the check did not pass: $?"
+```
+
+**Why `2` is separate from `1`.** "The tests failed" and "there are no tests"
+call for different actions: the first means fixing the solution, the second
+means fixing the environment (the task was not downloaded, the folder is
+wrong). Previously both cases, like success, returned `0`, and the gate went
+green on an empty set — that is, it did not work exactly when it was needed.
+
+Modes 3 and 4 are comparison and micro-bench; they have no "correct/incorrect"
+verdict, so they always exit with `0`. Under `--watch` the code is `0` as well:
+the loop lives until `Ctrl+C`, and it has no "final result".
+
+
 ---
 
 ## Web interface (`--serve`)
@@ -316,7 +344,6 @@ confinement — a separate concern.
 ## IDE integration
 
 > Check a solution right from the editor, without switching to the terminal.
-> Check a solution right from the editor, without switching to the terminal.
 
 **VS Code** — generate the tasks with one command (from the project folder):
 
@@ -385,8 +412,8 @@ without a separate documented schema.
 ### `--profile` — a saved set of launch parameters
 
 ```bash
-stepik-grader --serve --profile "с изоляцией"              # isolation, port, language, folder — by one name
-stepik-grader --serve --profile "с изоляцией" --port 9000  # same profile, different port
+stepik-grader --serve --profile "sandboxed"              # isolation, port, language, folder — by one name
+stepik-grader --serve --profile "sandboxed" --port 9000  # same profile, different port
 ```
 
 A profile is the set chosen in the launcher window and saved under a name in
