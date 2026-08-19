@@ -104,3 +104,61 @@ def test_normalize_floats_is_idempotent(text: str) -> None:
 def test_normalize_floats_preserves_line_count(text: str) -> None:
     """Построчная обработка сохраняет число разделителей строк (split/join по '\\n')."""
     assert normalize_floats(text).count("\n") == text.count("\n")
+
+
+# Три свойства выше — ЗАЩИТНЫЕ: «не бросает», «идемпотентна», «не теряет
+# строк». Все три верны и для тождественной функции, то есть подмена
+# `normalize_floats` на `lambda text: text` оставила бы их зелёными (issue
+# #921, находка ADD-5-01). Дальше — свойства, которые тождественная функция
+# нарушает: без них набор описывал бы форму ответа, но не сам ответ.
+
+
+@given(
+    whole=st.integers(min_value=-1_000_000, max_value=1_000_000),
+    head=st.text(alphabet="0123456789", min_size=9, max_size=9),
+    tail=st.text(alphabet="01234", min_size=1, max_size=1),
+    rest=st.text(alphabet="0123456789", min_size=0, max_size=7),
+)
+@settings(deadline=None, max_examples=300)
+def test_normalize_floats_collapses_noise_below_the_ninth_place(
+    whole: int, head: str, tail: str, rest: str
+) -> None:
+    """Ради этого нормализатор и существует: шум ниже 9-го знака не должен решать.
+
+    Два числа, различающиеся только с десятого знака, обязаны стать одним и тем
+    же текстом — иначе верное решение получает WA из-за плавающей арифметики.
+    Тождественная функция это свойство нарушает немедленно.
+
+    Десятый знак ограничен ``0-4`` намеренно: с ``5`` округление **переносит**
+    разряд, и числа обязаны разойтись — это не нарушение, а работа функции.
+    Случай переноса закреплён отдельным примером ниже: свойство, из которого
+    выкинули неудобную половину, обязано называть её вслух.
+    """
+    noisy = f"{whole}.{head}{tail}{rest}"
+    quiet = f"{whole}.{head}" + "0" * (1 + len(rest))
+
+    assert normalize_floats(noisy) == normalize_floats(quiet)
+
+
+def test_normalize_floats_carries_at_the_ninth_place() -> None:
+    """Половина разряда и выше — округляет ВВЕРХ, а не отбрасывается."""
+    assert normalize_floats("0.0000000005") == "1e-09"
+    assert normalize_floats("1.0000000005") == "1.000000001"
+
+
+@given(
+    whole=st.integers(min_value=1, max_value=1_000_000),
+    frac=st.text(alphabet="0123456789", min_size=12, max_size=17),
+)
+@settings(deadline=None, max_examples=300)
+def test_normalize_floats_keeps_at_most_nine_decimals(whole: int, frac: str) -> None:
+    """Хвост длиннее девяти знаков не доживает до сравнения.
+
+    Диапазон взят целой частью ≥1: у чисел меньше 1e-4 ``str`` переходит на
+    научную нотацию (``1.23e-07``), где разрядность не выражена вовсе — это
+    отдельное поведение, зафиксированное примерами в `test_normalizers.py`.
+    """
+    result = normalize_floats(f"{whole}.{frac}")
+
+    assert "e" not in result, result
+    assert len(result.split(".")[1]) <= 9, result
