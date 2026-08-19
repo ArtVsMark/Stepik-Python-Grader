@@ -50,3 +50,6 @@ t.py
 .grader_history.db-wal
 .grader_history.db-shm
 .grader_settings.json
+# Спутник-файл межпроцессной блокировки (atomic_io.file_lock): создаётся при
+# первой записи настроек и намеренно не удаляется, иначе гонка возвращается.
+.grader_settings.json.lock
