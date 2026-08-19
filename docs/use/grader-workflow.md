@@ -572,6 +572,31 @@ macOS, Job Objects на Windows. В web `SandboxRunner` ставится акт�
 `sandbox_max_cpu_seconds`/`sandbox_max_processes`/`sandbox_max_output_bytes`,
 см. [configuration.md](configuration.md).
 
+### `stats` — вся статистика одной командой
+
+```bash
+stepik-grader stats                     # сводка в терминале
+stepik-grader stats --output json       # машинный формат со схемой
+stepik-grader stats --output markdown   # → grader-progress.md
+stepik-grader stats --output html       # → grader-progress.html
+```
+
+Одна точка входа вместо четырёх флагов. Показывает прогоны по режимам и ОС,
+вердикты, суммарное и **среднее** время прогона, а также **очередь задач из
+кэша** — сколько решений грейдер помнит и сколько из них устарело (файл удалён
+или перемещён; лечится `--clear-cache`).
+
+`--output markdown|html` формирует тот же отчёт, что `--export-progress`:
+формат общий, и файл получается побайтово одинаковый. Пустая история — не
+ошибка: команда честно говорит, что данных пока нет.
+
+`--output html` доступен **только** здесь: отчёт строится из истории прогонов,
+а не из вердиктов одного запуска. С режимами 1–4 он отвергается с подсказкой,
+а не игнорируется молча.
+
+Флаги ниже остались рабочими — команда их не заменяет, а собирает в одном
+месте.
+
 ### `--stats` / `--stats-summary`
 
 ```bash

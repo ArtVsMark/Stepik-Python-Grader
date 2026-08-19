@@ -55,6 +55,9 @@ class TestReadSummary:
             "by_os": {},
             "verdict_totals": {},
             "total_time": 0.0,
+            # issue #1192: среднее — поле сводки, а не арифметика на стороне
+            # потребителя. При пустом журнале это ноль, а не ZeroDivisionError.
+            "avg_time": 0.0,
             "skipped": 0,
         }
 

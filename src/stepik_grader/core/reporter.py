@@ -355,6 +355,10 @@ def print_stats_summary(summary: dict[str, Any]) -> None:
     for verdict, count in sorted(summary.get("verdict_totals", {}).items()):
         rows.append((f"Verdict {verdict}", str(count)))
     rows.append(("Total time", fmt_time(summary.get("total_time", 0.0))))
+    # issue #1192: среднее — рядом с суммой и тем же форматтером. Прежде в
+    # накопителе копилась только сумма, и вопрос «сколько занимает один прогон»
+    # пользователь считал в уме по двум другим строкам таблицы.
+    rows.append(("Average time", fmt_time(summary.get("avg_time", 0.0))))
 
     if _RICH and _console is not None:
         table = Table(title="Local run stats", show_lines=False)

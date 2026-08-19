@@ -42,7 +42,7 @@ import os
 import pathlib
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # только для аннотаций: insights грузится лениво
     from stepik_grader.core.insights import InsightCard, TaskProgress
@@ -78,6 +78,7 @@ from stepik_grader.cli.options import (
     _resolve_verbosity,
     apply_launch_profile,
     peek_lang,
+    validate_output_format,
     validate_serve_arguments,
 )
 from stepik_grader.cli.prompts import EXPLICIT_YES
@@ -190,6 +191,103 @@ def _t(key: str, /, **kwargs: object) -> str:
 # Единицы длительности («42с») намеренно не сюда: у них уже есть ключи
 # progress_export_unit_*, общие с HTML-экспортом прогресса (issue #823).
 INSIGHTS_SCHEMA = "stepik-grader/insights/1"
+
+
+#: Схема машинного вывода `stats --output json` (issue #1192). Версия отдельная
+#: от INSIGHTS_SCHEMA: это другой набор полей, и потребители у них разные.
+STATS_SCHEMA = 1
+
+
+def _stats_payload(summary: dict[str, Any], queue: dict[str, int]) -> dict[str, Any]:
+    """Сводка `stats` в машинном виде (issue #1192).
+
+    Пустая история — не ошибка, а объект с нулями: скрипту так проще, чем
+    отличать «данных нет» от «команда упала». Тот же принцип, что у
+    :func:`_insights_payload`.
+    """
+    return {
+        "schema": STATS_SCHEMA,
+        "total_runs": summary["total_runs"],
+        "total_time": summary["total_time"],
+        "avg_time": summary["avg_time"],
+        "by_mode": summary["by_mode"],
+        "by_os": summary["by_os"],
+        "verdict_totals": summary["verdict_totals"],
+        "skipped": summary["skipped"],
+        "cache_queue": queue,
+    }
+
+
+def _cache_queue_summary() -> dict[str, int]:
+    """Очередь задач из кэша; при недоступном кэше — нули, а не отказ.
+
+    Кэш опционален и регенерируем: его отсутствие или порча не повод ронять
+    сводку, ради которой пользователь и позвал команду.
+    """
+    from stepik_grader.core.cache import GraderCache
+
+    try:
+        return GraderCache().queue_summary()
+    except OSError:
+        return {"tasks": 0, "stale": 0}
+
+
+def _run_stats_command(args: argparse.Namespace) -> ExitCode:
+    """`stepik-grader stats` — статистика обучения одной командой (issue #1192).
+
+    Собирает то, что раньше приходилось доставать четырьмя разными флагами:
+    сводку прогонов (`--stats-summary`) и отчёт о прогрессе
+    (`--export-progress`). Флаги остались рабочими — здесь только один вход к
+    тем же данным.
+
+    ``--output md|html`` пишет файл ровно так же, как `--export-progress`:
+    формат отчёта общий, дублировать рендеринг незачем.
+    """
+    from stepik_grader.core import progress_export
+    from stepik_grader.core.history_recording import default_history_db_path
+
+    fmt = args.output
+    summary = stats.read_summary()
+    queue = _cache_queue_summary()
+
+    if fmt == "json":
+        print(json.dumps(_stats_payload(summary, queue), ensure_ascii=False, indent=2))
+        return ExitCode.OK
+
+    if fmt in ("markdown", "html"):
+        report = progress_export.build_progress_report(default_history_db_path())
+        if report["total_runs"] == 0:
+            print(_t("insights_no_data"))
+            return ExitCode.OK
+        suffix = "md" if fmt == "markdown" else "html"
+        rendered = (
+            progress_export.render_markdown(report, lang=_LANG)
+            if fmt == "markdown"
+            else progress_export.render_html(report, lang=_LANG)
+        )
+        out = pathlib.Path.cwd() / f"grader-progress.{suffix}"
+        out.write_text(rendered, encoding="utf-8")
+        print(_t("stats_report_written", path=out))
+        return ExitCode.OK
+
+    if summary["total_runs"] == 0:
+        # Та же развилка, что у `--stats-summary` (issue #1005): битый журнал и
+        # пустой журнал — разные причины с разными действиями.
+        skipped = int(summary.get("skipped", 0))
+        if skipped:
+            print(_t("stats_all_entries_broken", skipped=skipped, path=stats.stats_path()))
+        else:
+            print(_t("stats_no_data"))
+    else:
+        print_stats_summary(summary)
+
+    cache_line = (
+        _t("stats_cache_queue_stale", tasks=queue["tasks"], stale=queue["stale"])
+        if queue["stale"]
+        else str(queue["tasks"])
+    )
+    print(f"{_t('stats_cache_queue')}: {cache_line}")
+    return ExitCode.OK
 
 
 def _insights_payload(
@@ -588,6 +686,7 @@ def main(argv: list[str] | None = None) -> ExitCode:
     # issue #930: проверяем ПОСЛЕ профиля — порт мог приехать из него, и
     # ругаться на значение, которого пользователь не писал, но выбрал
     # профилем, всё равно правильно: сервер с ним не поднимется.
+    validate_output_format(args, parser)
     validate_serve_arguments(args, argv, parser)
 
     # issue #1136: настройки, выбранные во вкладке «Дополнительно», ложатся
@@ -681,6 +780,13 @@ def main(argv: list[str] | None = None) -> ExitCode:
         else:
             print(_t("history_purged_task", task=task_key, runs=runs_removed))
         return ExitCode.OK
+
+    # issue #1192: одна точка входа вместо россыпи флагов. Прежние флаги
+    # остаются рабочими — CLI-поверхность в проекте обратно совместима, — но
+    # чтобы понять, какой из них что показывает, приходилось читать справку
+    # целиком.
+    if args.command == "stats":
+        return _run_stats_command(args)
 
     if args.stats_summary:
         summary = stats.read_summary()
