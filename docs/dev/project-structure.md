@@ -83,6 +83,7 @@ Stepik-Python-Grader/
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
 │           ├── task_page_parser.py   # Разбор HTML текста задачи: таблица кейсов, ссылки (leaf)
 │           ├── html_sanitizer.py    # Очистка условия по whitelist перед показом (leaf)
+│           ├── html_to_markdown.py   # Условие задачи из HTML в читаемый Markdown (leaf)
 │           ├── tests_writer.py       # Запись Format 1/3 тест-кейсов на диск (leaf)
 │           ├── test_source_fetcher.py # Скачивание тестов из ZIP/GitHub → Format 3
 │           ├── step_content.py       # Разбор Stepik API-контента и URL шага (leaf)

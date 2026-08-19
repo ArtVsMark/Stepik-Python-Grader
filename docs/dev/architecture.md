@@ -84,6 +84,7 @@
 | `core/parsers.py` | Infrastructure / Utilities | Парсинг тест-блоков (`# TEST_N:`) — единственный источник истины для `grader.py` и `downloader.py` |
 | `core/task_page_parser.py` | Domain (leaf) | Разбор HTML текста задачи: `extract_tests_from_html` (таблица кейсов), `extract_external_test_links` (ZIP/GitHub-ссылки), `is_function_style` (stdin vs function по AST). Только stdlib, без project-импортов |
 | `core/html_sanitizer.py` | Domain (leaf) | `sanitize_statement_html(html, local_files)` — очистка условия задачи перед показом в браузере. Модель — **whitelist**: тег без записи разворачивается в содержимое, атрибут без записи не выживает, поэтому `on*`-обработчики отсекаются не правилом про `on*`, а тем, что их никто не разрешал. Схемы ссылок тоже белым списком (`http`/`https`/`mailto`); `img src` подставляется только на приехавшие картинки. Незакрытые теги закрываются на выходе — фрагмент уезжает внутрь чужой страницы и не вправе ломать её разметку. Только stdlib (`html.parser`) |
+| `core/html_to_markdown.py` | Domain (leaf) | `html_to_markdown(html, local_files)` — условие задачи из HTML в читаемый Markdown: заголовки, списки, `pre`/`code`, таблицы примеров, ссылки и картинки; ссылка на приехавшее вложение переписывается на имя файла рядом. Соседний `task_page_parser` достаёт из того же HTML **данные**, этот — **текст для человека**; общего состояния нет. Полный HTML не поддерживается намеренно — неизвестный тег разворачивается в своё содержимое. Только stdlib (`html.parser`, `re`) |
 | `core/tests_writer.py` | Domain (leaf) | Запись форматов тест-кейсов: `save_tests` (Format 1 — `N`/`N.clue`/`N.type`), `write_testblock_tests` (Format 3 — `input.txt`/`output.txt` с `# TEST_N:`), `reset_tests_dir` (сброс каталога для источников, кладущих Format 3 байт-в-байт). Только stdlib |
 | `core/test_source_fetcher.py` | Infrastructure | Скачивание тестов из внешних источников: `download_zip_tests` (Stepik ZIP), `download_github_tests` (GitHub Contents API) → Format 3; безопасность сторонних хостов через `stepik_client` |
 | `core/step_content.py` | Domain (leaf) | Извлечение данных из ответов Stepik API: `parse_stepik_step_url`, `extract_python_code`, `extract_submission_code`, `extract_function_name`. Чистые `dict/str -> данные`, без сети/ФС |
@@ -117,9 +118,10 @@ downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py
 downloader.py          ──→  downloader_config.py  (конфиг+интерактив)
 downloader.py          ──→  core/submission_archive.py  (история отправок в <задача>/submissions/)
 downloader.py          ──→  core/attachments.py  (вложения условия рядом с task.md; сеть — через stepik_client)
+downloader.py          ──→  core/html_to_markdown.py  (task.html сырым, task.md конвертацией; ссылки на приехавшие вложения — на локальные имена)
 downloader_config.py   ──→  core/storage.py, atomic_io.py  (конфиг — общим атомарным писателем)
 core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, core/tests_writer.py  (НЕ импортирует downloader)
-core/task_page_parser.py / core/tests_writer.py / core/step_content.py / core/html_sanitizer.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
+core/task_page_parser.py / core/tests_writer.py / core/step_content.py / core/html_to_markdown.py / core/html_sanitizer.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
 core/stepik_client.py ──→  core/storage.py
 web/api_routes.py      ──→  web/statement_adapter.py  (условие задачи: GET /api/task/statement и /api/task/image)
 web/statement_adapter.py ──→  core/html_sanitizer.py, core/diag_log.py  (очистка чужого HTML и чтение вложений; роутер в core не ходит — ARCH-07)

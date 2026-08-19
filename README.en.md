@@ -31,8 +31,13 @@ account, no download, no OAuth. The web UI and the glossary are bilingual
 Easiest via [pipx](https://pipx.pypa.io):
 
 ```bash
-pipx install stepik-python-grader
+pipx install stepik-python-grader        # then: stepik-grader  (terminal menu)
+stepik-grader-gui                        # launcher window, no terminal
 ```
+
+`stepik-grader-gui` works from any directory right after install. On Windows it
+opens **without a console window** — a double click starts the launcher, not a
+black screen.
 
 Full install (from source, virtualenv, Windows notes, Stepik OAuth setup) —
 [docs/use/installation.md](docs/use/installation.md).

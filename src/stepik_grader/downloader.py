@@ -4,7 +4,7 @@
 Отвечает за оркестрацию:
   - построение директорий задач (build_task_directory),
   - сохранение файлов задачи (task{N}_1.py, task{N}_2.py, solution.py,
-    meta.json, task.md) и выбор источника тестов (save_task_files),
+    meta.json, task.html + task.md) и выбор источника тестов (save_task_files),
   - обработку одного URL шага (process_step_url) и CLI-цикл (main).
 
 После SRP-разбиения (issue #302) специализированные роли вынесены; downloader
@@ -37,6 +37,7 @@ from stepik_grader import downloader_config
 from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.attachments import download_attachments
 from stepik_grader.core.diag_log import configure_diagnostics, get_logger
+from stepik_grader.core.html_to_markdown import html_to_markdown
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.oauth_flow import (
     OAuthCallbackPortBusy,
@@ -247,7 +248,7 @@ def save_task_files(
     *,
     submissions: list[dict[str, Any]] | None = None,
 ) -> tuple[int, str]:
-    """Сохраняет рабочие файлы, solution.py, meta.json, task.md и tests/ в task_dir.
+    """Сохраняет рабочие файлы, solution.py, meta.json, task.html/task.md и tests/ в task_dir.
 
     Схема рабочих файлов:
       task{pos}_1.py  — основное решение (из template_code или пустая заглушка);
@@ -343,13 +344,21 @@ def save_task_files(
         _warn_if_stale_tests(task_dir)
         return 0, "none"
 
-    (task_dir / "task.md").write_text(text, encoding="utf-8")
+    # issue #1176: сырое тело шага — отдельным файлом. `task.md` теперь
+    # производный: правила конвертации поменяются — пересоберём из `task.html`
+    # локально, не перекачивая задачи по сети.
+    (task_dir / "task.html").write_text(text, encoding="utf-8")
 
     # issue #1112: вложения условия качаются ДО тестов и независимо от них.
     # Решение открывает такой файл по имени из рабочего каталога, поэтому без
     # него задача не воспроизводится вовсе — и провал выглядит как ошибка
     # студента (`FileNotFoundError`), а не как недоскачанная задача.
-    _save_attachments(task_dir, text, session, meta)
+    local_files = _save_attachments(task_dir, text, session, meta)
+
+    # Порядок важен: вложения качаются раньше `task.md`, потому что ссылки в
+    # нём переписываются на приехавшие файлы. Не приехавшее остаётся сетевой
+    # ссылкой — обещать локальный файл, которого нет, хуже, чем ссылку в сеть.
+    (task_dir / "task.md").write_text(html_to_markdown(text, local_files), encoding="utf-8")
 
     zip_links, github_links = extract_external_test_links(text)
 
@@ -396,17 +405,23 @@ def _save_attachments(
     text: str,
     session: requests.Session,
     meta: dict[str, Any],
-) -> None:
+) -> dict[str, str]:
     """Скачать вложения условия и записать их состояние в ``meta.json`` (#1112).
 
     Отчёт кладётся в ``meta`` всегда, когда в условии есть ссылки: и про
     скачанные файлы, и про те, что не приехали. Иначе задача с файловым вводом
     выглядит как обычная, а её ``RE`` списывают на решение — ровно так дефект и
     дожил до прогона по реальной базе.
+
+    Returns:
+        Карта «URL -> имя файла рядом с задачей» только по **приехавшим**
+        вложениям (issue #1176): по ней конвертер переписывает ссылки в
+        ``task.md`` на локальные. Не приехавшее в карту не попадает и остаётся
+        сетевой ссылкой.
     """
     links = extract_attachment_links(text)
     if not links:
-        return
+        return {}
 
     report = download_attachments(task_dir, links, session)
     saved = [item for item in report if item["status"] in {"saved", "exists"}]
@@ -419,6 +434,8 @@ def _save_attachments(
         _print(_t("dl_attachments_saved", count=len(saved)))
     for item in failed:
         _print(_t("dl_attachment_failed", name=item["name"] or item["url"]))
+
+    return {str(item["url"]): str(item["name"]) for item in saved}
 
 
 # ---------------------------------------------------------------------------

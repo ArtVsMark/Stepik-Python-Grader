@@ -22,7 +22,7 @@
 > (opt-in, свой ключ).
 
 ```bash
-pipx install stepik-python-grader && stepik-grader
+pipx install stepik-python-grader && stepik-grader   # меню; stepik-grader-gui — окно без терминала
 ```
 
 ![Веб-интерфейс --serve: грейдинг папки решений против тест-кейсов с вердиктом OK и таблицей результатов](https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/docs/assets/hero-serve.gif)
