@@ -1158,3 +1158,40 @@ textarea.feedback-input { min-height: 72px; resize: vertical; }
 /* Не приехавшее вложение помечается словом, а не только цветом: цвет один в
    один не читается при дальтонизме и не озвучивается скринридером. */
 .statement-missing { color: var(--color-error); }
+
+/* ── НАВИГАЦИЯ ПО СКАЧАННЫМ ЗАДАЧАМ (issue #1179) ──
+   Панель — альтернатива вводу пути, а не замена: поле пути остаётся на месте.
+   Цвета только на токенах, поэтому тёмная тема работает без отдельных правил. */
+.nav-panel { margin-bottom: var(--space-3); }
+.nav-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.nav-level { width: auto; flex: 0 0 auto; }
+.nav-counter { color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
+.nav-context {
+  margin: var(--space-2) 0 0; color: var(--color-text-muted); font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.nav-list {
+  list-style: none; margin: var(--space-2) 0 0; padding: 0;
+  max-height: 320px; overflow-y: auto;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.nav-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); cursor: pointer;
+  border-bottom: 1px solid var(--color-divider); font-size: var(--text-sm);
+}
+.nav-list li:last-child { border-bottom: none; }
+.nav-list li:hover { background: var(--color-surface-offset); }
+.nav-list li.active { background: var(--color-primary-highlight); font-weight: 600; }
+.nav-status { flex: 0 0 auto; color: var(--color-text-muted); white-space: nowrap; }
+/* Статус назван словом, а не только цветом: цвет не читается при дальтонизме
+   и не озвучивается скринридером. Цвет здесь — усиление, а не носитель смысла. */
+.nav-status-solved { color: var(--color-success); }
+.nav-status-in_progress { color: var(--color-warning); }
+
+@media (max-width: 768px) {
+  /* Стрелки не прячутся никогда — они и есть основной способ листать. */
+  .nav-context { display: none; }
+  .nav-counter { font-size: var(--text-sm); }
+  .nav-list { max-height: 240px; }
+}
