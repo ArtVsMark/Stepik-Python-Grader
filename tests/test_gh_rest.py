@@ -569,3 +569,232 @@ class TestStrictCertificateFormIsNotDistrust:
         with pytest.raises(urllib.error.URLError):
             module._default_opener(urllib.request.Request("https://api.github.com/x"))
         assert len(calls) == 1
+
+
+class TestIssueOperations:
+    """Работа с issue тоже есть в REST — и до этого гоняла окно на GraphQL.
+
+    Закрыть issue, оставить комментарий, посмотреть состояние — рутина ничуть
+    не реже мержа PR, и каждая такая операция через MCP стоила ~300 points из
+    5000. Здесь она стоит один запрос из пятнадцати тысяч.
+    """
+
+    def test_close_sends_state_and_reason(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"state": "closed", "state_reason": "completed"}))
+
+        module.close_issue("x/y", 42, opener=opener, use_cache=False)
+
+        request = opener.captured[0]
+        assert request.get_method() == "PATCH"
+        assert json.loads(request.data) == {"state": "closed", "state_reason": "completed"}
+
+    def test_reason_is_carried_through(self, module: ModuleType) -> None:
+        """«Сделано» и «не будем делать» — разные исходы, трекер их различает."""
+        opener = _opener(_FakeResponse({"state": "closed"}))
+
+        module.close_issue("x/y", 42, reason="not_planned", opener=opener, use_cache=False)
+
+        assert json.loads(opener.captured[0].data)["state_reason"] == "not_planned"
+
+    def test_unknown_reason_is_refused_before_the_request(self, module: ModuleType) -> None:
+        """Отказ здесь дешевле, чем `422` после отправки — и понятнее."""
+        opener = _opener(_FakeResponse({}))
+
+        with pytest.raises(ValueError, match="причина закрытия"):
+            module.close_issue("x/y", 42, reason="потому что", opener=opener, use_cache=False)
+        assert opener.captured == [], "запрос ушёл, хотя причина заведомо неверна"
+
+    def test_comment_posts_the_body(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"html_url": "https://github.com/x/y/issues/42#c1"}))
+
+        module.comment_issue("x/y", 42, "текст", opener=opener, use_cache=False)
+
+        request = opener.captured[0]
+        assert request.get_method() == "POST"
+        assert request.full_url.endswith("/issues/42/comments")
+        assert json.loads(request.data) == {"body": "текст"}
+
+    def test_issue_read_is_a_plain_get(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"number": 42, "state": "open", "title": "тема"}))
+
+        found = module.issue("x/y", 42, opener=opener, use_cache=False)
+
+        assert opener.captured[0].get_method() == "GET"
+        assert found["title"] == "тема"
+
+    def test_rate_limit_is_recognised_here_too(self, module: ModuleType) -> None:
+        """Квота одна на всё: закрытие issue обязано давать «ждать», а не «упало»."""
+        error = _http_error(403, headers={"x-ratelimit-remaining": "0", "x-ratelimit-reset": "1"})
+
+        with pytest.raises(module.RateLimited):
+            module.close_issue("x/y", 42, opener=_opener(error), use_cache=False)
+
+
+class TestIssueEditing:
+    """Завести, поправить, разметить — остальная рутина трекера (issue #1255)."""
+
+    def test_create_sends_title_body_and_labels(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"number": 7}))
+
+        module.create_issue(
+            "x/y", title="тема", body="текст", labels=["bug"], opener=opener, use_cache=False
+        )
+
+        sent = json.loads(opener.captured[0].data)
+        assert sent == {"title": "тема", "body": "текст", "labels": ["bug"]}
+
+    def test_create_without_labels_omits_the_key(self, module: ModuleType) -> None:
+        """Пустой список меток и отсутствие меток — для GitHub разные вещи."""
+        opener = _opener(_FakeResponse({"number": 7}))
+
+        module.create_issue("x/y", title="тема", opener=opener, use_cache=False)
+
+        assert "labels" not in json.loads(opener.captured[0].data)
+
+    def test_update_sends_only_given_fields(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"number": 7}))
+
+        module.update_issue("x/y", 7, body="новое тело", opener=opener, use_cache=False)
+
+        assert json.loads(opener.captured[0].data) == {"body": "новое тело"}
+
+    def test_empty_update_is_refused_before_the_request(self, module: ModuleType) -> None:
+        """Пустой `PATCH` потратил бы запрос и ничего не изменил."""
+        opener = _opener(_FakeResponse({}))
+
+        with pytest.raises(ValueError, match="нечего обновлять"):
+            module.update_issue("x/y", 7, opener=opener, use_cache=False)
+        assert opener.captured == []
+
+    def test_add_labels_returns_the_resulting_set(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse([{"name": "bug"}, {"name": "area/ci"}]))
+
+        assert module.add_labels("x/y", 7, ["area/ci"], opener=opener, use_cache=False) == [
+            "bug",
+            "area/ci",
+        ]
+
+    def test_removing_an_absent_label_is_not_an_error(self, module: ModuleType) -> None:
+        """«Уже снята» — не сбой: иначе уборка меток падала бы на повторе."""
+        opener = _opener(_http_error(404, message="Label does not exist"))
+
+        assert module.remove_label("x/y", 7, "нет-такой", opener=opener, use_cache=False) is False
+
+    def test_label_name_is_escaped_in_the_path(self, module: ModuleType) -> None:
+        """`good first issue` содержит пробелы — без экранирования URL сломан."""
+        opener = _opener(_FakeResponse([]))
+
+        module.remove_label("x/y", 7, "good first issue", opener=opener, use_cache=False)
+
+        assert "good%20first%20issue" in opener.captured[0].full_url
+
+
+class TestCiRuns:
+    """Прогоны CI: зависший держит очередь мержей, и увидеть его надо отсюда."""
+
+    def test_branch_runs_filter_on_the_server(self, module: ModuleType) -> None:
+        """Фильтрует GitHub — иначе пришлось бы тянуть все прогоны репозитория."""
+        opener = _opener(_FakeResponse({"workflow_runs": [{"id": 1}]}))
+
+        module.branch_runs("x/y", branch="main", event="push", opener=opener, use_cache=False)
+
+        url = opener.captured[0].full_url
+        assert "branch=main" in url and "event=push" in url
+
+    def test_run_jobs_are_listed(self, module: ModuleType) -> None:
+        opener = _opener(
+            _FakeResponse({"jobs": [{"id": 5, "name": "test", "conclusion": "failure"}]})
+        )
+
+        jobs = module.run_jobs("x/y", 99, opener=opener, use_cache=False)
+
+        assert [job["name"] for job in jobs] == ["test"]
+
+    def test_cancel_reports_success(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({}))
+
+        assert module.cancel_run("x/y", 99, opener=opener, use_cache=False) is True
+        assert opener.captured[0].get_method() == "POST"
+
+    def test_cancelling_a_finished_run_is_not_an_error(self, module: ModuleType) -> None:
+        """`409` здесь означает «отменять нечего», а не поломку."""
+        opener = _opener(_http_error(409, message="Cannot cancel a completed workflow run"))
+
+        assert module.cancel_run("x/y", 99, opener=opener, use_cache=False) is False
+
+    def test_other_failures_still_raise(self, module: ModuleType) -> None:
+        """Иначе «нет прав отменять» читалось бы как «уже завершён»."""
+        opener = _opener(_http_error(403, message="Resource not accessible"))
+
+        with pytest.raises(module.GitHubError):
+            module.cancel_run("x/y", 99, opener=opener, use_cache=False)
+
+
+class TestCreatePullWarnsAboutAuthorship:
+    """Токен окружения принадлежит `claude[bot]` — и это меняет судьбу PR."""
+
+    def test_docstring_names_the_consequence(self, module: ModuleType) -> None:
+        """Ловушка тихая: PR создаётся, а обязательная проверка краснеет.
+
+        Поймано на живом PR — «Workflow initiated by non-human actor: claude
+        (type: Bot)». Тот же набор изменений, созданный от человека, ревью
+        проходит.
+        """
+        doc = module.create_pull.__doc__ or ""
+
+        assert "claude[bot]" in doc
+        assert "MCP" in doc
+
+
+class TestCreatePrTellsTheTruthAboutAuthorship:
+    """Бот-авторство ломает ревью, и узнать об этом надо сразу, а не из CI.
+
+    Заранее не проверить: в облачной сессии токены проксированы — `GET /user`
+    отвечает человеком, а запись атрибутируется приложению. Поэтому смотрим на
+    автора в ответе на создание; лишнего запроса это не стоит.
+    """
+
+    def _args(self, module: ModuleType, **over: Any) -> Any:
+        import argparse
+
+        base = {
+            "repo": "x/y",
+            "title": "тема",
+            "head": "ветка",
+            "base": "main",
+            "body": "",
+            "draft": False,
+            "json": False,
+        }
+        base.update(over)
+        return argparse.Namespace(**base)
+
+    def test_human_author_is_success(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            module,
+            "create_pull",
+            lambda *a, **k: {"number": 7, "user": {"login": "ArtVsMark", "type": "User"}},
+        )
+
+        assert module._cmd_create_pr(self._args(module)) == module.EXIT_OK
+
+    def test_bot_author_is_a_failure_with_the_remedy(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(
+            module,
+            "create_pull",
+            lambda *a, **k: {"number": 7, "user": {"login": "claude[bot]", "type": "Bot"}},
+        )
+
+        code = module._cmd_create_pr(self._args(module))
+
+        assert code == module.EXIT_FAIL
+        err = capsys.readouterr().err
+        assert "claude[bot]" in err
+        assert "MCP" in err, "сказано «плохо», но не сказано как правильно"
