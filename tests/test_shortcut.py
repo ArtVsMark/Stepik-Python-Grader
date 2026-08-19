@@ -10,12 +10,18 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 import subprocess
 
 import pytest
 
 from stepik_grader.core import shortcut
+
+# У NTFS нет Unix-бита исполнения: модель доступа — ACL, и `os.chmod` там
+# практически no-op (тот же факт уже записан в докстринге `storage.save_secrets`
+# про 0600). Проверять бит на Windows значит мерить ОС, а не наш код.
+posix_only = pytest.mark.skipif(os.name == "nt", reason="бита исполнения на Windows нет")
 
 
 @pytest.fixture
@@ -44,11 +50,17 @@ class TestCreateShortcut:
         assert body.startswith("[Desktop Entry]")
         assert "Terminal=false" in body
 
+    def test_macos_command_has_the_right_suffix(self, home: pathlib.Path) -> None:
+        """Finder запускает двойным кликом именно `.command`."""
+        path = shortcut.create_shortcut(home=home, system="Darwin")
+
+        assert path.suffix == ".command"
+
+    @posix_only
     def test_macos_command_is_executable(self, home: pathlib.Path) -> None:
         """Без бита исполнения двойной клик в Finder ничего не делает."""
         path = shortcut.create_shortcut(home=home, system="Darwin")
 
-        assert path.suffix == ".command"
         assert path.stat().st_mode & 0o111
 
     def test_shortcut_points_at_the_gui_script(self, home: pathlib.Path) -> None:
@@ -152,7 +164,31 @@ class TestRepoLaunchFiles:
         assert (self._ROOT / "launcher.cmd").is_file()
 
     def test_shell_launcher_is_executable(self) -> None:
-        assert (self._ROOT / "launcher.sh").stat().st_mode & 0o111
+        """Бит исполнения спрашиваем у git, а не у файловой системы.
+
+        Значение имеет режим, записанный в индексе (`100755`): именно он
+        приезжает контрибьютору при клоне. Локальный `stat()` на Windows всегда
+        показал бы `100666` — там Unix-бита нет вовсе, и проверка мерила бы ОС
+        проверяющего вместо содержимого репозитория.
+        """
+        try:
+            result = subprocess.run(
+                ["git", "ls-files", "-s", "launcher.sh"],
+                cwd=self._ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:  # pragma: no cover
+            pytest.skip(f"git недоступен: {exc}")
+
+        if result.returncode != 0 or not (result.stdout or "").strip():
+            pytest.skip("не git-клон (например, распакованный sdist)")
+
+        assert (result.stdout or "").startswith("100755"), (
+            f"launcher.sh закоммичен без бита исполнения: {result.stdout.split()[0]}"
+        )
 
     def test_windows_launcher_uses_pythonw(self) -> None:
         """`python.exe` повесил бы консоль рядом с окном — ровно то, от чего уходим.
@@ -171,8 +207,15 @@ class TestRepoLaunchFiles:
         assert "pythonw.exe" in code
         assert "python.exe" not in code.replace("pythonw.exe", "")
 
+    @posix_only
     def test_missing_venv_is_explained_not_traced(self, tmp_path: pathlib.Path) -> None:
-        """Без `.venv` — понятная подсказка, а не трассировка Python."""
+        """Без `.venv` — понятная подсказка, а не трассировка Python.
+
+        Только POSIX: `launcher.sh` и есть POSIX-вход, у Windows свой
+        `launcher.cmd` (его разбирает `test_windows_launcher_uses_pythonw`).
+        Запуск `sh launcher.sh` на Windows-раннере проверял бы Git Bash, а не
+        поверхность продукта.
+        """
         script = tmp_path / "launcher.sh"
         script.write_text(
             (self._ROOT / "launcher.sh").read_text(encoding="utf-8"), encoding="utf-8"
@@ -186,6 +229,19 @@ class TestRepoLaunchFiles:
         assert result.returncode != 0
         assert "Traceback" not in result.stderr
         assert "pip install -e ." in result.stderr
+
+    def test_windows_launcher_explains_missing_venv_too(self) -> None:
+        """У `.cmd` та же подсказка, что у `.sh`, — проверяется чтением файла.
+
+        Прогнать `launcher.cmd` можно только на Windows, а подсказка обязана
+        существовать независимо от того, на какой ОС идёт проверка: иначе
+        Windows-ветка теряется вместе с пропуском POSIX-теста выше.
+        """
+        body = (self._ROOT / "launcher.cmd").read_text(encoding="utf-8")
+
+        assert "pip install -e ." in body
+        assert "1>&2" in body, "подсказка обязана уходить в stderr, как у launcher.sh"
+        assert "exit /b 1" in body, "без .venv код возврата обязан быть ненулевым"
 
     def test_latin_names_only(self) -> None:
         """Кириллица в именах по-разному нормализуется в git на macOS."""
