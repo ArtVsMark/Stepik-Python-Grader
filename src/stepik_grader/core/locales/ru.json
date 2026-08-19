@@ -17,6 +17,7 @@
   "ai_skipped_consent_required": "AI-подсказки (--ai-hints) пропущены: нужно однократное явное согласие на отправку кода AI-провайдеру, а сессия неинтерактивная. Запустите грейдер интерактивно один раз, чтобы дать согласие (или включите подсказки в веб-интерфейсе). В сеть ничего не отправлено.",
   "ai_skipped_insecure_url": "AI-подсказки (--ai-hints) пропущены: адрес провайдера {url} не принимается. Разрешены https (любой хост) и http только на локальную петлю (http://localhost:11434/v1 для ollama). По http на удалённый хост ушли бы код решения и ключ открытым текстом. В сеть ничего не отправлено.",
   "ai_skipped_no_provider": "AI-подсказки (--ai-hints) пропущены: провайдер не настроен. Задайте [tool.stepik-grader] ai_base_url и ai_model (ключ — в env-переменной, имя которой в ai_api_key_env), напр. ollama http://localhost:11434/v1 (без ключа) или облачный OpenAI-совместимый endpoint. Без настройки в сеть ничего не отправляется. Подробнее — https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/use/grader-workflow.md.",
+  "attachment_not_found": "Вложение «{name}» недоступно.",
   "bench_profile_1": "    1  низкий      —   5 повторов",
   "bench_profile_2": "    2  средний     —  15 повторов",
   "bench_profile_3": "    3  высокий     —  50 повторов",

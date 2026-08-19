@@ -23,6 +23,8 @@
 - [`GET /api/grade`](#get-apigrade-deprecated-для-benchmicrobench)
 - [`GET /api/solutions`](#get-apisolutions)
 - [`GET /api/source`](#get-apisource)
+- [`GET /api/task/statement`](#get-apitaskstatement)
+- [`GET /api/task/image`](#get-apitaskimage)
 - [`GET /api/glossary`](#get-apiglossary)
 - [`GET /api/glossary/missing`](#get-apiglossarymissing)
 - [`GET /api/glossary/<id>`](#get-apiglossaryid)
@@ -181,6 +183,54 @@ curl "http://127.0.0.1:8000/api/solutions?path=."
 
 ```
 curl "http://127.0.0.1:8000/api/source?path=task_1.py"
+```
+
+## `GET /api/task/statement`
+
+Условие скачанной задачи для показа в браузере: шапка из `meta.json`, очищенное
+тело, список вложений. В сеть не ходит — отдаёт то, что уже на диске.
+
+| Параметр | Обязателен |
+|---|---|
+| `path` | да — каталог **задачи**, не файл |
+
+Тело условия проходит серверную очистку по whitelist тегов. Чистка выполняется
+при показе, а не при скачивании: правила будут меняться, и менять их не должно
+означать «перекачай сорок задач». Сырой источник остаётся в `task.html`.
+
+`img src` подставляется только на приехавшие вложения-картинки и указывает на
+`GET /api/task/image`; внешние источники не подставляются — их всё равно
+блокирует CSP, а ходить в сеть при показе скачанной задачи незачем.
+
+Ответ: `kind: "statement"` с полями `header` / `html` / `attachments`, либо
+`kind: "empty"` с `reason` (`no_statement` — условия нет, `not_a_task_dir` —
+такого каталога нет). Пустая строка вместо явного «условия нет» неотличима на
+клиенте от «условие загрузилось и оказалось пустым».
+
+```
+curl "http://127.0.0.1:8000/api/task/statement?path=StepikTasks/course/section/lesson/04"
+```
+
+## `GET /api/task/image`
+
+Байты картинки-вложения, на которую ссылается условие.
+
+| Параметр | Обязателен |
+|---|---|
+| `path` | да — каталог задачи |
+| `name` | да — имя файла из списка вложений `meta.json` |
+
+Ручка нужна потому, что в браузере `src="pic.png"` разрешается относительно
+корня сервера, а не каталога задачи.
+
+`name` **сверяется со списком вложений** и не используется как путь; расширение
+обязано быть картиночным (`png`/`jpg`/`jpeg`/`gif`/`webp`/`bmp`). SVG не
+отдаётся: он умеет носить скрипт, а ответ идёт со своего origin — это обошло бы
+всю очистку HTML. Не прошедшее проверку — `404`, а не `403`: существование
+чужого файла не подтверждается.
+
+```
+curl "http://127.0.0.1:8000/api/task/image?path=StepikTasks/course/section/lesson/04&name=pic.png"
 ```
 
 ## `GET /api/glossary`
