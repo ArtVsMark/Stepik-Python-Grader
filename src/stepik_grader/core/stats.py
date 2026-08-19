@@ -242,6 +242,12 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
         "by_os": by_os,
         "verdict_totals": verdict_totals,
         "total_time": total_time,
+        # issue #1192: среднее время прогона — явным полем, а не «поделите сами».
+        # В накопителе копилась только сумма, и вопрос «сколько занимает один
+        # прогон» требовал арифметики над двумя другими числами; при пустом
+        # журнале эта же арифметика давала ZeroDivisionError у каждого, кто
+        # пробовал.
+        "avg_time": total_time / total_runs if total_runs else 0.0,
         "skipped": skipped,
     }
 

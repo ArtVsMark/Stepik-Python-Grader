@@ -168,7 +168,7 @@ table below refers to it.
 | Local run history (SQLite) + stats — offline | ❌ | ✅ |
 | Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes | ❌ | ✅ |
 
-Per-release evolution — [docs/use/versions.md](docs/use/versions.md).
+Per-release evolution — [HISTORY.md](HISTORY.md) (in Russian).
 
 ---
 
