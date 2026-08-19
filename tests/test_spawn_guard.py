@@ -141,7 +141,13 @@ class TestRunnerUsesTheGuard:
         solution = tmp_path / "task.py"
         solution.write_text("print(input())\n", encoding="utf-8")
         monkeypatch.setattr(subprocess, "Popen", _HangingPopen)
-        monkeypatch.setattr(spawn, "DEFAULT_LAUNCH_TIMEOUT_S", 0.3)
+        # issue #1232: порог задаётся ПЕРЕМЕННОЙ, а не подменой константы.
+        # Константу перебивает `STEPIK_GRADER_LAUNCH_TIMEOUT_S`, и на
+        # экспериментальных job'ах CI (где переменная поднята до 90 с) подмена
+        # переставала действовать — тест ждал зависший спавн и падал по
+        # собственному лимиту в 10 с. Заодно так проверяется, что значение
+        # доезжает до ПРОДУКТОВОГО пути, а не только до самой обёртки.
+        monkeypatch.setenv(spawn.ENV_LAUNCH_TIMEOUT, "0.3")
         started = time.monotonic()
 
         outcome = runner.LocalRunner().run(

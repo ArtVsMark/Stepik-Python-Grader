@@ -113,6 +113,21 @@ class Check:
 # миллисекунды; порог отличает «подвисло навсегда» от «система под нагрузкой».
 _GIT_LAUNCH_TIMEOUT_S = 20.0
 
+# issue #1232: та же переменная, что у `core/spawn` — один порог на весь класс
+# «медленный раннер», а не два независимых. Значение читается здесь заново по
+# той же причине, по которой продублирован сам приём: гейт обязан работать,
+# когда пакет не установлен или сломан.
+_ENV_LAUNCH_TIMEOUT = "STEPIK_GRADER_LAUNCH_TIMEOUT_S"
+
+
+def _git_launch_timeout_s() -> float:
+    """Действующий дедлайн запуска `git`: переменная окружения или дефолт."""
+    try:
+        value = float(os.environ.get(_ENV_LAUNCH_TIMEOUT, "").strip())
+    except ValueError:
+        return _GIT_LAUNCH_TIMEOUT_S
+    return value if value > 0 else _GIT_LAUNCH_TIMEOUT_S
+
 
 def _run_guarded[T](call: Callable[[], T]) -> T | None:
     """Выполнить ``call`` с дедлайном, покрывающим и ЗАПУСК процесса (issue #1149).
@@ -140,7 +155,7 @@ def _run_guarded[T](call: Callable[[], T]) -> T | None:
 
     thread = threading.Thread(target=_worker, daemon=True, name="preflight-git")
     thread.start()
-    thread.join(_GIT_LAUNCH_TIMEOUT_S)
+    thread.join(_git_launch_timeout_s())
     if thread.is_alive() or not outcome:
         return None
     result = outcome[0]
