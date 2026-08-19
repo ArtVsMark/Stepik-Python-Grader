@@ -19,6 +19,21 @@
 3. **Только REST.** ``gh pr view``/``gh pr checks`` ходят через GraphQL, и
    поллинг в цикле выжигает квоту 5000/час до нуля — посреди работы команды
    ``gh`` просто перестают отвечать. Интервал опроса — не чаще раза в 45-60 с.
+4. **Мерж внахлёст запрещён механикой, а не памятью.** В очереди одной
+   concurrency-группы GitHub держит ровно один ОЖИДАЮЩИЙ прогон, и каждый новый
+   пуш вытесняет предыдущий pending — тот получает ``cancelled``, не начавшись.
+   Замер 19.08.2026: шесть мержей подряд дали шесть отменённых прогонов и ни
+   одного выполненного, то есть шесть состояний ``main`` уехали без единой
+   проверки. Поэтому пока на ``main`` идёт прогон — вердикт «ждать», а не
+   «готов». И если последний прогон ``main`` красный, следующий PR не мержится
+   тоже: иначе красный ``main`` копит изменения, и разбирать придётся смесь.
+
+   **Это страховка на время, пока не включена merge queue** (issue #1235). У
+   очереди та же цель, но исполняет её GitHub: кандидат получает собственную
+   ветку «``main`` + PR» и собственный прогон, ждать приходится внутри GitHub,
+   и наш токен не тратит на это ни одного запроса. Когда очередь включат в
+   защите ветки, проверка ниже станет избыточной — но не вредной: один дешёвый
+   REST-запрос, который к тому же продолжает ловить красный ``main``.
 
 Запуск::
 
@@ -52,6 +67,7 @@ __all__ = [
     "job_names",
     "latest_by_name",
     "main",
+    "main_branch_blockers",
     "pending_runs",
     "workflows_running_on_pull_requests",
 ]
@@ -59,6 +75,10 @@ __all__ = [
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _REPO = "ArtVsMark/Stepik-Python-Grader"
 _API = "https://api.github.com"
+
+# issue #1231: очередь, из-за которой прогоны main отменялись, принадлежит
+# именно этому workflow — его и спрашиваем про занятость ветки.
+_CI_WORKFLOW = "ci.yml"
 
 # Заключения, которые не считаются провалом: пропущенный джоб — это условие в
 # workflow, а не отказ, и требовать от него `success` значит никогда не мержить.
@@ -144,14 +164,59 @@ def pending_runs(workflow_runs: dict[str, Any]) -> list[str]:
     ]
 
 
+def main_branch_blockers(main_runs: dict[str, Any]) -> list[str]:
+    """Что на ``main`` мешает мержить прямо сейчас (issue #1231).
+
+    Два случая, и оба про очередь, а не про сам PR:
+
+    - **на ``main`` идёт прогон** — мерж внахлёст вытеснит его ожидающего
+      преемника из очереди, и очередное состояние ``main`` останется без
+      проверок. Полная матрица идёт 12-15 минут, значит мерж возможен примерно
+      раз в четверть часа: осознанная плата за то, что каждое состояние
+      проверено на всех трёх ОС;
+    - **последний завершённый прогон ``main`` красный** — пока он не починен,
+      следующий PR только добавит изменений в смесь, которую придётся разбирать.
+
+    Пустой ответ (прогонов нет вовсе, API недоступен) блокировкой НЕ считается:
+    гейт, который краснеет на отсутствии данных, обходят, а он должен помогать.
+    """
+    runs = main_runs.get("workflow_runs", []) if isinstance(main_runs, dict) else []
+    active = [
+        f"{run.get('name', 'workflow')} ({run.get('status')})"
+        for run in runs
+        if run.get("status") != "completed"
+    ]
+    if active:
+        return [
+            "на main идёт прогон (" + ", ".join(sorted(active)) + ") — "
+            "ждать: мерж внахлёст вытеснит из очереди следующий прогон"
+        ]
+    completed = [run for run in runs if run.get("status") == "completed"]
+    if not completed:
+        return []
+    newest = max(completed, key=_started)
+    if newest.get("conclusion") not in _OK_CONCLUSIONS:
+        return [
+            f"последний прогон main красный (conclusion={newest.get('conclusion')}) — "
+            "чинить его, а не копить поверх изменения"
+        ]
+    return []
+
+
 def evaluate(
     pull: dict[str, Any],
     workflow_runs: dict[str, Any],
     check_runs: dict[str, Any],
     expected: set[str],
+    *,
+    main_blockers: list[str] | None = None,
 ) -> Verdict:
-    """Собрать вердикт из состояния PR, прогонов Actions и check-runs."""
-    reasons: list[str] = []
+    """Собрать вердикт из состояния PR, прогонов Actions и check-runs.
+
+    ``main_blockers`` (issue #1231) — причины, лежащие вне PR: занятая или
+    красная ``main``. Приходят готовыми из ``main_branch_blockers``.
+    """
+    reasons: list[str] = list(main_blockers or [])
 
     if pull.get("state") != "open":
         reasons.append(f"PR не открыт (state={pull.get('state')})")
@@ -279,12 +344,20 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         sha = str(pull.get("head", {}).get("sha", ""))
         workflow_runs = call(f"repos/{args.repo}/actions/runs?head_sha={sha}&per_page=100")
         check_runs = call(f"repos/{args.repo}/commits/{sha}/check-runs?per_page=100")
+        # issue #1231: состояние очереди на main. Отдельный дешёвый REST-запрос
+        # — фильтр по workflow и ветке делает сам GitHub.
+        main_runs = call(
+            f"repos/{args.repo}/actions/workflows/{_CI_WORKFLOW}/runs"
+            "?branch=main&event=push&per_page=10"
+        )
     except RuntimeError as exc:
         print(f"Не удалось опросить GitHub: {exc}", file=sys.stderr)
         return 1
 
     expected = _expected_names(call, args.repo, _ROOT / ".github" / "workflows")
-    verdict = evaluate(pull, workflow_runs, check_runs, expected)
+    verdict = evaluate(
+        pull, workflow_runs, check_runs, expected, main_blockers=main_branch_blockers(main_runs)
+    )
 
     if args.json:
         print(json.dumps(dataclasses.asdict(verdict), ensure_ascii=False))

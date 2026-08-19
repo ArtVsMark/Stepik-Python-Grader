@@ -345,3 +345,84 @@ class TestHelpers:
         pending = module.pending_runs(_runs(("queued", None), ("completed", "success")))
 
         assert pending == ["run-0 (queued)"]
+
+
+def _main_runs(*runs: tuple[str, str | None, str]) -> dict[str, Any]:
+    """Прогоны ``main``: тройки «статус, заключение, время старта»."""
+    return {
+        "workflow_runs": [
+            {"name": "CI", "status": status, "conclusion": conclusion, "run_started_at": started}
+            for status, conclusion, started in runs
+        ]
+    }
+
+
+class TestMergeQueueIsNotOverlapped:
+    """issue #1231: очередь держит ОДИН ожидающий прогон — внахлёст его теряет.
+
+    Замер 19.08.2026: шесть мержей подряд дали шесть отменённых прогонов и ни
+    одного выполненного, то есть шесть состояний `main` уехали без единой
+    проверки. `cancel-in-progress: false` тут не помогает: он защищает только
+    выполняющийся прогон, а вытесняется ожидающий.
+    """
+
+    def test_running_main_makes_the_verdict_wait(self, module: ModuleType) -> None:
+        blockers = module.main_branch_blockers(
+            _main_runs(("in_progress", None, "2026-08-19T10:00:00Z"))
+        )
+
+        assert blockers
+        assert "ждать" in blockers[0]
+
+    def test_queued_main_makes_the_verdict_wait(self, module: ModuleType) -> None:
+        """`queued` — тот самый статус, который следующий пуш и вытеснит."""
+        assert module.main_branch_blockers(_main_runs(("queued", None, "2026-08-19T10:00:00Z")))
+
+    def test_red_main_blocks_the_next_merge(self, module: ModuleType) -> None:
+        """Иначе красный main копит изменения, и разбирать придётся смесь."""
+        blockers = module.main_branch_blockers(
+            _main_runs(("completed", "failure", "2026-08-19T10:00:00Z"))
+        )
+
+        assert blockers
+        assert "красный" in blockers[0]
+
+    def test_only_the_newest_completed_run_counts(self, module: ModuleType) -> None:
+        """Вчерашнее падение, уже починенное, держать очередь не должно."""
+        assert not module.main_branch_blockers(
+            _main_runs(
+                ("completed", "failure", "2026-08-18T10:00:00Z"),
+                ("completed", "success", "2026-08-19T10:00:00Z"),
+            )
+        )
+
+    def test_free_and_green_main_does_not_block(self, module: ModuleType) -> None:
+        assert not module.main_branch_blockers(
+            _main_runs(("completed", "success", "2026-08-19T10:00:00Z"))
+        )
+
+    def test_no_data_is_not_a_blocker(self, module: ModuleType) -> None:
+        """Гейт, который краснеет на отсутствии данных, обходят."""
+        assert module.main_branch_blockers({}) == []
+        assert module.main_branch_blockers({"workflow_runs": []}) == []
+
+    def test_blocker_reaches_the_verdict(self, module: ModuleType) -> None:
+        """Сам PR зелёный — и всё равно «нельзя»: причина лежит вне него."""
+        verdict = module.evaluate(
+            _pull(),
+            _runs(("completed", "success")),
+            _checks(*_GREEN),
+            _EXPECTED,
+            main_blockers=["на main идёт прогон (CI (in_progress)) — ждать"],
+        )
+
+        assert not verdict.ready
+        assert any("на main идёт прогон" in reason for reason in verdict.reasons)
+
+    def test_absent_blockers_keep_the_old_behaviour(self, module: ModuleType) -> None:
+        """Параметр необязателен: прежние вызывающие не меняются."""
+        verdict = module.evaluate(
+            _pull(), _runs(("completed", "success")), _checks(*_GREEN), _EXPECTED
+        )
+
+        assert verdict.ready
