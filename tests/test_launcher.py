@@ -1541,7 +1541,7 @@ class TestAdvancedTabHandlers:
             config.set_workspace_root(None)
             config.reset_config_cache()
 
-    def _stub(self):
+    def _stub(self, lang: str = "ru"):
         from stepik_grader.core import settings_resolver
 
         names = [item.name for item in settings_resolver.advanced_settings()]
@@ -1564,7 +1564,7 @@ class TestAdvancedTabHandlers:
             browse_btn=self._Widget(),
             radio_simple=self._Widget(),
             radio_sandbox=self._Widget(),
-            _messages=launcher.load_ui_messages("ru"),
+            _messages=launcher.load_ui_messages(lang),
         )
         stub._t = LauncherApp._t.__get__(stub)
         stub.status: list[tuple[str, bool]] = []
@@ -1574,12 +1574,63 @@ class TestAdvancedTabHandlers:
             "_setting_state_text",
             "_refresh_setting_state",
             "_apply_setting",
+            "_describe_setting_error",
             "_reset_setting",
             "_on_unsafe_toggled",
             "_set_inputs_enabled",
         ):
             setattr(stub, method, getattr(LauncherApp, method).__get__(stub))
         return stub
+
+    def test_rejection_speaks_the_window_language(self, workspace: Path) -> None:
+        """issue #1245: причина отказа переводится вместе с окном.
+
+        До правки английское окно показывало английский префикс над русским
+        хвостом: «Not saved: job_workers: ожидается целое число не меньше 1».
+        Локаль `en` — намеренная витрина, и сообщение об ошибке — ровно тот
+        момент, когда текст нужнее всего.
+        """
+        stub = self._stub(lang="en")
+        stub.setting_vars["job_workers"].set("0")
+
+        stub._apply_setting("job_workers")
+
+        text = stub.status[-1][0]
+        assert not any("а" <= ch.lower() <= "я" for ch in text), (
+            f"в англоязычном окне осталась русская причина: {text!r}"
+        )
+        assert "job_workers" in text and "0" in text
+
+    def test_rejection_stays_russian_in_russian_window(self, workspace: Path) -> None:
+        """Русское окно продолжает объяснять по-русски — перевод не односторонний."""
+        stub = self._stub()
+        stub.setting_vars["job_workers"].set("0")
+
+        stub._apply_setting("job_workers")
+
+        text = stub.status[-1][0]
+        assert "ожидается" in text and "job_workers" in text
+
+    def test_non_numeric_input_is_explained_in_both_languages(self, workspace: Path) -> None:
+        """Второй путь отказа — приведение типа, а не проверка значения."""
+        russian = self._stub()
+        russian.setting_vars["timeout_seconds"].set("не число")
+        russian._apply_setting("timeout_seconds")
+
+        english = self._stub(lang="en")
+        english.setting_vars["timeout_seconds"].set("не число")
+        english._apply_setting("timeout_seconds")
+
+        assert "ожидается" in russian.status[-1][0]
+        assert "expected" in english.status[-1][0]
+
+    def test_error_without_a_key_is_shown_as_is(self) -> None:
+        """Чужое исключение печатается текстом: пропавший перевод не прячет причину."""
+        stub = self._stub()
+
+        assert stub._describe_setting_error(OSError("диск только для чтения")) == (
+            "диск только для чтения"
+        )
 
     def test_applied_value_reaches_the_settings_file(self, workspace: Path) -> None:
         from stepik_grader.core.user_settings import default_settings_path, load_settings

@@ -50,6 +50,7 @@ __all__ = [  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
     "CONFIG_FLAG",
     "GraderConfig",
     "config_source",
+    "expected_key",
     "get_config",
     "load_config",
     "override_config",
@@ -240,16 +241,29 @@ def _is_known_encoding(value: object) -> bool:
 
 @dataclass(frozen=True)
 class _Rule:
-    """Правило проверки одного поля: предикат + описание допустимого значения."""
+    """Правило проверки одного поля: предикат + описание допустимого значения.
+
+    ``key`` — ключ каталога локалей для того же описания (issue #1245). Русский
+    ``expected`` остаётся здесь и служит запасным вариантом: модуль по замыслу
+    не зависит ни от чего проектного (stdlib-only), поэтому переводит не он, а
+    та поверхность, которая знает язык пользователя.
+    """
 
     check: Callable[[object], bool]
     expected: str
+    key: str
 
 
-_POSITIVE_NUMBER = _Rule(lambda v: _is_number(v, minimum=0), "число больше 0")
-_POSITIVE_INT = _Rule(lambda v: _is_int_at_least(v, 1), "целое число не меньше 1")
-_FLAG = _Rule(_is_bool, "true или false")
-_OPTIONAL_STR = _Rule(_is_optional_str, "непустая строка или отсутствие ключа")
+_POSITIVE_NUMBER = _Rule(
+    lambda v: _is_number(v, minimum=0), "число больше 0", "expected_positive_number"
+)
+_POSITIVE_INT = _Rule(
+    lambda v: _is_int_at_least(v, 1), "целое число не меньше 1", "expected_positive_int"
+)
+_FLAG = _Rule(_is_bool, "true или false", "expected_flag")
+_OPTIONAL_STR = _Rule(
+    _is_optional_str, "непустая строка или отсутствие ключа", "expected_optional_str"
+)
 
 # Правило на КАЖДОЕ поле GraderConfig: новое поле без правила ловится тестом
 # (tests/test_config.py), иначе валидация тихо разошлась бы с dataclass.
@@ -259,14 +273,21 @@ _RULES: dict[str, _Rule] = {
     "much_slower_threshold": _POSITIVE_NUMBER,
     "measure_child_memory": _FLAG,
     "microbench_max_cases": _POSITIVE_INT,
-    "encoding": _Rule(_is_known_encoding, "имя кодировки, известной Python (например utf-8)"),
+    "encoding": _Rule(
+        _is_known_encoding,
+        "имя кодировки, известной Python (например utf-8)",
+        "expected_encoding",
+    ),
     "max_memory_mb": _Rule(
         lambda v: v is None or _is_int_at_least(v, 1),
         "целое число мегабайт не меньше 1 или отсутствие ключа (без лимита)",
+        "expected_memory_mb",
     ),
     "use_cache": _FLAG,
     "glossary_store": _OPTIONAL_STR,
-    "glossary_missing_queue": _Rule(_is_nonempty_str, "непустая строка — путь к файлу очереди"),
+    "glossary_missing_queue": _Rule(
+        _is_nonempty_str, "непустая строка — путь к файлу очереди", "expected_queue_path"
+    ),
     "job_workers": _POSITIVE_INT,
     "max_active_runs": _POSITIVE_INT,
     "record_stats": _FLAG,
@@ -280,7 +301,9 @@ _RULES: dict[str, _Rule] = {
     "max_output_bytes": _POSITIVE_INT,
     "ai_base_url": _OPTIONAL_STR,
     "ai_model": _OPTIONAL_STR,
-    "ai_api_key_env": _Rule(_is_nonempty_str, "непустая строка — ИМЯ переменной окружения"),
+    "ai_api_key_env": _Rule(
+        _is_nonempty_str, "непустая строка — ИМЯ переменной окружения", "expected_env_name"
+    ),
     "ai_max_tokens": _POSITIVE_INT,
     "ai_timeout_seconds": _POSITIVE_NUMBER,
     "ai_max_hints": _POSITIVE_INT,
@@ -290,15 +313,18 @@ _RULES: dict[str, _Rule] = {
     "ai_system_prompt": _Rule(
         lambda v: isinstance(v, str),
         "строка (пусто — встроенный системный промпт)",
+        "expected_prompt",
     ),
     # Пустая строка значима и здесь (= авторезолв пути базы истории).
     "history_db_path": _Rule(
         lambda v: isinstance(v, str),
         "строка-путь (пусто — авторезолв: база рядом или ~/.stepik-grader/history.db)",
+        "expected_history_path",
     ),
     "compare_mode": _Rule(
         lambda v: v in COMPARE_MODES,
         f"одно из {sorted(COMPARE_MODES)} (stepik — как чекер платформы, strict — побайтово)",
+        "expected_compare_mode",
     ),
 }
 
@@ -308,6 +334,23 @@ def _describe(field: str, value: object) -> str:
     return (
         f"{field}: ожидается {_RULES[field].expected}, получено {value!r} ({type(value).__name__})"
     )
+
+
+def expected_key(field: str) -> str | None:
+    """Ключ локали с описанием допустимого значения поля (issue #1245).
+
+    Нужен поверхности, которая знает язык пользователя: сам модуль stdlib-only и
+    переводить не умеет, а показывать англоязычному человеку русскую причину
+    отказа — ровно тот случай, когда текст важнее всего.
+
+    Args:
+        field: имя поля ``GraderConfig``.
+
+    Returns:
+        Ключ каталога локалей или ``None``, если поле неизвестно.
+    """
+    rule = _RULES.get(field)
+    return rule.key if rule is not None else None
 
 
 def validate_values(values: Mapping[str, object]) -> list[str]:

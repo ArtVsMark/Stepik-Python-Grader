@@ -39,6 +39,7 @@ __all__ = [
     "ADVANCED_SETTINGS",
     "USER_TUNABLE_SETTINGS",
     "AdvancedSetting",
+    "SettingValueError",
     "SettingView",
     "advanced_settings",
     "apply_user_run_settings",
@@ -173,6 +174,31 @@ def describe_setting(name: str, root: Path | None = None) -> SettingView:
     )
 
 
+class SettingValueError(ValueError):
+    """Негодное значение настройки: несёт ключ причины, а не готовый текст.
+
+    Наследник ``ValueError`` намеренно — прежние ``except ValueError`` у
+    вызывающих продолжают работать, а ``str(exc)`` остаётся русской строкой,
+    как было. Новое здесь одно: поверхность, знающая язык пользователя, может
+    собрать сообщение сама (issue #1245) — до этого en-окно показывало
+    английский префикс над русской причиной.
+
+    Attributes:
+        setting: имя настройки.
+        message_key: ключ каталога локалей для причины.
+        params: подстановки шаблона (значение, ожидаемое описание).
+    """
+
+    def __init__(self, setting: str, message_key: str, text: str, **params: object) -> None:
+        super().__init__(text)
+        self.setting = setting
+        self.message_key = message_key
+        # `setting` кладётся в подстановки сам: он есть в каждом шаблоне, и
+        # передавать его вторым аргументом на каждом вызове — лишний повод
+        # разойтись.
+        self.params: dict[str, object] = {"setting": setting, **params}
+
+
 def set_user_run_setting(name: str, value: object, root: Path | None = None) -> None:
     """Сохранить пользовательское значение настройки прогона (issue #1136).
 
@@ -185,7 +211,16 @@ def set_user_run_setting(name: str, value: object, root: Path | None = None) -> 
         raise ValueError(f"настройка недоступна пользователю: {name}")
     problems = config.validate_values({name: value})
     if problems:
-        raise ValueError(problems[0])
+        # issue #1245: рядом с русским текстом едет ключ описания допустимого
+        # значения — окно на английском соберёт причину само, а не покажет
+        # английский префикс над русским хвостом.
+        raise SettingValueError(
+            name,
+            "settings_value_rejected",
+            problems[0],
+            value=value,
+            expected_key=config.expected_key(name) or "",
+        )
     path = default_settings_path(root or config.workspace_root())
     values = dict(load_settings(path).run_settings)
     values[name] = value
@@ -304,17 +339,31 @@ def coerce_value(name: str, raw: object) -> object:
     if not text:
         if spec.nullable:
             return None
-        raise ValueError(f"{name}: пустое значение недопустимо")
+        raise SettingValueError(
+            name,
+            "settings_value_empty",
+            f"{name}: пустое значение недопустимо",
+        )
     if spec.kind == "int":
         try:
             return int(text)
         except ValueError as exc:
-            raise ValueError(f"{name}: ожидается целое число, получено {text!r}") from exc
+            raise SettingValueError(
+                name,
+                "settings_value_not_int",
+                f"{name}: ожидается целое число, получено {text!r}",
+                value=text,
+            ) from exc
     if spec.kind == "float":
         try:
             return float(text.replace(",", "."))
         except ValueError as exc:
-            raise ValueError(f"{name}: ожидается число, получено {text!r}") from exc
+            raise SettingValueError(
+                name,
+                "settings_value_not_number",
+                f"{name}: ожидается число, получено {text!r}",
+                value=text,
+            ) from exc
     if spec.kind == "bool":
         return text.lower() in {"1", "true", "yes", "да", "вкл"}
     return text
