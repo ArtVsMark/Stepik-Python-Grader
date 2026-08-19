@@ -909,6 +909,27 @@ class TestCountTasks:
 
         assert launcher.count_tasks(tmp_path) == (1, 1)
 
+    def test_project_root_is_not_a_task(self, tmp_path: Path) -> None:
+        """issue #1180: корень проекта с ``tests/`` — не задача.
+
+        Рабочая папка по умолчанию — корень проекта (issue #823), а у клона
+        грейдера есть собственный каталог ``tests``. Прогон окна на локальной
+        машине показал «Найдено задач: 50» там, где задач 49: пятидесятой был
+        сам репозиторий.
+        """
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+        (tmp_path / "01" / "tests").mkdir(parents=True)
+
+        assert launcher.count_tasks(tmp_path) == (1, 1)
+
+    def test_git_clone_root_is_not_a_task(self, tmp_path: Path) -> None:
+        """Тот же случай для клона без ``pyproject.toml`` в корне."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / ".git").mkdir()
+
+        assert launcher.count_tasks(tmp_path) == (0, 0)
+
     def test_mixed_folder_reports_both_numbers(self, tmp_path: Path) -> None:
         """Задача с тестами и задача без них считаются раздельно."""
         (tmp_path / "with-tests" / "tests").mkdir(parents=True)
@@ -1938,3 +1959,145 @@ class TestNoScrollableCanvas:
             config.reset_config_cache()
 
         assert canvases == [], "Canvas вернулся во вкладку — вместе с ним вернётся зависание"
+
+
+class TestStatusSurvivesPolling:
+    """issue #1180: сообщение окна живёт до смены состояния, а не 250 мс.
+
+    Найдено прогоном окна на локальной машине: `_poll` дёргает `_render`
+    четыре раза в секунду, а тот безусловно перезаписывал статус-строку. Любое
+    сообщение — отказ валидации, «Порт занят. Ближайший свободный — …»,
+    «Профиль сохранён» — стиралось раньше, чем его успевали прочитать.
+    """
+
+    def test_repeated_render_keeps_user_message(self, tk_window) -> None:
+        app = LauncherApp(tk_window, _FakeController(ServerState.STOPPED))
+        app._render(ServerStatus(state=ServerState.STOPPED))
+        app._set_status("Порт 8077 занят. Ближайший свободный — 8078.", error=True)
+
+        for _ in range(4):  # четыре тика опроса — секунда реального времени
+            app._render(ServerStatus(state=ServerState.STOPPED))
+
+        assert app.status_var.get() == "Порт 8077 занят. Ближайший свободный — 8078."
+
+    def test_state_change_still_speaks(self, tk_window) -> None:
+        """Сообщение держится не вечно: настоящий переход состояния его сменяет."""
+        app = LauncherApp(tk_window, _FakeController(ServerState.STOPPED))
+        app._render(ServerStatus(state=ServerState.STOPPED))
+        app._set_status("моё сообщение")
+
+        app._render(ServerStatus(state=ServerState.STARTING))
+
+        assert "Запуск" in app.status_var.get()
+
+    def test_error_text_change_is_shown(self, tk_window) -> None:
+        """Две разные ошибки подряд — вторая не проглатывается первой."""
+        app = LauncherApp(tk_window, _FakeController(ServerState.STOPPED))
+        app._render(ServerStatus(state=ServerState.ERROR, error="первая причина"))
+        app._render(ServerStatus(state=ServerState.ERROR, error="вторая причина"))
+
+        assert app.status_var.get() == "вторая причина"
+
+
+class TestLanguageSwitchTranslatesEverything:
+    """issue #1180: смена языка переводит окно целиком, а не наполовину.
+
+    Прогон окна показал: `_on_lang_changed` перерисовывал радиокнопки и
+    кнопки, но подписи полей («Профиль запуска:», «Порт:», «Рабочая папка:»)
+    и кнопки блока профилей оставались на прежнем языке. В en-окне это ровно
+    та аудитория, ради которой локаль `en` и заведена.
+    """
+
+    def test_every_field_label_switches(self, tk_window) -> None:
+        app = LauncherApp(tk_window, _FakeController())
+        ru, en = launcher.load_ui_messages("ru"), launcher.load_ui_messages("en")
+
+        app.lang_var.set("en")
+        app._on_lang_changed()
+
+        shown = {str(widget.cget("text")) for widget in app._translatable}
+        stale = [ru[key] for key in launcher.TRANSLATABLE_KEYS if ru[key] in shown]
+        assert not stale, f"после смены языка остались русские подписи: {stale}"
+        missing = [en[key] for key in launcher.TRANSLATABLE_KEYS if en[key] not in shown]
+        assert not missing, f"английские подписи не появились: {missing}"
+
+    def test_profile_placeholder_switches(self, tk_window) -> None:
+        """«— свой набор —» — тоже текст для человека, а не служебный ключ."""
+        app = LauncherApp(tk_window, _FakeController())
+        en = launcher.load_ui_messages("en")
+
+        app.lang_var.set("en")
+        app._on_lang_changed()
+
+        assert app.profile_var.get() == en["launcher_profile_custom"]
+        assert en["launcher_profile_custom"] in list(app.profile_box.cget("values"))
+
+    def test_history_choice_is_not_reset(self, tk_window) -> None:
+        """issue #1180: смена языка не отменяет выбранную запись истории.
+
+        Прежде `_on_lang_changed` безусловно ставил «как в настройках»: человек
+        выключал историю, переключал язык — и молча получал обратно запись.
+        """
+        app = LauncherApp(tk_window, _FakeController())
+        app.history_box.set(app._history_label(False))
+        assert app.selected_record_history() is False
+
+        app.lang_var.set("en")
+        app._on_lang_changed()
+
+        assert app.selected_record_history() is False
+
+    def test_translatable_keys_exist_in_both_locales(self) -> None:
+        """Страж без дисплея: ключ, забытый в каталоге, покажет сам себя."""
+        ru, en = launcher.load_ui_messages("ru"), launcher.load_ui_messages("en")
+        assert not [key for key in launcher.TRANSLATABLE_KEYS if key not in ru]
+        assert not [key for key in launcher.TRANSLATABLE_KEYS if key not in en]
+
+
+class TestWindowTitleShowsVersion:
+    """issue #1208: по заголовку видно, релиз это или сборка из клона.
+
+    Проверяется чистой функцией, а не окном: `tkinter` не собран ни в облачной
+    сессии, ни в CI, а вопрос здесь — формат строки и наличие ключей в обеих
+    локалях.
+    """
+
+    def test_release_version_without_dev_marker(self) -> None:
+        title = launcher.window_title(launcher.load_ui_messages("ru"), "1.10.0")
+        assert "1.10.0" in title
+        assert "dev" not in title
+
+    def test_dev_build_is_marked(self) -> None:
+        title = launcher.window_title(launcher.load_ui_messages("ru"), "1.10.0.post464+gbcc5059")
+        assert "1.10.0.post464+gbcc5059" in title
+        assert "dev" in title
+
+    def test_english_title_is_localized(self) -> None:
+        ru = launcher.window_title(launcher.load_ui_messages("ru"), "1.10.0")
+        en = launcher.window_title(launcher.load_ui_messages("en"), "1.10.0")
+        assert ru != en, "заголовок собран хардкодом, а не из локали"
+
+    def test_dev_criterion_matches_cli(self) -> None:
+        """Страж дублирования: критерий dev-сборки тот же, что у ``--version``.
+
+        Логика живёт в двух местах (``cli._is_dev_build`` и лаунчер), потому что
+        ребро launcher → cli между двумя точками входа не оправдано одной
+        строкой. Тест держит их согласованными.
+        """
+        from stepik_grader import cli
+
+        for raw in ("1.10.0", "1.10.0.post464+gbcc5059", "2.0.0", "1.9.0.post1+gdeadbee.d20260101"):
+            expected = cli._is_dev_build(raw)
+            assert (
+                "dev" in launcher.window_title(launcher.load_ui_messages("ru"), raw)
+            ) is expected
+
+    def test_window_gets_versioned_title(self, tk_window) -> None:
+        """И само окно им пользуется — оба места установки заголовка."""
+        app = LauncherApp(tk_window, _FakeController())
+        assert launcher.resolve_version() in tk_window.title()
+
+        app.lang_var.set("en")
+        app._on_lang_changed()
+
+        assert launcher.resolve_version() in tk_window.title()
