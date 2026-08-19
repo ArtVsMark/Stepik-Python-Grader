@@ -180,7 +180,8 @@ python scripts/preflight.py --branch-only   # ДО работы: чужая ли
 python scripts/preflight.py                 # перед коммитом: весь набор + линтеры + типы
 python scripts/check_pr_ready.py <PR>       # перед мержем: проверки созданы, завершены, зелёные
 python scripts/gh_rest.py pulls|checks|update-branch|merge   # рутина по PR — по REST
-python scripts/gh_rest.py issue|close-issue|comment <N>      # рутина по issue — тоже REST
+python scripts/gh_rest.py issue|close-issue|label|comment <N>  # рутина по issue — тоже REST
+python scripts/gh_rest.py runs|run-jobs|cancel-run            # прогоны CI (PR создаём через MCP)
 ```
 
 Гейты появились после разбора сессии, где **девять инцидентов из одиннадцати —

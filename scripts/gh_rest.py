@@ -78,11 +78,16 @@ __all__ = [
     "Quota",
     "RateLimited",
     "Response",
+    "add_labels",
+    "branch_runs",
+    "cancel_run",
     "close_issue",
     "comment_issue",
     "compare",
+    "create_issue",
     "create_pull",
     "issue",
+    "issue_comments",
     "list_pulls",
     "main",
     "main_run",
@@ -90,9 +95,12 @@ __all__ = [
     "pull",
     "pull_checks",
     "rate_limit",
+    "remove_label",
     "request",
     "resolve_token",
+    "run_jobs",
     "update_branch",
+    "update_issue",
 ]
 
 DEFAULT_REPO = "ArtVsMark/Stepik-Python-Grader"
@@ -543,7 +551,23 @@ def create_pull(
     draft: bool = False,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Создать PR. Возвращает ответ GitHub (с ``number`` и ``html_url``)."""
+    """Создать PR. Возвращает ответ GitHub (с ``number`` и ``html_url``).
+
+    **Автором становится владелец токена.** В облачной агентской сессии токен
+    принадлежит приложению ``claude[bot]``, и созданный так PR получает автора
+    ``claude[bot]`` (тип ``Bot``). Последствие не косметическое: workflow
+    код-ревью отказывается работать для PR, инициированных ботом —
+    «Workflow initiated by non-human actor: claude (type: Bot)», — и
+    обязательная проверка ``claude-review`` краснеет, а мерж-гейт встаёт.
+
+    Поймано на живом PR: тот же набор изменений, созданный через MCP (то есть
+    от человека), ревью проходит, а созданный здесь — нет.
+
+    Поэтому **создание PR из облачной сессии остаётся за MCP**, а этот вызов —
+    для локального окна и для случаев, где ревью не требуется. Экономии на
+    квоте от него почти нет: PR создаётся однажды, а платит окно за повторный
+    опрос статусов, который REST и забирает.
+    """
     data = request(
         "POST",
         f"repos/{repo}/pulls",
@@ -621,6 +645,124 @@ def issue(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
     """Одно issue: заголовок, состояние, метки. Без тела и полей — их не просим."""
     data = _get(f"repos/{repo}/issues/{number}", **kwargs)
     return data if isinstance(data, dict) else {}
+
+
+def create_issue(
+    repo: str,
+    *,
+    title: str,
+    body: str = "",
+    labels: list[str] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Завести issue. Метки — сразу, чтобы не платить вторым запросом."""
+    payload: dict[str, Any] = {"title": title, "body": body}
+    if labels:
+        payload["labels"] = labels
+    data = request("POST", f"repos/{repo}/issues", body=payload, **kwargs).data
+    return data if isinstance(data, dict) else {}
+
+
+def update_issue(
+    repo: str,
+    number: int,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Обновить заголовок и/или тело issue.
+
+    Raises:
+        ValueError: не задано ни одного поля — пустой ``PATCH`` потратил бы
+            запрос и ничего не изменил.
+    """
+    payload: dict[str, Any] = {}
+    if title is not None:
+        payload["title"] = title
+    if body is not None:
+        payload["body"] = body
+    if not payload:
+        raise ValueError("нечего обновлять: задайте title и/или body")
+    data = request("PATCH", f"repos/{repo}/issues/{number}", body=payload, **kwargs).data
+    return data if isinstance(data, dict) else {}
+
+
+def add_labels(repo: str, number: int, labels: list[str], **kwargs: Any) -> list[str]:
+    """Добавить метки, не трогая уже стоящие; вернуть итоговый набор."""
+    data = request(
+        "POST", f"repos/{repo}/issues/{number}/labels", body={"labels": labels}, **kwargs
+    ).data
+    items = data if isinstance(data, list) else []
+    return [str(item.get("name", "")) for item in items if isinstance(item, dict)]
+
+
+def remove_label(repo: str, number: int, label: str, **kwargs: Any) -> bool:
+    """Снять одну метку. Отсутствующая метка — не ошибка, а «уже снята»."""
+    try:
+        request(
+            "DELETE",
+            f"repos/{repo}/issues/{number}/labels/{urllib.parse.quote(label)}",
+            **kwargs,
+        )
+    except GitHubError as exc:
+        if "404" in str(exc):
+            return False
+        raise
+    return True
+
+
+def issue_comments(repo: str, number: int, **kwargs: Any) -> list[dict[str, Any]]:
+    """Комментарии issue или PR — автор, время, текст."""
+    data = _get(f"repos/{repo}/issues/{number}/comments?per_page=100", **kwargs)
+    return [item for item in (data if isinstance(data, list) else []) if isinstance(item, dict)]
+
+
+def branch_runs(
+    repo: str = DEFAULT_REPO,
+    *,
+    branch: str,
+    event: str | None = None,
+    limit: int = 10,
+    **kwargs: Any,
+) -> list[dict[str, Any]]:
+    """Прогоны ``ci.yml`` по ветке: статус, заключение, время старта.
+
+    Фильтрует GitHub, а не мы: одна страница вместо выборки из всех прогонов
+    репозитория.
+    """
+    params: dict[str, Any] = {"branch": branch, "per_page": limit}
+    if event is not None:
+        params["event"] = event
+    query = urllib.parse.urlencode(params)
+    data = _get(f"repos/{repo}/actions/workflows/{_CI_WORKFLOW}/runs?{query}", **kwargs)
+    runs = data.get("workflow_runs", []) if isinstance(data, dict) else []
+    return [run for run in runs if isinstance(run, dict)]
+
+
+def run_jobs(repo: str, run_id: int, **kwargs: Any) -> list[dict[str, Any]]:
+    """Job'ы прогона: имя, статус, заключение — чтобы видеть, что именно упало."""
+    data = _get(f"repos/{repo}/actions/runs/{run_id}/jobs?per_page=100", **kwargs)
+    jobs = data.get("jobs", []) if isinstance(data, dict) else []
+    return [job for job in jobs if isinstance(job, dict)]
+
+
+def cancel_run(repo: str, run_id: int, **kwargs: Any) -> bool:
+    """Отменить прогон. Нужна не для удобства, а потому что зависший держит очередь.
+
+    Прецедент: прогон висел ``in_progress`` два с половиной часа, и следующие
+    мержи в это время вытеснялись из очереди, не начавшись.
+
+    Уже завершённый прогон GitHub отменить не даёт (``409``) — это не сбой, а
+    «отменять нечего».
+    """
+    try:
+        request("POST", f"repos/{repo}/actions/runs/{run_id}/cancel", **kwargs)
+    except GitHubError as exc:
+        if "409" in str(exc):
+            return False
+        raise
+    return True
 
 
 def rate_limit(**kwargs: Any) -> dict[str, Quota]:
@@ -742,7 +884,13 @@ def _cmd_compare(args: argparse.Namespace) -> int:
 
 
 def _cmd_create_pr(args: argparse.Namespace) -> int:
-    """Создать PR из ветки."""
+    """Создать PR из ветки и сказать правду об авторстве.
+
+    Заранее авторство не узнать: в облачной сессии токены проксированы, и
+    ``GET /user`` отвечает человеком, тогда как запись атрибутируется
+    приложению. Поэтому проверяем по факту — автор приходит в ответе на
+    создание, лишнего запроса не нужно.
+    """
     created = create_pull(
         args.repo,
         title=args.title,
@@ -754,7 +902,20 @@ def _cmd_create_pr(args: argparse.Namespace) -> int:
     if args.json:
         _print_json(created)
         return EXIT_OK
-    print(f"PR #{created.get('number')} создан: {created.get('html_url')}")
+    number = created.get("number")
+    print(f"PR #{number} создан: {created.get('html_url')}")
+    author = created.get("user", {}) if isinstance(created.get("user"), dict) else {}
+    if author.get("type") == "Bot":
+        print(
+            f"ВНИМАНИЕ: автор PR — {author.get('login')} (Bot). Workflow код-ревью "
+            "отказывается работать для PR, инициированных ботом, и обязательная "
+            "проверка claude-review покраснеет.\n"
+            "  Авторство должно быть авторским: создавайте PR через MCP "
+            "(инструмент create_pull_request), а этой подкомандой пользуйтесь "
+            "там, где токен принадлежит человеку.",
+            file=sys.stderr,
+        )
+        return EXIT_FAIL
     return EXIT_OK
 
 
@@ -812,6 +973,80 @@ def _cmd_comment(args: argparse.Namespace) -> int:
         _print_json(posted)
         return EXIT_OK
     print(f"#{args.number}: комментарий добавлен — {posted.get('html_url', '')}")
+    return EXIT_OK
+
+
+def _cmd_create_issue(args: argparse.Namespace) -> int:
+    """Завести issue."""
+    created = create_issue(args.repo, title=args.title, body=args.body, labels=args.label)
+    if args.json:
+        _print_json(created)
+        return EXIT_OK
+    print(f"issue #{created.get('number')} заведён: {created.get('html_url')}")
+    return EXIT_OK
+
+
+def _cmd_label(args: argparse.Namespace) -> int:
+    """Проставить или снять метку."""
+    if args.remove:
+        removed = remove_label(args.repo, args.number, args.remove)
+        print(f"#{args.number}: метка {args.remove} " + ("снята." if removed else "и не стояла."))
+        return EXIT_OK
+    labels = add_labels(args.repo, args.number, args.add)
+    if args.json:
+        _print_json(labels)
+        return EXIT_OK
+    print(f"#{args.number}: метки — {', '.join(labels)}")
+    return EXIT_OK
+
+
+def _cmd_comments(args: argparse.Namespace) -> int:
+    """Показать комментарии issue или PR."""
+    found = issue_comments(args.repo, args.number)
+    if args.json:
+        _print_json(found)
+        return EXIT_OK
+    for item in found:
+        author = item.get("user", {}).get("login", "?")
+        first = str(item.get("body", "")).strip().splitlines()[:1]
+        print(f"  {item.get('created_at', '')} · {author}: {first[0] if first else ''}")
+    if not found:
+        print(f"#{args.number}: комментариев нет.")
+    return EXIT_OK
+
+
+def _cmd_runs(args: argparse.Namespace) -> int:
+    """Прогоны CI по ветке."""
+    found = branch_runs(args.repo, branch=args.branch, event=args.event, limit=args.limit)
+    if args.json:
+        _print_json(found)
+        return EXIT_OK
+    for run in found:
+        state = run.get("conclusion") or run.get("status")
+        print(f"  {run.get('id')} [{state}] {run.get('event')} · {run.get('run_started_at', '')}")
+    if not found:
+        print(f"прогонов ci.yml на {args.branch} нет.")
+    return EXIT_OK
+
+
+def _cmd_run_jobs(args: argparse.Namespace) -> int:
+    """Job'ы прогона — видно, что именно упало."""
+    jobs = run_jobs(args.repo, args.run)
+    if args.json:
+        _print_json(jobs)
+        return EXIT_OK
+    for job in jobs:
+        state = job.get("conclusion") or job.get("status")
+        print(f"  {job.get('id')} [{state}] {job.get('name')}")
+    return EXIT_OK
+
+
+def _cmd_cancel_run(args: argparse.Namespace) -> int:
+    """Отменить зависший прогон — он держит очередь мержей."""
+    if cancel_run(args.repo, args.run):
+        print(f"прогон {args.run} отменён.")
+        return EXIT_OK
+    print(f"прогон {args.run} уже завершён — отменять нечего.")
     return EXIT_OK
 
 
@@ -879,6 +1114,36 @@ def _build_parser() -> argparse.ArgumentParser:
     comment.add_argument("number", type=int)
     comment.add_argument("text", help="текст комментария")
     comment.set_defaults(handler=_cmd_comment)
+
+    new_issue = sub.add_parser("create-issue", help="завести issue")
+    new_issue.add_argument("--title", required=True)
+    new_issue.add_argument("--body", default="")
+    new_issue.add_argument("--label", action="append", default=[])
+    new_issue.set_defaults(handler=_cmd_create_issue)
+
+    label = sub.add_parser("label", help="проставить или снять метку")
+    label.add_argument("number", type=int)
+    label.add_argument("--add", action="append", default=[])
+    label.add_argument("--remove")
+    label.set_defaults(handler=_cmd_label)
+
+    comments = sub.add_parser("comments", help="комментарии issue или PR")
+    comments.add_argument("number", type=int)
+    comments.set_defaults(handler=_cmd_comments)
+
+    runs = sub.add_parser("runs", help="прогоны ci.yml по ветке")
+    runs.add_argument("--branch", default="main")
+    runs.add_argument("--event")
+    runs.add_argument("--limit", type=int, default=10)
+    runs.set_defaults(handler=_cmd_runs)
+
+    jobs = sub.add_parser("run-jobs", help="job'ы прогона: что именно упало")
+    jobs.add_argument("run", type=int)
+    jobs.set_defaults(handler=_cmd_run_jobs)
+
+    cancel = sub.add_parser("cancel-run", help="отменить зависший прогон")
+    cancel.add_argument("run", type=int)
+    cancel.set_defaults(handler=_cmd_cancel_run)
 
     rate = sub.add_parser("rate", help="остаток квоты (запрос её не тратит)")
     rate.set_defaults(handler=_cmd_rate)
