@@ -220,6 +220,18 @@ class TestDocumentationTellsTheTruth:
         assert "auto-merge" in text
         assert "Обновить ветку из `main`" in text
 
+    def test_claude_md_says_the_protection_is_on_and_universal(self) -> None:
+        """Пока защиты не было, `auto-merge` мержил мгновенно — и дважды уехало
+        непроверенное. Контракт обязан говорить, что теперь она есть и что
+        обходов у неё нет: «правило для всех, кроме владельца» — это снова
+        память, а не механика.
+        """
+        text = " ".join(_CLAUDE_MD.read_text(encoding="utf-8").split())
+
+        assert "Защита `main` включена" in text
+        assert "Require branches to be up to date" in text
+        assert "обходов **пуст**" in text or "обходов пуст" in text
+
     def test_claude_md_says_the_badge_is_nightly(self) -> None:
         """Иначе отставание бейджа на сутки выглядит как поломка."""
         text = " ".join(_CLAUDE_MD.read_text(encoding="utf-8").split())
