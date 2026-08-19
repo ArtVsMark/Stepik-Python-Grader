@@ -42,6 +42,7 @@ __all__ = [
     "apply_launch_profile",
     "flag_present",
     "peek_lang",
+    "validate_output_format",
     "validate_serve_arguments",
 ]
 
@@ -111,6 +112,18 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         epilog=t["cli_epilog"],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    # issue #1192: подкоманда как ПОЗИЦИОННЫЙ аргумент, а не argparse-subparsers.
+    # Subparser забрал бы себе всё после своего имени, и общие флаги
+    # (`--lang`, `--config`, `--output`) пришлось бы объявлять дважды — либо
+    # `stepik-grader stats --lang en` перестал бы работать. Позиционный
+    # `choices` даёт то же имя команды, ничего не меняя для флагового вызова:
+    # позиционных аргументов у грейдера не было и нет.
+    parser.add_argument(
+        "command",
+        nargs="?",
+        choices=["stats"],
+        help=t["cli_help_command_stats"],
+    )
     parser.add_argument("--version", action="store_true", help=t["cli_help_version"])
     parser.add_argument(
         "--mode",
@@ -167,7 +180,12 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output",
-        choices=["text", "json", "csv", "markdown"],
+        # issue #1192: `html` осмыслен только для `stats` — рендерить страницу
+        # из вердиктов одного прогона нечем. Значение принимается парсером и
+        # отклоняется явной проверкой (`_check_output_html`), а не молча
+        # игнорируется: молчание здесь означало бы «отчёт сформирован», когда
+        # его нет.
+        choices=["text", "json", "csv", "markdown", "html"],
         default="text",
         help=t["cli_help_output"],
     )
@@ -433,6 +451,24 @@ def validate_serve_arguments(
         parser.error(
             _profile_message(args, "serve_incompatible_flags", flags=", ".join(conflicting))
         )
+
+
+def validate_output_format(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """``--output html`` осмыслен только у команды ``stats`` (issue #1192).
+
+    Отчёт строится из истории прогонов, а не из вердиктов одного запуска, —
+    рендерить страницу режимам 1–4 попросту не из чего. Отказ явный, с
+    подсказкой правильной команды: молчаливое игнорирование выглядело бы как
+    «отчёт сформирован», когда его нет.
+
+    Raises:
+        SystemExit: ``--output html`` без команды ``stats``.
+    """
+    if args.output == "html" and args.command != "stats":
+        parser.error(_help_texts(args.lang)["stats_html_needs_command"])
 
 
 def _is_set(args: argparse.Namespace, name: str) -> bool:
