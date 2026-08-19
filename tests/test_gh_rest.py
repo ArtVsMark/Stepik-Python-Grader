@@ -569,3 +569,62 @@ class TestStrictCertificateFormIsNotDistrust:
         with pytest.raises(urllib.error.URLError):
             module._default_opener(urllib.request.Request("https://api.github.com/x"))
         assert len(calls) == 1
+
+
+class TestIssueOperations:
+    """Работа с issue тоже есть в REST — и до этого гоняла окно на GraphQL.
+
+    Закрыть issue, оставить комментарий, посмотреть состояние — рутина ничуть
+    не реже мержа PR, и каждая такая операция через MCP стоила ~300 points из
+    5000. Здесь она стоит один запрос из пятнадцати тысяч.
+    """
+
+    def test_close_sends_state_and_reason(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"state": "closed", "state_reason": "completed"}))
+
+        module.close_issue("x/y", 42, opener=opener, use_cache=False)
+
+        request = opener.captured[0]
+        assert request.get_method() == "PATCH"
+        assert json.loads(request.data) == {"state": "closed", "state_reason": "completed"}
+
+    def test_reason_is_carried_through(self, module: ModuleType) -> None:
+        """«Сделано» и «не будем делать» — разные исходы, трекер их различает."""
+        opener = _opener(_FakeResponse({"state": "closed"}))
+
+        module.close_issue("x/y", 42, reason="not_planned", opener=opener, use_cache=False)
+
+        assert json.loads(opener.captured[0].data)["state_reason"] == "not_planned"
+
+    def test_unknown_reason_is_refused_before_the_request(self, module: ModuleType) -> None:
+        """Отказ здесь дешевле, чем `422` после отправки — и понятнее."""
+        opener = _opener(_FakeResponse({}))
+
+        with pytest.raises(ValueError, match="причина закрытия"):
+            module.close_issue("x/y", 42, reason="потому что", opener=opener, use_cache=False)
+        assert opener.captured == [], "запрос ушёл, хотя причина заведомо неверна"
+
+    def test_comment_posts_the_body(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"html_url": "https://github.com/x/y/issues/42#c1"}))
+
+        module.comment_issue("x/y", 42, "текст", opener=opener, use_cache=False)
+
+        request = opener.captured[0]
+        assert request.get_method() == "POST"
+        assert request.full_url.endswith("/issues/42/comments")
+        assert json.loads(request.data) == {"body": "текст"}
+
+    def test_issue_read_is_a_plain_get(self, module: ModuleType) -> None:
+        opener = _opener(_FakeResponse({"number": 42, "state": "open", "title": "тема"}))
+
+        found = module.issue("x/y", 42, opener=opener, use_cache=False)
+
+        assert opener.captured[0].get_method() == "GET"
+        assert found["title"] == "тема"
+
+    def test_rate_limit_is_recognised_here_too(self, module: ModuleType) -> None:
+        """Квота одна на всё: закрытие issue обязано давать «ждать», а не «упало»."""
+        error = _http_error(403, headers={"x-ratelimit-remaining": "0", "x-ratelimit-reset": "1"})
+
+        with pytest.raises(module.RateLimited):
+            module.close_issue("x/y", 42, opener=_opener(error), use_cache=False)

@@ -202,6 +202,9 @@ python scripts/gh_rest.py checks <PR>          # проверки PR + заня�
 python scripts/gh_rest.py compare <PR>         # отстала ли ветка от базовой
 python scripts/gh_rest.py update-branch <PR>   # подтянуть main в ветку PR
 python scripts/gh_rest.py merge <PR>           # squash-мерж
+python scripts/gh_rest.py issue <N>            # состояние issue, заголовок, метки
+python scripts/gh_rest.py close-issue <N>      # закрыть с причиной (--reason)
+python scripts/gh_rest.py comment <N> "текст"  # комментарий к issue или PR
 python scripts/gh_rest.py rate                 # остаток квоты; сам её не тратит
 ```
 
@@ -218,6 +221,11 @@ python scripts/gh_rest.py rate                 # остаток квоты; са
   засчитывает вовсе, поэтому повторный опрос статусов дешевле первого.
 - **`check_pr_ready.py` ходит тем же транспортом** — токен, распознавание
   квоты и условные запросы одинаковы у всего конвейера.
+- **Работа с issue — тоже по REST.** Закрыть, прокомментировать, посмотреть
+  состояние: рутина не реже мержа PR, и через MCP каждая такая операция стоила
+  ~300 points. Причина закрытия обязательна — «сделано» и «не будем делать»
+  разные исходы, а трекер, где всё закрыто без разбора, перестаёт отвечать на
+  вопрос «что мы решили не делать».
 - **Чего в REST нет — остаётся за MCP.** Sub-issues и `auto-merge`
   (`enablePullRequestAutoMerge`) существуют только в GraphQL; это исключение, а
   не лазейка для остальной рутины.

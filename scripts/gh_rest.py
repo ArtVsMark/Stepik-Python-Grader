@@ -78,8 +78,11 @@ __all__ = [
     "Quota",
     "RateLimited",
     "Response",
+    "close_issue",
+    "comment_issue",
     "compare",
     "create_pull",
+    "issue",
     "list_pulls",
     "main",
     "main_run",
@@ -579,6 +582,47 @@ def merge_pull(
     return data if isinstance(data, dict) else {}
 
 
+_CLOSE_REASONS = ("completed", "not_planned", "duplicate")
+
+
+def close_issue(
+    repo: str,
+    number: int,
+    *,
+    reason: str = "completed",
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Закрыть issue с указанием причины.
+
+    Причина обязательна по смыслу: «сделано» и «не будем делать» — разные
+    исходы, и трекер, где всё закрыто без разбора, перестаёт отвечать на
+    вопрос «что мы решили не делать».
+
+    Raises:
+        ValueError: причина не из набора, который принимает GitHub. Отказ
+            здесь дешевле, чем ``422`` после отправки.
+    """
+    if reason not in _CLOSE_REASONS:
+        raise ValueError(f"причина закрытия должна быть одной из {_CLOSE_REASONS}: {reason!r}")
+    payload = {"state": "closed", "state_reason": reason}
+    data = request("PATCH", f"repos/{repo}/issues/{number}", body=payload, **kwargs).data
+    return data if isinstance(data, dict) else {}
+
+
+def comment_issue(repo: str, number: int, text: str, **kwargs: Any) -> dict[str, Any]:
+    """Оставить комментарий к issue или PR — в REST это один и тот же ресурс."""
+    data = request(
+        "POST", f"repos/{repo}/issues/{number}/comments", body={"body": text}, **kwargs
+    ).data
+    return data if isinstance(data, dict) else {}
+
+
+def issue(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
+    """Одно issue: заголовок, состояние, метки. Без тела и полей — их не просим."""
+    data = _get(f"repos/{repo}/issues/{number}", **kwargs)
+    return data if isinstance(data, dict) else {}
+
+
 def rate_limit(**kwargs: Any) -> dict[str, Quota]:
     """Остаток квоты по ресурсам. Сам запрос лимит не расходует."""
     data = _get("rate_limit", use_cache=False, **kwargs)
@@ -737,6 +781,40 @@ def _cmd_merge(args: argparse.Namespace) -> int:
     return EXIT_FAIL
 
 
+def _cmd_issue(args: argparse.Namespace) -> int:
+    """Показать issue: состояние, заголовок, метки."""
+    found = issue(args.repo, args.number)
+    if args.json:
+        _print_json(found)
+        return EXIT_OK
+    labels = ", ".join(str(label.get("name", "")) for label in found.get("labels", []))
+    state = found.get("state_reason") or found.get("state")
+    print(f"#{found.get('number')} [{state}] {found.get('title', '')}")
+    if labels:
+        print(f"  метки: {labels}")
+    return EXIT_OK
+
+
+def _cmd_close_issue(args: argparse.Namespace) -> int:
+    """Закрыть issue с причиной."""
+    closed = close_issue(args.repo, args.number, reason=args.reason)
+    if args.json:
+        _print_json(closed)
+        return EXIT_OK
+    print(f"#{args.number} закрыт ({closed.get('state_reason', args.reason)}).")
+    return EXIT_OK
+
+
+def _cmd_comment(args: argparse.Namespace) -> int:
+    """Оставить комментарий к issue или PR."""
+    posted = comment_issue(args.repo, args.number, args.text)
+    if args.json:
+        _print_json(posted)
+        return EXIT_OK
+    print(f"#{args.number}: комментарий добавлен — {posted.get('html_url', '')}")
+    return EXIT_OK
+
+
 def _cmd_rate(args: argparse.Namespace) -> int:
     """Показать остаток квоты — сам запрос её не расходует."""
     quotas = rate_limit()
@@ -787,6 +865,20 @@ def _build_parser() -> argparse.ArgumentParser:
     merge.add_argument("pull", type=int)
     merge.add_argument("--method", default="squash", choices=["squash", "merge", "rebase"])
     merge.set_defaults(handler=_cmd_merge)
+
+    show_issue = sub.add_parser("issue", help="состояние issue, заголовок, метки")
+    show_issue.add_argument("number", type=int)
+    show_issue.set_defaults(handler=_cmd_issue)
+
+    close = sub.add_parser("close-issue", help="закрыть issue с причиной")
+    close.add_argument("number", type=int)
+    close.add_argument("--reason", default="completed", choices=_CLOSE_REASONS)
+    close.set_defaults(handler=_cmd_close_issue)
+
+    comment = sub.add_parser("comment", help="комментарий к issue или PR")
+    comment.add_argument("number", type=int)
+    comment.add_argument("text", help="текст комментария")
+    comment.set_defaults(handler=_cmd_comment)
 
     rate = sub.add_parser("rate", help="остаток квоты (запрос её не тратит)")
     rate.set_defaults(handler=_cmd_rate)
