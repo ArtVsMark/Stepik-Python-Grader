@@ -600,7 +600,10 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 квотами и PostgreSQL-модель данных. Дизайн лежит в
 [server-mode.md](docs/dev/design/server-mode.md),
 [server-sandbox-design.md](docs/dev/design/server-sandbox-design.md),
-[server-data-model.md](docs/dev/design/server-data-model.md) + ADR-0001/0008/0009. Живого
+[server-data-model.md](docs/dev/design/server-data-model.md) + ADR-0001/0008/0009 — это
+**как** устроено; **что и в каком порядке** делать — в
+[server-roadmap.md](docs/dev/design/server-roadmap.md) (11 блоков с фазами и
+зависимостями, отклонённые цели с причинами). Живого
 issue на билд нет — направление держит только roadmap **#59**. Локальный
 `SandboxRunner` (`--sandbox`), Runner-слой и контракт результата, наоборот,
 **реализованы** (`core/sandbox/`, `core/runner.py`, `core/result.py`) — их не
