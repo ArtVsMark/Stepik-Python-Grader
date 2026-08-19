@@ -1,6 +1,7 @@
 // grade.js — проверка (режимы 1–4), рендер результата, карточки действий (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
 import { initNavigation, syncFromPath } from "./navigation.js";
+import { refreshStatementButton, resetStatement } from "./statement.js";
 import { $, SECTIONS, codeBlock, cycleTheme, errorSummary, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, stripAnsi, t, toast, tp } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
@@ -380,6 +381,7 @@ function updateRunButtonState() {
 function resetFilePicker() {
   state.solutions = [];
   state.selectedSolutionFile = null;
+  resetStatement(); // issue #1178: сменилась задача — прежнее условие не её
   const list = $("#solutions-list");
   if (list) list.innerHTML = "";
   setEditorCode("");
@@ -415,6 +417,10 @@ async function refreshSolutionsList() {
     }
     state.solutions = data.files || [];
     renderSolutionsList();
+    // issue #1178: папка задачи известна — можно узнать, есть ли условие.
+    // Не ждём ответа: кнопка активируется, когда придёт, а список решений
+    // показывается сразу.
+    refreshStatementButton();
     // issue #1179: путь известен — панель навигации встаёт на эту задачу либо
     // честно показывает «вне курса». Не ждём: список решений уже показан.
     syncFromPath(folder);
