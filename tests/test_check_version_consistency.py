@@ -156,3 +156,51 @@ class TestBaselineRequiredInCi:
         module = _load_module()
         monkeypatch.setenv("CI", value)
         assert module._baseline_is_required() is False
+
+
+class TestHistoryMetricsRow:
+    """issue #1181: проверка переехала с `docs/use/versions.md` на `HISTORY.md`.
+
+    Форма изменилась вместе с местом: в прежнем документе релизы шли **колонками**
+    и хватало проверки «есть ли такая подстрока», а в `HISTORY.md` они строки
+    таблицы — и та же подстрока встречается ещё и в заголовке записи о релизе.
+    Проверка «где угодно» проходила бы на пустой таблице.
+    """
+
+    def _history(self, tmp_path, body: str, monkeypatch):
+        module = _load_module()
+        path = tmp_path / "HISTORY.md"
+        path.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(module, "_HISTORY", path)
+        return module
+
+    def test_row_present_is_silent(self, tmp_path, monkeypatch) -> None:
+        module = self._history(tmp_path, "| Релиз |\n|---|\n| v1.10.0 | 2295 |\n", monkeypatch)
+        warnings: list[str] = []
+
+        module._check_history_md((1, 10, 0), warnings)
+
+        assert warnings == []
+
+    def test_missing_row_warns(self, tmp_path, monkeypatch) -> None:
+        module = self._history(tmp_path, "| Релиз |\n|---|\n| v1.9.0 | 1600+ |\n", monkeypatch)
+        warnings: list[str] = []
+
+        module._check_history_md((1, 10, 0), warnings)
+
+        assert warnings and "v1.10.0" in warnings[0]
+
+    def test_heading_alone_is_not_a_row(self, tmp_path, monkeypatch) -> None:
+        """Заголовок записи о релизе — не строка таблицы.
+
+        Ровно этот случай прежняя проверка «tag in text» приняла бы за
+        заполненную таблицу и промолчала.
+        """
+        module = self._history(
+            tmp_path, "## v1.10.0 · 30 июля 2026 · тема\n\nтекст записи\n", monkeypatch
+        )
+        warnings: list[str] = []
+
+        module._check_history_md((1, 10, 0), warnings)
+
+        assert warnings and "v1.10.0" in warnings[0]

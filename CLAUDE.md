@@ -2,7 +2,7 @@
 
 > Агентский контракт: то, что Claude Code должен знать перед КАЖДЫМ действием.
 > Только действующие инварианты, стиль и команды. История спринтов, roadmap и
-> подробные примечания к issue вынесены в [`docs/archive/history.md`](docs/archive/history.md)
+> подробные примечания к issue вынесены в [`HISTORY.md`](HISTORY.md)
 > (архив). Не раздувать этот файл заново — большие технические
 > разделы канонически живут в `docs/` (см. § Источники истины).
 
@@ -469,7 +469,7 @@ merge-pull, а `--no-merges` завышал на дроблении — см. is
 
 ---
 
-## 📝 Обновление CHANGELOG.md / docs/archive/history.md — когда
+## 📝 Обновление CHANGELOG.md / HISTORY.md — когда
 
 - **`CHANGELOG.md`** (русский) — запись под `## [Unreleased]` в **каждом**
   смерженном PR, без исключений для "внутренних"/рефакторинговых PR
@@ -503,7 +503,7 @@ merge-pull, а `--no-merges` завышал на дроблении — см. is
     [`docs/archive/changelog-archive.md`](docs/archive/changelog-archive.md). CI-guard
     `scripts/check_docs_guardrails.py` не даёт числу версионных заголовков
     в `CHANGELOG.md` превысить 3.
-- **`docs/archive/history.md`** (русский) — архивная запись на **каждый релиз**
+- **`HISTORY.md`** (русский) — запись на **каждый релиз**
   (новый git-тег `vX.Y.0`), не на каждый PR: сводка вошедшего в релиз, в
   стиле уже существующих записей (`**#NNN (дата):** ...`).
 Не откладывать `CHANGELOG.md` "до конца фичи/спринта" — если PR смержен,
@@ -534,7 +534,7 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | Цепочка поставок: инвентарь рантайма/ассетов, pip-audit | [docs/dev/supply-chain.md](docs/dev/supply-chain.md) |
 | Архитектурные решения (ADR) | [docs/dev/adr/README.md](docs/dev/adr/README.md) |
 | Дерево файлов | [docs/dev/project-structure.md](docs/dev/project-structure.md) |
-| Версии, отличия от оригинала | [docs/use/versions.md](docs/use/versions.md) |
+| История проекта: происхождение, одиннадцать релизов, эволюция метрик | [HISTORY.md](HISTORY.md) |
 | Политика версионирования, код-стайл, workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | **Безопасность: threat model, куда уходят данные, гарантии `--sandbox` по ОС** | [SECURITY.md](SECURITY.md) |
 | Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
@@ -636,7 +636,7 @@ issue на билд нет — направление держит только 
     без исключений для рефакторингов (см. § Обновление CHANGELOG.md и
     changelog.d/README.md). Формат фрагментов проверяет CI, наличие записи —
     preflight
-[ ] docs/archive/history.md — НЕ на каждый PR, только на релиз (см. ту же секцию)
+[ ] HISTORY.md — НЕ на каждый PR, только на релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
     за дрейфом; достаточно, чтобы верхняя запись CHANGELOG совпадала
     с последним git-тегом
@@ -679,7 +679,7 @@ issue на билд нет — направление держит только 
 > строка `| Версия | X.Y.Z |` — её проверяет
 > `scripts/check_version_consistency.py` (мягкое предупреждение при расхождении
 > с последним git-тегом; обновлять при релизе MINOR). Эволюция метрик по
-> релизам — в [docs/archive/history.md](docs/archive/history.md).
+> релизам — в [HISTORY.md](HISTORY.md).
 
 > **Два числа покрытия.** С `--sandbox` `core/sandbox/`
 > содержит три ОС-специфичных backend'а — на любой одной машине/CI-job'е два из

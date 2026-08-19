@@ -8,8 +8,8 @@
 1. **Возврат статического источника истины.** ``[project]`` в ``pyproject.toml``
    не должен снова объявлять ``version = "..."`` — только ``dynamic = ["version"]``.
 2. **Дрейф "текущей версии" в документации.** Верхняя запись ``CHANGELOG.md``
-   (и, мягко, таблица метрик ``CLAUDE.md`` с таблицей эволюции
-   ``docs/use/versions.md``) должна соответствовать актуальному релизному
+   (и, мягко, таблица метрик ``CLAUDE.md`` с таблицей эволюции метрик
+   ``HISTORY.md``) должна соответствовать актуальному релизному
    baseline — последнему git-тегу ``vX.Y.0``. Исключение — **готовящийся
    релиз**: верхняя запись ровно на один MINOR впереди тега допускается, потому
    что релизный PR переименовывает ``[Unreleased]`` в ``[X.Y+1.0]`` до того, как
@@ -48,7 +48,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 _PYPROJECT = _ROOT / "pyproject.toml"
 _CHANGELOG = _ROOT / "CHANGELOG.md"
 _CLAUDE = _ROOT / "CLAUDE.md"
-_VERSIONS = _ROOT / "docs" / "use" / "versions.md"
+_HISTORY = _ROOT / "HISTORY.md"
 
 _SEMVERISH = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
@@ -179,19 +179,25 @@ def _check_claude_metrics(baseline: tuple[int, int, int], warnings: list[str]) -
         )
 
 
-def _check_versions_md(baseline: tuple[int, int, int], warnings: list[str]) -> None:
-    """docs/use/versions.md: таблица эволюции имеет колонку последнего релиза (мягко).
+def _check_history_md(baseline: tuple[int, int, int], warnings: list[str]) -> None:
+    """HISTORY.md: у последнего релиза есть СТРОКА в таблице эволюции метрик (мягко).
 
-    Таблица «Эволюция версий» — про качественные скачки, свободный формат;
-    поэтому warning, а не error (владелец может решить не выделять релиз в
-    отдельную колонку). Закрывает слепую зону аудита #381: без этой проверки
-    канон уже отставал — таблица кончалась на v1.7.0 при git-теге v1.8.0.
+    Warning, а не error: числа в таблице — снимок на момент релиза, и владелец
+    подставляет их при постановке тега, а не в релизном PR. Закрывает слепую
+    зону аудита #381: без этой проверки канон уже отставал — таблица кончалась
+    на v1.7.0 при git-теге v1.8.0.
+
+    Ищется именно строка таблицы (``| v1.10.0 |``), а не вхождение версии где
+    угодно: в записи о релизе тег упомянут заголовком, и проверка «есть ли
+    подстрока» проходила бы на пустой таблице (issue #1181 — документ переехал
+    из ``docs/use/versions.md``, где релизы шли колонками).
     """
     tag = f"v{baseline[0]}.{baseline[1]}.0"
-    if tag not in _VERSIONS.read_text(encoding="utf-8"):
+    text = _HISTORY.read_text(encoding="utf-8")
+    if not re.search(rf"^\|\s*{re.escape(tag)}\s*\|", text, re.MULTILINE):
         warnings.append(
-            f"docs/use/versions.md: evolution table has no column for the latest "
-            f"release {tag}. Add a {tag} column at the next MINOR release."
+            f"HISTORY.md: metrics table has no row for the latest release {tag}. "
+            f"Add a {tag} row at the next MINOR release."
         )
 
 
@@ -218,7 +224,7 @@ def main() -> int:
         print(f"Release baseline (latest git tag): v{baseline[0]}.{baseline[1]}.{baseline[2]}")
         _check_changelog(baseline, errors)
         _check_claude_metrics(baseline, warnings)
-        _check_versions_md(baseline, warnings)
+        _check_history_md(baseline, warnings)
 
     for w in warnings:
         print(f"  WARNING: {w}")

@@ -58,7 +58,7 @@ pipx install stepik-python-grader && stepik-grader
 | «Подучить» — свои частые ошибки из истории | ❌ | ❌ | ✅ |
 | Код остаётся на машине | ❌ | ✅ | ✅ |
 
-Детальное сравнение с проектом-первоисточником — в [docs/use/versions.md](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/use/versions.md#что-изменилось-по-сравнению-с-оригиналом).
+Как проект дошёл до текущего состояния — в [HISTORY.md](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/HISTORY.md): происхождение, одиннадцать релизов, эволюция метрик.
 
 ---
 

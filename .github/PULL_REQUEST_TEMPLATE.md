@@ -29,7 +29,7 @@ Closes #
       `from __future__ import annotations`
 - [ ] Версия не правится вручную (динамическая, `setuptools-scm`)
 - [ ] Запись о изменении добавлена файлом `changelog.d/<slug>.<секция>.md` — в КАЖДОМ PR, без исключений для рефакторингов (формат — `changelog.d/README.md`)
-- [ ] docs/archive/history.md — НЕ на каждый PR, только при релизе
+- [ ] HISTORY.md — НЕ на каждый PR, только при релизе
 - [ ] Нет секретов в диффе (`secrets.json`, токены, `stepik_config.json`)
 
 ## Как проверял
