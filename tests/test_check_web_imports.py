@@ -129,3 +129,157 @@ def test_end_to_end_flags_missing_import_in_a_real_layout(monkeypatch, tmp_path:
     module.check_core_imports(errors)
     assert len(errors) == 1
     assert "content.js" in errors[0] and "kpiGrid" in errors[0]
+
+
+# ---------------------------------------------------------------------------
+# issue #921: сломанный guard по определению не виден — он проходит.
+# Здесь проверяется, что он падает на заведомо сломанном входе.
+# ---------------------------------------------------------------------------
+
+
+def _layout(static: Path) -> None:
+    """Минимальная статика: core.js плюс два модуля с ребром между ними."""
+    static.mkdir(parents=True, exist_ok=True)
+    (static / "core.js").write_text("export { esc };\n", encoding="utf-8")
+    (static / "content.js").write_text(
+        'import { esc } from "./core.js";\n'
+        "function openGlossary() { return esc(1); }\n"
+        "export { openGlossary };\n",
+        encoding="utf-8",
+    )
+
+
+def test_module_in_a_subdirectory_is_not_invisible(monkeypatch, tmp_path: Path) -> None:
+    """AUD-2-03: `glob` вместо `rglob` ослеплял гейт молча.
+
+    Переезд модуля в подкаталог не должен превращать проверку в проверку
+    пустоты — она продолжала бы печатать «no missing imports».
+    """
+    module = _load_module()
+    static = tmp_path / "static"
+    _layout(static)
+    (static / "widgets").mkdir()
+    (static / "widgets" / "chart.js").write_text("const h = esc(1);\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_STATIC", static)
+    monkeypatch.setattr(module, "_CORE", static / "core.js")
+
+    errors: list[str] = []
+    module.check_core_imports(errors)
+
+    assert len(errors) == 1
+    assert "chart.js" in errors[0] and "esc" in errors[0]
+
+
+def test_edge_between_two_modules_is_checked(monkeypatch, tmp_path: Path) -> None:
+    """AUD-2-04: стерегли одно ребро из десяти, ломаются они одинаково."""
+    module = _load_module()
+    static = tmp_path / "static"
+    _layout(static)
+    (static / "grade.js").write_text(
+        'import { } from "./content.js";\nopenGlossary();\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_STATIC", static)
+    monkeypatch.setattr(module, "_CORE", static / "core.js")
+
+    errors: list[str] = []
+    module.check_all_edges(errors)
+
+    assert len(errors) == 1
+    assert "grade.js" in errors[0] and "openGlossary" in errors[0]
+    assert "content.js" in errors[0]
+
+
+def test_properly_imported_edge_is_quiet(monkeypatch, tmp_path: Path) -> None:
+    """Контроль: гейт, который краснеет всегда, обходят."""
+    module = _load_module()
+    static = tmp_path / "static"
+    _layout(static)
+    (static / "grade.js").write_text(
+        'import { openGlossary } from "./content.js";\nopenGlossary();\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_STATIC", static)
+    monkeypatch.setattr(module, "_CORE", static / "core.js")
+
+    errors: list[str] = []
+    module.check_all_edges(errors)
+
+    assert errors == []
+
+
+def test_own_definition_is_not_a_missing_import(monkeypatch, tmp_path: Path) -> None:
+    """Локальный `render()` не обязан импортироваться из-за тёзки у соседа.
+
+    Без этого обобщение гейта на все рёбра начало бы краснеть без причины — и
+    его обошли бы, как любое предупреждение, которое горит всегда.
+    """
+    module = _load_module()
+    static = tmp_path / "static"
+    _layout(static)
+    (static / "nav.js").write_text("function render() {}\nexport { render };\n", encoding="utf-8")
+    (static / "grade.js").write_text(
+        'import { } from "./nav.js";\nfunction render() {}\nrender();\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_STATIC", static)
+    monkeypatch.setattr(module, "_CORE", static / "core.js")
+
+    errors: list[str] = []
+    module.check_all_edges(errors)
+
+    assert errors == []
+
+
+def test_aliased_export_is_matched_by_its_public_name(monkeypatch, tmp_path: Path) -> None:
+    """`export { render as renderNavigation }` — наружу видно второе имя."""
+    module = _load_module()
+    static = tmp_path / "static"
+    _layout(static)
+    (static / "nav.js").write_text(
+        "function render() {}\nexport { render as renderNavigation };\n", encoding="utf-8"
+    )
+    (static / "grade.js").write_text(
+        'import { } from "./nav.js";\nrenderNavigation();\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_STATIC", static)
+    monkeypatch.setattr(module, "_CORE", static / "core.js")
+
+    errors: list[str] = []
+    module.check_all_edges(errors)
+
+    assert len(errors) == 1
+    assert "renderNavigation" in errors[0]
+
+
+def test_real_repository_has_more_than_one_edge(monkeypatch) -> None:
+    """Страховка от тихого возврата к «одному ребру из десяти».
+
+    Если однажды проверка снова сузится до `core.js`, счётчик рёбер обнулится,
+    а вывод останется бодрым — ровно тот случай, ради которого заведён #921.
+    """
+    module = _load_module()
+    edges = 0
+    for path in module.module_files():
+        source = path.read_text(encoding="utf-8")
+        for match in module._LOCAL_IMPORT.finditer(source):
+            if Path(match.group(2)).name != module._CORE.name:
+                edges += 1
+
+    assert edges >= 5, f"рёбер модуль↔модуль стало {edges} — проверка сузилась?"
+
+
+def test_main_actually_runs_the_edge_check(monkeypatch, tmp_path: Path) -> None:
+    """Провод, а не только сама проверка: `main()` обязан её звать.
+
+    Первая редакция этих тестов дёргала `check_all_edges` напрямую — и удаление
+    вызова из `main()` не роняло ничего. Ровно тот класс, ради которого заведён
+    #921: проверка есть, а гейт её не выполняет.
+    """
+    module = _load_module()
+    static = tmp_path / "static"
+    _layout(static)
+    (static / "grade.js").write_text(
+        'import { } from "./content.js";\nopenGlossary();\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_STATIC", static)
+    monkeypatch.setattr(module, "_CORE", static / "core.js")
+
+    assert module.main() == 1
