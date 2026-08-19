@@ -280,6 +280,72 @@ class TestSaveTaskFiles:
         assert main_file.read_bytes() == raw
 
 
+class TestStatementFiles:
+    """Условие сохраняется дважды: сырым и Markdown'ом (issue #1176).
+
+    До этого в `task.md` лежал HTML — расширение не соответствовало содержимому,
+    а исходник не сохранялся вовсе, поэтому перегенерация с изменёнными
+    правилами потребовала бы качать задачи по сети заново.
+    """
+
+    HTML = "<h2>Заголовок</h2><p>Текст с <code>кодом</code> и &lt;скобками&gt;.</p>"
+
+    def _step(self, text: str):
+        return {
+            "id": 1,
+            "position": 3,
+            "title": "T",
+            "block": {"options": [], "text": text},
+        }
+
+    def _meta(self):
+        return {"id": 1, "title": "x"}
+
+    def _save(self, task_dir: pathlib.Path, text: str):
+        return save_task_files(
+            task_dir, self._step(text), None, self._meta(), self._meta(), self._meta(), MagicMock()
+        )
+
+    def test_raw_html_is_kept_byte_for_byte(self, tmp_path: pathlib.Path):
+        """`task.html` — исходник: из него пересобирается `task.md` без сети."""
+        self._save(tmp_path, self.HTML)
+
+        assert (tmp_path / "task.html").read_text(encoding="utf-8") == self.HTML
+
+    def test_markdown_is_actually_markdown(self, tmp_path: pathlib.Path):
+        """Расширение `.md` теперь соответствует содержимому."""
+        self._save(tmp_path, self.HTML)
+        body = (tmp_path / "task.md").read_text(encoding="utf-8")
+
+        assert "<h2>" not in body
+        assert "<code>" not in body
+        assert "&lt;" not in body
+        assert "## Заголовок" in body
+        assert "`кодом`" in body
+
+    def test_two_files_differ(self, tmp_path: pathlib.Path):
+        """Иначе конвертация молча не сработала, а тесты выше этого не увидят."""
+        self._save(tmp_path, self.HTML)
+
+        raw = (tmp_path / "task.html").read_text(encoding="utf-8")
+        converted = (tmp_path / "task.md").read_text(encoding="utf-8")
+        assert raw != converted
+
+    def test_empty_statement_creates_neither_file(self, tmp_path: pathlib.Path):
+        """Шаг без условия не плодит пустышек — поведение как до #1176."""
+        self._save(tmp_path, "")
+
+        assert not (tmp_path / "task.html").exists()
+        assert not (tmp_path / "task.md").exists()
+
+    def test_broken_html_does_not_break_the_download(self, tmp_path: pathlib.Path):
+        """Вёрстка условия не имеет права ронять скачивание (best-effort)."""
+        result = self._save(tmp_path, "<p>текст<div><table><tr><td>ещё")
+
+        assert result == (0, "none")
+        assert "текст" in (tmp_path / "task.md").read_text(encoding="utf-8")
+
+
 class TestProcessStepUrl:
     """process_step_url оркеструет вызовы fetch_* и save_task_files."""
 
