@@ -64,6 +64,8 @@ def _latest_tag_baseline() -> tuple[int, int, int] | None:
             ["git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"],
             cwd=_ROOT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stderr=subprocess.DEVNULL,
         ).strip()
     except (OSError, subprocess.CalledProcessError):

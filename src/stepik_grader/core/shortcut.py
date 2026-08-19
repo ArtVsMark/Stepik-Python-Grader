@@ -114,6 +114,13 @@ def _write_windows_lnk(target: Path, home: Path) -> Path:
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
             capture_output=True,
             text=True,
+            # Сообщение об ошибке PowerShell приходит на языке системы. Без
+            # явной кодировки Python декодировал бы его локалью и мог упасть
+            # `UnicodeDecodeError` — вместо причины неудачи с ярлыком.
+            # `replace` здесь честнее строгости: испорченный символ в тексте
+            # ошибки лучше, чем исключение поверх исключения.
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
             check=False,
         )

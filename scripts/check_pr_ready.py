@@ -354,8 +354,27 @@ def _expected_names(fetch: Fetch, repo: str, workflows_dir: pathlib.Path) -> set
         return set()
 
 
+def _force_utf8_stdio() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли (issue #1108).
+
+    Вердикт готовности русский и со стрелками ``→``; в консоли cp1251 такой
+    вывод падал ``UnicodeEncodeError``, и вместо ответа «готов / не готов»
+    гейт печатал собственный трейсбек — на нём же спотыкался и ``--help``.
+
+    Собственная копия приёма, а не общий ``stepik_grader.stdio_encoding``:
+    скрипт принципиально не импортирует пакет — он работает и там, где пакет не
+    установлен. No-op на потоках без ``reconfigure`` (перехваченных pytest).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
     """Напечатать вердикт готовности PR; 0 — можно мержить."""
+    # Раньше любой печати, включая справку argparse: описание флагов русское.
+    _force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

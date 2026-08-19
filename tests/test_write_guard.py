@@ -169,6 +169,26 @@ def test_run_artefacts_are_not_pollution() -> None:
     assert not _is_run_artefact("some")
 
 
+def test_foreign_tool_files_are_not_pollution() -> None:
+    """Файлы соседнего инструмента разработчика — не след теста.
+
+    Прецедент: полный прогон на машине владельца дал 14 ложных обвинений подряд,
+    все — из-за `~/.claude.json.lock`, который Claude Code создаёт и удаляет
+    независимо от тестов. Обвинялся каждый раз случайный тест, ничего не
+    писавший; сам прогон при этом был зелёным (4620 passed). Guard ценен именно
+    точностью обвинения — ложное срабатывание обесценивает его быстрее, чем
+    пропуск.
+    """
+    assert _is_run_artefact(".claude.json")
+    assert _is_run_artefact(".claude.json.lock")
+    # Атомарная запись кладёт рядом временный файл со случайным хвостом —
+    # именно из-за него точных имён было мало.
+    assert _is_run_artefact(".claude.json.tmp.15864.92a1")
+    # Наши собственные файлы остаются под наблюдением — их след теста значим.
+    assert not _is_run_artefact(".grader_history.db")
+    assert not _is_run_artefact(".grader_settings.json.lock")
+
+
 def test_top_level_names_ignores_nested_entries(tmp_path: Path) -> None:
     """Слепок — только верхний уровень: имена, а не обход в глубину."""
     (tmp_path / "visible.txt").write_text("x", encoding="utf-8")

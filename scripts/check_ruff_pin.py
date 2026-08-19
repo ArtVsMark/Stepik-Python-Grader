@@ -92,6 +92,8 @@ def installed_ruff_version() -> Version | None:
             [sys.executable, "-m", "ruff", "--version"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         ).stdout
     except OSError:
