@@ -266,9 +266,56 @@ nearest free one is used; taken by an already running server of ours — its
 address is printed and a second one is not started. The exit code comes from the
 server, so a script can tell "came up" from "could not".
 
-From the terminal — the same thing with flags:
+From the terminal — the same via flags:
 
+```bash
+stepik-grader --serve                          # http://127.0.0.1:8000
+stepik-grader --serve --port 9000              # a different port
+stepik-grader --serve --root C:\StepikTasks    # explicit working directory
+stepik-grader --serve --no-root-confinement    # no path confinement (see below)
+```
 
+- **Localhost only** (`127.0.0.1`) — not exposed to the network.
+- **No new dependencies** — stdlib `http.server`, reuses the same grading
+  logic as the CLI (`run_tests`/`run_benchmark`).
+- The default path field is the server's working directory; the last path and
+  mode are remembered (localStorage).
+- The path field takes a solution file (`.py`) or a folder with solutions;
+  tests are resolved the same way as in modes 1/2/3.
+- The same threat model as the CLI: without `--sandbox` there is no isolation —
+  run your own solutions. `--serve --sandbox` enables OS isolation in the web
+  UI too. Full threat model — [configuration.md § Limits and
+  security](configuration.md#ограничения-и-безопасность).
+
+**Submitting a solution to Stepik.** In mode 1 (one file), under the editor
+there is a **"Submit to Stepik"** button: it sends the current solution to
+Stepik and polls the verdict without leaving the browser (the submit core is
+`create_attempt`/`submit_solution`/`poll_submission`/`submit_and_wait` in
+`core/stepik_client.py`, the web wrapper is the async `stepik_submit` job via
+`POST /api/stepik/submit`, see [api.md](../dev/api.md#post-apistepiksubmit)).
+Requires the task's `step_id` (written when downloading via the downloader)
+and Stepik authorization. There is no CLI submit command yet — web only.
+
+**Working directory (`--root`).** All paths from the requests
+(`/api/grade`, `/api/source`, `/api/solutions`, `/api/save-solution`,
+`POST /api/v1/runs`) are confined to the server's working directory — by
+default the cwd at `--serve` start, or an explicit `--root <dir>`. A path
+outside it (including via `../` traversal or a symlink pointing outside —
+resolved with `Path.resolve()` before the check) is rejected with `403`
+(`{"kind": "error", "message": ...}`). `--no-root-confinement` is an explicit
+rollback to the previous behavior (access to any path on disk); a deliberate
+user choice, not the default — use it when you run the grader only for
+yourself and know what you are doing. `/api/download` (the `root` field in
+the request body — where to DOWNLOAD a task) is not covered by this
+confinement — a separate concern.
+
+> Drag-and-drop file upload is the next iteration.
+
+---
+
+## IDE integration
+
+> Check a solution right from the editor, without switching to the terminal.
 > Check a solution right from the editor, without switching to the terminal.
 
 **VS Code** — generate the tasks with one command (from the project folder):
