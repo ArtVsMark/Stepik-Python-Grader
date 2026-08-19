@@ -174,6 +174,32 @@ class TestConfigDoesNotMislead:
         assert "cancelled" in head
 
 
+class TestBadgesStayOutOfMain:
+    """Бейджи публикуются веткой `badges`, а не коммитом в `main` (issue #1235).
+
+    Два следствия, и оба ломаются молча. **Первое** — защита `main`: обязательные
+    проверки запрещают прямой push кому угодно, а обход для GitHub Actions
+    личному репозиторию недоступен, поэтому вернувшийся `push origin HEAD:main`
+    не «слегка нарушит правило», а насовсем сломает обновление бейджей.
+    **Второе** — README ссылается на ветку по имени: разъедься она с CI, и
+    бейджи отдадут 404, о чём не скажет ни один прогон.
+    """
+
+    def test_badge_job_does_not_push_to_main(self, ci_yml: str) -> None:
+        assert "push origin HEAD:main" not in ci_yml
+
+    def test_badge_job_publishes_to_the_badges_branch(self, ci_yml: str) -> None:
+        block = _job_block(ci_yml, "coverage-combine")
+        assert "push origin badges" in block
+        assert "worktree add" in block
+
+    @pytest.mark.parametrize("readme", ["README.md", "README.en.md"])
+    def test_readme_reads_badges_from_that_branch(self, readme: str) -> None:
+        text = (pathlib.Path(__file__).parent.parent / readme).read_text(encoding="utf-8")
+        assert "Stepik-Python-Grader/main/.github/badges/" not in text
+        assert "Stepik-Python-Grader/badges/.github/badges/" in text
+
+
 class TestDocumentationTellsTheTruth:
     def test_claude_md_says_the_queue_is_unavailable(self) -> None:
         """Первая редакция #1235 утверждала обратное — и по ней уже был сделан PR.

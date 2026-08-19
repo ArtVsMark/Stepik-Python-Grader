@@ -1,14 +1,14 @@
 # Stepik Python Grader
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Release / PyPI](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/release.json&cacheSeconds=300)](https://pypi.org/project/stepik-python-grader/)
-[![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/version.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/CHANGELOG.md)
+[![Release / PyPI](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/release.json&cacheSeconds=300)](https://pypi.org/project/stepik-python-grader/)
+[![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/version.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/CHANGELOG.md)
 <!-- release/pypi сверяет тег с опубликованным пакетом; что значат цвета — docs/dev/versioning.md. -->
-[![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+[![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+[![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 <!-- Бейджей покрытия два не случайно: что именно меряет каждый — CONTRIBUTING.md § Покрытие. -->
-[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/dev/glossary.md)
-[![Good first issues](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/good-first-issues.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/good%20first%20issue)
+[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/glossary.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/dev/glossary.md)
+[![Good first issues](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/good-first-issues.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/good%20first%20issue)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14%20%28exp%29-blue)
 
 > **Status:** Stable &nbsp;·&nbsp; 🇬🇧 [English quick start & generic mode](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/README.en.md)
