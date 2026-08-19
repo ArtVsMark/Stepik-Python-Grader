@@ -426,3 +426,44 @@ class TestMergeQueueIsNotOverlapped:
         )
 
         assert verdict.ready
+
+
+class TestStaleBranchIsNotReady:
+    """issue #1235 (вариант B): зелёный на устаревшей ветке отвечает про вчера.
+
+    Merge queue проверяла бы объединённое состояние сама, но она доступна лишь
+    репозиториям организации — у личного аккаунта такой опции нет. Значит
+    актуальность ветки спрашиваем мы.
+    """
+
+    def test_behind_branch_blocks(self, module: ModuleType) -> None:
+        assert module.branch_is_stale({"behind_by": 3})
+
+    def test_up_to_date_branch_is_quiet(self, module: ModuleType) -> None:
+        assert module.branch_is_stale({"behind_by": 0}) == []
+
+    def test_ahead_only_is_quiet(self, module: ModuleType) -> None:
+        """Свои коммиты поверх свежего main — норма, а не отставание."""
+        assert module.branch_is_stale({"behind_by": 0, "ahead_by": 7}) == []
+
+    def test_missing_data_is_not_a_blocker(self, module: ModuleType) -> None:
+        """Гейт, который краснеет на отсутствии данных, обходят."""
+        assert module.branch_is_stale({}) == []
+        assert module.branch_is_stale({"behind_by": None}) == []
+
+    def test_reason_names_the_remedy(self, module: ModuleType) -> None:
+        """Серая кнопка без объяснения читается как «сломалось» — тут так же."""
+        reason = module.branch_is_stale({"behind_by": 1})[0]
+
+        assert "update-branch" in reason
+
+    def test_blocker_reaches_the_verdict(self, module: ModuleType) -> None:
+        verdict = module.evaluate(
+            _pull(),
+            _runs(("completed", "success")),
+            _checks(*_GREEN),
+            _EXPECTED,
+            main_blockers=module.branch_is_stale({"behind_by": 2}),
+        )
+
+        assert not verdict.ready

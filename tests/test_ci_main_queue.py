@@ -47,10 +47,15 @@ def _job_block(text: str, name: str) -> str:
 
 
 class TestMergeQueueIsWiredIn:
-    """Тихая ловушка: очередь без своего триггера мержит вслепую."""
+    """Конфиг готов к очереди, хотя включить её на личном аккаунте нельзя."""
 
     def test_merge_group_trigger_exists(self, ci_yml: str) -> None:
-        """Без него на кандидате не запускается НИ ОДНА проверка."""
+        """Сегодня не срабатывает (очередь — только для организаций), но оставлен.
+
+        Он безвреден, а без него очередь после возможного переезда в
+        организацию мержила бы вслепую: в интерфейсе всё выглядит включённым, а
+        обязательных проверок на кандидате нет.
+        """
         head = ci_yml[: ci_yml.index("\nconcurrency:")]
 
         assert re.search(r"^  merge_group:", head, re.MULTILINE), (
@@ -170,15 +175,24 @@ class TestConfigDoesNotMislead:
 
 
 class TestDocumentationTellsTheTruth:
-    def test_claude_md_names_the_silent_trap(self) -> None:
-        """Настройка очереди без `merge_group` выглядит рабочей и мержит вслепую.
+    def test_claude_md_says_the_queue_is_unavailable(self) -> None:
+        """Первая редакция #1235 утверждала обратное — и по ней уже был сделан PR.
 
-        Правило, которого нет в контракте, соблюдают до первой настройки с нуля.
+        Merge queue есть у репозиториев организации; у личного аккаунта опции
+        нет в защите ветки вовсе. Контракт обязан говорить это прямо, иначе
+        следующий заход снова пойдёт искать несуществующую галочку.
         """
         text = " ".join(_CLAUDE_MD.read_text(encoding="utf-8").split())
 
-        assert "merge_group" in text
-        assert "вслепую" in text
+        assert "Merge queue нам недоступна" in text
+        assert "организации" in text
+
+    def test_claude_md_spells_out_the_merge_order(self) -> None:
+        """Вариант B — это порядок действий, а не настройка: его и записываем."""
+        text = " ".join(_CLAUDE_MD.read_text(encoding="utf-8").split())
+
+        assert "auto-merge" in text
+        assert "Обновить ветку из `main`" in text
 
     def test_claude_md_says_the_badge_is_nightly(self) -> None:
         """Иначе отставание бейджа на сутки выглядит как поломка."""

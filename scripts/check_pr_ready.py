@@ -28,12 +28,17 @@
    «готов». И если последний прогон ``main`` красный, следующий PR не мержится
    тоже: иначе красный ``main`` копит изменения, и разбирать придётся смесь.
 
-   **Это страховка на время, пока не включена merge queue** (issue #1235). У
-   очереди та же цель, но исполняет её GitHub: кандидат получает собственную
-   ветку «``main`` + PR» и собственный прогон, ждать приходится внутри GitHub,
-   и наш токен не тратит на это ни одного запроса. Когда очередь включат в
-   защите ветки, проверка ниже станет избыточной — но не вредной: один дешёвый
-   REST-запрос, который к тому же продолжает ловить красный ``main``.
+   Merge queue закрыла бы это штатно, но она **нам недоступна**: условие — не
+   публичность репозитория, а тип владельца (организация либо Enterprise
+   Cloud), и у личного аккаунта опции нет вовсе. Поэтому порядок держится
+   вариантом B (issue #1235): ветка обновляется из ``main``, ``auto-merge``
+   мержит её по зелёному, следующий PR берётся после завершения прогона.
+
+5. **Устаревшая ветка — не «готова»**. PR, отставший от ``main``, проверен на
+   состоянии, которого больше нет: его зелёный отвечает про вчера. С включённой
+   защитой «Require branches to be up to date» GitHub и сам не даст смержить,
+   но гейт обязан говорить это раньше и внятно — иначе ожидание зелёного уходит
+   впустую.
 
 Запуск::
 
@@ -61,6 +66,7 @@ from typing import Any
 
 __all__ = [
     "Verdict",
+    "branch_is_stale",
     "check_names",
     "default_fetch",
     "evaluate",
@@ -161,6 +167,25 @@ def pending_runs(workflow_runs: dict[str, Any]) -> list[str]:
         f"{run.get('name', 'workflow')} ({run.get('status')})"
         for run in latest_by_name(runs)
         if run.get("status") != "completed"
+    ]
+
+
+def branch_is_stale(comparison: dict[str, Any]) -> list[str]:
+    """Отстала ли ветка PR от базовой (issue #1235, вариант B).
+
+    ``behind_by`` из ``/compare/{base}...{head}`` — сколько коммитов базовой
+    ветки в ветку PR не приехало. Больше нуля означает, что зелёный прогон
+    отвечает про состояние, которого в ``main`` уже нет.
+
+    Пустой или неразобранный ответ блокировкой не считается: гейт, краснеющий
+    на отсутствии данных, обходят.
+    """
+    behind = comparison.get("behind_by") if isinstance(comparison, dict) else None
+    if not isinstance(behind, int) or behind <= 0:
+        return []
+    return [
+        f"ветка отстала от main на {behind} коммит(ов) — обновить "
+        "(gh pr update-branch), иначе зелёный отвечает про прошлое состояние"
     ]
 
 
@@ -350,13 +375,22 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
             f"repos/{args.repo}/actions/workflows/{_CI_WORKFLOW}/runs"
             "?branch=main&event=push&per_page=10"
         )
+        # issue #1235: отставание ветки от базовой. `mergeable_state` показывает
+        # `behind` только при включённой защите «Require branches to be up to
+        # date»; спрашиваем напрямую, чтобы гейт говорил это и до её включения.
+        base = str(pull.get("base", {}).get("ref", "main"))
+        comparison = call(f"repos/{args.repo}/compare/{base}...{sha}")
     except RuntimeError as exc:
         print(f"Не удалось опросить GitHub: {exc}", file=sys.stderr)
         return 1
 
     expected = _expected_names(call, args.repo, _ROOT / ".github" / "workflows")
     verdict = evaluate(
-        pull, workflow_runs, check_runs, expected, main_blockers=main_branch_blockers(main_runs)
+        pull,
+        workflow_runs,
+        check_runs,
+        expected,
+        main_blockers=main_branch_blockers(main_runs) + branch_is_stale(comparison),
     )
 
     if args.json:
