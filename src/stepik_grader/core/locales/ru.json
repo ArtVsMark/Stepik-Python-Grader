@@ -176,6 +176,7 @@
   "file_save_failed": "Не удалось сохранить файл: {error}",
   "folder_not_found": "Папка не найдена: {path}",
   "glossary_card_not_found": "Карточка не найдена: {card_id}",
+  "glossary_no_card_id": "Не указан идентификатор карточки.",
   "goodbye": "До свидания!",
   "grade_downloaded_many": "Скачано задач: {count}. Предлагаем проверить последнюю (остальные — пунктами 1/2 меню).",
   "grade_downloaded_prompt": "▶ Проверить скачанную задачу сейчас? {path} [Y/n]: ",

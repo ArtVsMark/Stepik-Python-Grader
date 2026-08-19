@@ -25,6 +25,7 @@ from typing import Any, NamedTuple
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import all_entries
+from stepik_grader.core.history import record_glossary_hit as record_hit
 from stepik_grader.glossary.detector import MissingConceptDetector, scan_code_concepts
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
@@ -56,7 +57,32 @@ __all__ = [
     "glossary_missing",
     "glossary_search",
     "queue_code_gaps",
+    "record_glossary_hit",
 ]
+
+
+def record_glossary_hit(
+    card_id: str,
+    *,
+    db_path: pathlib.Path,
+    failure_kind: str | None = None,
+    error_class: str | None = None,
+) -> bool:
+    """Записать переход в карточку ИЗ ОШИБКИ прогона (issue #1220).
+
+    Пас-through в ``core/history``: гейт согласия отработал выше, в роутере, —
+    сюда путь к базе приходит уже разрешённым. Пишется только deep-link из
+    разбора ошибки; открытие раздела «Глоссарий» руками не пишется, иначе
+    метрика превратилась бы в «просмотрел N карточек» и перестала отвечать на
+    вопрос, ради которого заведена: работает ли связка «упал → понял».
+
+    Возвращает, легла ли запись: ``core/history`` best-effort и на битой базе
+    молча вернёт ``None``.
+    """
+    return (
+        record_hit(card_id, db_path=db_path, failure_kind=failure_kind, error_class=error_class)
+        is not None
+    )
 
 
 def _fallback_cards() -> list[GlossaryCard]:

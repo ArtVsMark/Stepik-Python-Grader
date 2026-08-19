@@ -223,7 +223,8 @@ class TestHintAndSubmitCancel:
         """
         seen: dict[str, object] = {}
 
-        def _fake_submit(session, step_id, code, *, cancel_event=None):
+        def _fake_submit(session, step_id, code, **kwargs):
+            cancel_event = kwargs["cancel_event"]
             seen["cancel_event"] = cancel_event
             cancel_event.set()  # вердикт не дождались, пользователь отменил
             from stepik_grader.core.stepik_client import SubmissionResult

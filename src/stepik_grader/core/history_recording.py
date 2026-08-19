@@ -23,6 +23,7 @@ from typing import Any
 from stepik_grader.config import CONFIG
 from stepik_grader.core import glossary, history, insights
 from stepik_grader.core.result import BenchResult, CaseResult
+from stepik_grader.core.runprofile import current_profile
 
 # issue #818: единая пользовательская база — одна на человека, а не на папку.
 # Каталог с точкой, как у остальных пользовательских данных инструментов CLI;
@@ -40,11 +41,28 @@ _ENV_HISTORY_DB = "STEPIK_GRADER_HISTORY_DB"
 __all__ = [
     "cases_from_bench_results",
     "cases_from_test_results",
+    "current_isolation",
     "default_history_db_path",
     "find_existing_history_db",
     "lint_records_from_violations",
     "user_history_db_path",
 ]
+
+
+def current_isolation() -> str:
+    """Чем исполняется прогон прямо сейчас (issue #1220).
+
+    ``history.ISOLATION_NONE`` — обычный ``LocalRunner`` без ОС-изоляции; иначе
+    имя backend'а песочницы (``bwrap``/``sandbox-exec``/``job-objects``).
+    Backend назван, а не свёрнут в булев «под песочницей»: гарантии у трёх
+    реализаций разные (SECURITY.md), и «изолировано» без уточнения — обещание,
+    которого ни один из них по отдельности не даёт.
+
+    Читается в момент вызова: ``--sandbox`` подменяет runner уже после загрузки
+    модулей, поэтому снимок на импорте всегда врал бы «без изоляции».
+    """
+    backend = current_profile().sandbox_backend
+    return backend or history.ISOLATION_NONE
 
 
 def cases_from_test_results(cases: list[CaseResult]) -> list[history.CaseRecord]:

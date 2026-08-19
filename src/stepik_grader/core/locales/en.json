@@ -176,6 +176,7 @@
   "file_save_failed": "Failed to save file: {error}",
   "folder_not_found": "Folder not found: {path}",
   "glossary_card_not_found": "Card not found: {card_id}",
+  "glossary_no_card_id": "Card id is missing.",
   "goodbye": "Goodbye!",
   "grade_downloaded_many": "Downloaded {count} tasks. Offering the last one (the rest are available via menu items 1/2).",
   "grade_downloaded_prompt": "▶ Grade the downloaded task now? {path} [Y/n]: ",

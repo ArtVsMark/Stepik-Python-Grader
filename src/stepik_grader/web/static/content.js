@@ -27,7 +27,25 @@ function openGlossaryForSelectedCase() {
     id = c.glossary.anchor;
   }
   setSection("glossary");
-  if (id) selectGlossaryCard(id);
+  if (id) {
+    selectGlossaryCard(id);
+    _noteGlossaryHit(id, c);
+  }
+}
+
+// issue #1220: отметить, что в карточку пришли ИЗ ОШИБКИ. Пишется только этот
+// переход, а не любое открытие раздела: измеряем связку «упал → понял», а не
+// листание справочника. Отправка — «выстрелил и забыл»: отметка не должна ни
+// задерживать показ карточки, ни ломать его, если история выключена.
+function _noteGlossaryHit(cardId, c) {
+  const payload = { card_id: cardId };
+  if (c && c.failure_kind) payload.failure_kind = c.failure_kind;
+  if (c && c.glossary && c.glossary.exception) payload.error_class = c.glossary.exception;
+  fetch("/api/glossary/hit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
 }
 
 // -- Result-panel tabs (Таблица / Разбор) -------------------------------------

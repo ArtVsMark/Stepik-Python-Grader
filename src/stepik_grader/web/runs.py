@@ -42,6 +42,7 @@ from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
     grade_path,
+    history_db_path_if_enabled,
 )
 
 __all__ = ["Job", "TooManyRunsError", "cancel_job", "get_job", "shutdown_jobs", "submit_job"]
@@ -568,10 +569,15 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
     уходит). Ленивый импорт stepik/oauth-стека держит ``runs.py`` импортируемым
     в изоляции (как ``_run_auth_job``). Результат — ``{status, hint, score,
     submission_id}`` (``status`` = correct/wrong/evaluation).
+
+    issue #1175: вердикт платформы попутно уходит в историю — через
+    ``core/submission``, общий путь отправки, а не отдельной веткой веб-слоя.
+    Гейт согласия остаётся у веба (``history_db_path_if_enabled``): только он
+    знает про оверрайд ``--serve --no-history``.
     """
     import requests
 
-    from stepik_grader.core import stepik_client
+    from stepik_grader.core import submission
     from stepik_grader.core.oauth_flow import (
         load_secrets_dict,
         try_create_session_without_browser,
@@ -601,8 +607,16 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
                 job.status = "error"
                 job.message_fields = message_fields("stepik_auth_required", lang)
             return
-        result = stepik_client.submit_and_wait(
-            session, step_id, code, cancel_event=job.cancel_event
+        raw_task_dir = str(params.get("task_dir") or "")
+        raw_workspace = str(params.get("workspace") or "")
+        result = submission.submit_and_record(
+            session,
+            step_id,
+            code,
+            task_dir=pathlib.Path(raw_task_dir) if raw_task_dir else None,
+            base_dir=pathlib.Path(raw_workspace) if raw_workspace else None,
+            history_db=history_db_path_if_enabled(),
+            cancel_event=job.cancel_event,
         )
     except Exception as exc:
         with job.lock:

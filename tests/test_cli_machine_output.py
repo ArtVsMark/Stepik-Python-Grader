@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import pathlib
 
@@ -145,13 +144,18 @@ class TestMachineLabels:
         assert line["isolation"] == "none"
 
     def test_isolation_label_follows_sandbox_backend(self, monkeypatch):
-        """Под песочницей метка — имя backend'а, а не «none»."""
-        profile = commands.current_profile()
-        monkeypatch.setattr(
-            commands,
-            "current_profile",
-            lambda: dataclasses.replace(profile, sandbox_backend="bubblewrap"),
-        )
+        """Под песочницей метка — имя backend'а, а не «none».
+
+        Подменяется активный runner, а не место чтения паспорта: значение
+        считает общий хелпер (``history_recording.current_isolation``, issue
+        #1220), и тест не должен знать, из какого модуля его позвали.
+        """
+        from stepik_grader.core import runner
+
+        class _FakeSandbox:
+            backend_name = "bubblewrap"
+
+        monkeypatch.setattr(runner, "_RUNNER", _FakeSandbox())
 
         assert commands._isolation_label() == "bubblewrap"
 
