@@ -70,7 +70,14 @@ def _git(*args: str) -> str:
     """``git`` в корне репозитория; пустая строка при любой ошибке."""
     try:
         return subprocess.check_output(
-            ["git", *args], cwd=_ROOT, text=True, stderr=subprocess.DEVNULL
+            ["git", *args],
+            cwd=_ROOT,
+            text=True,
+            # Темы коммитов и имена веток здесь русские: без явной кодировки
+            # вывод декодировался бы локалью машины и на cp1251 падал.
+            encoding="utf-8",
+            errors="replace",
+            stderr=subprocess.DEVNULL,
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         return ""

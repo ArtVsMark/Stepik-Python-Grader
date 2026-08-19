@@ -49,10 +49,28 @@ _RUN_ARTEFACT_NAMES = frozenset(
 )
 _RUN_ARTEFACT_PREFIXES = (".coverage",)
 
+# Файлы соседних инструментов, которые работают на машине разработчика
+# ОДНОВРЕМЕННО с прогоном и трогают собственное состояние в домашнем каталоге.
+# К тестам они отношения не имеют, но снимок guard'а их видит и обвиняет того,
+# в чьём teardown заметил. Прецедент: полный прогон дал 14 ложных обвинений
+# подряд — все из-за файлов `~/.claude.json*` (Claude Code), при том что сам
+# прогон был зелёным.
+#
+# Именно ПРЕФИКС, а не точные имена: инструмент пишет настройки атомарно, и
+# рядом с `.claude.json` живут `.claude.json.lock` и `.claude.json.tmp.<pid>.
+# <hash>` — список точных имён отсеял бы первые два и продолжил обвинять на
+# третьем. При этом «игнорировать всё в доме» вернуло бы ровно тот дефект,
+# ради которого guard написан (#818 — удалённая `~/.grader_history.db`).
+_FOREIGN_TOOL_PREFIXES = (".claude.json",)
+
 
 def _is_run_artefact(name: str) -> bool:
-    """Запись верхнего уровня создана инструментом прогона, а не тестом."""
-    return name in _RUN_ARTEFACT_NAMES or name.startswith(_RUN_ARTEFACT_PREFIXES)
+    """Запись создана инструментом (прогона или соседним), а не тестом."""
+    return (
+        name in _RUN_ARTEFACT_NAMES
+        or name.startswith(_RUN_ARTEFACT_PREFIXES)
+        or name.startswith(_FOREIGN_TOOL_PREFIXES)
+    )
 
 
 def _top_level_names(place: Path) -> set[str]:
