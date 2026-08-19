@@ -7,11 +7,21 @@ GitHub держит максимум один ожидающий. Замер 19.
 шесть `cancelled`, ни одного выполненного.
 
 Первым решением (#1229) прогон `main` урезали до одной ОС. Отмены исчезли ценой
-слепой зоны: `main` перестал проверяться на Windows и macOS до ночного прогона.
-Настоящее решение — **merge queue** (#1235): GitHub собирает ветку «`main` +
-этот PR», гоняет на ней полную матрицу и мержит только при зелёном. Проверяется
-будущее состояние `main`, а не устаревшая ветка PR, и у каждого кандидата свой
-ref — вытеснять друг друга им нечем.
+слепой зоны: `main` перестал проверяться на Windows и macOS до ночного прогона —
+а ОС-специфики в проекте много по устройству (Job Objects против bubblewrap
+против `sandbox-exec`, ACL против POSIX-битов, кодировки консоли, короткие пути
+Windows).
+
+Сегодняшнее устройство — **полная матрица на любом событии** (#1231) плюс
+**защита `main`** (#1235, вариант B): обязательные проверки и «ветка обязана
+быть свежей». Очередь держится не размером матрицы, а **темпом мержа**:
+следующий PR не мержится, пока не завершился прогон предыдущего, — это
+проверяет `check_pr_ready.py`, отвечая «ждать». Плата — мерж примерно раз в
+четверть часа.
+
+Merge queue закрыла бы это штатно, но личному аккаунту она недоступна: условие
+— тип владельца (организация либо Enterprise Cloud), а не видимость
+репозитория.
 
 Главное, что здесь сторожится, — **триггер `merge_group`**. Без него проверки
 на кандидате не запускаются вовсе, и очередь мержит вслепую; в интерфейсе при
@@ -74,11 +84,17 @@ class TestMergeQueueIsWiredIn:
         assert os_name in block
 
     def test_candidate_runs_e2e(self, ci_yml: str) -> None:
-        """Браузерные journey — единственное, что проверяет страницу целиком."""
+        """Браузерные journey — единственное, что проверяет страницу целиком.
+
+        Раньше здесь сторожилось условие `!= 'push'`: journey пропускались на
+        `main`, а кандидату очереди достались бы по остаточному принципу.
+        Теперь (issue #1231) у job'а условия нет вовсе — он выполняется на любом
+        событии, и это сильнее прежней проверки.
+        """
         block = _job_block(ci_yml, "e2e")
 
-        assert "github.event_name != 'push'" in block, (
-            "e2e пропускается не только на push — кандидат очереди его лишится"
+        assert "if: github.event_name" not in block, (
+            "e2e снова зависит от события — на main страница перестанет проверяться целиком"
         )
 
     def test_candidate_is_never_cancelled(self, ci_yml: str) -> None:
@@ -95,29 +111,50 @@ class TestMergeQueueIsWiredIn:
         assert "refs/heads/main" not in cancel.group(1)
 
 
-class TestMatrixDependsOnEvent:
-    """Размер матрицы разный: короткий пуш в main, полный набор до мержа."""
+class TestMatrixIsTheSameForEveryEvent:
+    """Матрица не зависит от события: `main` проверяется как PR (issue #1231).
 
-    def test_matrix_branches_on_event(self, ci_yml: str) -> None:
-        block = _job_block(ci_yml, "test")
-        assert "github.event_name == 'push'" in block, "матрица не различает событие"
+    Короткий прогон (#1229) убрал отмены в очереди, но ценой слепой зоны:
+    `main` переставал проверяться на Windows и macOS до ночного прогона. Зона
+    не теоретическая — полная матрица на PR в тот же день поймала падение
+    `test_local_runner_times_out` на `macos-latest × 3.14`, невидимое для одной
+    ОС. Очередь держится темпом мержа, а не размером матрицы.
+    """
 
-    def test_push_runs_a_single_os(self, ci_yml: str) -> None:
-        """Ради этого всё и делалось: короткий прогон не копит очередь."""
+    def test_matrix_does_not_branch_on_event(self, ci_yml: str) -> None:
+        """Ветвление вернулось бы незаметно: YAML остался бы валидным.
+
+        Смотрим именно секцию `matrix`, а не весь job: событие в нём
+        спрашивают и по делу — загрузка coverage-артефакта нужна только на
+        `push`/`schedule`, и запрещать это значило бы ломать соседнюю логику.
+        """
         block = _job_block(ci_yml, "test")
-        assert '["ubuntu-latest"]' in block or "'[\"ubuntu-latest\"]'" in block
+        matrix = block[block.index("matrix:") : block.index("steps:")]
+        assert "github.event_name" not in matrix, (
+            "матрица снова различает событие — main опять проверяется не как PR"
+        )
 
     @pytest.mark.parametrize("os_name", ["ubuntu-latest", "windows-latest", "macos-latest"])
-    def test_full_matrix_survives_for_pull_request(self, ci_yml: str, os_name: str) -> None:
-        """Проверять надо ДО мержа — полную матрицу на PR сокращать нельзя."""
+    def test_every_os_runs_on_push_too(self, ci_yml: str, os_name: str) -> None:
+        """Три ОС на любом событии, включая пуш в `main`."""
         block = _job_block(ci_yml, "test")
         assert os_name in block
+
+    @pytest.mark.parametrize("version", ["3.12", "3.13"])
+    def test_both_supported_versions_run(self, ci_yml: str, version: str) -> None:
+        block = _job_block(ci_yml, "test")
+        assert f'"{version}"' in block
 
     def test_experimental_314_still_covered(self, ci_yml: str) -> None:
         """issue #454: 3.14 обещана `requires-python` и покрывается на трёх ОС."""
         block = _job_block(ci_yml, "test")
         assert '"3.14"' in block
-        assert block.count('"python-version": "3.14"') == 3
+        assert block.count('python-version: "3.14"') == 3
+
+    def test_experimental_314_does_not_block(self, ci_yml: str) -> None:
+        """Экспериментальные комбинации не должны ронять мерж."""
+        block = _job_block(ci_yml, "test")
+        assert "continue-on-error" in block
 
 
 class TestNightlyCrossOsCoverage:
@@ -131,15 +168,32 @@ class TestNightlyCrossOsCoverage:
         assert group, "concurrency.group не найден"
         assert "schedule" in group.group(1)
 
-    def test_combined_badge_not_published_from_the_short_run(self, ci_yml: str) -> None:
-        """Число одной ОС под бейджем «all OS» — это ложь, а не приближение."""
+    def test_combined_badge_is_published_from_the_merge_run(self, ci_yml: str) -> None:
+        """Прогон `push` снова видит три ОС — бейджу больше незачем ждать ночи.
+
+        Отставание на сутки было платой за короткий прогон (issue #1227): его
+        число не cross-OS, и публиковать его под «all OS» значило соврать. С
+        возвратом полной матрицы (issue #1231) плата отпала.
+        """
+        block = _job_block(ci_yml, "coverage-combine")
+        assert 'github.event_name }}" != "push"' not in block, (
+            "combined-бейдж снова ждёт ночного прогона, хотя матрица уже полная"
+        )
+
+    def test_combined_badge_still_guarded_against_degradation(self, ci_yml: str) -> None:
+        """Недосчитанное число под «all OS» — точная ложь, и это важнее свежести.
+
+        Если ожидаемых coverage-данных нет (упал, например, `sandbox-linux`),
+        бейдж не публикуется вовсе: прошлое честное значение остаётся в силе.
+        """
         block = _job_block(ci_yml, "coverage-combine")
         guard = re.search(
-            r'if \[ "\$\{\{ github\.event_name \}\}" != "push" \].*coverage-combined',
+            r'if \[ "\$\{\{ steps\.combine\.outputs\.degraded \}\}" != "true" \]'
+            r".*coverage-combined",
             block,
             re.DOTALL,
         )
-        assert guard, "cross-OS бейдж не защищён от публикации с короткого прогона"
+        assert guard, "бейдж «all OS» публикуется даже при деградации данных"
 
     def test_badges_are_committed_on_schedule_too(self, ci_yml: str) -> None:
         """Иначе ночной прогон посчитает покрытие и никуда его не запишет."""
@@ -148,16 +202,19 @@ class TestNightlyCrossOsCoverage:
 
 
 class TestNoiseIsNotNormalised:
-    def test_required_sources_depend_on_the_matrix_size(self, ci_yml: str) -> None:
-        """Предупреждение, которое горит всегда, перестают читать.
+    """Предупреждение, которое горит всегда, перестают читать."""
 
-        На коротком прогоне windows/macos нет по замыслу; требовать их значило
-        бы выдавать ``::warning::`` на каждом мерже — и настоящую деградацию
-        тогда пропустят вместе с шумом.
+    @pytest.mark.parametrize("source", ["ubuntu-latest", "windows-latest", "macos-latest"])
+    def test_every_os_is_required_for_the_combined_report(self, ci_yml: str, source: str) -> None:
+        """Матрица снова полная, значит артефакты всех трёх ОС обязаны быть.
+
+        Прежде на `push` требовалась одна ubuntu: windows и macos там не
+        запускались, и требовать их значило бы выдавать ``::warning::`` на
+        каждом мерже. Теперь их отсутствие — настоящая деградация, а не
+        особенность события.
         """
         block = _job_block(ci_yml, "coverage-combine")
-        assert "REQUIRED" in block
-        assert "github.event_name == 'push'" in block
+        assert f"--require {source}" in block
 
 
 class TestConfigDoesNotMislead:
@@ -232,7 +289,15 @@ class TestDocumentationTellsTheTruth:
         assert "Require branches to be up to date" in text
         assert "обходов **пуст**" in text or "обходов пуст" in text
 
-    def test_claude_md_says_the_badge_is_nightly(self) -> None:
-        """Иначе отставание бейджа на сутки выглядит как поломка."""
+    def test_claude_md_says_the_badge_follows_every_merge(self) -> None:
+        """Раньше здесь сторожилось обратное — «бейдж ночной».
+
+        Это было верно при коротком прогоне: одна ОС не даёт cross-OS числа, и
+        бейдж ждал ночи. С возвратом полной матрицы отставание отпало, а
+        контракт обязан говорить текущее положение — иначе свежий бейдж
+        выглядит подозрительным, а несвежий никого не удивляет.
+        """
         text = " ".join(_CLAUDE_MD.read_text(encoding="utf-8").split())
-        assert "НОЧНУЮ сборку" in text or "ночную сборку" in text
+
+        assert "обновляется каждым мержем" in text
+        assert "Ночной прогон сохранён" in text
