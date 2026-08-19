@@ -812,6 +812,90 @@ function toast(message, kind = "info", options = {}) {
   arm();
 }
 
+// issue #1178 — общий помощник модальных окон. До него focus-trap существовал
+// тремя независимыми копиями (согласие на AI здесь же, онбординг в app.js,
+// обратная связь в feedback.js), и они разошлись: фикс #804 — вешать keydown на
+// document, а не на оверлей — попал только в одну. Разница не видна, пока
+// кто-нибудь не проверит клавиатурой все окна подряд, поэтому четвёртая копия
+// не пишется; существующие мигрируют отдельной задачей (#1225).
+//
+// Что помощник обязан делать, кроме собственно ловушки Tab:
+//   * слушать keydown на `document`, а НЕ на оверлее (#804, FER-04). После
+//     клика по подложке фокус уходит на `body`, а `body` не потомок оверлея —
+//     событие до него не доходит, и Escape с Tab становятся мёртвыми;
+//   * возвращать фокус туда, откуда окно открыли, иначе клавиатурный
+//     пользователь теряет место в интерфейсе (#637);
+//   * брать список остановок в момент нажатия, а не при открытии: содержимое
+//     окна может дорисоваться позже (условие приезжает по сети).
+function openModal(overlay, { onClose, initialFocus, closeOnBackdrop = true } = {}) {
+  if (!overlay) return () => {};
+  const returnFocus = document.activeElement;
+  let closed = false;
+
+  const stops = () =>
+    [...overlay.querySelectorAll("a[href], button, input, select, textarea, [tabindex]")].filter(
+      el => !el.disabled && el.tabIndex !== -1 && el.offsetParent !== null,
+    );
+
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    overlay.hidden = true;
+    document.removeEventListener("keydown", onKeydown);
+    overlay.removeEventListener("mousedown", onBackdrop);
+    // Фокус возвращается СЛЕДУЮЩИМ тактом, а не сразу. Закрытие по подложке
+    // приходит на `mousedown`, и браузер после нас доигрывает mouseup/click по
+    // уже скрытому оверлею — синхронно поставленный фокус тут же сбрасывается
+    // на body. Поймано прогоном в браузере: после Escape фокус возвращался, а
+    // после клика по подложке — нет; в тестах без настоящего движка событий
+    // такое не воспроизводится вовсе.
+    if (returnFocus && typeof returnFocus.focus === "function") {
+      setTimeout(() => returnFocus.focus(), 0);
+    }
+    if (onClose) onClose();
+  };
+
+  const onKeydown = e => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const list = stops();
+    if (!list.length) return;
+    const first = list[0];
+    const last = list[list.length - 1];
+    // Фокус мог оказаться вне окна (клик по подложке увёл его на body) —
+    // возвращаем его внутрь, иначе Tab уходит гулять по странице под оверлеем.
+    if (!overlay.contains(document.activeElement)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+      return;
+    }
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
+  const onBackdrop = e => {
+    // Клик мимо диалога закрывает окно. Проверяем сам оверлей, а не потомков:
+    // клик внутри диалога всплывает сюда же.
+    if (closeOnBackdrop && e.target === e.currentTarget) close();
+  };
+
+  overlay.hidden = false;
+  document.addEventListener("keydown", onKeydown);
+  overlay.addEventListener("mousedown", onBackdrop);
+  const target = initialFocus || stops()[0];
+  if (target && typeof target.focus === "function") target.focus();
+  return close;
+}
+
 export {
   $,
   SECTIONS,
@@ -826,6 +910,7 @@ export {
   getSelectedCase,
   kpiGrid,
   makeEditor,
+  openModal,
   registerSectionHook,
   renderTermsInto,
   revealWithMotion,

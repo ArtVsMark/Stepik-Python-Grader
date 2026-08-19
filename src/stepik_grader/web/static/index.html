@@ -152,6 +152,12 @@
                 <button id="stepik-submit" class="btn btn-secondary" type="button" disabled
                         data-i18n="stepik.submit" data-i18n-title="stepik.submit_title"
                         title="Отправить решение на Stepik — доступно после прохождения всех тестов">↑ Отправить в Stepik</button>
+                <!-- issue #1178: условие задачи рядом с решением. Живёт в том же
+                     блоке, что и «Отправить в Stepik»: он виден только в режиме 1,
+                     а условие показывается для одной выбранной задачи. -->
+                <button id="statement-open" class="btn btn-secondary" type="button" disabled
+                        data-i18n="statement.open" data-i18n-title="statement.open_title"
+                        title="Показать условие задачи — доступно, если оно скачано">📄 Условие задачи</button>
                 <button id="find-reference-btn" class="btn btn-secondary" type="button"
                         title="Импортировать закреплённое решение Stepik (+топовые) из ветки решений как эталон для сравнения"
                         data-i18n="check.find_reference" data-i18n-title="check.find_reference_title">Найти эталонное решение</button>
@@ -553,6 +559,25 @@
      Submit жмёт сам пользователь. Кнопка «Открыть GitHub» — это <a>, а не button:
      навигация по клику пользователя не блокируется попап-блокером, в отличие от
      window.open() из fetch-колбэка. Focus-trap/Escape — как в онбординге. -->
+<!-- issue #1178: окно условия задачи. Шире остальных модалок (модификатор
+     .statement) — в условии таблицы примеров и иллюстрации, в ширину диалога
+     согласия они не помещаются. Прокрутка внутри окна, страница под ним не
+     смещается. -->
+<div id="statement-overlay" class="modal-overlay" hidden>
+  <div class="modal statement" role="dialog" aria-modal="true" aria-labelledby="statement-title">
+    <div class="statement-head">
+      <div>
+        <p id="statement-crumbs" class="statement-crumbs"></p>
+        <h2 id="statement-title"><span aria-hidden="true">📄</span> <span data-i18n="statement.title">Условие задачи</span></h2>
+      </div>
+      <button id="statement-close-x" class="btn-icon" type="button" aria-label="Закрыть"
+              data-i18n-aria-label="statement.close_aria">✕</button>
+    </div>
+    <div id="statement-body" class="statement-body"></div>
+    <div id="statement-attachments" class="statement-attachments" hidden></div>
+  </div>
+</div>
+
 <div id="feedback-overlay" class="modal-overlay" hidden>
   <div class="modal feedback" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
     <div class="feedback-head">
