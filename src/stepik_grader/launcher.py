@@ -1357,6 +1357,27 @@ class LauncherApp:
             else self._setting_display(view.value)
         )
 
+    def _describe_setting_error(self, exc: Exception) -> str:
+        """Причина отказа на языке окна (issue #1245).
+
+        Ядро не переводит: ``config`` по замыслу stdlib-only, а
+        ``settings_resolver`` не знает, кто его слушает. Поэтому исключение
+        несёт КЛЮЧ причины, а строку собирает окно — до этого en-режим показывал
+        английский префикс «Not saved:» над русским хвостом «ожидается целое
+        число не меньше 1».
+
+        Исключение без ключа (``OSError`` при записи, чужой ``ValueError``)
+        печатается как есть: пропавший перевод не повод скрыть причину.
+        """
+        key = getattr(exc, "message_key", "")
+        if not key:
+            return str(exc)
+        params = dict(getattr(exc, "params", {}))
+        expected = params.pop("expected_key", "")
+        if expected:
+            params["expected"] = self._t(str(expected))
+        return self._t(str(key), **params)
+
     def _apply_setting(self, name: str) -> None:
         """Сохранить значение контрола; негодное — отвергнуть словами.
 
@@ -1368,7 +1389,9 @@ class LauncherApp:
             value = settings_resolver.coerce_value(name, self.setting_vars[name].get())
             settings_resolver.set_user_run_setting(name, value)
         except (ValueError, OSError) as exc:
-            self._set_status(self._t("settings_invalid", error=exc), error=True)
+            self._set_status(
+                self._t("settings_invalid", error=self._describe_setting_error(exc)), error=True
+            )
             # Контрол возвращается к тому, что записано: иначе в поле осталось
             # бы отвергнутое значение, и следующий взгляд принял бы его за
             # действующее.

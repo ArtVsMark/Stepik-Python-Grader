@@ -873,3 +873,39 @@ class TestRuntimeLimitFlags:
     def test_override_config_rejects_unknown_field(self):
         with pytest.raises(ValueError):
             config.override_config(timeuot_seconds=1.0)
+
+
+class TestExpectedKeys:
+    """issue #1245: описание допустимого значения доступно как ключ локали.
+
+    Сам ``config`` — stdlib-only и переводить не умеет по замыслу; он лишь
+    называет ключ, а строку собирает та поверхность, которая знает язык
+    пользователя. Здесь проверяется, что ключ есть у каждого поля и что он
+    действительно живёт в обоих каталогах — иначе окно покажет вместо причины
+    сам ключ.
+    """
+
+    def test_known_field_has_a_key(self) -> None:
+        assert config.expected_key("job_workers") == "expected_positive_int"
+
+    def test_unknown_field_has_none(self) -> None:
+        assert config.expected_key("нет такого поля") is None
+
+    def test_every_field_has_a_key(self) -> None:
+        missing = [name for name in config._RULES if not config.expected_key(name)]
+        assert not missing, f"поля без ключа описания: {missing}"
+
+    def test_every_key_exists_in_both_locales(self) -> None:
+        import json
+        import pathlib as _pathlib
+
+        root = _pathlib.Path(config.__file__).resolve().parent / "core" / "locales"
+        catalogs = {
+            lang: json.loads((root / f"{lang}.json").read_text(encoding="utf-8"))
+            for lang in ("ru", "en")
+        }
+        keys = {config.expected_key(name) for name in config._RULES}
+
+        for lang, catalog in catalogs.items():
+            absent = sorted(key for key in keys if key and key not in catalog)
+            assert not absent, f"{lang}.json: нет ключей описания {absent}"
