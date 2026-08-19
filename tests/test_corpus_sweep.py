@@ -239,6 +239,75 @@ def test_sweep_learning_does_not_touch_user_history(tmp_path: pathlib.Path) -> N
     assert not (base / ".grader_history.db").exists()
 
 
+def test_sweep_ai_is_quiet_when_the_channel_behaves(tmp_path: pathlib.Path) -> None:
+    """issue #1012: группа `ai` молчит, когда подсистема отрабатывает штатно.
+
+    Провайдер не настроен и в тестовом окружении настроен быть не может —
+    транспорт группа подменяет сама, поэтому проверка идёт без сети и без ключа.
+    """
+    base = tmp_path / "base"
+    base.mkdir()
+    _make_task(base)
+    task = _MODULE.discover_base(base)[0]
+
+    findings = _MODULE.sweep_ai(task, task.solutions[0], timeout=5.0)
+
+    # Пустое заземление на игрушечной задаче законно: в двух строках кода нет
+    # знакомых глоссарию концептов. Всё остальное обязано молчать.
+    assert [f.detail for f in findings if f.kind != "missing"] == []
+
+
+def test_sweep_ai_catches_a_lost_system_prompt(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Guard не пустой: подменённый промпт группа замечает.
+
+    Проверка «умеет ли находить» стоит рядом с самой группой намеренно —
+    очередь работ прямо требует проверять каждый новый guard на пустом входе,
+    иначе он зелёный ровно потому, что не смотрит.
+    """
+    from stepik_grader.core import ai_hints
+
+    base = tmp_path / "base"
+    base.mkdir()
+    _make_task(base)
+    task = _MODULE.discover_base(base)[0]
+    monkeypatch.setattr(ai_hints, "_system_prompt", lambda config, lang: "встроенный")
+
+    findings = _MODULE.sweep_ai(task, task.solutions[0], timeout=5.0)
+
+    assert any("ai_system_prompt" in f.detail for f in findings), findings
+
+
+def test_sweep_ai_catches_a_silent_refusal(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Отказ провайдера без причины — находка: он неотличим от «канал выключен»."""
+    from stepik_grader.core import ai_hints
+
+    base = tmp_path / "base"
+    base.mkdir()
+    _make_task(base)
+    task = _MODULE.discover_base(base)[0]
+    original = ai_hints.explain_failure_detailed
+
+    def _silent(ctx: object, config: object):
+        outcome = original(ctx, config)
+        return type(outcome)(text=outcome.text, reason=None)
+
+    monkeypatch.setattr(ai_hints, "explain_failure_detailed", _silent)
+
+    findings = _MODULE.sweep_ai(task, task.solutions[0], timeout=5.0)
+
+    assert any("отказ провайдера" in f.detail for f in findings), findings
+
+
+def test_ai_is_a_known_module_key() -> None:
+    """Группа доступна из CLI стенда наравне с остальными."""
+    assert "ai" in _MODULE.MODULE_KEYS
+    assert _MODULE._parse_modules("ai") == ["ai"]
+
+
 def test_finding_as_dict_is_json_ready() -> None:
     finding = _MODULE.Finding("step_1", "core", "mismatch", "подробность")
 

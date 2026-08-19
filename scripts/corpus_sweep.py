@@ -51,13 +51,23 @@ import sys
 import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 from corpus_mutations import MUTATIONS, Mutation
 from corpus_run import DEFAULT_TIMEOUT, expected_lines_of, run_verdict
 
-from stepik_grader.core import error_glossary, history, history_recording, insights, stats
+from stepik_grader.config import CONFIG
+from stepik_grader.core import (
+    ai_hints,
+    error_glossary,
+    history,
+    history_recording,
+    insights,
+    stats,
+)
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
+from stepik_grader.core.failure_context import build_failure_context
 from stepik_grader.core.grader_core import run_tests
 from stepik_grader.core.microbench_runner import run_microbench
 from stepik_grader.core.progress_export import build_progress_report, render_markdown
@@ -75,6 +85,7 @@ __all__ = [
     "discover_base",
     "main",
     "pick_reference",
+    "sweep_ai",
     "sweep_core",
     "sweep_extras",
     "sweep_glossary",
@@ -83,7 +94,7 @@ __all__ = [
 
 # Порядок групп — от самой ценной к самой дешёвой: если прогон прервут,
 # успеет отработать то, ради чего он затевался.
-MODULE_KEYS: tuple[str, ...] = ("core", "learning", "glossary", "extras")
+MODULE_KEYS: tuple[str, ...] = ("core", "learning", "glossary", "ai", "extras")
 
 # Имена файлов-решений, которые кладёт downloader: `solution.py` — код,
 # отправленный на Stepik самим пользователем (downloader сохраняет его при
@@ -421,6 +432,182 @@ def sweep_learning(
     return findings
 
 
+def sweep_ai(
+    task: SweepTask,
+    reference: pathlib.Path,
+    *,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> list[Finding]:
+    """Группа ``ai``: подсказки по реальному падению (issue #1012).
+
+    Единственная часть продукта, где цикл «решил → упал → получил объяснение»
+    замыкается на внешний сервис, — и до этой группы её не прогоняла ни одна
+    проверка стенда. Проверяется то, что видно снаружи и не требует живого
+    провайдера: канал молчит корректно, когда он не настроен; заземление
+    собирается по настоящему коду и не превышает ``ai_grounding_k``; свой
+    системный промпт доходит до запроса; отказ провайдера возвращается
+    причиной, а не тишиной.
+
+    Транспорт подменяется заглушкой, а не зовётся по сети: прогон стенда не
+    должен зависеть ни от ключа, ни от чужого сервиса. Живой провайдер — дело
+    локального прогона (``docs/agent/local-sweep.md``), и его эта группа не
+    заменяет.
+
+    Args:
+        task: задача базы.
+        reference: эталонное решение.
+        timeout: таймаут одного кейса.
+
+    Returns:
+        Находки: AI-канал уронил прогон, заземление не собралось или шире
+        ``ai_grounding_k``, свой промпт потерян, отказ провайдера не назван.
+    """
+    assert task.test_dir is not None
+    findings: list[Finding] = []
+    broken = _write_broken(task, reference)
+    if broken is None:
+        return [Finding(task.slug, "ai", "missing", "эталон не читается — падать нечему")]
+
+    path, cleanup = broken
+    try:
+        result = run_tests(path, task.test_dir, timeout=timeout)
+        cases = [case for case in result["cases"] if not case.get("passed")]
+        if not cases:
+            return [
+                Finding(
+                    task.slug,
+                    "ai",
+                    "missing",
+                    "порченое решение прошло тесты — упавшего кейса для подсказки нет",
+                )
+            ]
+        code = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            ctx = build_failure_context(cases[0], code=code, lang="ru")
+        except Exception as exc:
+            return [Finding(task.slug, "ai", "error", f"сборка контекста упала: {exc!r}")]
+
+        findings += _check_ai_silent_without_provider(task, ctx)
+        findings += _check_ai_grounding_width(task, ctx)
+        findings += _check_ai_prompt_and_refusal(task, ctx)
+    finally:
+        shutil.rmtree(cleanup, ignore_errors=True)
+    return findings
+
+
+def _check_ai_silent_without_provider(task: SweepTask, ctx: object) -> list[Finding]:
+    """Ненастроенный канал молчит и не роняет прогон (ADR-0003 §4)."""
+    bare = SimpleNamespace(ai_base_url="", ai_model="", ai_system_prompt="", ai_api_key_env="")
+    try:
+        outcome = ai_hints.explain_failure_detailed(ctx, bare)  # type: ignore[arg-type]
+    except Exception as exc:
+        return [Finding(task.slug, "ai", "error", f"без провайдера канал упал: {exc!r}")]
+    if outcome.text is not None:
+        return [
+            Finding(
+                task.slug, "ai", "mismatch", "без провайдера пришла подсказка — откуда-то из сети?"
+            )
+        ]
+    return []
+
+
+def _check_ai_grounding_width(task: SweepTask, ctx: object) -> list[Finding]:
+    """Заземление собрано по коду и не шире ``ai_grounding_k`` карточек."""
+    limit = int(getattr(CONFIG, "ai_grounding_k", 3) or 3)
+    grounding = str(getattr(ctx, "grounding", ""))
+    if not grounding:
+        # Пустое заземление законно (в коде нет знакомых концептов), но на
+        # настоящей задаче курса это повод посмотреть глазами.
+        return [
+            Finding(task.slug, "ai", "missing", "заземление пустое: карточки по коду не нашлись")
+        ]
+    cards = [line for line in grounding.splitlines() if line.strip().startswith("- ")]
+    if cards and len(cards) > limit:
+        return [
+            Finding(
+                task.slug,
+                "ai",
+                "mismatch",
+                f"заземление шире ai_grounding_k: карточек {len(cards)}, предел {limit}",
+            )
+        ]
+    return []
+
+
+def _check_ai_prompt_and_refusal(task: SweepTask, ctx: object) -> list[Finding]:
+    """Свой системный промпт доходит до запроса, а отказ провайдера — до ответа."""
+    findings: list[Finding] = []
+    own_prompt = "Отвечай одним предложением. [corpus_sweep]"
+    config = SimpleNamespace(
+        ai_base_url="http://localhost:11434/v1",
+        ai_model="stub-model",
+        ai_system_prompt=own_prompt,
+        ai_api_key_env="",
+        ai_timeout_seconds=5.0,
+        ai_max_tokens=256,
+    )
+    seen: list[list[dict[str, str]]] = []
+
+    def _stub_ok(
+        _config: object, messages: list[dict[str, str]], _key: str | None
+    ) -> tuple[str | None, str | None]:
+        seen.append(messages)
+        return "объяснение из заглушки", None
+
+    def _stub_refusal(
+        _config: object, _messages: list[dict[str, str]], _key: str | None
+    ) -> tuple[str | None, str | None]:
+        return None, "unauthorized"
+
+    original = ai_hints._post_chat
+    try:
+        ai_hints._post_chat = _stub_ok  # type: ignore[assignment]
+        outcome = ai_hints.explain_failure_detailed(ctx, config)  # type: ignore[arg-type]
+        if not outcome.text:
+            findings.append(
+                Finding(task.slug, "ai", "mismatch", "подсказка не вернулась при живом транспорте")
+            )
+        if not seen:
+            findings.append(Finding(task.slug, "ai", "error", "запрос к провайдеру не собрался"))
+        else:
+            system = next((m["content"] for m in seen[0] if m.get("role") == "system"), "")
+            user = next((m["content"] for m in seen[0] if m.get("role") == "user"), "")
+            if own_prompt not in system:
+                findings.append(
+                    Finding(
+                        task.slug,
+                        "ai",
+                        "mismatch",
+                        "ai_system_prompt не доехал: в запросе встроенный промпт",
+                    )
+                )
+            grounding = str(getattr(ctx, "grounding", ""))
+            head = grounding.splitlines()[0].strip() if grounding else ""
+            if head and head not in user:
+                findings.append(
+                    Finding(
+                        task.slug, "ai", "mismatch", "заземление собрано, но в промпт не попало"
+                    )
+                )
+
+        ai_hints._post_chat = _stub_refusal  # type: ignore[assignment]
+        refused = ai_hints.explain_failure_detailed(ctx, config)  # type: ignore[arg-type]
+        if refused.text is not None or not refused.reason:
+            findings.append(
+                Finding(
+                    task.slug,
+                    "ai",
+                    "mismatch",
+                    "отказ провайдера не назван причиной — выглядит как «канал выключен»",
+                )
+            )
+    except Exception as exc:
+        findings.append(Finding(task.slug, "ai", "error", f"AI-канал бросил исключение: {exc!r}"))
+    finally:
+        ai_hints._post_chat = original  # type: ignore[assignment]
+    return findings
+
+
 def _write_broken(
     task: SweepTask, reference: pathlib.Path
 ) -> tuple[pathlib.Path, pathlib.Path] | None:
@@ -617,6 +804,8 @@ def _sweep_task(
         report.record(
             "glossary", *sweep_glossary(task, reference, timeout=timeout, run_ruff=run_ruff)
         )
+    if "ai" in modules:
+        report.record("ai", *sweep_ai(task, reference, timeout=timeout))
     if "extras" in modules:
         report.record("extras", *sweep_extras(task, reference, work_dir=work_dir, timeout=timeout))
 
