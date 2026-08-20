@@ -427,3 +427,89 @@ def test_empty_expectation_drops_output_mutations() -> None:
     assert "no_output" not in keys
     assert "trailing_space" not in keys
     assert "runtime_error" in keys
+
+
+_FUTURE_SOLUTION = (
+    '"""Решение с импортом из __future__."""\n\nfrom __future__ import annotations\n\nprint(42)\n'
+)
+
+_PREFIX_KEYS = (
+    "timeout",
+    "runtime_error",
+    "no_output",
+    "extra_line",
+    "dropped_last_line",
+    "upper_case",
+    "vertical_tab",
+    "float_noise",
+    "crlf_newlines",
+    "trailing_space",
+    "blank_line_append",
+)
+
+
+class TestPrefixRespectsFutureImports:
+    """Префикс не смеет вставать выше `from __future__` (issue #921, `QA-3-02`).
+
+    Такой импорт по правилам языка стоит в начале файла. Дописанный выше
+    префикс делает файл некорректным — «from __future__ imports must occur at
+    the beginning of the file», — и мутант отвечает `RE` вместо задуманного
+    вердикта. Стенд показывал это расхождением с ожиданием, то есть **дефектом
+    ядра**: двенадцать мутаций каталога из семнадцати строятся через `_prefix`,
+    и на решении с таким импортом ложным становился почти весь прогон задачи.
+
+    Коварство в том, что причина не в ядре и не в мутации, а в первой строке
+    чужого решения.
+    """
+
+    @pytest.mark.parametrize("key", _PREFIX_KEYS)
+    def test_mutant_still_compiles(self, key: str) -> None:
+        mutation = _MODULE.mutation_by_key(key)
+        assert mutation is not None
+
+        compile(mutation.apply(_FUTURE_SOLUTION), "<mutant>", "exec")
+
+    @pytest.mark.parametrize("key", _PREFIX_KEYS)
+    def test_prefix_is_actually_inserted(self, key: str) -> None:
+        """Уцелеть мало — мутация обязана сработать, а не тихо исчезнуть."""
+        mutation = _MODULE.mutation_by_key(key)
+        assert mutation is not None
+
+        assert mutation.apply(_FUTURE_SOLUTION) != _FUTURE_SOLUTION
+
+    def test_syntax_error_mutation_stays_broken(self) -> None:
+        """Единственная мутация, которой ломать файл положено, — ломает."""
+        mutation = _MODULE.mutation_by_key("syntax_error")
+        assert mutation is not None
+
+        with pytest.raises(SyntaxError):
+            compile(mutation.apply(_FUTURE_SOLUTION), "<mutant>", "exec")
+
+    def test_import_stays_first(self) -> None:
+        """Импорт остаётся выше префикса — иначе он бы просто не действовал."""
+        mutated = _MODULE._prefix("marker = 1")(_FUTURE_SOLUTION)
+        lines = mutated.splitlines()
+
+        assert lines.index("from __future__ import annotations") < lines.index("marker = 1")
+
+    def test_multiline_import_is_kept_whole(self) -> None:
+        """Импорт бывает в скобках на несколько строк — режем по концу узла."""
+        source = "from __future__ import (\n    annotations,\n)\n\nprint(1)\n"
+
+        compile(_MODULE._prefix("marker = 1")(source), "<mutant>", "exec")
+
+    def test_solution_without_the_import_is_untouched(self) -> None:
+        """Обычное решение по-прежнему получает префикс первой строкой."""
+        assert _MODULE._prefix("marker = 1")("print(1)\n") == "marker = 1\nprint(1)\n"
+
+    def test_unparseable_source_does_not_crash(self) -> None:
+        """Неразбираемый исходник — не повод ронять каталог мутаций."""
+        assert _MODULE._prefix("marker = 1")("def (\n") == "marker = 1\ndef (\n"
+
+    def test_prefixed_mutant_runs_and_transforms_output(self, tmp_path: pathlib.Path) -> None:
+        """Итог, ради которого всё: фильтр вывода работает и на таком решении."""
+        mutation = _MODULE.mutation_by_key("upper_case")
+        assert mutation is not None
+        source = "from __future__ import annotations\n\nprint('ответ')\n"
+
+        assert _run_with_input(mutation.apply(source), "", tmp_path) == "ОТВЕТ\n"
