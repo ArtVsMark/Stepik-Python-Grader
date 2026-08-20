@@ -2940,12 +2940,51 @@ class TestRunServerSandbox:
 class TestAuthApi:
     def test_status_no_secrets(self, server: str) -> None:
         status, body = _get(server + "/api/auth/status")
+        data = json.loads(body)
         assert status == 200
-        assert json.loads(body) == {
-            "authorized": False,
-            "reason": "no_secrets",
-            "secrets_path": "secrets.json",
-        }
+        assert (data["authorized"], data["reason"]) == (False, "no_secrets")
+        assert data["secrets_path"] == "secrets.json"
+
+    def test_status_says_what_exactly_is_wrong(self, server: str) -> None:
+        """issue #1213: `no_secrets` не говорит, ЧТО случилось и где искали.
+
+        `reason` отвечает, что делать (нужна форма), и меняться не должен —
+        поэтому причина приезжает отдельным полем, а путь ещё и разрешённым:
+        настроенный бывает относительным («secrets.json») и на вопрос «где
+        искали» не отвечает.
+        """
+        status, body = _get(server + "/api/auth/status")
+        data = json.loads(body)
+
+        assert status == 200
+        assert data["secrets_state"] == "missing"
+        assert data["secrets_path_resolved"].endswith("secrets.json")
+        assert pathlib.Path(data["secrets_path_resolved"]).is_absolute()
+
+    def test_status_never_leaks_the_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        """Граница из SECURITY.md: статус — категория, а не содержимое.
+
+        Прецедент уже был: `?path=secrets.json` отдавал 200 с `client_secret` и
+        токеном. Новое поле про состояние файла обязано остаться категорией.
+        """
+        (tmp_path / "secrets.json").write_text(
+            json.dumps(
+                {
+                    "client_id": "id-в-файле",
+                    "client_secret": "секрет-в-файле",
+                    "redirect_uri": "http://localhost:8080/callback",
+                    "access_token": "токен-в-файле",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        _status, body = _get(server + "/api/auth/status")
+
+        text = body.decode("utf-8") if isinstance(body, bytes) else body
+        assert "секрет-в-файле" not in text
+        assert "токен-в-файле" not in text
+        assert "id-в-файле" not in text
 
     def test_status_ok_with_valid_token(self, server: str, tmp_path: pathlib.Path) -> None:
         import time
@@ -2964,11 +3003,9 @@ class TestAuthApi:
         )
         status, body = _get(server + "/api/auth/status")
         assert status == 200
-        assert json.loads(body) == {
-            "authorized": True,
-            "reason": "ok",
-            "secrets_path": "secrets.json",
-        }
+        data = json.loads(body)
+        assert (data["authorized"], data["reason"]) == (True, "ok")
+        assert (data["secrets_path"], data["secrets_state"]) == ("secrets.json", "ok")
 
     def test_start_requires_creds(self, server: str) -> None:
         status, body = _post(
@@ -3084,11 +3121,9 @@ class TestAuthApi:
         )
         status, body = _get(server + "/api/auth/status")
         assert status == 200
-        assert json.loads(body) == {
-            "authorized": False,
-            "reason": "no_token",
-            "secrets_path": "secrets.json",
-        }
+        data = json.loads(body)
+        assert (data["authorized"], data["reason"]) == (False, "no_token")
+        assert (data["secrets_path"], data["secrets_state"]) == ("secrets.json", "ok")
 
     def test_start_flow_error_becomes_error_status(
         self, server: str, monkeypatch: pytest.MonkeyPatch
@@ -3658,11 +3693,10 @@ class TestDownloaderConfigApi:
 
         _status, body = _get(server + "/api/auth/status")
 
-        assert json.loads(body) == {
-            "authorized": True,
-            "reason": "ok",
-            "secrets_path": "creds.json",
-        }
+        data = json.loads(body)
+        assert (data["authorized"], data["reason"]) == (True, "ok")
+        assert data["secrets_path"] == "creds.json"
+        assert data["secrets_path_resolved"].endswith("creds.json")
 
 
 # ---------------------------------------------------------------------------
