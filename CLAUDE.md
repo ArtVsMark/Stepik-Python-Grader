@@ -32,6 +32,8 @@
    .grader_stats.jsonl
 ❌ НЕ запускать untrusted-код через LocalRunner (core/runner.py) — нет OS-sandbox
 ❌ НЕ трогать .github/workflows/ без явной задачи
+❌ НЕ ходить в GitHub встроенными инструментами окна там, где операцию умеет
+   scripts/gh_rest.py — это GraphQL по ~300 points за вызов (см. § Гейты)
 ❌ НЕ править version в pyproject.toml вручную — версия динамическая, из git-тегов
    (setuptools-scm). См. § Версионирование.
 ```
@@ -179,9 +181,9 @@ Workflow, **файлы правит хост, а не агенты** (`agent(sch
 python scripts/preflight.py --branch-only   # ДО работы: чужая ли задача, свободно ли имя ветки
 python scripts/preflight.py                 # перед коммитом: весь набор + линтеры + типы
 python scripts/check_pr_ready.py <PR>       # перед мержем: проверки созданы, завершены, зелёные
-python scripts/gh_rest.py pulls|checks|update-branch|merge   # рутина по PR — по REST
-python scripts/gh_rest.py issue|close-issue|label|comment <N>  # рутина по issue — тоже REST
-python scripts/gh_rest.py runs|run-jobs|cancel-run            # прогоны CI (PR создаём через MCP)
+python scripts/gh_rest.py pulls|checks|compare|create-pr|update-branch|merge  # PR — по REST
+python scripts/gh_rest.py issue|close-issue|label|comment|create-issue <N>    # issue — тоже REST
+python scripts/gh_rest.py runs|run-jobs|cancel-run   # прогоны CI; rate — остаток квоты даром
 ```
 
 Гейты появились после разбора сессии, где **девять инцидентов из одиннадцати —
@@ -210,16 +212,24 @@ python scripts/gh_rest.py runs|run-jobs|cancel-run            # прогоны C
   «работа встала»: что именно недоступно, что продолжает работать и чем занять
   время до сброса — [`docs/agent/preflight.md` § Маршрут при исчерпании
   лимитов](docs/agent/preflight.md).
-- **Рутина по PR из агентской сессии — через `scripts/gh_rest.py` (REST).**
-  Список PR, статусы проверок, отставание ветки, создание PR, обновление ветки
-  и мерж — его подкомандами; `gh` CLI при этом не нужен (в облачной сессии его
-  нет вовсе), токен берётся из окружения, а `check_pr_ready.py` ходит тем же
-  транспортом. MCP-инструменты GitHub — **только для того, чего нет в REST**
-  (sub-issues, `auto-merge`: у `enablePullRequestAutoMerge` REST-эквивалента
-  не существует). Это не про экономию, а про вместимость: через GraphQL
-  конвейер физически не помещается в час — одна операция стоит ~300 points из
-  5000, тогда как в REST это 1 запрос из 5000. Исчерпана квота — код возврата
-  2 («ждать»), а не «упало»: время сброса модуль печатает сам.
+- **Транспорт к GitHub: REST по умолчанию.** Правило действует на **всё**, чем
+  работает агент, — PR, issue, метки, комментарии, прогоны CI, — а не только на
+  PR: список и статусы, отставание ветки, создание PR, обновление ветки, мерж,
+  чтение и закрытие issue, метки, `runs`/`run-jobs` идут подкомандами
+  `scripts/gh_rest.py`. `gh` CLI при этом не нужен (в облачной сессии его нет
+  вовсе), токен берётся из окружения, а `check_pr_ready.py` ходит тем же
+  транспортом. **Белый список GraphQL закрыт**: авто-мерж
+  (`enablePullRequestAutoMerge`), Projects V2, Discussions, минимизация
+  комментария. Всё, чего в этом списке нет, идёт по REST — включая sub-issues,
+  у которых REST-эндпоинты уже есть. **Порог окупаемости:** GraphQL оправдан,
+  только если одним запросом заменяет больше 300 REST-запросов; «так короче»
+  поводом не является — в нашей рутине такого объёма не бывает. Это не про
+  экономию, а про вместимость: одна GraphQL-операция стоит ~300 points из 5000,
+  в REST та же операция — 1 запрос из 5000, то есть девять обращений съедают
+  больше половины часового бюджета. Исчерпана квота — код возврата 2 («ждать»),
+  а не «упало»: время сброса модуль печатает сам. `gh_rest.py rate` квоту
+  **не тратит** — сверяться свободно, но именно им: тот же вопрос через
+  MCP-инструмент стоит ~300 points.
 - **Конфликт — это «проверок нет вовсе», а не «CI сломался».** Прогон на PR идёт
   по merge-коммиту: слияние невозможно — check-runs не создаются. И `merge=union`
   для `CHANGELOG.md` спасает только локально, GitHub всё равно ставит `dirty`.
@@ -401,7 +411,7 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 
 1. **DAG без циклов** — новые импорты не создают циклических зависимостей.
 2. **Leaf-модули** — `storage.py`, `normalizers.py`, `glossary.py`,
-   `atomic_io.py`, `db.py` не импортируют ничего из проекта. Не добавлять в них
+   `atomic_io.py`, `db.py`, `build_info.py` не импортируют ничего из проекта. Не добавлять в них
    project-импорты. `atomic_io.py` (атомарный JSON-писатель) и `db.py`
    (общий SQLite-коннектор `connect`/`user_version`/`apply_schema`) —
    общие top-level leaf'ы вне `core/` намеренно: подпакеты `glossary/`/`rules/` не
@@ -733,7 +743,7 @@ issue на билд нет — направление держит только 
 
 | Метрика | Значение |
 |---|---|
-| Версия | 1.10.0 (stable) |
+| Версия | 1.11.0 (stable) |
 | Python | 3.12 / 3.13 (3.14 — экспериментальная на всех трёх ОС, `continue-on-error`) |
 | Тестов | бейдж/прогон CI — **числом здесь не фиксируется** |
 | Покрытие | бейджи README `Coverage (ubuntu)` / `Coverage (all OS)` |
