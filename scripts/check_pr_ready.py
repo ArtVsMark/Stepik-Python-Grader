@@ -81,6 +81,7 @@ __all__ = [
     "main",
     "main_branch_blockers",
     "pending_runs",
+    "queue_blockers",
     "workflows_running_on_pull_requests",
 ]
 
@@ -371,6 +372,27 @@ def _force_utf8_stdio() -> None:
             reconfigure(encoding="utf-8", errors="replace")
 
 
+def queue_blockers(report: gh_rest.QueueReport, number: int) -> list[str]:
+    """Причины ждать из-за очереди мержа (issue #1282).
+
+    Обновляется и мержится только голова очереди: массовое обновление
+    гарантирует, что обновлённые PR устареют снова следующим же мержем, и число
+    холостых прогонов растёт квадратично от длины очереди. Поэтому «зелёный, но
+    второй в очереди» — это «ждать», а не «готов».
+
+    Пустой список, если PR первый или его в очереди нет вовсе: причины «нет» в
+    последнем случае уже назвал локальный разбор проверок.
+    """
+    ahead = report.ahead_of(number)
+    if not ahead:
+        return []
+    names = ", ".join(f"#{item}" for item in ahead)
+    return [
+        f"в очереди впереди: {names} — из main обновляется только её голова, "
+        "остальные стоят неподвижно (python scripts/gh_rest.py queue)"
+    ]
+
+
 def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
     """Напечатать вердикт готовности PR; 0 — можно мержить."""
     # Раньше любой печати, включая справку argparse: описание флагов русское.
@@ -412,6 +434,23 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         expected,
         main_blockers=main_branch_blockers(main_runs) + branch_is_stale(comparison),
     )
+
+    # issue #1282: очередь спрашивается ТОЛЬКО у PR, готового по своим
+    # проверкам. Пока он и так не готов, его место в очереди ничего не решает, а
+    # запрос стоил бы по обращению на каждый открытый PR.
+    if verdict.ready:
+        try:
+            waiting = queue_blockers(gh_rest.merge_queue(args.repo), args.pull)
+        except gh_rest.GitHubError as exc:
+            # Очередь — уточнение поверх вердикта, а не его основание. Молчать о
+            # сбое нельзя, но и ронять готовый PR из-за недоступного списка тоже:
+            # гейт, который краснеет на отсутствии данных, обходят.
+            print(
+                f"Очередь опросить не удалось ({exc}) — вердикт без учёта очереди.", file=sys.stderr
+            )
+            waiting = []
+        if waiting:
+            verdict = dataclasses.replace(verdict, ready=False, reasons=verdict.reasons + waiting)
 
     if args.json:
         print(json.dumps(dataclasses.asdict(verdict), ensure_ascii=False))
