@@ -603,49 +603,37 @@ function _requestAiConsent() {
       resolve(false);
       return;
     }
-    // issue #637: куда вернуть фокус при закрытии. Без этого он улетает в
-    // начало документа, и клавиатурный пользователь теряет место в интерфейсе.
-    const returnFocus = document.activeElement;
+    // Окно спрашивает, а не сообщает: закрытие любым способом, кроме кнопки
+    // «согласен», означает отказ — это значение и уезжает в промис.
+    let granted = false;
 
-    const done = ok => {
-      overlay.hidden = true;
-      accept.removeEventListener("click", onAccept);
-      decline.removeEventListener("click", onDecline);
-      overlay.removeEventListener("keydown", onKeydown);
-      if (returnFocus && typeof returnFocus.focus === "function") returnFocus.focus();
-      resolve(ok);
-    };
     const onAccept = () => {
       localStorage.setItem(_AI_CONSENT_KEY, "1");
-      done(true);
+      granted = true;
+      close();
     };
-    const onDecline = () => done(false);
+    const onDecline = () => close();
 
-    // issue #637: focus-trap. Разметка объявляет aria-modal, но сам атрибут
-    // ничего не удерживает — это лишь обещание скринридеру. Tab свободно уходил
-    // на страницу под оверлеем, где пользователь мог нажимать кнопки, пока
-    // модалка «ждёт» ответа. Плюс Escape: диалог с двумя вариантами обязан
-    // закрываться отказом, а не только кликом.
-    const onKeydown = e => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onDecline();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const stops = [accept, decline];
-      const edge = e.shiftKey ? stops[0] : stops[stops.length - 1];
-      if (document.activeElement === edge) {
-        e.preventDefault();
-        (e.shiftKey ? stops[stops.length - 1] : stops[0]).focus();
-      }
-    };
+    // issue #1225: ловушка Tab, Escape и возврат фокуса (#637) — в общем
+    // помощнике, своей копии здесь больше нет. Копий было три, они разошлись, и
+    // фикс #804 (слушать keydown на document, а не на оверлее) жил только в
+    // одной: после клика по подложке фокус уходит на body, событие до оверлея не
+    // всплывает, и клавиатура переставала управлять окном.
+    //
+    // closeOnBackdrop: false — поведение сохранено намеренно: диалог с двумя
+    // вариантами не должен закрываться промахом мыши, отказ остаётся явным.
+    const close = openModal(overlay, {
+      initialFocus: accept,
+      closeOnBackdrop: false,
+      onClose: () => {
+        accept.removeEventListener("click", onAccept);
+        decline.removeEventListener("click", onDecline);
+        resolve(granted);
+      },
+    });
 
     accept.addEventListener("click", onAccept);
     decline.addEventListener("click", onDecline);
-    overlay.addEventListener("keydown", onKeydown);
-    overlay.hidden = false;
-    accept.focus();
   });
 }
 
