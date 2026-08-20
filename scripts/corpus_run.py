@@ -49,11 +49,13 @@ __all__ = [
     "DEFAULT_TIMEOUT",
     "CheckOutcome",
     "CorpusTask",
+    "EmptyTestSuite",
     "check_task",
     "discover_tasks",
     "expected_lines_of",
     "main",
     "run_verdict",
+    "tasks_without_cases",
 ]
 
 # Корень корпуса относительно корня репозитория (scripts/ → ..).
@@ -68,6 +70,16 @@ DEFAULT_TIMEOUT: float = 2.0
 # Псевдоключ «мутации» для непорченого эталона — чтобы отчёт и JSON имели
 # однородную форму: у каждой строки есть задача, ключ проверки и вердикт.
 BASELINE: str = "baseline"
+
+
+class EmptyTestSuite(RuntimeError):
+    """У задачи не загрузилось ни одного кейса — сверять нечего (issue #921).
+
+    Находка `QA-3-03`: пустой список кейсов проходил цикл «есть ли непрошедший»
+    ни разу и давал ``AC`` с пояснением «все кейсы пройдены (0)». Вакуумный
+    ``AC`` неотличим от настоящего, а стенд ради вердиктов и заведён — поэтому
+    отсутствие кейсов теперь ошибка, а не самый зелёный из возможных исходов.
+    """
 
 
 @dataclass(frozen=True)
@@ -197,6 +209,15 @@ def expected_lines_of(test_dir: pathlib.Path) -> list[str]:
     return lines
 
 
+def tasks_without_cases(tasks: Sequence[CorpusTask]) -> list[str]:
+    """Slug'и задач, у которых не загрузилось ни одного тест-кейса.
+
+    Проверяется до прогона: запускать решение по пустому набору бессмысленно, а
+    один сломанный вход не должен ронять отчёт по остальным задачам.
+    """
+    return [task.slug for task in tasks if not load_test_cases(task.test_dir)]
+
+
 def run_verdict(
     solution_path: pathlib.Path,
     test_dir: pathlib.Path,
@@ -219,6 +240,11 @@ def run_verdict(
     """
     stats = run_tests(solution_path, test_dir, timeout=timeout)
     cases: list[CaseResult] = stats["cases"]
+    if not cases:
+        raise EmptyTestSuite(
+            f"ни одного тест-кейса не загрузилось: {test_dir}. «Все кейсы "
+            "пройдены (0)» — это не AC, а отсутствие проверки"
+        )
 
     for number, case in enumerate(cases, start=1):
         if not case["passed"]:
@@ -416,6 +442,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     tasks = _select_tasks(discover_tasks(args.corpus), args.task)
     if not tasks:
         print(f"Корпус пуст: {args.corpus}", file=sys.stderr)
+        return 1
+
+    broken = tasks_without_cases(tasks)
+    if broken:
+        print(
+            "Задачи без тест-кейсов — сверять нечего: " + ", ".join(broken),
+            file=sys.stderr,
+        )
+        print(
+            "Пустой набор дал бы «AC: все кейсы пройдены (0)» — это отсутствие "
+            "проверки, а не зелёный вердикт.",
+            file=sys.stderr,
+        )
         return 1
 
     mutations = _select_mutations(args.mutation)

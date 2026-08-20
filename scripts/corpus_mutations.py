@@ -146,9 +146,50 @@ def _float_noise_filter() -> str:
     )
 
 
+def _future_import_lines(source: str) -> int:
+    """Сколько первых строк обязаны остаться сверху (0 — таких нет).
+
+    ``from __future__ import ...`` по правилам языка стоит в начале файла:
+    выше допустимы только докстринг и комментарии. Разбираем ``ast``, а не
+    ищем строку глазами: импорт бывает в скобках и на нескольких строках.
+
+    Неразбираемый исходник — это ноль: портить нечего, мутант всё равно даст
+    ``RE``, и ронять на нём каталог мутаций незачем.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return 0
+    last = 0
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            last = max(last, node.end_lineno or node.lineno)
+    return last
+
+
 def _prefix(code: str) -> Callable[[str], str]:
-    """Вернуть трансформацию «дописать ``code`` перед исходником решения»."""
-    return lambda source: f"{code}\n{source}"
+    """Вернуть трансформацию «дописать ``code`` в начало исходника решения».
+
+    В начало, но **ниже** ``from __future__ import ...`` (issue #921, находка
+    `QA-3-02`). Дописанный выше префикс делает файл синтаксически
+    некорректным — «from __future__ imports must occur at the beginning of the
+    file», — и мутант отвечает ``RE`` вместо задуманного вердикта. Стенд
+    показывал это как расхождение с ожиданием, то есть как **дефект ядра**:
+    двенадцать мутаций каталога из семнадцати строятся через ``_prefix``, и на
+    решении с таким импортом ложным становился почти весь прогон задачи.
+
+    Симптом коварен тем, что зависит не от ядра и не от мутации, а от первой
+    строки чужого решения.
+    """
+
+    def _apply(source: str) -> str:
+        kept = _future_import_lines(source)
+        if not kept:
+            return f"{code}\n{source}"
+        lines = source.splitlines(keepends=True)
+        return f"{''.join(lines[:kept])}{code}\n{''.join(lines[kept:])}"
+
+    return _apply
 
 
 def _suffix(code: str) -> Callable[[str], str]:
