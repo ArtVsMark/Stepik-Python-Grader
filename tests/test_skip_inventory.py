@@ -130,3 +130,83 @@ def test_summary_lists_kinds(tmp_path: Path) -> None:
     report = module.render_report(module.collect_skip_sites(tests_dir), summary_only=True)
     assert "Всего мест пропуска: 1" in report
     assert "skipif 1" in report
+
+
+def test_module_level_pytestmark_is_seen(tmp_path: Path) -> None:
+    """Пропуск ЦЕЛОГО файла виден инвентарю (issue #921, находка `QA-2-01`).
+
+    Это не декоратор и не вызов `pytest.skip`, а обычное присваивание, поэтому
+    обход по декораторам его не находил: файл, отключённый целиком, вовсе не
+    попадал в отчёт. Гейт «каждый пропуск объясняет себя» молчал именно про
+    самые дорогие пропуски.
+    """
+    module = _load_module()
+    tests_dir = _write(
+        tmp_path,
+        "import pytest\n"
+        'pytestmark = pytest.mark.skipif(True, reason="только Windows")\n'
+        "def test_a(): pass\n",
+    )
+
+    sites = module.collect_skip_sites(tests_dir)
+
+    assert [(site.kind, site.reason) for site in sites] == [("skipif", "только Windows")]
+
+
+def test_pytestmark_list_form_is_expanded(tmp_path: Path) -> None:
+    """`pytestmark = [mark_a, mark_b]` — законная форма, считаем оба."""
+    module = _load_module()
+    tests_dir = _write(
+        tmp_path,
+        "import pytest\n"
+        "pytestmark = [\n"
+        '    pytest.mark.skipif(True, reason="первая"),\n'
+        '    pytest.mark.xfail(reason="вторая"),\n'
+        "]\n"
+        "def test_a(): pass\n",
+    )
+
+    kinds = {site.kind for site in module.collect_skip_sites(tests_dir)}
+
+    assert kinds == {"skipif", "xfail"}
+
+
+def test_pytestmark_without_reason_fails_the_gate(tmp_path: Path) -> None:
+    """Критерий приёмки #921: guard обязан краснеть на сломанном входе."""
+    module = _load_module()
+    tests_dir = _write(
+        tmp_path,
+        "import pytest\npytestmark = pytest.mark.skipif(True)\ndef test_a(): pass\n",
+    )
+
+    sites = module.collect_skip_sites(tests_dir)
+
+    assert sites and not any(site.has_reason for site in sites)
+
+
+def test_class_level_pytestmark_is_seen(tmp_path: Path) -> None:
+    """Внутри класса `pytestmark` отключает все его тесты — тоже пропуск."""
+    module = _load_module()
+    tests_dir = _write(
+        tmp_path,
+        "import pytest\n"
+        "class TestX:\n"
+        '    pytestmark = pytest.mark.skip(reason="весь класс")\n'
+        "    def test_a(self): pass\n",
+    )
+
+    assert [site.reason for site in module.collect_skip_sites(tests_dir)] == ["весь класс"]
+
+
+def test_other_assignments_are_not_mistaken_for_skips(tmp_path: Path) -> None:
+    """Однофамильцы не считаются: иначе отчёт зарос бы шумом."""
+    module = _load_module()
+    tests_dir = _write(
+        tmp_path,
+        "import pytest\n"
+        'timeout = pytest.mark.skipif(True, reason="не pytestmark")\n'
+        'pytestmark = pytest.mark.parametrize("x", [1])\n'
+        "def test_a(x): pass\n",
+    )
+
+    assert module.collect_skip_sites(tests_dir) == []

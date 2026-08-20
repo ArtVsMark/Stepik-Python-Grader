@@ -37,18 +37,47 @@ import pytest
 from stepik_grader.core import user_settings
 from stepik_grader.web import server as web_server
 
+from ._helpers import REQUIRE_E2E_ENV, executed_beyond_guards
+
 __all__: list[str] = []
+
+_EXECUTED: set[str] = set()
+"""nodeid'ы тестов, у которых реально выполнилось тело (не setup, не пропуск)."""
+
+
+def _guard_enabled() -> bool:
+    """Жёсткий режим: пропуск набора обязан стать отказом (job ``e2e`` в CI)."""
+    return bool(os.environ.get(REQUIRE_E2E_ENV))
+
+
+def load_sync_api() -> Any:
+    """``playwright.sync_api``: жёстко под флагом, мягким пропуском без него.
+
+    Без ``STEPIK_REQUIRE_E2E_TESTS`` отсутствие пакета — чистый пропуск: extra
+    опциональный (``pip install -e ".[e2e]"``), и разработчик без него не должен
+    получать красный прогон.
+
+    С переменной импорт **жёсткий** (issue #921, находка `QA-2-03`). Прежде
+    ``importorskip`` стоял безусловно, и сломанное окружение пропускало заодно
+    сами guard'ы — те, что заведены ровно для этого случая: фикстура
+    отрабатывает раньше, чем тело теста успевает проверить флаг, поэтому
+    «playwright сломан» выглядело как «guard пропущен», то есть как норма.
+
+    Отдельной функцией, а не строкой в фикстуре: фикстуру нельзя вызвать
+    напрямую, а решение о жёсткости обязано проверяться в обычном прогоне —
+    в том, где браузера нет.
+    """
+    if _guard_enabled():
+        import playwright.sync_api as sync_api
+
+        return sync_api
+    return pytest.importorskip("playwright.sync_api")
 
 
 @pytest.fixture(scope="session")
 def playwright_instance() -> Iterator[Any]:
-    """One ``sync_playwright()`` context for the whole test session.
-
-    Skips the whole e2e suite (instead of erroring) if ``playwright`` isn't
-    installed -- it's an opt-in dev-extra (``pip install -e ".[e2e]"``).
-    """
-    sync_api = pytest.importorskip("playwright.sync_api")
-    with sync_api.sync_playwright() as p:
+    """One ``sync_playwright()`` context for the whole test session."""
+    with load_sync_api().sync_playwright() as p:
         yield p
 
 
@@ -116,3 +145,39 @@ def e2e_server(tmp_path: Path) -> Iterator[str]:
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Запомнить тесты, у которых выполнилось ТЕЛО (issue #921, `QA-2-02`).
+
+    Фаза ``call`` бывает только у теста, который действительно запустился:
+    пропуск и падение в setup сюда не попадают. Именно эта разница и была
+    дефектом — прежний guard считал СОБРАННЫЕ элементы, а собираются они и
+    когда каждый следом пропускается.
+    """
+    if report.when == "call" and report.outcome in {"passed", "failed"}:
+        _EXECUTED.add(report.nodeid)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Под ``STEPIK_REQUIRE_E2E_TESTS`` пустой прогон обязан быть красным.
+
+    Проверка живёт в конце сессии, а не в тесте: только здесь известны исходы
+    ВСЕХ тестов. Тест, стоящий в середине прогона, о своих соседях знает лишь
+    то, что они собраны.
+
+    Единственный сценарий, который сюда не достаёт, — не загруженный
+    ``conftest.py`` (переименовали каталог, ошиблись путём). Он закрыт самим
+    pytest: «ничего не собрано» — код возврата 5, «путь не найден» — 4, и job
+    краснеет без нашего участия.
+    """
+    if not _guard_enabled() or exitstatus != 0:
+        return
+    if executed_beyond_guards(_EXECUTED):
+        return
+    session.exitstatus = pytest.ExitCode.TESTS_FAILED
+    print(
+        f"\nFAIL ({REQUIRE_E2E_ENV}=1): ни один e2e-тест не выполнился — "
+        "собрать набор мало, он весь пропущен. Проверьте установку extra "
+        '"e2e" и браузер (playwright install chromium).'
+    )
