@@ -431,6 +431,10 @@ def _run_job(
                 workspace=workspace,
                 timeout=timeout_s,
                 max_memory_mb=memory_mb,
+                # issue #1211: подписывать результат тем, что выбрал человек, а
+                # не временным файлом, который тут исполняется. Без кода в теле
+                # грейдится сам `path` — подменять нечего.
+                display_path=path if temp_code_path is not None else None,
             )
         elif kind == "bench":
             result = grade_benchmark(
