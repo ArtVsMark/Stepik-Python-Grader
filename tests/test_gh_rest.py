@@ -1292,3 +1292,47 @@ class TestCancelledPredecessor:
 
         assert [entry.number for entry in report.ready] == [10]
         assert report.waiting == ()
+
+
+class TestForkInTheQueue:
+    """PR из форка стоит в очереди как все, но его ветку нам не обновить (#1287)."""
+
+    def _pull(self, number: int, repo: str) -> dict[str, Any]:
+        return {
+            "number": number,
+            "title": f"PR {number}",
+            "head": {"ref": "branch", "sha": f"sha{number}", "repo": {"full_name": repo}},
+            "base": {"ref": "main"},
+            "user": {"login": "someone"},
+            "draft": False,
+            "updated_at": "2026-08-20T00:00:00Z",
+        }
+
+    def _green(self) -> dict[str, Any]:
+        return {"check_runs": [{"name": "test", "status": "completed", "conclusion": "success"}]}
+
+    def test_fork_is_marked_but_stays_in_the_queue(self, module: ModuleType) -> None:
+        """Место в очереди обычное — иначе форковый PR не смержится никогда."""
+        opener = _opener(
+            _FakeResponse([self._pull(10, "someone/fork")]),
+            _FakeResponse(self._green()),
+            _FakeResponse([{"filename": "one.py"}]),
+            _FakeResponse({"workflow_runs": []}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert [entry.number for entry in report.ready] == [10]
+        assert report.ready[0].fork is True
+
+    def test_own_branch_is_not_a_fork(self, module: ModuleType) -> None:
+        opener = _opener(
+            _FakeResponse([self._pull(10, "owner/repo")]),
+            _FakeResponse(self._green()),
+            _FakeResponse([{"filename": "one.py"}]),
+            _FakeResponse({"workflow_runs": []}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert report.ready[0].fork is False

@@ -383,21 +383,107 @@ class TestJobTimeouts:
         assert len(errors) == 1
         assert "build" in errors[0] and "6 часов" in errors[0]
 
-    def test_missing_file_is_red(self, monkeypatch) -> None:
-        """Пустой вход обязан быть красным: проверка без файла зеленела бы на пустоте."""
+    def test_missing_files_are_red(self, monkeypatch) -> None:
+        """Пустой вход обязан быть красным: проверка без файлов зеленела бы на пустоте."""
         errors: list[str] = []
-        monkeypatch.setattr(_MODULE, "_CI", pathlib.Path("нет-такого-ci.yml"))
-        monkeypatch.setattr(_MODULE, "_RELEASE", pathlib.Path("нет-такого-release.yml"))
+        monkeypatch.setattr(_MODULE, "_WORKFLOWS", pathlib.Path("нет-такого-каталога"))
 
         _MODULE.check_every_job_has_a_timeout(errors)
 
-        assert len(errors) == 2
-        assert all("файла нет" in error for error in errors)
+        assert len(errors) == 1
+        assert "файлов нет" in errors[0]
+
+    def test_every_workflow_is_looked_at(self) -> None:
+        """Смотрим на ВСЕ файлы, а не на два поимённо.
+
+        Первая редакция знала только `ci.yml` и `release.yml`, и новый workflow
+        заводился без таймаута незамеченным — сторож, видящий не всё, хуже
+        отсутствующего.
+        """
+        errors: list[str] = []
+        seen = sorted(path.name for path in _MODULE._WORKFLOWS.glob("*.yml"))
+
+        _MODULE.check_every_job_has_a_timeout(errors)
+
+        assert errors == []
+        assert len(seen) > 2, f"в каталоге всего {len(seen)} файл(ов) — проверять нечего"
 
     def test_real_workflows_pass(self) -> None:
         """И живые файлы проекта — тоже: гейт обязан быть зелёным на настоящем входе."""
         errors: list[str] = []
 
         _MODULE.check_every_job_has_a_timeout(errors)
+
+        assert errors == []
+
+
+class TestQueueMoverToken:
+    """Двигатель очереди не должен обновлять ветку штатным токеном (issue #1287).
+
+    Пуш от `GITHUB_TOKEN` не запускает другие workflow — защита от рекурсии.
+    Подставь его сюда, и голова очереди обновится, а прогон на PR не стартует:
+    PR застрянет **без единой красной проверки**, то есть беда опять будет
+    выглядеть нормальной работой.
+    """
+
+    _GOOD = (
+        "jobs:\n  move:\n    steps:\n"
+        "      - name: Обновить голову очереди из main\n"
+        "        env:\n          GH_TOKEN: ${{ env.MERGE_QUEUE_TOKEN }}\n"
+        "        run: python scripts/gh_rest.py update-branch 1\n"
+    )
+
+    def test_dedicated_token_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, self._GOOD)
+
+        assert errors == []
+
+    def test_github_token_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = self._GOOD.replace("env.MERGE_QUEUE_TOKEN", "secrets.GITHUB_TOKEN")
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "GITHUB_TOKEN" in errors[0]
+
+    def test_step_without_token_is_rejected(self) -> None:
+        """Без GH_TOKEN скрипт возьмёт чужой токен из окружения или упадёт."""
+        errors: list[str] = []
+        source = (
+            "jobs:\n  move:\n    steps:\n"
+            "      - name: Обновить\n        run: python scripts/gh_rest.py update-branch 1\n"
+        )
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "GH_TOKEN" in errors[0]
+
+    def test_renamed_step_is_loud(self) -> None:
+        """Шага не нашли — это «проверка сторожит пустоту», а не «всё хорошо»."""
+        errors: list[str] = []
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, "jobs:\n  move:\n    steps: []\n")
+
+        assert len(errors) == 1
+        assert "update-branch" in errors[0]
+
+    def test_missing_file_is_red(self, monkeypatch) -> None:
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_QUEUE_MOVER", pathlib.Path("нет-такого.yml"))
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors)
+
+        assert len(errors) == 1
+        assert "файла нет" in errors[0]
+
+    def test_real_workflow_passes(self) -> None:
+        """И живой файл проекта: гейт обязан быть зелёным на настоящем входе."""
+        errors: list[str] = []
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors)
 
         assert errors == []

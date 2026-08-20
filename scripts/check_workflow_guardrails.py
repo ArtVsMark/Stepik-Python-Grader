@@ -39,6 +39,7 @@ __all__ = [
     "check_ci_listens_to_ready_for_review",
     "check_coverage_gate_is_explicit",
     "check_every_job_has_a_timeout",
+    "check_queue_mover_uses_its_own_token",
     "check_release_gates_match_promises",
     "check_release_pipeline",
     "check_release_publishes_verified_assets",
@@ -48,8 +49,10 @@ __all__ = [
 ]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
-_CI = _ROOT / ".github" / "workflows" / "ci.yml"
-_RELEASE = _ROOT / ".github" / "workflows" / "release.yml"
+_WORKFLOWS = _ROOT / ".github" / "workflows"
+_CI = _WORKFLOWS / "ci.yml"
+_RELEASE = _WORKFLOWS / "release.yml"
+_QUEUE_MOVER = _WORKFLOWS / "merge-queue.yml"
 
 # Порог per-OS гейта покрытия (issue #954). Держится синхронно с флагом
 # `--cov-fail-under` в шаге `Run tests`; cross-OS агрегат строже (90) и живёт
@@ -341,10 +344,14 @@ def check_every_job_has_a_timeout(errors: list[str], sources: dict[str, str] | N
     """
     if sources is None:
         sources = {}
-        for path in (_CI, _RELEASE):
-            if not path.is_file():
-                errors.append(f"{path.name}: файла нет — таймауты job'ов не проверены")
-                continue
+        # Все workflow, а не два поимённо: первая редакция смотрела только на
+        # `ci.yml` и `release.yml`, и любой новый файл заводился без таймаута
+        # незамеченным — сторож, видящий не всё, хуже отсутствующего (#1287).
+        files = sorted(_WORKFLOWS.glob("*.yml")) if _WORKFLOWS.is_dir() else []
+        if not files:
+            errors.append(".github/workflows: файлов нет — таймауты job'ов не проверены")
+            return
+        for path in files:
             sources[path.name] = path.read_text(encoding="utf-8")
 
     if not sources:
@@ -359,6 +366,56 @@ def check_every_job_has_a_timeout(errors: list[str], sources: dict[str, str] | N
             )
 
 
+def check_queue_mover_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Двигатель очереди обновляет ветку НЕ штатным ``GITHUB_TOKEN`` (issue #1287).
+
+    Пуш, сделанный ``GITHUB_TOKEN``, не запускает другие workflow — защита
+    GitHub от рекурсии. Подставь его в шаг обновления, и ветка головы очереди
+    обновится, событие ``synchronize`` придёт, а прогон на PR не стартует:
+    PR застрянет иначе, но так же намертво, и **без единой красной проверки** —
+    то есть беда снова будет выглядеть нормальной работой.
+
+    Ровно тот класс, ради которого этот файл и заведён: ломается молча,
+    проявляется один раз и не там, где правили.
+    """
+    if source is None:
+        if not _QUEUE_MOVER.is_file():
+            errors.append(
+                f"{_QUEUE_MOVER.name}: файла нет — двигатель очереди не проверен (issue #1287)"
+            )
+            return
+        source = _QUEUE_MOVER.read_text(encoding="utf-8")
+
+    step = _update_step(source)
+    if step is None:
+        errors.append(
+            f"{_QUEUE_MOVER.name}: не найден шаг с 'update-branch'. Если его "
+            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_QUEUE_MOVER.name}: обновление ветки идёт штатным GITHUB_TOKEN — "
+            "его пуш не запускает прогон на PR, и голова очереди застрянет без "
+            "красных проверок. Нужен отдельный токен (issue #1287)"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_QUEUE_MOVER.name}: шаг обновления не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
+def _update_step(source: str) -> str | None:
+    """Текст шага, который зовёт ``update-branch``; ``None`` — такого шага нет."""
+    steps = re.split(r"^      - ", source, flags=re.MULTILINE)
+    for step in steps[1:]:
+        if "update-branch" in step:
+            return step
+    return None
+
+
 def main() -> int:
     """Вернуть 0, если инварианты workflow держатся; 1 — если нарушены."""
     errors: list[str] = []
@@ -369,6 +426,7 @@ def main() -> int:
     check_coverage_gate_is_explicit(errors)
     check_release_publishes_verified_assets(errors)
     check_every_job_has_a_timeout(errors)
+    check_queue_mover_uses_its_own_token(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)

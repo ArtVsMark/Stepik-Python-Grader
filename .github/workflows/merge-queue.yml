@@ -1,0 +1,115 @@
+name: Merge queue mover
+
+# issue #1287: очередь мержа умеет вычисляться (#1282), но двигать её было
+# некому. Между «защита требует актуальной ветки» и «кто-то её обеспечивает»
+# зазор: кнопка Update branch — ручное действие, `auto-merge` ветку НЕ
+# обновляет (он лишь ждёт зелёного и актуальности), а merge queue личному
+# аккаунту недоступна (#1235). Этот workflow и есть недостающий исполнитель.
+#
+# ПОЧЕМУ НЕ `push` В `main`, как предлагалось в issue. Условия оттуда же:
+# «не обновлять, пока на main идёт прогон или последний прогон красный».
+# На `push` прогон `main` только что стартовал — то есть занят ВСЕГДА, и
+# обновление не выполнялось бы никогда. `workflow_run` по завершении CI
+# отвечает на оба условия сам: прогон закончился, и его исход известен.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  move-the-head:
+    # Красный `main` в ветку не затаскиваем: сначала чинить базу, потом двигать
+    # очередь. Ровно то условие, что стоит в `check_pr_ready.py`.
+    if: github.event.workflow_run.conclusion == 'success'
+
+    runs-on: ubuntu-latest
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
+
+    # Секрет кладётся в env, а не проверяется в `if` напрямую: контекст
+    # `secrets` в условиях шага не гарантирован, а `env` — документированный
+    # приём именно для этой проверки.
+    env:
+      MERGE_QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # Голова считается тем же кодом, что и у человека в терминале
+      # (`python scripts/gh_rest.py queue`): порядок описан один раз и не
+      # может разъехаться между YAML и скриптом. Чтение — штатным
+      # `GITHUB_TOKEN`: прав на чтение хватает, а квоту REST это почти не
+      # трогает.
+      - name: Кто голова очереди
+        id: queue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/gh_rest.py --json queue > queue.json
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+
+          report = json.load(open("queue.json", encoding="utf-8"))
+          ready = report.get("ready") or []
+          head = ready[0] if ready else None
+          print(f"head={head['number'] if head else ''}")
+          print(f"fork={'yes' if head and head.get('fork') else 'no'}")
+          print(f"waiting={len(ready) - 1 if ready else 0}")
+          PY
+          cat queue.json
+
+      - name: Очередь пуста
+        if: steps.queue.outputs.head == ''
+        run: echo "::notice::готовых PR нет — двигать нечего"
+
+      # Форк живёт в чужом репозитории, и push в его ветку нам недоступен.
+      # Место в очереди у такого PR обычное — обновляет его владелец форка или
+      # мейнтейнер кнопкой; молча пропускать нельзя, иначе очередь встанет без
+      # видимой причины.
+      - name: Голова очереди — PR из форка
+        if: steps.queue.outputs.head != '' && steps.queue.outputs.fork == 'yes'
+        run: |
+          echo "::warning::PR #${{ steps.queue.outputs.head }} из форка — ветку" \
+               "обновляет его владелец или мейнтейнер кнопкой Update branch"
+
+      # ЛОВУШКА, ради которой нужен отдельный токен. Пуш, сделанный штатным
+      # `GITHUB_TOKEN`, не запускает другие workflow — защита GitHub от
+      # рекурсии. Ветка обновилась бы, событие `synchronize` пришло, а CI на PR
+      # не стартовал: PR застрял бы иначе, но так же намертво. Поэтому
+      # обновление идёт токеном приложения/PAT из секрета.
+      #
+      # Секрета нет — предупреждаем и выходим, а не падаем: workflow висит на
+      # `main`, и красный здесь означал бы красную базу из-за ненастроенного
+      # удобства.
+      - name: Секрет для обновления не задан
+        if: steps.queue.outputs.head != '' && env.MERGE_QUEUE_TOKEN == ''
+        run: |
+          echo "::warning::MERGE_QUEUE_TOKEN не задан — голова очереди" \
+               "(PR #${{ steps.queue.outputs.head }}) не обновлена." \
+               "Нужен токен с правами contents:write и pull-requests:write;" \
+               "GITHUB_TOKEN не подходит — его пуш не запускает прогон на PR"
+
+      - name: Обновить голову очереди из main
+        if: >-
+          steps.queue.outputs.head != ''
+          && steps.queue.outputs.fork == 'no'
+          && env.MERGE_QUEUE_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ env.MERGE_QUEUE_TOKEN }}
+        run: |
+          python scripts/gh_rest.py update-branch "${{ steps.queue.outputs.head }}"
+          echo "::notice::голова очереди — PR #${{ steps.queue.outputs.head }}," \
+               "за ней ждут: ${{ steps.queue.outputs.waiting }}"

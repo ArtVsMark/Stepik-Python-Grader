@@ -268,6 +268,10 @@ class PullSummary:
     # Голова ветки приходит в том же ответе списка. Держим её здесь, чтобы
     # очередь спрашивала проверки сразу, не тратя по запросу на каждый PR.
     sha: str = ""
+    # issue #1287: PR из форка живёт в чужом репозитории, и `update-branch` для
+    # него нам недоступен. Из очереди он не выпадает — мержится как все, — но
+    # обновлять его ветку должен владелец форка или мейнтейнер кнопкой.
+    fork: bool = False
 
     def describe(self) -> str:
         """Одна строка списка: номер, состояние, ветка, заголовок."""
@@ -753,6 +757,7 @@ def list_pulls(
             draft=bool(item.get("draft", False)),
             updated_at=str(item.get("updated_at", "")),
             sha=str(item.get("head", {}).get("sha", "")),
+            fork=str(item.get("head", {}).get("repo", {}).get("full_name", "")) != repo,
         )
         for item in items
         if isinstance(item, dict)
@@ -828,6 +833,9 @@ class QueueEntry:
     files: tuple[str, ...] = ()
     #: Номера готовых PR, с которыми есть общий файл.
     overlaps: tuple[int, ...] = ()
+    #: PR из форка: место в очереди у него обычное, а ветку из `main` за него
+    #: не обновить — репозиторий чужой (issue #1287).
+    fork: bool = False
 
     def describe(self, position: int, total_ahead: int) -> str:
         """Строка списка: место, номер, заголовок и что с ним делать."""
@@ -923,7 +931,9 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
             )
         else:
             files = pull_files(repo, item.number, **kwargs)
-            entries.append(QueueEntry(item.number, item.title, True, files=tuple(files)))
+            entries.append(
+                QueueEntry(item.number, item.title, True, files=tuple(files), fork=item.fork)
+            )
 
     runs = main_run(repo, **kwargs)
     listed = [run for run in runs.get("workflow_runs", []) if isinstance(run, dict)]
