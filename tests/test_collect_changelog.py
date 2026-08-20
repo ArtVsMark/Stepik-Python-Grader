@@ -173,7 +173,6 @@ class TestCollect:
         with pytest.raises(RuntimeError, match="Unreleased"):
             module.collect_into_changelog(project)
 
-
     def test_bom_does_not_hide_the_unreleased_section(
         self, module: ModuleType, project: pathlib.Path
     ) -> None:
