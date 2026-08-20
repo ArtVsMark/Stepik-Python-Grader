@@ -206,23 +206,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: >-
-          ${{ github.event_name == 'push'
-              && fromJSON('["ubuntu-latest"]')
-              || fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') }}
-        python-version: >-
-          ${{ github.event_name == 'push'
-              && fromJSON('["3.12"]')
-              || fromJSON('["3.12", "3.13"]') }}
+        # issue #1231: матрица одинакова для ЛЮБОГО события. Прежде на `push`
+        # оставалась одна комбинация `ubuntu × 3.12` — отмены в очереди это
+        # убрало, но ценой слепой зоны: `main` переставал проверяться на
+        # Windows и macOS до ночного прогона. Зона не теоретическая — полная
+        # матрица на PR в тот же день поймала падение
+        # `test_local_runner_times_out` на `macos-latest × 3.14`, которого
+        # короткий прогон не увидел бы в принципе. ОС-специфики в проекте
+        # много по устройству: Job Objects против bubblewrap против
+        # `sandbox-exec`, ACL против POSIX-битов, кодировки консоли, короткие
+        # пути Windows.
+        #
+        # Очередь при этом держится не размером матрицы, а ТЕМПОМ мержа:
+        # следующий PR не мержится, пока не завершился прогон предыдущего
+        # (`check_pr_ready.py` отвечает «ждать»). Плата — мерж примерно раз в
+        # четверть часа.
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        python-version: ["3.12", "3.13"]
         experimental: [false]
-        include: >-
-          ${{ github.event_name == 'push'
-              && fromJSON('[]')
-              || fromJSON('[
-                   {"os": "ubuntu-latest",  "python-version": "3.14", "experimental": true},
-                   {"os": "windows-latest", "python-version": "3.14", "experimental": true},
-                   {"os": "macos-latest",   "python-version": "3.14", "experimental": true}
-                 ]') }}
+        include:
+          - {os: "ubuntu-latest",  python-version: "3.14", experimental: true}
+          - {os: "windows-latest", python-version: "3.14", experimental: true}
+          - {os: "macos-latest",   python-version: "3.14", experimental: true}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -389,11 +394,13 @@ jobs:
         # требовать windows/macos значило бы выдавать ::warning:: на каждом
         # мерже. Предупреждение, которое горит всегда, перестают читать —
         # и настоящую деградацию тогда тоже пропустят.
+        # issue #1231: источники одинаковы для любого события — матрица снова
+        # полная, значит на `push` артефакты всех трёх ОС есть, и требовать их
+        # больше не «шум, который горит всегда», а настоящая проверка.
         env:
           REQUIRED: >-
-            ${{ github.event_name == 'push'
-                && '--require ubuntu-latest --require sandbox-linux'
-                || '--require ubuntu-latest --require windows-latest --require macos-latest --require sandbox-linux' }}
+            --require ubuntu-latest --require windows-latest
+            --require macos-latest --require sandbox-linux
         run: |
           python scripts/combine_coverage.py \
             --artifacts coverage-artifacts --fail-under 90 $REQUIRED
@@ -422,10 +429,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
-            # issue #1227: короткий прогон main видит одну ОС, и его число —
-            # не cross-OS. Публиковать его под бейджем «all OS» значило бы
-            # соврать точнее, чем промолчать: бейдж обновляет ночной прогон.
-            if [ "${{ github.event_name }}" != "push" ] && [ "${{ steps.combine.outputs.degraded }}" != "true" ]; then
+            # issue #1231: прогон `push` снова видит все три ОС, поэтому его
+            # число — настоящее cross-OS, и бейдж больше не отстаёт на сутки.
+            # Защита от ДЕГРАДАЦИИ остаётся и здесь главная: если ожидаемых
+            # coverage-данных нет (упал, например, sandbox-linux), недосчитанное
+            # число под бейджем «all OS» было бы точной ложью — тогда молчим, а
+            # прошлый честный бейдж остаётся в силе.
+            if [ "${{ steps.combine.outputs.degraded }}" != "true" ]; then
               python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json --label "coverage (all OS)"
             fi
             if [ -f ubuntu-coverage/coverage.xml ]; then
@@ -507,10 +517,11 @@ jobs:
   # NOT a new runtime dependency.
   e2e:
     runs-on: ubuntu-latest
-    # issue #1227: короткий прогон main без e2e — браузерные journey уже прошли
-    # на PR по тому же коду, а здесь они стоили бы половины его длительности.
-    # Ночной прогон гоняет полный набор, включая их.
-    if: github.event_name != 'push'
+    # issue #1231: journey выполняются и на `push`. Их пропуск был частью
+    # короткого прогона: «уже прошли на PR по тому же коду» верно ровно до
+    # первого мержа, который меняет соседний код, — а web-слой ломается именно
+    # так. Единственная проверка страницы целиком не должна зависеть от того,
+    # каким событием пришёл коммит.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # issue #162: setuptools-scm needs full history + tags to resolve
