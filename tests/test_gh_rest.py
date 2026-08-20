@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import ast
 import email.message
 import importlib.util
 import io
@@ -105,6 +106,24 @@ def _opener(*results: Any) -> Any:
 
     _open.captured = captured  # type: ignore[attr-defined]
     return _open
+
+
+def _raising(error: BaseException) -> Any:
+    """Подмена, которая всегда падает заданной ошибкой (сигнатура ``urlopen``)."""
+
+    def _call(*_args: Any, **_kwargs: Any) -> Any:
+        raise error
+
+    return _call
+
+
+def _returning(result: Any) -> Any:
+    """Подмена, которая всегда отдаёт один и тот же ответ."""
+
+    def _call(*_args: Any, **_kwargs: Any) -> Any:
+        return result
+
+    return _call
 
 
 class TestToken:
@@ -479,32 +498,36 @@ class TestCli:
         assert "не смержен" in capsys.readouterr().out
 
 
-class TestStrictCertificateFormIsNotDistrust:
-    """Python 3.13 включил `VERIFY_X509_STRICT` в `create_default_context()`.
+class TestCertificateCheckIsNeverWeakenedSilently:
+    """Ослабление проверки — решение окружения, а не модуля (issue #1259).
 
-    Флаг требует от CA-сертификата расширения `keyUsage` по RFC 5280, а у
-    перехватывающих корпоративных прокси его часто нет. Итог наблюдался прямо в
-    этом окружении: на Python 3.11 модуль работает, на 3.13 падает
-    «certificate verify failed: CA cert does not include key usage extension» —
-    при одном и том же бандле, том же OpenSSL и исправном соединении.
+    Прежняя редакция при отказе TLS **сама** повторяла запрос со снятым
+    `VERIFY_X509_STRICT`. Флаг узкий (придирчивость к форме CA, а не доверие),
+    и повод был настоящий: Python 3.13 включил его по умолчанию, а у
+    перехватывающих корпоративных прокси CA часто без `keyUsage` — на 3.11
+    модуль работал, на 3.13 падал при том же бандле и исправной сети.
 
-    Цена промаха несимметрична: модуль заведён затем, чтобы конвейер не ходил
-    по GraphQL, и его отказ возвращает окно к инструментам, выжигающим квоту за
-    несколько операций. Поэтому повтор — со снятым флагом ФОРМЫ и только на
-    этом отказе; доверие, имя хоста и срок действия остаются под проверкой.
+    Но инвариант проекта говорит иначе: невыполнимая гарантия — громкий отказ,
+    а не автоматический обход. Так уже записано про песочницу («недоступный
+    backend — `parser.error`, а не молчаливый откат на `LocalRunner`»), и TLS
+    ничем не отличается. Поэтому откат остался возможен, но стал явным:
+    `GH_REST_RELAXED_CA=1` плюс предупреждение на каждый запрос.
+
+    Настоящая проверка сертификата — против локального HTTPS-сервера в
+    `test_gh_rest_tls.py`; здесь проверяются решения модуля.
     """
 
     def _verification_error(self, text: str) -> urllib.error.URLError:
         reason = ssl.SSLCertVerificationError(text)
         return urllib.error.URLError(reason)
 
-    def test_key_usage_rejection_is_recognised(self, module: ModuleType) -> None:
-        error = self._verification_error(
-            "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: "
-            "CA cert does not include key usage extension"
-        )
+    _STRICT_TEXT = (
+        "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: "
+        "CA cert does not include key usage extension"
+    )
 
-        assert module._is_strict_ca_rejection(error)
+    def test_key_usage_rejection_is_recognised(self, module: ModuleType) -> None:
+        assert module._is_strict_ca_rejection(self._verification_error(self._STRICT_TEXT))
 
     @pytest.mark.parametrize(
         "text",
@@ -517,13 +540,115 @@ class TestStrictCertificateFormIsNotDistrust:
     def test_real_distrust_is_not_recognised(self, module: ModuleType, text: str) -> None:
         """Просроченный, самоподписанный, чужой — это отказ по существу.
 
-        Их повтор с ослабленным флагом ничего бы не изменил, но сама попытка
-        стёрла бы границу между «форма CA» и «сертификату нельзя верить».
+        Различение осталось нужным и без отката: подсказка у этих отказов
+        другая. «Форму CA» лечит только осознанный opt-in, а недоверие —
+        штатная `SSL_CERT_FILE`, и путать их значит слать читателя не туда.
         """
         assert not module._is_strict_ca_rejection(self._verification_error(text))
 
     def test_plain_network_failure_is_not_recognised(self, module: ModuleType) -> None:
         assert not module._is_strict_ca_rejection(urllib.error.URLError(OSError("сеть недоступна")))
+
+    def test_strict_rejection_does_not_retry(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Главное свойство правки: попытка ровно одна, ослабленной второй нет."""
+        calls: list[Any] = []
+
+        def _urlopen(request: Any, timeout: float = 0, context: Any = None) -> Any:
+            calls.append(context)
+            raise self._verification_error(self._STRICT_TEXT)
+
+        monkeypatch.delenv(module.ENV_RELAXED_CA, raising=False)
+        monkeypatch.setattr(module.urllib.request, "urlopen", _urlopen)
+
+        with pytest.raises(module.TlsVerificationError):
+            module._default_opener(urllib.request.Request("https://api.github.com/x"))
+        assert len(calls) == 1
+        assert calls[0].verify_flags == ssl.create_default_context().verify_flags
+
+    def test_strict_rejection_explains_the_real_cause(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Подсказка про `SSL_CERT_FILE` здесь была бы ложным следом.
+
+        Бандл уже тот, что нужно, — не проходит его оформление. Замер в
+        облачной сессии: на 3.11 и 3.13 один и тот же `SSL_CERT_FILE`, один
+        набор из 152 CA, и разница ровно в значении `VERIFY_X509_STRICT`.
+        """
+        monkeypatch.delenv(module.ENV_RELAXED_CA, raising=False)
+        monkeypatch.setattr(
+            module.urllib.request,
+            "urlopen",
+            _raising(self._verification_error(self._STRICT_TEXT)),
+        )
+
+        with pytest.raises(module.TlsVerificationError) as caught:
+            module._default_opener(urllib.request.Request("https://api.github.com/x"))
+
+        text = str(caught.value)
+        assert "VERIFY_X509_STRICT" in text
+        assert module.ENV_RELAXED_CA in text
+        assert "SECURITY.md" in text
+
+    def test_ordinary_distrust_points_at_ssl_cert_file(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """А вот здесь переменная и есть лечение — штатное, без ослаблений."""
+        monkeypatch.delenv(module.ENV_RELAXED_CA, raising=False)
+        monkeypatch.setattr(
+            module.urllib.request,
+            "urlopen",
+            _raising(self._verification_error("verify failed: self-signed certificate")),
+        )
+
+        with pytest.raises(module.TlsVerificationError) as caught:
+            module._default_opener(urllib.request.Request("https://api.github.com/x"))
+
+        assert "SSL_CERT_FILE" in str(caught.value)
+
+    def test_network_failure_is_not_dressed_as_tls(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Оборванная сеть — не сбой проверки: подсказка про CA увела бы вбок."""
+        monkeypatch.setattr(
+            module.urllib.request, "urlopen", _raising(urllib.error.URLError(OSError("нет сети")))
+        )
+
+        with pytest.raises(urllib.error.URLError) as caught:
+            module._default_opener(urllib.request.Request("https://api.github.com/x"))
+        assert not isinstance(caught.value, module.TlsVerificationError)
+
+    @pytest.mark.parametrize("value", ["1"])
+    def test_opt_in_uses_the_relaxed_context(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch, value: str
+    ) -> None:
+        calls: list[Any] = []
+        answer = _FakeResponse({"ok": True})
+
+        def _urlopen(request: Any, timeout: float = 0, context: Any = None) -> Any:
+            calls.append(context)
+            return answer
+
+        monkeypatch.setenv(module.ENV_RELAXED_CA, value)
+        monkeypatch.setattr(module.urllib.request, "urlopen", _urlopen)
+
+        assert module._default_opener(urllib.request.Request("https://api.github.com/x")) is answer
+        assert not calls[0].verify_flags & ssl.VERIFY_X509_STRICT
+
+    @pytest.mark.parametrize("junk", ["", " ", "0", "true", "TRUE", "yes", "on", "да", "11"])
+    def test_only_the_documented_value_switches_it(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch, junk: str
+    ) -> None:
+        """Опечатка в переключателе безопасности означает «выключено».
+
+        Догадываться о намерении тут нельзя: цена ошибочного «включено» —
+        принятый недоверенный сертификат, цена ошибочного «выключено» — ещё
+        один запуск с правильным значением, которое ошибка и называет.
+        """
+        monkeypatch.setenv(module.ENV_RELAXED_CA, junk)
+
+        assert not module.relaxed_ca_enabled()
 
     def test_relaxed_context_keeps_verification_on(self, module: ModuleType) -> None:
         """Снят ровно один флаг — иначе это было бы отключением проверки."""
@@ -533,42 +658,75 @@ class TestStrictCertificateFormIsNotDistrust:
         assert context.check_hostname is True
         assert not context.verify_flags & ssl.VERIFY_X509_STRICT
 
-    def test_opener_retries_once_without_the_strict_flag(
+    def test_default_context_is_the_system_one(
         self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Провод: распознать мало — надо ещё повторить и вернуть ответ."""
-        calls: list[Any] = []
-        answer = _FakeResponse({"ok": True})
+        """Модуль не подменяет доверенный набор — ни `certifi`, ни `cafile`."""
+        monkeypatch.delenv(module.ENV_RELAXED_CA, raising=False)
+        context = module._request_context()
 
-        def _urlopen(request: Any, timeout: float = 0, context: Any = None) -> Any:
-            calls.append(context)
-            if context is None:
-                raise self._verification_error(
-                    "certificate verify failed: CA cert does not include key usage extension"
-                )
-            return answer
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname is True
+        assert bool(context.verify_flags & ssl.VERIFY_X509_STRICT) == bool(
+            ssl.create_default_context().verify_flags & ssl.VERIFY_X509_STRICT
+        )
 
-        monkeypatch.setattr(module.urllib.request, "urlopen", _urlopen)
+    def test_module_does_not_pin_its_own_trust_store(self) -> None:
+        """Условие приёмки #1259 — по коду, а не по тексту вокруг него.
 
-        assert module._default_opener(urllib.request.Request("https://api.github.com/x")) is answer
-        assert len(calls) == 2
-        assert calls[0] is None and calls[1] is not None
+        Разбираем `ast`, а не ищем подстроку: слова `certifi` и `cafile` есть в
+        докстрингах именно потому, что там объясняется, почему их тут нет.
+        """
+        tree = ast.parse(_SCRIPT.read_text(encoding="utf-8"))
+        imported = {
+            alias.name.split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        } | {
+            node.module.split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module
+        }
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+        keywords = {kw.arg for node in calls for kw in node.keywords}
+        called = {node.func.attr for node in calls if isinstance(node.func, ast.Attribute)}
 
-    def test_opener_does_not_retry_other_failures(
-        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch
+        assert "certifi" not in imported, "доверенный набор снова свой, а не системный"
+        assert not {"cafile", "capath", "cadata"} & keywords
+        assert "load_verify_locations" not in called
+
+    def test_opt_in_warns_on_every_request(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Повтор на всём подряд превратил бы один отказ в два ожидания."""
-        calls: list[Any] = []
+        """Раз за процесс — мало: ослабленный запрос не должен выглядеть обычным."""
+        monkeypatch.setenv(module.ENV_RELAXED_CA, "1")
+        monkeypatch.setattr(module.urllib.request, "urlopen", _returning(_FakeResponse({})))
 
-        def _urlopen(request: Any, timeout: float = 0, context: Any = None) -> Any:
-            calls.append(context)
-            raise urllib.error.URLError(OSError("сеть недоступна"))
-
-        monkeypatch.setattr(module.urllib.request, "urlopen", _urlopen)
-
-        with pytest.raises(urllib.error.URLError):
+        for _ in range(3):
             module._default_opener(urllib.request.Request("https://api.github.com/x"))
-        assert len(calls) == 1
+
+        assert capsys.readouterr().err.count(module.ENV_RELAXED_CA) == 3
+
+    def test_cli_prints_the_tls_hint_without_the_github_prefix(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Провод до CLI: до GitHub запрос не дошёл, префикс про него — ложь."""
+        monkeypatch.delenv(module.ENV_RELAXED_CA, raising=False)
+        monkeypatch.setattr(
+            module, "_default_opener", _raising(module.TlsVerificationError("TLS: подробности"))
+        )
+
+        assert module.main(["pulls"]) == module.EXIT_FAIL
+        err = capsys.readouterr().err
+        assert err.startswith("TLS: подробности")
+        assert "Ошибка GitHub" not in err
 
 
 class TestIssueOperations:
