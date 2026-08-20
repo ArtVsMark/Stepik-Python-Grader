@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""scripts/check_good_first_issues_bilingual.py — `good first issue` на двух языках.
+"""scripts/check_good_first_issues_bilingual.py — пул для внешних на двух языках.
 
 У проекта есть намеренная англоязычная витрина (``README.en.md``, локаль ``en``
-в CLI и вебе, двуязычные подписи в issue-формах), и метка ``good first issue`` —
-единственный вход, на который она приводит. Задача, написанная только
+в CLI и вебе, двуязычные подписи в issue-формах), и метки ``good first issue`` и
+``help wanted`` — те входы, на которые она приводит. Задача, написанная только
 по-русски, отсекает ровно ту аудиторию, ради которой метка существует:
 англоязычный читатель доходит до списка задач и упирается в стену текста,
 которую не может прочесть.
 
-Проверяется каждый ОТКРЫТЫЙ issue с меткой:
+Меток две, а не одна, потому что путь внешнего участника на первом вкладе не
+кончается: сделавший ``good first issue`` идёт за вторым — и упирается в
+``help wanted``, где английской половины прежде не требовалось. Барьер тогда
+просто сдвигался на шаг вперёд.
+
+Проверяется каждый ОТКРЫТЫЙ issue с любой из меток:
 
 1. **Английская половина есть** — тело содержит якорь ``## In English``
    (или ``## English``).
@@ -48,6 +53,7 @@ from collections.abc import Callable
 
 __all__ = [
     "DEFAULT_LABEL",
+    "DEFAULT_LABELS",
     "DEFAULT_REPO",
     "MAX_RUSSIAN_WORDS",
     "MIN_TRANSLATION_CHARS",
@@ -59,7 +65,12 @@ __all__ = [
 ]
 
 DEFAULT_REPO = "ArtVsMark/Stepik-Python-Grader"
-DEFAULT_LABEL = "good first issue"
+
+# Метки пула для внешних участников — обе двуязычны. Порядок значим только для
+# вывода; ``DEFAULT_LABEL`` остаётся первой из них, потому что на неё смотрит
+# бейдж пула задач и одноимённый аргумент ``fetch_open_issues``.
+DEFAULT_LABELS = ("good first issue", "help wanted")
+DEFAULT_LABEL = DEFAULT_LABELS[0]
 
 # Ниже этого перевод — не перевод, а заголовок с парой слов под ним. Порог
 # намеренно низкий: короткая задача бывает и правда короткой, а ловим мы
@@ -185,21 +196,39 @@ def main(argv: list[str] | None = None) -> int:
         description="Проверка, что задачи с меткой good first issue двуязычны.",
     )
     parser.add_argument("--repo", default=DEFAULT_REPO, help="owner/name репозитория")
-    parser.add_argument("--label", default=DEFAULT_LABEL, help="метка пула")
+    parser.add_argument(
+        "--label",
+        action="append",
+        dest="labels",
+        metavar="МЕТКА",
+        help=(
+            "метка пула; флаг повторяется. По умолчанию проверяются обе: "
+            + " и ".join(repr(label) for label in DEFAULT_LABELS)
+        ),
+    )
     args = parser.parse_args(argv)
+    labels = args.labels or list(DEFAULT_LABELS)
 
-    try:
-        issues = fetch_open_issues(args.repo, args.label)
-    except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
-        print(f"::warning::не удалось получить список {args.label!r}: {exc}", file=sys.stderr)
-        return 1
+    # Одна задача бывает с обеими метками сразу — проверять её дважды значит
+    # дважды и предупредить об одном и том же. Номер здесь ключ, а не тело:
+    # тело у одного номера одно.
+    bodies: dict[int, str] = {}
+    for label in labels:
+        try:
+            issues = fetch_open_issues(args.repo, label)
+        except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
+            print(f"::warning::не удалось получить список {label!r}: {exc}", file=sys.stderr)
+            return 1
+        print(f"{label}: проверено {len(issues)} открытых issue.")
+        bodies.update(dict(issues))
 
-    problems = [problem for number, body in issues if (problem := check_issue(number, body))]
-    print(f"{args.label}: проверено {len(issues)} открытых issue.")
+    problems = [
+        problem for number, body in sorted(bodies.items()) if (problem := check_issue(number, body))
+    ]
     for problem in problems:
         print(f"::warning::{problem}")
-    if not problems and issues:
-        print("Все открытые задачи для новичка двуязычны.")
+    if not problems and bodies:
+        print("Все открытые задачи пула для внешних двуязычны.")
     return 0
 
 
