@@ -487,3 +487,63 @@ class TestQueueMoverToken:
         _MODULE.check_queue_mover_uses_its_own_token(errors)
 
         assert errors == []
+
+
+class TestReleaseNotesAreTranslated:
+    """Гейт перевода стоит в `verify` и стоит там со `--strict` (issue #1290)."""
+
+    _GOOD = (
+        "jobs:\n  verify:\n    steps:\n"
+        "      - name: Release notes\n"
+        '        run: python scripts/extract_release_notes.py "$REF" --out release-notes.md\n'
+        "      - name: Translated\n"
+        "        run: python scripts/check_changelog_translated.py --strict release-notes.md\n"
+        "  build:\n    steps: []\n"
+    )
+
+    def test_strict_gate_in_verify_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_release_notes_are_translated(errors, self._GOOD)
+
+        assert errors == []
+
+    def test_missing_gate_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = (
+            "jobs:\n  verify:\n    steps:\n      - run: python scripts/extract_release_notes.py\n"
+        )
+
+        _MODULE.check_release_notes_are_translated(errors, source)
+
+        assert len(errors) == 1
+        assert "check_changelog_translated.py" in errors[0]
+
+    def test_gate_without_strict_is_rejected(self) -> None:
+        """Без `--strict` скрипт возвращает 0 — гейт, который ничего не держит."""
+        errors: list[str] = []
+        source = self._GOOD.replace(
+            "check_changelog_translated.py --strict release-notes.md",
+            "check_changelog_translated.py release-notes.md",
+        )
+
+        _MODULE.check_release_notes_are_translated(errors, source)
+
+        assert len(errors) == 1
+        assert "--strict" in errors[0]
+
+    def test_missing_file_is_red(self, monkeypatch) -> None:
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_RELEASE", pathlib.Path("нет-такого.yml"))
+
+        _MODULE.check_release_notes_are_translated(errors)
+
+        assert len(errors) == 1
+        assert "файла нет" in errors[0]
+
+    def test_real_workflow_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_release_notes_are_translated(errors)
+
+        assert errors == []

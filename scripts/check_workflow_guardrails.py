@@ -41,6 +41,7 @@ __all__ = [
     "check_every_job_has_a_timeout",
     "check_queue_mover_uses_its_own_token",
     "check_release_gates_match_promises",
+    "check_release_notes_are_translated",
     "check_release_pipeline",
     "check_release_publishes_verified_assets",
     "extract_job",
@@ -187,6 +188,40 @@ def check_release_gates_match_promises(errors: list[str], source: str | None = N
         )
 
     print(f"release gates: job '{VERIFY_JOB}' держит обещания документации.")
+
+
+def check_release_notes_are_translated(errors: list[str], source: str | None = None) -> None:
+    """Перед публикацией стоит отказ на непереведённых записях (issue #1290).
+
+    Английский вклад принимается как есть, а русскую запись CHANGELOG делает
+    мержащий — значит, пропуск перевода стал штатным способом ошибиться, и
+    ловить его обязан механизм, а не память. Место у гейта одно: ``verify``, от
+    которого зависят оба публикующих job'а. Проверка требует ИМЕННО ``--strict``:
+    без него скрипт печатает предупреждение и возвращает 0 — на PR это верно, а
+    на релизе означало бы гейт, который ничего не держит.
+    """
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — гейт перевода не проверен")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    verify = "\n".join(extract_job(source, VERIFY_JOB))
+    if "check_changelog_translated.py" not in verify:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: нет запуска check_changelog_translated.py. "
+            "Непереведённая запись уедет в GitHub Release и на PyPI, где версия "
+            "неперезаписываема."
+        )
+        return
+    if "check_changelog_translated.py --strict" not in verify:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: check_changelog_translated.py зовётся без --strict. "
+            "Без него гейт возвращает 0 и публикацию не останавливает."
+        )
+        return
+
+    print(f"release gates: job '{VERIFY_JOB}' отвергает непереведённые записи.")
 
 
 def check_ci_listens_to_ready_for_review(errors: list[str], source: str | None = None) -> None:
@@ -422,6 +457,7 @@ def main() -> int:
 
     check_release_pipeline(errors)
     check_release_gates_match_promises(errors)
+    check_release_notes_are_translated(errors)
     check_ci_listens_to_ready_for_review(errors)
     check_coverage_gate_is_explicit(errors)
     check_release_publishes_verified_assets(errors)

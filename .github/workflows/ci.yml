@@ -121,6 +121,12 @@ jobs:
       # ловим причину статически, а не ждём следа. Тоже чистый stdlib (ast).
       - name: Test isolation guardrails (issue #997)
         run: python scripts/check_test_isolation.py
+      # issue #1290: запись без единой кириллической буквы — подозрение на
+      # непереведённую. На PR это предупреждение, а не отказ: запись в ветке
+      # может быть черновиком, и падать на состоянии работы значит блокировать
+      # чужие изменения. Отказ стоит там, где ошибка необратима, — в release.yml.
+      - name: CHANGELOG entries are translated (issue #1290)
+        run: python scripts/check_changelog_translated.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
