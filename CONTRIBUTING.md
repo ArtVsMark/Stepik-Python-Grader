@@ -6,14 +6,19 @@
 > [Кодекс поведения](CODE_OF_CONDUCT.md).
 
 > **In English.** This guide is in Russian, but contributing does not require
-> it. The short version: fork, branch off `main`, `python -m venv .venv` +
+> it — **no Russian is expected from you at any point.** The short version:
+> fork, branch off `main`, `python -m venv .venv` +
 > `pip install -e ".[dev]"`, then run the same gates CI does —
 > `pytest tests/ -x -q`, `ruff check .`, `ruff format --check .`,
 > `mypy src/stepik_grader scripts`. Commit messages follow
 > [Conventional Commits](https://www.conventionalcommits.org) with an English
-> type/scope (`fix(cli): …`); the description and the `CHANGELOG.md` entry are
-> written in Russian — the project's documentation language. Pull requests and
-> issues in English are welcome. Conduct concerns:
+> type/scope (`fix(cli): …`) and an English description. The repository itself
+> stays Russian, but that is the maintainer's side of the deal: merges are
+> squashed, so the Russian commit message and the `CHANGELOG.md` entry are
+> written by whoever merges, not by you. Pull requests, issues and comments in
+> English are welcome, and an English pull request is reviewed in English. The
+> gates answer in Russian — what a red run means is in
+> [Gate messages in English](#gate-messages-in-english). Conduct concerns:
 > [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
@@ -63,17 +68,21 @@
 - Плюс тип по смыслу: `enhancement`, `bug`, `tech-debt`, `security`,
   `documentation`, …
 
-### `good first issue` заводится сразу на двух языках
+### `good first issue` и `help wanted` заводятся сразу на двух языках
 
-Тело задачи с меткой **`good first issue`** содержит русскую версию и
-английский перевод — обе, а не одну на выбор.
+Тело задачи с меткой **`good first issue`** или **`help wanted`** содержит
+русскую версию и английский перевод — обе, а не одну на выбор.
 
-Почему именно эта метка, а не все подряд: у проекта есть намеренная
+Почему именно эти метки, а не все подряд: у проекта есть намеренная
 англоязычная витрина ([README.en.md](README.en.md), локаль `en` в CLI и вебе,
-двуязычные подписи в issue-формах), и `good first issue` — единственный вход,
-на который она приводит. Задача, доступная только по-русски, отсекает ровно ту
-аудиторию, ради которой метка и существует: англоязычный читатель доходит до
-списка задач и упирается в стену текста, которую не может прочесть.
+двуязычные подписи в issue-формах), и это те два входа, на которые она
+приводит. Задача, доступная только по-русски, отсекает ровно ту аудиторию, ради
+которой метка и существует: англоязычный читатель доходит до списка задач и
+упирается в стену текста, которую не может прочесть.
+
+Меток две, потому что путь внешнего участника первым вкладом не кончается:
+сделавший `good first issue` идёт за вторым — и упирается в `help wanted`. Одна
+двуязычная метка барьер не снимает, а сдвигает на шаг вперёд.
 
 Формат — русская версия, разделитель, английская:
 
@@ -552,6 +561,22 @@ import annotations` в новом файле, `pathlib` вместо `os.path`, 
    шаг 5, плюс guardrail-скрипты, которые иначе краснеют уже после пуша
 8. Создайте Pull Request в `main`
 
+### Английский вклад: русские артефакты пишет мержащий
+
+От внешнего участника русский не требуется **вовсе**: PR, issue, комментарии и
+обсуждение принимаются на английском как есть. Репозиторий при этом остаётся
+русским — граница проходит по артефакту, а не по человеку:
+
+- **описание squash-коммита** пишет мержащий: squash всё равно берёт заголовок
+  и тело у него, а не из коммитов ветки;
+- **запись `changelog.d`** — его же забота: перевод английской заготовки автора
+  либо отдельный коммит в ветку PR перед мержем;
+- **ревью английского PR ведётся по-английски** — и людьми, и автоматическим
+  ревьюером. Ответ по-русски тому, кто писал по-английски, равносилен молчанию.
+
+Требовать перевод от автора значило бы просить писать вслепую: проверить
+русский текст он не может, а расплачивается за ошибку читатель `CHANGELOG.md`.
+
 ### Правила коммитов (Conventional Commits)
 
 ```
@@ -666,3 +691,32 @@ chore: инфраструктура, зависимости
 ## Известные ограничения
 
 - Memory measurement через `psutil` может давать нулевые значения для очень быстрых процессов.
+
+---
+
+## Gate messages in English
+
+The gates (`preflight.py` and the `check_*.py` scripts) print in Russian. You do
+not need to read Russian to use them: every line has the shape
+`[ OK  ] <check>: <detail>`, a blocking failure is marked `[ПРОВАЛ]` and a
+non-blocking note `[ЗАМЕТКА]`. The last line is either
+`Всё чисто — можно коммитить и пушить.` (nothing to fix) or
+`Не пройдено: N.` (N blocking failures — the pre-push hook will reject the push).
+
+| What you see | What it means | What to do |
+|---|---|---|
+| `ветка не main: текущая ветка: main` | You are committing straight to `main` | `git checkout -b fix/<slug>` |
+| `ветка от свежего main: main ушёл вперёд на N коммит(ов)` | Your branch is N commits behind `main`, so the gates would check a state that will not exist after the merge | `git fetch origin main && git merge --ff-only origin/main` |
+| `имя ветки свободно: origin/<name> разошлась с этой веткой` | A branch of that name already exists on `origin` and is not yours (a note, not a failure) | Rename your branch — never force-push a branch you did not create |
+| `запись в CHANGELOG: ни фрагмента, ни строки в буфере` | The changelog entry is missing; every pull request needs one | Add `changelog.d/<slug>.<section>.md` with one line of text. **English is fine** — it is translated when merging |
+| `автор участвует в коммитах: нет ни автором, ни соавтором: <sha>` | Only fires for commits authored by the AI assistant, never for yours | Nothing — an outside contribution does not reach this check |
+| `кто ссылается на правку: …` | A note listing who else uses the public names you touched | Read it, then decide whether those call sites need the same change |
+| `ruff check` · `ruff format` · `mypy` · `pytest (весь набор)` | The tool's own output is English; only the label around it is Russian | The full log path follows `→ полный лог:` — everything is in `.git/preflight-logs/` |
+| `не удалось запустить: …` | The tool itself would not start — usually the wrong virtualenv | `pip install -e ".[dev]"` inside the activated `.venv` |
+
+A failing check prints a hint on the next line after `→`: that is the suggested
+command, and copying it is normally the whole fix.
+
+Words that carry most of the meaning: `ветка` branch · `коммит` commit ·
+`запись` entry · `прогон` run · `провал` failure · `полный лог` full log ·
+`пуш` push.
