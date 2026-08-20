@@ -200,6 +200,19 @@ class TestRateLimit:
         with pytest.raises(module.GitHubError) as caught:
             module.request("GET", "repos/x/y/pulls", opener=_opener(error), use_cache=False)
         assert not isinstance(caught.value, module.RateLimited)
+        assert "Forbidden" in str(caught.value), "причина от сервера важнее нашей догадки"
+
+    def test_403_without_a_message_falls_back_to_the_token_hint(self, module: ModuleType) -> None:
+        """Догадка про права токена остаётся — но только когда сказать нечего.
+
+        Прежде она печаталась ВСЕГДА и вытесняла настоящую причину из тела
+        ответа: у `403` их много, и права токена — лишь одна из них (#1273).
+        """
+        error = _http_error(403, headers={"x-ratelimit-remaining": "4000"})
+
+        with pytest.raises(module.GitHubError) as caught:
+            module.request("GET", "repos/x/y/pulls", opener=_opener(error), use_cache=False)
+
         assert "токен" in str(caught.value)
 
     def test_other_errors_carry_github_message(self, module: ModuleType) -> None:
@@ -956,3 +969,86 @@ class TestCreatePrTellsTheTruthAboutAuthorship:
         err = capsys.readouterr().err
         assert "claude[bot]" in err
         assert "MCP" in err, "сказано «плохо», но не сказано как правильно"
+
+
+class TestPolicyRefusalIsNotAQuota:
+    """`403` без заголовков лимита — не исчерпанная квота (issue #1273).
+
+    Прежде отсутствующий `x-ratelimit-remaining` читался как ноль, и **любой**
+    `403` объявлялся исчерпанной квотой. Поймано на живом отказе: попытка
+    смержить PR из агентской сессии вернула
+
+        {"message": "Merging into a protected base branch is not permitted
+                     for this session type."}
+
+    а модуль напечатал «квота GitHub (core) исчерпана — сброс в ?, через 0 мин
+    0 с», хотя `rate` в ту же секунду показывал 14997/15000.
+
+    Разница дорогая: отказ по политике и кончившаяся квота требуют
+    противоположных действий — «делай иначе» против «жди и не трогай». Следы
+    вранья были на виду («сброс в ?»), но совет звучал уверенно.
+    """
+
+    _POLICY = "Merging into a protected base branch is not permitted for this session type."
+
+    def test_missing_headers_are_not_zero(self, module: ModuleType) -> None:
+        """«Неизвестно» и «ноль» — разные ответы, и различать их обязан парсер."""
+        remaining, _reset, _resource = module._quota_from_headers(_headers({}))
+
+        assert remaining is None
+
+    def test_present_zero_is_still_zero(self, module: ModuleType) -> None:
+        remaining, _reset, _resource = module._quota_from_headers(
+            _headers({"x-ratelimit-remaining": "0"})
+        )
+
+        assert remaining == 0
+
+    def test_policy_refusal_is_a_plain_error(self, module: ModuleType) -> None:
+        error = _http_error(403, message=self._POLICY)
+
+        with pytest.raises(module.GitHubError) as caught:
+            module.request("PUT", "repos/x/y/pulls/1/merge", opener=_opener(error), use_cache=False)
+
+        assert not isinstance(caught.value, module.RateLimited), "отказ выдан за исчерпанную квоту"
+
+    def test_the_real_reason_reaches_the_message(self, module: ModuleType) -> None:
+        """Ради этого всё: строка из тела — единственное, что объясняет отказ."""
+        error = _http_error(403, message=self._POLICY)
+
+        with pytest.raises(module.GitHubError) as caught:
+            module.request("PUT", "repos/x/y/pulls/1/merge", opener=_opener(error), use_cache=False)
+
+        assert "protected base branch" in str(caught.value)
+
+    def test_exhausted_quota_still_recognised(self, module: ModuleType) -> None:
+        """Контроль: настоящая квота по-прежнему распознаётся как «ждать»."""
+        error = _http_error(
+            403,
+            headers={"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(int(time.time()) + 60)},
+            message="API rate limit exceeded",
+        )
+
+        with pytest.raises(module.RateLimited):
+            module.request("GET", "repos/x/y/pulls", opener=_opener(error), use_cache=False)
+
+    def test_secondary_limit_without_remaining_is_still_a_wait(self, module: ModuleType) -> None:
+        """`retry-after` — тоже слово сервера про лимит, и оно остаётся в силе."""
+        error = _http_error(429, headers={"retry-after": "30"}, message="secondary rate limit")
+
+        with pytest.raises(module.RateLimited):
+            module.request("GET", "repos/x/y/pulls", opener=_opener(error), use_cache=False)
+
+    def test_cli_reports_failure_not_waiting(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Провод до кода возврата: «нельзя» — это 1, а не 2 («подожди»)."""
+        monkeypatch.setattr(
+            module, "_default_opener", _raising(_http_error(403, message=self._POLICY))
+        )
+
+        assert module.main(["merge", "1266"]) == module.EXIT_FAIL
+        assert "protected base branch" in capsys.readouterr().err
