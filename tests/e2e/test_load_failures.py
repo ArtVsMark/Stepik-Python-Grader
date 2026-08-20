@@ -69,10 +69,18 @@ def test_insights_retry_recovers_after_server_returns(
 
     Страхует от «фикса», который рисует баннер поверх разметки пустого
     состояния: восстановить её после успешного повтора было бы нечем.
+
+    Считаем **запросы** к ``/api/insights``, а не только состояние экрана (issue
+    #921, находка `QA-2-04`). Без счётчика тест проходил и у обработчика,
+    который просто прячет баннер и показывает пустое состояние, ничего не
+    запрашивая: экран после такого «фикса» выглядит правильно, а данные —
+    прежние. Кнопка называется «Повторить», и повтор обязан быть настоящим.
     """
     failing = {"on": True}
+    requests: list[str] = []
 
     def _maybe_fail(route: Any) -> None:
+        requests.append(route.request.url)
         if failing["on"]:
             route.fulfill(status=500, content_type="application/json", body="{}")
         else:
@@ -83,6 +91,8 @@ def test_insights_retry_recovers_after_server_returns(
     page.goto(e2e_server + "/")
     page.click('.sidebar-item[data-section="insights"]')
     expect(page.locator("#view-insights [data-load-error]")).to_be_visible(timeout=_TIMEOUT_MS)
+    before = len(requests)
+    assert before, "раздел не сходил за данными вовсе — проверять нечего"
 
     failing["on"] = False  # сервер вернулся
     page.click("#view-insights [data-load-error] button")
@@ -91,6 +101,10 @@ def test_insights_retry_recovers_after_server_returns(
     expect(page.locator("#view-insights [data-load-error]")).to_have_count(0, timeout=_TIMEOUT_MS)
     page.wait_for_selector(
         "#insights-empty:not([hidden]), #insights-cards:not([hidden])", timeout=_TIMEOUT_MS
+    )
+    assert len(requests) > before, (
+        "после «Повторить» нового запроса к /api/insights не было — экран "
+        "перерисовали по старым данным"
     )
 
 

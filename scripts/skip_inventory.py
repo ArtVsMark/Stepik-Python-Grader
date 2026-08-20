@@ -11,6 +11,7 @@
 Скрипт статически (``ast``, без запуска тестов) собирает все места пропуска:
 
 * ``@pytest.mark.skip`` / ``@pytest.mark.skipif`` / ``@pytest.mark.xfail``;
+* ``pytestmark = pytest.mark.skipif(...)`` — пропуск целого файла или класса;
 * вызовы ``pytest.skip(...)`` / ``pytest.xfail(...)`` в теле теста;
 * ``pytest.importorskip(...)`` — пропуск по отсутствию зависимости.
 
@@ -143,6 +144,36 @@ def _call_site(node: ast.Call, path: Path) -> SkipSite | None:
     return SkipSite(path=path, line=node.lineno, kind=kind, reason=reason)
 
 
+def _is_pytestmark(target: ast.expr) -> bool:
+    """Присваивание в ``pytestmark`` — модульное или классовое."""
+    return isinstance(target, ast.Name) and target.id == "pytestmark"
+
+
+def _pytestmark_sites(node: ast.Assign | ast.AugAssign, path: Path) -> list[SkipSite]:
+    """``pytestmark = pytest.mark.skipif(...)`` — пропуск ЦЕЛОГО файла/класса.
+
+    Самый крупный вид пропуска и до issue #921 единственный невидимый: он не
+    декоратор и не вызов ``pytest.skip``, а обычное присваивание, поэтому обход
+    по декораторам его не находил. Файл, отключённый целиком, не попадал в
+    инвентарь вовсе — то есть гейт «каждый пропуск объясняет себя» молчал ровно
+    про самые дорогие пропуски.
+
+    Значение бывает и списком (``pytestmark = [mark_a, mark_b]``) — тогда
+    разбираются все элементы.
+    """
+    targets = [node.target] if isinstance(node, ast.AugAssign) else node.targets
+    if not any(_is_pytestmark(target) for target in targets):
+        return []
+    value = node.value
+    items = list(value.elts) if isinstance(value, ast.List | ast.Tuple) else [value]
+    sites = []
+    for item in items:
+        site = _decorator_site(item, path)
+        if site is not None:
+            sites.append(site)
+    return sites
+
+
 def collect_skip_sites(tests_dir: Path | None = None) -> list[SkipSite]:
     """Все места пропуска в наборе тестов, отсортированные по файлу и строке.
 
@@ -160,6 +191,8 @@ def collect_skip_sites(tests_dir: Path | None = None) -> list[SkipSite]:
                     site = _decorator_site(decorator, file)
                     if site is not None:
                         sites.append(site)
+            elif isinstance(node, ast.Assign | ast.AugAssign):
+                sites.extend(_pytestmark_sites(node, file))
             elif isinstance(node, ast.Call):
                 site = _call_site(node, file)
                 if site is not None:
