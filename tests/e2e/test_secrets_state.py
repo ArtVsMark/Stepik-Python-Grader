@@ -91,8 +91,13 @@ class TestPanelNamesTheProblem:
         # и `.lang-btn` без уточнения попадает в RU — тест «проходил» бы, ничего
         # не переключив.
         page.click('.lang-btn[data-lang="en"]')
+        # Ждём ПОЯВЛЕНИЯ нужного текста, а не исчезновения старого. Отрицательное
+        # условие выполняется на любом промежуточном состоянии — и выполнялось:
+        # смена языка перезапрашивает статус, панель на секунду показывает
+        # «Checking access to Stepik…», ожидание заканчивалось там, и тест падал
+        # на этой заглушке. Локально фетч успевал, в CI — нет.
         page.wait_for_function(
-            "() => !document.querySelector('#auth-panel').innerText.includes('не найден')",
+            "() => document.querySelector('#auth-panel').innerText.includes('not found')",
             timeout=_TIMEOUT_MS,
         )
 
