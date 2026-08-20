@@ -54,8 +54,8 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
 
     - ``schema`` — версия формата (``SCHEMA``);
     - ``total_runs`` — число прогонов в истории;
-    - ``tasks`` — список TTFG по задачам (``task_key``/``attempts``/``solved``/
-      ``total_runs``/``seconds_to_first_ac``);
+    - ``tasks`` — список TTFG по задачам (``task_key``/``display_name``/
+      ``attempts``/``solved``/``total_runs``/``seconds_to_first_ac``);
     - ``solved_tasks``/``total_tasks`` — сводные счётчики;
     - ``verdicts`` — тали вердиктов кейсов (``{"AC": n, "WA": n, ...}``);
     - ``failure_kinds`` — тали ключей падений (``{"timeout": n, ...}``);
@@ -83,6 +83,11 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
     tasks = [
         {
             "task_key": p.task_key,
+            # issue #1212: имя задачи рядом с ключом, а не вместо него. Ключ с
+            # #990 — идентификатор шага (`step:<id>`), человеку он ничего не
+            # говорит; но и убрать его нельзя, иначе одноимённые папки из разных
+            # курсов снова сольются в одну строку.
+            "display_name": p.display_name,
             "attempts": p.attempts,
             "solved": p.solved,
             "total_runs": p.total_runs,
@@ -134,13 +139,23 @@ def _earned_badge_labels(report: dict[str, Any], msgs: dict[str, str]) -> list[s
     ]
 
 
-def _task_label(task_key: str | None, msgs: dict[str, str]) -> str:
-    """Подпись задачи в отчёте: «.» и пустой ключ — не имя задачи (issue #817).
+def _task_label(task: dict[str, Any], msgs: dict[str, str]) -> str:
+    """Подпись задачи в отчёте: имя, если оно есть, иначе ключ (issue #1212).
 
-    Записи, сделанные до нормализации ключа, хранят «.» (грейдер запускали из
-    папки задачи) — показывать точку как название задачи бессмысленно, поэтому
-    такие строки помечаются тем же «(без задачи)», что и записи без ключа.
+    Отчёт показывают ментору (issue #823), а с #990 ключ — идентификатор шага
+    (`step:<id>`): человек ищет задачу по названию, а не по номеру. Имя берётся
+    из истории и не выдумывается — записи, сделанные до появления колонки,
+    печатаются по-прежнему ключом.
+
+    «.» и пустой ключ — не имя задачи (issue #817). Записи, сделанные до
+    нормализации ключа, хранят «.» (грейдер запускали из папки задачи) —
+    показывать точку как название бессмысленно, поэтому такие строки помечаются
+    тем же «(без задачи)», что и записи без ключа.
     """
+    name = task.get("display_name")
+    if name:
+        return str(name)
+    task_key = task.get("task_key")
     return task_key if task_key and task_key != "." else msgs["progress_export_no_task"]
 
 
@@ -175,7 +190,7 @@ def render_markdown(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> st
     for t in report["tasks"]:
         mark = "✅" if t["solved"] else "…"
         lines.append(
-            f"| {_task_label(t['task_key'], msgs)} | {mark} | {t['attempts']} | "
+            f"| {_task_label(t, msgs)} | {mark} | {t['attempts']} | "
             f"{_fmt_secs(t['seconds_to_first_ac'], msgs)} |"
         )
     lines += ["", f"## {msgs['progress_export_verdicts_heading']}", ""]
@@ -203,7 +218,7 @@ def render_html(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> str:
         body = f"<p><em>{esc(msgs['progress_export_empty'])}</em></p>"
     else:
         rows = "".join(
-            f"<tr><td>{esc(_task_label(t['task_key'], msgs))}</td>"
+            f"<tr><td>{esc(_task_label(t, msgs))}</td>"
             f"<td style='text-align:center'>{'✅' if t['solved'] else '…'}</td>"
             f"<td style='text-align:right'>{t['attempts']}</td>"
             "<td style='text-align:right'>"
