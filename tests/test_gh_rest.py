@@ -1224,3 +1224,71 @@ class TestMergeQueueFromApi:
 
         assert report.main_red is True
         assert report.main_busy is False
+
+
+class TestCancelledPredecessor:
+    """Отменённый предшественник не делает PR красным (issue #1115, тот же класс).
+
+    Снятие черновика и повторный пуш создают вторую запись с тем же именем на
+    том же коммите, а concurrency-группа гасит первую. Обе лежат в ответе рядом,
+    и без отбора по свежести зелёный PR выпадал бы из очереди мержа навсегда —
+    гейт врал бы ровно там, где должен помогать.
+    """
+
+    def _pair(self, conclusions: tuple[str, str]) -> dict[str, Any]:
+        old_conclusion, new_conclusion = conclusions
+        return {
+            "check_runs": [
+                {
+                    "name": "test",
+                    "status": "completed",
+                    "conclusion": old_conclusion,
+                    "started_at": "2026-08-20T09:00:00Z",
+                    "id": 1,
+                },
+                {
+                    "name": "test",
+                    "status": "completed",
+                    "conclusion": new_conclusion,
+                    "started_at": "2026-08-20T09:40:00Z",
+                    "id": 2,
+                },
+            ]
+        }
+
+    def test_cancelled_run_is_replaced_by_the_fresh_green(self, module: ModuleType) -> None:
+        total, completed, red = module.summarize_checks(self._pair(("cancelled", "success")))
+
+        assert (total, completed, red) == (1, 1, []), "судим по свежей записи, а не по обеим"
+
+    def test_fresh_red_still_counts(self, module: ModuleType) -> None:
+        """Обратная сторона: свежий провал не прячется за старым успехом."""
+        total, completed, red = module.summarize_checks(self._pair(("success", "failure")))
+
+        assert (total, completed, red) == (1, 1, ["test"])
+
+    def test_queue_keeps_a_pull_whose_predecessor_was_cancelled(self, module: ModuleType) -> None:
+        """И очередь мержа его не теряет — ради этого отбор и нужен."""
+        opener = _opener(
+            _FakeResponse(
+                [
+                    {
+                        "number": 10,
+                        "title": "PR 10",
+                        "head": {"ref": "branch", "sha": "aaa"},
+                        "base": {"ref": "main"},
+                        "user": {"login": "someone"},
+                        "draft": False,
+                        "updated_at": "2026-08-20T09:40:00Z",
+                    }
+                ]
+            ),
+            _FakeResponse(self._pair(("cancelled", "success"))),
+            _FakeResponse([{"filename": "one.py"}]),
+            _FakeResponse({"workflow_runs": []}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert [entry.number for entry in report.ready] == [10]
+        assert report.waiting == ()

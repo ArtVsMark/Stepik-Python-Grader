@@ -103,6 +103,7 @@ __all__ = [
     "create_pull",
     "issue",
     "issue_comments",
+    "latest_checks_by_name",
     "list_pulls",
     "main",
     "main_run",
@@ -1040,10 +1041,34 @@ def rate_limit(**kwargs: Any) -> dict[str, Quota]:
     return quotas
 
 
+def _check_freshness(item: dict[str, Any]) -> tuple[str, int]:
+    """Ключ свежести записи проверки: время старта, при равенстве — идентификатор."""
+    return str(item.get("started_at") or ""), int(item.get("id") or 0)
+
+
+def latest_checks_by_name(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """По одной, самой свежей записи на каждое имя проверки.
+
+    ``ci.yml`` держит concurrency-группу и гасит устаревшие прогоны, а
+    перезапуск (снятие черновика, повторный пуш) создаёт вторую запись с тем же
+    именем на том же коммите. В ответе REST обе лежат рядом, и без этого отбора
+    отменённый предшественник считался бы красным — то есть свежий зелёный PR
+    выпадал бы из очереди мержа навсегда. Тот же приём и по той же причине живёт
+    в ``check_pr_ready.py`` (issue #1115).
+    """
+    freshest: dict[str, dict[str, Any]] = {}
+    for item in items:
+        name = str(item.get("name", ""))
+        current = freshest.get(name)
+        if current is None or _check_freshness(item) >= _check_freshness(current):
+            freshest[name] = item
+    return list(freshest.values())
+
+
 def summarize_checks(check_runs: dict[str, Any]) -> tuple[int, int, list[str]]:
     """Сводка по check-runs: ``(всего, завершено, красные имена)``."""
     listed = check_runs.get("check_runs", []) if isinstance(check_runs, dict) else []
-    runs = [item for item in listed if isinstance(item, dict)]
+    runs = latest_checks_by_name([item for item in listed if isinstance(item, dict)])
     completed = sum(1 for item in runs if item.get("status") == "completed")
     red = sorted(
         str(item.get("name", "?"))
