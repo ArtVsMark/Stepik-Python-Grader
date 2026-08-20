@@ -711,8 +711,29 @@ function fmtSecs(secs) {
 
 // Подпись задачи в таблице (зеркалит progress_export._task_label): записи,
 // сделанные до нормализации ключа, хранят "." — точка не название задачи.
-function taskLabel(key) {
+//
+// issue #1212: сначала имя из истории, и только потом ключ. С #990 ключ — это
+// идентификатор шага (`step:<id>`), человеку он ничего не говорит; имя лежало
+// в базе больше месяца, но до экрана не доезжало.
+function taskLabel(task) {
+  const name = task && task.display_name;
+  if (name) return name;
+  const key = task && task.task_key;
   return key && key !== "." ? key : t("progress.no_task");
+}
+
+// Ячейка задачи: имя строкой, ключ — подписью под ним. Ключ убирать нельзя:
+// без него две одноимённые папки из разных курсов снова неразличимы — ровно
+// то, от чего спасал устойчивый ключ #990.
+function taskCell(task) {
+  const label = taskLabel(task);
+  const key = task && task.task_key;
+  const showKey = key && key !== "." && key !== label;
+  return (
+    "<td" + (showKey ? ' title="' + esc(key) + '"' : "") + ">" + esc(label) +
+    (showKey ? '<br><span class="task-key">' + esc(key) + "</span>" : "") +
+    "</td>"
+  );
 }
 
 function renderProgress() {
@@ -777,7 +798,7 @@ function renderProgress() {
       tasks
         .map(
           t =>
-            "<tr><td>" + esc(taskLabel(t.task_key)) + "</td><td>" + esc(t.attempts) + "</td><td>" +
+            "<tr>" + taskCell(t) + "<td>" + esc(t.attempts) + "</td><td>" +
             (t.solved ? "✓" : "—") + "</td><td>" + esc(fmtSecs(t.seconds_to_first_ac)) + "</td></tr>",
         )
         .join("") +
