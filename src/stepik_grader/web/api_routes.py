@@ -507,10 +507,25 @@ class _ApiRoutesMixin(_GuardMixin):
         secrets_path = secrets_path_for(self.server.workspace)
         status = auth_adapter.auth_status(secrets_path)
         config = read_config(self.server.workspace)
+        # issue #1213: `reason` говорит, что делать (нужна форма), но не что
+        # случилось. Пользователю нужно второе: «файла нет по пути X» и «файл
+        # есть, но не читается» — разные проблемы с разными действиями. Отдаём
+        # КАТЕГОРИЮ состояния, никогда содержимое: рядом лежат client_secret и
+        # токен (SECURITY.md, прецедент с `?path=secrets.json`).
         self._send(
             200,
             "application/json; charset=utf-8",
-            _json({**status, "secrets_path": config["secrets_path"]}),
+            _json(
+                {
+                    **status,
+                    "secrets_path": config["secrets_path"],
+                    # Настроенный путь бывает относительным («secrets.json»), и
+                    # на вопрос «где искали» он не отвечает. Разрешённый путь —
+                    # отвечает, а форма ниже по-прежнему правит настроенный.
+                    "secrets_path_resolved": str(secrets_path),
+                    "secrets_state": auth_adapter.secrets_state(secrets_path),
+                }
+            ),
         )
 
     def _get_downloader_config(self, parsed: Any, lang: str) -> None:

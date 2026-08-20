@@ -333,3 +333,71 @@ class TestReleasePublishesVerifiedAssets:
         _MODULE.check_release_publishes_verified_assets(errors)
 
         assert errors == []
+
+
+class TestJobTimeouts:
+    """У каждого job'а свой предел (issue #1271).
+
+    Без `timeout-minutes` действует умолчание GitHub — шесть часов. Замер 19.08:
+    `e2e` встал на установке Playwright и три с половиной часа держал прогон
+    `main`, а с ним всю очередь мержа; красных проверок при этом не было ни
+    одной — гейт очереди читает «идёт прогон» как нормальную работу.
+    """
+
+    _WITH = "jobs:\n  build:\n    timeout-minutes: 20\n    runs-on: ubuntu-latest\n"
+    _WITHOUT = "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+
+    def test_job_without_timeout_is_named(self) -> None:
+        assert _MODULE.jobs_without_timeout(self._WITHOUT) == ["build"]
+
+    def test_job_with_timeout_passes(self) -> None:
+        assert _MODULE.jobs_without_timeout(self._WITH) == []
+
+    def test_trigger_keys_are_not_jobs(self) -> None:
+        """`push` и `schedule` стоят на том же отступе — таймаут у них не требуется.
+
+        Первая редакция проверки требовала: гейт краснел на триггерах, то есть
+        на том, у чего таймаута не бывает вовсе.
+        """
+        source = (
+            "on:\n  push:\n    branches: [main]\n  schedule:\n"
+            "    - cron: '0 0 * * *'\n\n" + self._WITH
+        )
+
+        assert _MODULE.jobs_without_timeout(source) == []
+
+    def test_keys_after_jobs_section_are_ignored(self) -> None:
+        """Разбор кончается на первом ключе верхнего уровня после `jobs:`."""
+        source = self._WITH + "\nconcurrency:\n  group: x\n"
+
+        assert _MODULE.jobs_without_timeout(source) == []
+
+    def test_missing_jobs_section_is_not_a_crash(self) -> None:
+        assert _MODULE.jobs_without_timeout("on:\n  push:\n") == []
+
+    def test_check_reports_every_offender(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_every_job_has_a_timeout(errors, {"ci.yml": self._WITHOUT})
+
+        assert len(errors) == 1
+        assert "build" in errors[0] and "6 часов" in errors[0]
+
+    def test_missing_file_is_red(self, monkeypatch) -> None:
+        """Пустой вход обязан быть красным: проверка без файла зеленела бы на пустоте."""
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_CI", pathlib.Path("нет-такого-ci.yml"))
+        monkeypatch.setattr(_MODULE, "_RELEASE", pathlib.Path("нет-такого-release.yml"))
+
+        _MODULE.check_every_job_has_a_timeout(errors)
+
+        assert len(errors) == 2
+        assert all("файла нет" in error for error in errors)
+
+    def test_real_workflows_pass(self) -> None:
+        """И живые файлы проекта — тоже: гейт обязан быть зелёным на настоящем входе."""
+        errors: list[str] = []
+
+        _MODULE.check_every_job_has_a_timeout(errors)
+
+        assert errors == []

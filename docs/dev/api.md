@@ -789,11 +789,25 @@ curl -X POST http://127.0.0.1:8000/api/stepik/submit \
 Читает только локальный файл, сети не касается.
 
 **200** `{"authorized": bool, "reason": "ok"|"no_token"|"no_secrets",
-"secrets_path": "secrets.json"}`: `ok` — валидный токен; `no_token` — креды
-есть, но токена нет/истёк (нужен браузерный flow); `no_secrets` — файла нет или
-креды неполные (нужна форма). `secrets_path` — путь, по которому смотрели
-(относительный, если внутри рабочей директории). Битый/нечитаемый файл
-трактуется как `no_secrets` (best-effort, не 500).
+"secrets_path": "secrets.json", "secrets_path_resolved": "/…/secrets.json",
+"secrets_state": "ok"|"missing"|"unreadable"|"incomplete"}`.
+
+`reason` отвечает, **что делать**: `ok` — валидный токен; `no_token` — креды
+есть, но токена нет/истёк (нужен браузерный flow); `no_secrets` — нужна форма.
+Битый/нечитаемый файл трактуется как `no_secrets` (best-effort, не 500).
+
+`secrets_state` отвечает, **что случилось**, и `no_secrets` распадается на три
+разные проблемы с разными действиями: `missing` — файла нет; `unreadable` —
+файл есть, но не читается или это не JSON; `incomplete` — JSON разобран, но
+`client_id`/`client_secret`/`redirect_uri` заполнены не все.
+
+`secrets_path` — настроенный путь (относительный, если внутри рабочей
+директории); он же правится формой. `secrets_path_resolved` — абсолютный путь,
+по которому смотрели: на вопрос «где искали» относительный не отвечает.
+
+**Содержимого файла здесь нет и не будет.** Рядом с этими полями в
+`secrets.json` лежат `client_secret` и токен; наружу уходит только категория
+состояния — граница из [SECURITY.md](../../SECURITY.md).
 
 ```
 curl http://127.0.0.1:8000/api/auth/status
