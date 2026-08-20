@@ -60,15 +60,18 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 __all__ = [
     "Check",
     "added_changelog_fragments",
     "added_changelog_lines",
     "authored_by_tool",
+    "basetemp_dir",
+    "basetemp_problem",
     "buffer_section",
     "changed_public_names",
     "check_branch_fresh",
@@ -94,6 +97,16 @@ _BASE = "origin/main"
 _STAMP_NAME = "preflight-stamp.json"
 _LOCK_NAME = "preflight.lock"
 _LOGS_NAME = "preflight-logs"
+
+# Корень временных каталогов pytest: своё имя вместо `pytest-of-<user>` и
+# переопределение для тех, у кого свои порядки (CI, чужая ОС).
+_TMP_NAME = "grader-preflight"
+_BASETEMP_ENV = "PREFLIGHT_BASETEMP"
+# Запас до MAX_PATH: pytest достраивает <base>/<имя теста><N>/, а тесты самого
+# гейта кладут туда git-репозитории — origin.git/objects/... съедает под сотню
+# знаков сверху. Порог сторожит не аккуратность, а работоспособность (см.
+# basetemp_problem).
+_MAX_BASETEMP_LEN = 100
 
 # Аварийный выход: пуш срочного фикса, когда прогон физически негде сделать.
 # Осознанное решение человека, а не значение по умолчанию.
@@ -308,6 +321,20 @@ def _mypy_command(*, platform: str = sys.platform) -> list[str]:
     if not platform.startswith("linux"):
         command += ["--platform", "linux"]
     return [*command, "src/stepik_grader", "scripts"]
+
+
+def _pytest_command(base: pathlib.Path) -> list[str]:
+    """Команда прогона набора — со своим корнем временных каталогов (#1291)."""
+    return [
+        sys.executable,
+        "-m",
+        "pytest",
+        "tests/",
+        "-q",
+        "--tb=short",
+        "--basetemp",
+        str(base),
+    ]
 
 
 def owner_name(*, pyproject: str | None = None) -> str:
@@ -560,6 +587,50 @@ def logs_dir(root: pathlib.Path) -> pathlib.Path:
     return _git_dir(root) / _LOGS_NAME
 
 
+def basetemp_dir(*, env: Mapping[str, str] | None = None) -> pathlib.Path:
+    """Корень временных каталогов ``pytest`` — свой, короткий, предсказуемый.
+
+    Сам pytest берёт ``<tempdir>/pytest-of-<user>`` и ПЕРЕИСПОЛЬЗУЕТ его между
+    прогонами. Каталог переживает смену контекста запуска, и стоит ему один раз
+    достаться другому владельцу, как весь набор падает пачкой ещё на сборе:
+    ``PermissionError`` из ``tmp_path_factory.mktemp`` — пять тысяч ошибок при
+    исправном коде (issue #1291). Свой каталог убирает эту зависимость от
+    истории машины.
+
+    ``PREFLIGHT_BASETEMP`` перекрывает выбор: у CI и чужих ОС свои порядки, и
+    навязывать им наш каталог незачем.
+    """
+    source = (env if env is not None else os.environ).get(_BASETEMP_ENV)
+    if source:
+        return pathlib.Path(source)
+    return pathlib.Path(tempfile.gettempdir()) / _TMP_NAME
+
+
+def basetemp_problem(path: pathlib.Path, *, name: str = os.name) -> str | None:
+    """Почему каталог не годится под ``--basetemp``; ``None`` — годится.
+
+    Длина проверяется не из педантизма. Первый обход дефекта #1291 — направить
+    временный каталог в глубокий сессионный путь — вылечил пять тысяч ошибок и
+    породил сорок пять новых: ``git push`` в тестовых репозиториях
+    ``tests/test_preflight.py`` перестал создавать объекты, потому что
+    ``<base>/pytest-N/test_..._0/origin.git/objects/...`` не влезал в MAX_PATH.
+    Короткий каталог — часть требования, а не пожелание.
+    """
+    if name == "nt" and len(str(path)) > _MAX_BASETEMP_LEN:
+        return (
+            f"путь длиннее {_MAX_BASETEMP_LEN} знаков — вложенные пути pytest "
+            f"не уложатся в MAX_PATH ({len(str(path))})"
+        )
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".probe"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        return f"{type(exc).__name__}: {exc}"
+    return None
+
+
 def lock_is_active(path: pathlib.Path, *, now: float | None = None) -> bool:
     """Активна ли чужая блокировка прогона (протухшая — не помеха)."""
     try:
@@ -669,6 +740,26 @@ def _changed_files(git: GitRunner = _git) -> set[str]:
     ):
         files |= {line for line in git(*args).splitlines() if line}
     return files
+
+
+def _pytest_check(log_dir: pathlib.Path) -> Check:
+    """Шаг прогона набора: сперва пригодность каталога, потом сам ``pytest``.
+
+    Непригодный каталог отсекается ДО запуска намеренно. Иначе он проявляется
+    лавиной ``ERROR at setup`` — по ошибке на каждый тест, — и настоящая
+    причина («каталог не отдаётся процессу») теряется среди тысяч строк, из
+    которых её приходится выкапывать (issue #1291).
+    """
+    base = basetemp_dir()
+    problem = basetemp_problem(base)
+    if problem is not None:
+        return Check(
+            name="pytest (весь набор)",
+            ok=False,
+            detail=f"временный каталог {base} непригоден — {problem}",
+            hint=f"убрать помеху либо задать другой каталог: {_BASETEMP_ENV}=<путь>",
+        )
+    return _run_stage("pytest (весь набор)", _pytest_command(base), log_dir)
 
 
 def _run_stage(title: str, command: Sequence[str], log_dir: pathlib.Path) -> Check:
@@ -833,13 +924,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         checks.append(_run_stage("mypy", _mypy_command(), log_dir))
         if not args.no_tests:
-            checks.append(
-                _run_stage(
-                    "pytest (весь набор)",
-                    [sys.executable, "-m", "pytest", "tests/", "-q", "--tb=short"],
-                    log_dir,
-                )
-            )
+            checks.append(_pytest_check(log_dir))
     finally:
         lock.unlink(missing_ok=True)
 
