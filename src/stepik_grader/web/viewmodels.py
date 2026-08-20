@@ -764,8 +764,18 @@ def grade_path(
     kind, base, solutions = resolved
 
     def _shown(sol: pathlib.Path) -> str:
-        """Подпись решения: выбранный пользователем файл, если он известен."""
-        return _rel(display_path if display_path is not None else sol, base)
+        """Подпись решения: выбранный пользователем файл, если он известен.
+
+        Отдельный случай — код из редактора без выбранного файла: грейдится
+        папка задачи, то есть ``display_path`` совпадает с ``base``, и
+        относительный путь вырождается в ``"."``. На экране точка не значит
+        ничего, поэтому папка подписывается своим именем — оно и отвечает на
+        вопрос «что проверено».
+        """
+        if display_path is None:
+            return _rel(sol, base)
+        shown = _rel(display_path, base)
+        return display_path.name if shown == "." else shown
 
     rows: list[dict[str, Any]] = []
     graded: list[tuple[pathlib.Path, SolutionResult]] = []  # issue #395: для истории

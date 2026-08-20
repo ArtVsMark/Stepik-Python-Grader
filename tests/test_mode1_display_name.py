@@ -61,14 +61,23 @@ class TestChosenFileWins:
 
         assert data["result"]["rows"][0]["file"] == "my_solution.py"
 
-    def test_temp_name_appears_nowhere_in_the_answer(self, tmp_path: pathlib.Path) -> None:
-        """Ни в таблице, ни в разборе, ни в чём-либо ещё, что уедет на экран."""
+    def test_temp_name_appears_nowhere_in_the_rows(self, tmp_path: pathlib.Path) -> None:
+        """Ни в таблице, ни в разборе — во всём, что уедет на экран.
+
+        Проверяются именно ``rows``, а не весь ответ. Соседнее поле ``base`` —
+        настоящий путь задачи, и фикс его намеренно НЕ трогает (диагностике
+        нужен реальный путь). Прежняя редакция теста искала подстроку во всей
+        сериализации и на Linux падала всегда: там ``base`` лежит внутри
+        ``/tmp/pytest-…``. На Windows тот же путь пишется как
+        ``…\\AppData\\Local\\Temp\\…`` — с заглавной, поэтому локально тест
+        проходил, а три ОС в CI краснели.
+        """
         sol = _make_task(tmp_path, "print(999)\n")
 
         job = runs.submit_job("tests", sol, {"lang": "ru"}, code="print(int(input()) + 1)\n")
         data = _poll_until_terminal(job.id)
 
-        assert "tmp" not in json.dumps(data["result"], ensure_ascii=False)
+        assert "tmp" not in json.dumps(data["result"]["rows"], ensure_ascii=False).lower()
 
     def test_row_without_tests_is_named_too(self, tmp_path: pathlib.Path) -> None:
         """Ветка «NO TESTS» — отдельная строка кода, её легко забыть.
@@ -87,7 +96,12 @@ class TestChosenFileWins:
         assert row["file"] == "my_solution.py"
 
     def test_folder_without_chosen_file_is_named_by_folder(self, tmp_path: pathlib.Path) -> None:
-        """Кода без выбранного файла — подпись папки задачи, а не временное имя."""
+        """Код из редактора без выбранного файла подписан папкой задачи.
+
+        Проверяется именно имя папки, а не «отсутствие ``tmp``»: относительный
+        путь папки к самой себе — ``"."``, и такая подпись формально проходит
+        проверку на временное имя, ничего при этом не сообщая.
+        """
         tests = tmp_path / "tests"
         tests.mkdir()
         (tests / "input_1.txt").write_text("4\n", encoding="utf-8")
@@ -96,7 +110,7 @@ class TestChosenFileWins:
         job = runs.submit_job("tests", tmp_path, {"lang": "ru"}, code="print(int(input()) + 1)\n")
         data = _poll_until_terminal(job.id)
 
-        assert "tmp" not in data["result"]["rows"][0]["file"]
+        assert data["result"]["rows"][0]["file"] == tmp_path.name
 
 
 class TestHistory:
