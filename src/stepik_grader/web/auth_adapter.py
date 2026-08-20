@@ -25,6 +25,7 @@ __all__ = [
     "STEPIK_OAUTH_APPS_URL",
     "auth_status",
     "perform_browser_auth",
+    "secrets_state",
     "stored_credentials",
 ]
 
@@ -61,6 +62,39 @@ def auth_status(secrets_path: pathlib.Path) -> dict[str, Any]:
         return {"authorized": True, "reason": "ok"}
     has_creds = all(str(secrets.get(field, "")).strip() for field in _CRED_FIELDS)
     return {"authorized": False, "reason": "no_token" if has_creds else "no_secrets"}
+
+
+def secrets_state(secrets_path: pathlib.Path) -> str:
+    """Почему ``secrets.json`` не годится: ``ok``/``missing``/``unreadable``/``incomplete``.
+
+    :func:`auth_status` намеренно сводит три последних случая в один
+    ``no_secrets``: его ответ говорит, ЧТО делать (нужна форма), и менять это
+    незачем. Пользователю же нужно знать, ЧТО СЛУЧИЛОСЬ — «файла нет по пути X»
+    и «файл есть, но прочитать не удалось» чинятся по-разному, а общий отказ
+    оставляет в тупике (issue #1213).
+
+    Возвращается только **категория**. Ни пути внутрь файла, ни его содержимого
+    здесь нет и быть не может: рядом лежат ``client_secret`` и токен, и
+    веб-слою запрещено отдавать оттуда что-либо, кроме состояния (SECURITY.md).
+
+    Args:
+        secrets_path: путь, по которому ожидается ``secrets.json``.
+
+    Returns:
+        ``ok`` — файл читается и креды полны; ``missing`` — файла нет;
+        ``unreadable`` — файл есть, но не читается или это не JSON;
+        ``incomplete`` — JSON разобран, но ``client_id``/``client_secret``/
+        ``redirect_uri`` заполнены не все.
+    """
+    if not secrets_path.exists() or not secrets_path.is_file():
+        return "missing"
+    try:
+        secrets = load_json_file(secrets_path)
+    except (OSError, ValueError):
+        return "unreadable"
+    if not all(str(secrets.get(field, "")).strip() for field in _CRED_FIELDS):
+        return "incomplete"
+    return "ok"
 
 
 def stored_credentials(secrets_path: pathlib.Path) -> dict[str, str]:
