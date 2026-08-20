@@ -139,6 +139,10 @@ _PAIRS: list[Pair] = [
     # светлый (в dark) из поверхностей, то есть худший случай для muted; именно
     # на нём висит пустое состояние `.side-list li.empty` при наведении.
     Pair("text-muted / surface-dynamic", "--color-text-muted", "--color-surface-dynamic", 4.5),
+    # issue #921 (DES-1-04): найдено измерением в браузере — на этом фоне
+    # сидит обычный текст `.btn-secondary` и активной вкладки панели, а не
+    # только приглушённый. Пара была настоящей и незаявленной.
+    Pair("text / surface-dynamic", "--color-text", "--color-surface-dynamic", 4.5),
     Pair("text-muted / surface-2", "--color-text-muted", "--color-surface-2", 4.5),
     Pair("text-muted / surface-offset-2", "--color-text-muted", "--color-surface-offset-2", 4.5),
     # Плейсхолдеры (1.4.3 не покрывает — мягкий порог ради читаемости).
