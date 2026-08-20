@@ -173,6 +173,31 @@ class TestCollect:
         with pytest.raises(RuntimeError, match="Unreleased"):
             module.collect_into_changelog(project)
 
+    def test_bom_does_not_hide_the_unreleased_section(
+        self, module: ModuleType, project: pathlib.Path
+    ) -> None:
+        """BOM в начале файла не должен прятать секцию сборки.
+
+        `CHANGELOG.md` проекта начинается с U+FEFF, а якорь `^` без поблажки на
+        BOM с первой строкой не совпадает — сборка падала «нет секции
+        [Unreleased]» ровно на релизе, где она блокирующая. Фикстуры BOM не
+        имели, поэтому набор оставался зелёным.
+        """
+        changelog = project / "CHANGELOG.md"
+        changelog.write_text(
+            "\ufeff## [Unreleased]\n\n## [1.10.0] - 2026-08-01\n\n- старое\n",
+            encoding="utf-8",
+        )
+        _fragment(project, "a.fixed.md", "починка (#7)")
+
+        collected, _ = module.collect_into_changelog(project)
+
+        text = changelog.read_text(encoding="utf-8")
+        assert collected == 1
+        assert text.startswith("\ufeff## [Unreleased]")
+        assert "починка (#7)" in text
+        assert text.index("починка (#7)") < text.index("## [1.10.0]")
+
 
 class TestOrderIndependence:
     """Главное свойство: результат не зависит от порядка появления PR."""
@@ -201,6 +226,19 @@ class TestOrderIndependence:
 
 class TestRealRepository:
     """Фрагменты самого проекта должны быть валидны — иначе релиз потеряет запись."""
+
+    def test_real_changelog_is_a_valid_collect_target(self, module: ModuleType) -> None:
+        """В настоящем `CHANGELOG.md` секция сборки находится.
+
+        Синтетическая фикстура этого не проверяет: она пишет файл сама и потому
+        не воспроизводит его особенности (BOM, порядок разделов). Проверка
+        нужна на живом файле — иначе о поломке узнаём в момент релиза.
+        """
+        changelog = pathlib.Path(__file__).parent.parent / "CHANGELOG.md"
+
+        assert module._UNRELEASED_RE.search(changelog.read_text(encoding="utf-8")), (
+            "в CHANGELOG.md не находится «## [Unreleased]» — сборка фрагментов упадёт"
+        )
 
     def test_project_fragments_are_valid(self, module: ModuleType) -> None:
         """Guard-the-guard: каталог проекта проходит собственную проверку."""

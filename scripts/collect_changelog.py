@@ -68,7 +68,12 @@ _TITLES = {
 }
 
 _NAME_RE = re.compile(r"^(?P<slug>[\w.-]+)\.(?P<section>[a-z]+)\.md$")
-_UNRELEASED_RE = re.compile(r"^## \[Unreleased\]", re.MULTILINE)
+# BOM в начале файла — часть реальности, а не экзотика: `CHANGELOG.md`
+# проекта начинается с U+FEFF (его ставят редакторы под Windows), и якорь
+# `^` без этой поблажки не совпадал с первой строкой вовсе. Дефект дожил до
+# первого релиза на фрагментах, потому что фикстуры тестов BOM не имели:
+# сборка падала «нет секции [Unreleased]» ровно там, где она блокирующая.
+_UNRELEASED_RE = re.compile("^\ufeff?## \\[Unreleased\\]", re.MULTILINE)
 
 
 class Fragment:

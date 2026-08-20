@@ -57,6 +57,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from stepik_grader.build_info import display_version
 from stepik_grader.config import workspace_root
 from stepik_grader.core import settings_resolver
 from stepik_grader.core.user_settings import (
@@ -100,6 +101,7 @@ __all__ = [
     "remembered_profile_name",
     "resolve_version",
     "serve_without_gui",
+    "version_line",
     "window_title",
 ]
 
@@ -268,6 +270,34 @@ def window_title(messages: dict[str, str], version: str | None = None) -> str:
     if not template:
         return messages.get("launcher_window_title", key)
     return template.format(version=raw)
+
+
+def version_line(messages: dict[str, str], version: str | None = None) -> str | None:
+    """Строка «Версия X.Y.N» под заголовком; ``None`` — показывать нечего (issue #1262).
+
+    Заголовок окна несёт ПОЛНУЮ версию с хешем — по ней сборка сопоставляется с
+    коммитом, и она там остаётся. Но человеку ``1.10.0.post494+g76bb98c85``
+    не отвечает на вопрос «какая у меня версия», поэтому рядом показывается
+    логическая — та же, что в бейдже README.
+
+    Отдельно от окна по той же причине, что и ``window_title``: ``tkinter`` не
+    собран ни в облачной сессии, ни в CI.
+
+    Args:
+        messages: каталог подписей нужного языка.
+        version: готовая логическая версия; ``None`` — взять из сборки.
+
+    Returns:
+        Строку для показа либо ``None``, если файла сборки нет (запуск из клона)
+        или в каталоге нет ключа — окно тогда просто обходится без строки.
+    """
+    shown = display_version() if version is None else version
+    if not shown:
+        return None
+    template = messages.get("launcher_version_line")
+    if not template:
+        return None
+    return template.format(version=shown)
 
 
 def _find_stepik_config(start: Path) -> Path | None:
@@ -1007,10 +1037,22 @@ class LauncherApp:
         # только в pyproject.toml, которого у поставившего через pipx нет вовсе.
         # Разделение, а не общий список: иначе редкие настройки прогона отжимают
         # вниз кнопку «Запустить», ради которой окно и открывают.
+        # issue #1262: логическая версия отдельной строкой над вкладками.
+        # В заголовке остаётся полная PEP 440 с хешем (она нужна машине —
+        # сопоставить сборку с коммитом), а человеку тот же вопрос «какая у
+        # меня версия» отвечает знакомое число из бейджа README. Строки нет
+        # вовсе, если пакет собран без `_build_info.json` (запуск из клона) —
+        # окно от этого не меняется ничем, кроме отсутствия одной подписи.
+        self.version_label: Any | None = None
+        shown_version = version_line(self._messages)
+        if shown_version is not None:
+            self.version_label = ttk.Label(root, text=shown_version)
+            self.version_label.grid(row=0, column=0, sticky="w", padx=16, pady=(8, 0))
+
         self.notebook = ttk.Notebook(root)
-        self.notebook.grid(row=0, column=0, sticky="nsew")
+        self.notebook.grid(row=1, column=0, sticky="nsew")
         root.columnconfigure(0, weight=1)
-        root.rowconfigure(0, weight=1)
+        root.rowconfigure(1, weight=1)
 
         frame = ttk.Frame(self.notebook, padding=16)
         self.notebook.add(frame, text=self._t("launcher_tab_run"))
@@ -1704,6 +1746,13 @@ class LauncherApp:
         self._lang = self.lang_var.get()
         self._messages = load_ui_messages(self._lang)
         self.root.title(window_title(self._messages))
+        # issue #1262: строка версии несёт подставленное число, а общий цикл
+        # ниже умеет только `text=self._t(key)` — поэтому переводится здесь,
+        # рядом с заголовком, у которого ровно та же причина.
+        if self.version_label is not None:
+            translated = version_line(self._messages)
+            if translated is not None:
+                self.version_label.config(text=translated)
         # issue #1180: переводится всё зарегистрированное, а не перечисленное
         # здесь руками — именно ручной список и разошёлся с окном.
         for widget, key in self._translatable.items():

@@ -157,8 +157,13 @@ def test_sync_path_caps_output_when_limited(tmp_path: pathlib.Path) -> None:
     assert outcome.returncode == 0
 
 
-def test_fast_path_without_limit_or_cancel_keeps_full_output(tmp_path: pathlib.Path) -> None:
-    """Контроль: без лимита и без cancel — быстрый communicate, весь вывод цел."""
+def test_no_limit_and_no_cancel_keeps_full_output(tmp_path: pathlib.Path) -> None:
+    """Контроль: без лимита и без cancel вывод цел — потолка нет, обрезать нечего.
+
+    issue #1248: этот случай обслуживал отдельный ``communicate()``; теперь путь
+    общий, и проверка сторожит, что снятие лимита по-прежнему означает «без
+    потолка», а не «другой сборщик вывода».
+    """
     script = tmp_path / "chatty.py"
     script.write_text("for _ in range(200):\n    print('y' * 100)\n", encoding="utf-8")
     spec = RunSpec(
@@ -260,9 +265,8 @@ def test_trace_without_limit_keeps_full_output() -> None:
 def test_trace_code_passes_output_limit_to_runner(monkeypatch) -> None:
     """``RunSpec`` трассировщика несёт ``CONFIG.max_output_bytes``.
 
-    Без него ``LocalRunner`` уходит на безлимитный ``communicate()``
-    (``runner.py``: ``cancel_event is None and max_output_bytes is None``) и
-    читает stdout дочернего процесса — весь JSON-трейс — в память без предела.
+    Без него накопление stdout дочернего процесса — весь JSON-трейс — ничем не
+    ограничено: ``None`` в ``max_output_bytes`` означает «без потолка».
 
     Патчится имя в самом ``tracer``: ``run_spec`` он импортирует напрямую,
     поэтому подмена в ``core.runner`` до него уже не доходит.

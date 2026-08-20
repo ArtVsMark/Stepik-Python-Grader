@@ -92,11 +92,15 @@ class RunSpec:
     ``cancel_event``.
 
     ``cancel_event`` (issue #262) — опциональный сигнал best-effort отмены
-    для async job-модели (``web/runs.py``). Единственный блокирующий
-    ``proc.communicate(timeout=...)`` (без poll-накладных) остаётся только когда
-    И ``cancel_event`` нет, И вывод не ограничен (``max_output_bytes is None``);
-    при заданном лимите путь poll-дренажа капит накопление даже без отмены
-    (issue #629), иначе синхронный ``/api/grade``/CLI мог бы набить RAM хоста.
+    для async job-модели (``web/runs.py``). Сбор вывода идёт ОДНИМ путём
+    (``_run_with_polling``) при любых значениях полей: лимит капит накопление
+    (issue #629), отмена прерывает ожидание (issue #262), а без них обоих путь
+    просто ждёт процесс блокирующим ``proc.wait(timeout)`` — без poll-латентности.
+    Прежде «ни лимита, ни отмены» обслуживал одиночный ``proc.communicate()``, и
+    поведение расходилось: там, где дренаж отдавал вывод верного решения,
+    ``communicate()`` ждал EOF от живого внука и возвращал пустой вывод с
+    ``timed_out=True`` (issue #1248). Необязательное поле обязано менять предел,
+    а не вердикт.
     """
 
     stdin: bytes | None
@@ -468,21 +472,6 @@ def _truncation_note(limit: int | None) -> bytes:
     return f"\n{TRUNCATION_MARKER}: превышен лимит {limit} байт\n".encode()
 
 
-def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
-    """``communicate()`` после kill, ограниченный по времени (issue #418/#421).
-
-    Возвращает частичный ``(stdout, stderr)``, накопленный к моменту TLE, и не
-    блокируется дольше ``_KILL_REAP_TIMEOUT`` даже если внук держит pipe.
-    """
-    try:
-        out, err = proc.communicate(timeout=_KILL_REAP_TIMEOUT)
-        return out or b"", err or b""
-    except subprocess.TimeoutExpired:
-        return b"", b""
-    except (OSError, ValueError):
-        return b"", b""
-
-
 # issue #632: типовые подстроки в ИМЕНИ env-переменной, выдающие секрет. Скраб
 # по denylist, а не allowlist: дефолтный LocalRunner делит окружение с грейдером/
 # сервером и должен сохранить project-import (PYTHONPATH/VIRTUAL_ENV и пр.) для
@@ -619,54 +608,15 @@ class LocalRunner:
                 )
                 mem_thread.start()
 
-            # issue #629: одиночный блокирующий communicate() — только когда вывод
-            # НЕ ограничен (нечего капить) И нет отмены. При заданном
-            # max_output_bytes (грейдинг всегда ставит его из CONFIG) идём
-            # poll-путём с bounded-дренажем: communicate() читает весь stdout
-            # решения в память без предела, и бешеный print на синхронном
-            # /api/grade / в CLI набил бы RAM хоста по OOM (раньше капился только
-            # poll-путь web async job'ов).
-            if spec.cancel_event is None and spec.max_output_bytes is None:
-                try:
-                    stdout_bytes, stderr_bytes = proc.communicate(
-                        input=spec.stdin, timeout=spec.timeout
-                    )
-                except subprocess.TimeoutExpired:
-                    # issue #418: убить всё дерево (внуки держат pipe → иначе
-                    # communicate() виснет); issue #421: вернуть частичный вывод,
-                    # накопленный до TLE, с ограниченным reap.
-                    _kill_process_tree(proc)
-                    partial_out, partial_err = _reap_after_kill(proc)
-                    # issue #799 (PY-09): дождаться измерителя и отдать пик
-                    # памяти. Раньше этот путь возвращался, не тронув
-                    # mem_thread: поток оставался висеть, а измеренный пик
-                    # молча терялся — TLE отдавал peak_memory_mb=0.0, хотя
-                    # решение и упало-то как раз на прожорливости.
-                    stop_event.set()
-                    if mem_thread is not None:
-                        mem_thread.join(timeout=0.5)
-                    return RunOutcome(
-                        stdout=partial_out,
-                        stderr=partial_err,
-                        timed_out=True,
-                        elapsed=spec.timeout,
-                        peak_memory_mb=peak_mb_result[0],
-                    )
-                finally:
-                    stop_event.set()
-
-                elapsed = time.perf_counter() - start
-                if mem_thread is not None:
-                    mem_thread.join(timeout=0.5)
-
-                return RunOutcome(
-                    stdout=stdout_bytes,
-                    stderr=stderr_bytes,
-                    returncode=proc.returncode,
-                    elapsed=elapsed,
-                    peak_memory_mb=peak_mb_result[0],
-                    timed_out=False,
-                )
+            # issue #1248: путь ОДИН — bounded-дренаж. Прежде здесь стоял
+            # быстрый `communicate()` для случая «нет отмены И нет лимита»,
+            # и он вёл себя иначе: решение, оставившее живого внука с
+            # открытым stdout, не давало EOF, `communicate()` ждал весь
+            # таймаут и возвращал ПУСТОЙ вывод с `timed_out=True` — верное
+            # решение получало TLE. Дренаж-потоки читают `read1` и такого
+            # решения не теряют (issue #952). Боевой путь лимит задаёт
+            # всегда, поэтому дефект жил в контракте `RunSpec`: поле
+            # объявлено необязательным, а поведение без него было другим.
 
             try:
                 outcome = self._run_with_polling(proc, spec, start, peak_mb_result)
@@ -705,9 +655,9 @@ class LocalRunner:
         """Poll-версия ``proc.communicate()`` с bounded-дренажем вывода.
 
         Прерывается по ``spec.cancel_event`` (issue #262) и капит накопление
-        stdout+stderr по ``spec.max_output_bytes`` (issue #629). Вызывается,
-        когда задан хотя бы один из них; ``cancel_event`` опционален (``None`` →
-        просто poll без отмены).
+        stdout+stderr по ``spec.max_output_bytes`` (issue #629). Единственный
+        путь сбора вывода (issue #1248): оба поля опциональны — ``None`` в
+        лимите означает «без потолка», ``None`` в отмене — ожидание без опроса.
 
         Дренирует stdout/stderr в фоновых потоках всё время ожидания — как
         это делает сам ``communicate()`` внутри себя. Без этого дочерний

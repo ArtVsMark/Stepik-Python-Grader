@@ -38,6 +38,7 @@ __all__ = [
 # `[tool.setuptools.package-data]` перестал что-либо собирать.
 REQUIRED_PATTERNS: tuple[str, ...] = (
     "stepik_grader/py.typed",
+    "stepik_grader/_build_info.json",
     "stepik_grader/core/locales/*.json",
     "stepik_grader/glossary/data/*.json",
     "stepik_grader/rules/data/*.json",
