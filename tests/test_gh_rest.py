@@ -1052,3 +1052,243 @@ class TestPolicyRefusalIsNotAQuota:
 
         assert module.main(["merge", "1266"]) == module.EXIT_FAIL
         assert "protected base branch" in capsys.readouterr().err
+
+
+class TestQueueOrder:
+    """Порядок очереди — чистая функция, поэтому проверяется без сети (issue #1282)."""
+
+    def test_overlapping_pulls_go_first(self, module: ModuleType) -> None:
+        """Пересекающиеся по файлам мержатся раньше — их конфликт вскроется всё равно."""
+        entries = [
+            module.QueueEntry(10, "один", True, files=("a.py",)),
+            module.QueueEntry(11, "два", True, files=("b.py",)),
+            module.QueueEntry(12, "три", True, files=("a.py",)),
+        ]
+
+        order = [entry.number for entry in module.queue_order(entries)]
+
+        assert order == [10, 12, 11]
+
+    def test_overlaps_are_named_both_ways(self, module: ModuleType) -> None:
+        """Пересечение видно с обеих сторон — иначе второй PR не узнает о первом."""
+        entries = [
+            module.QueueEntry(10, "один", True, files=("shared.py", "a.py")),
+            module.QueueEntry(11, "два", True, files=("shared.py",)),
+        ]
+
+        marked = {entry.number: entry.overlaps for entry in module.queue_order(entries)}
+
+        assert marked == {10: (11,), 11: (10,)}
+
+    def test_ties_break_by_number(self, module: ModuleType) -> None:
+        """Без пересечений порядок стабилен: кто раньше пришёл, тот раньше и мержится."""
+        entries = [
+            module.QueueEntry(30, "поздний", True, files=("c.py",)),
+            module.QueueEntry(20, "ранний", True, files=("d.py",)),
+        ]
+
+        assert [entry.number for entry in module.queue_order(entries)] == [20, 30]
+
+    def test_empty_queue_is_not_an_error(self, module: ModuleType) -> None:
+        assert module.queue_order([]) == []
+
+
+class TestQueueReport:
+    """Отчёт отвечает на три вопроса: кто голова, кто где стоит, кто перед кем."""
+
+    def _report(self, module: ModuleType) -> Any:
+        return module.QueueReport(
+            ready=(
+                module.QueueEntry(10, "первый", True),
+                module.QueueEntry(11, "второй", True),
+                module.QueueEntry(12, "третий", True),
+            ),
+            waiting=(),
+            main_busy=False,
+            main_red=False,
+        )
+
+    def test_head_is_the_only_one_to_update(self, module: ModuleType) -> None:
+        assert self._report(module).head.number == 10
+
+    def test_position_counts_from_one(self, module: ModuleType) -> None:
+        report = self._report(module)
+
+        assert report.position(10) == 1
+        assert report.position(12) == 3
+        assert report.position(99) == 0, "чужой номер — не место в очереди, а его отсутствие"
+
+    def test_ahead_lists_everyone_in_front(self, module: ModuleType) -> None:
+        report = self._report(module)
+
+        assert report.ahead_of(12) == [10, 11]
+        assert report.ahead_of(10) == []
+        assert report.ahead_of(99) == []
+
+    def test_empty_queue_has_no_head(self, module: ModuleType) -> None:
+        empty = module.QueueReport(ready=(), waiting=(), main_busy=False, main_red=False)
+
+        assert empty.head is None
+
+
+class TestMergeQueueFromApi:
+    """Сборка очереди из ответов API — сеть подменена, проверяется разбор."""
+
+    def _pull(self, number: int, sha: str, *, draft: bool = False) -> dict[str, Any]:
+        return {
+            "number": number,
+            "title": f"PR {number}",
+            "head": {"ref": f"branch-{number}", "sha": sha},
+            "base": {"ref": "main"},
+            "user": {"login": "someone"},
+            "draft": draft,
+            "updated_at": "2026-08-20T00:00:00Z",
+        }
+
+    def _checks(self, *runs: tuple[str, str, str]) -> dict[str, Any]:
+        return {
+            "check_runs": [
+                {"name": name, "status": status, "conclusion": conclusion}
+                for name, status, conclusion in runs
+            ]
+        }
+
+    def test_only_green_pulls_enter_the_queue(self, module: ModuleType) -> None:
+        """Готов — значит все проверки завершены и зелёные; остальные ждут отдельно."""
+        opener = _opener(
+            _FakeResponse([self._pull(10, "aaa"), self._pull(11, "bbb")]),
+            _FakeResponse(self._checks(("test", "completed", "success"))),
+            _FakeResponse([{"filename": "one.py"}]),
+            _FakeResponse(self._checks(("test", "in_progress", None))),
+            _FakeResponse({"workflow_runs": [{"status": "completed", "conclusion": "success"}]}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert [entry.number for entry in report.ready] == [10]
+        assert [entry.number for entry in report.waiting] == [11]
+        assert "проверки идут" in report.waiting[0].reason
+
+    def test_red_pull_is_named_by_its_red_check(self, module: ModuleType) -> None:
+        opener = _opener(
+            _FakeResponse([self._pull(10, "aaa")]),
+            _FakeResponse(self._checks(("static", "completed", "failure"))),
+            _FakeResponse({"workflow_runs": []}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert report.ready == ()
+        assert report.waiting[0].reason == "красные: static"
+
+    def test_missing_checks_are_not_green(self, module: ModuleType) -> None:
+        """Пустой список проверок — «CI не стартовал», а не «зелено» (issue #1105)."""
+        opener = _opener(
+            _FakeResponse([self._pull(10, "aaa")]),
+            _FakeResponse({"check_runs": []}),
+            _FakeResponse({"workflow_runs": []}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert report.ready == ()
+        assert "не стартовал" in report.waiting[0].reason
+
+    def test_draft_is_not_in_the_queue(self, module: ModuleType) -> None:
+        """Черновик не мержится, значит и очередь им не занимает."""
+        opener = _opener(
+            _FakeResponse([self._pull(10, "aaa", draft=True)]),
+            _FakeResponse({"workflow_runs": []}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert report.ready == ()
+        assert report.waiting == ()
+
+    def test_main_state_is_reported(self, module: ModuleType) -> None:
+        """Красная и занятая main — отдельные факты отчёта, а не молчание."""
+        opener = _opener(
+            _FakeResponse([]),
+            _FakeResponse(
+                {
+                    "workflow_runs": [
+                        {"status": "completed", "conclusion": "failure"},
+                        {"status": "completed", "conclusion": "success"},
+                    ]
+                }
+            ),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert report.main_red is True
+        assert report.main_busy is False
+
+
+class TestCancelledPredecessor:
+    """Отменённый предшественник не делает PR красным (issue #1115, тот же класс).
+
+    Снятие черновика и повторный пуш создают вторую запись с тем же именем на
+    том же коммите, а concurrency-группа гасит первую. Обе лежат в ответе рядом,
+    и без отбора по свежести зелёный PR выпадал бы из очереди мержа навсегда —
+    гейт врал бы ровно там, где должен помогать.
+    """
+
+    def _pair(self, conclusions: tuple[str, str]) -> dict[str, Any]:
+        old_conclusion, new_conclusion = conclusions
+        return {
+            "check_runs": [
+                {
+                    "name": "test",
+                    "status": "completed",
+                    "conclusion": old_conclusion,
+                    "started_at": "2026-08-20T09:00:00Z",
+                    "id": 1,
+                },
+                {
+                    "name": "test",
+                    "status": "completed",
+                    "conclusion": new_conclusion,
+                    "started_at": "2026-08-20T09:40:00Z",
+                    "id": 2,
+                },
+            ]
+        }
+
+    def test_cancelled_run_is_replaced_by_the_fresh_green(self, module: ModuleType) -> None:
+        total, completed, red = module.summarize_checks(self._pair(("cancelled", "success")))
+
+        assert (total, completed, red) == (1, 1, []), "судим по свежей записи, а не по обеим"
+
+    def test_fresh_red_still_counts(self, module: ModuleType) -> None:
+        """Обратная сторона: свежий провал не прячется за старым успехом."""
+        total, completed, red = module.summarize_checks(self._pair(("success", "failure")))
+
+        assert (total, completed, red) == (1, 1, ["test"])
+
+    def test_queue_keeps_a_pull_whose_predecessor_was_cancelled(self, module: ModuleType) -> None:
+        """И очередь мержа его не теряет — ради этого отбор и нужен."""
+        opener = _opener(
+            _FakeResponse(
+                [
+                    {
+                        "number": 10,
+                        "title": "PR 10",
+                        "head": {"ref": "branch", "sha": "aaa"},
+                        "base": {"ref": "main"},
+                        "user": {"login": "someone"},
+                        "draft": False,
+                        "updated_at": "2026-08-20T09:40:00Z",
+                    }
+                ]
+            ),
+            _FakeResponse(self._pair(("cancelled", "success"))),
+            _FakeResponse([{"filename": "one.py"}]),
+            _FakeResponse({"workflow_runs": []}),
+        )
+
+        report = module.merge_queue("owner/repo", opener=opener)
+
+        assert [entry.number for entry in report.ready] == [10]
+        assert report.waiting == ()
