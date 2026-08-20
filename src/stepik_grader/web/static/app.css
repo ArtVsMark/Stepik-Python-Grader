@@ -622,6 +622,12 @@ select.form-input { cursor: pointer; }
 .errcard.severity-error { border-left-color: var(--color-error); background: var(--color-error-highlight); }
 .errcard-ex { font-weight: 600; }
 .errcard a { color: var(--color-primary); }
+/* issue #921 (находка DES-1-04): ссылка без собственного правила берёт цвет из
+   UA-таблицы браузера (#0000EE). На светлой теме это ещё читается, на тёмной —
+   2.01:1, то есть текст, которого почти не видно. Поймано измерением в
+   браузере: статический гейт про такую ссылку не узнаёт в принципе — он
+   сторожит токены, а здесь не использован ни один. */
+.empty-state a { color: var(--color-primary); }
 .msg { color: var(--color-error); margin-top: var(--space-4); }
 /* issue #296: cancelled run is not a failure -- neutral tone, not error red. */
 .msg-neutral { color: var(--color-text-muted); margin-top: var(--space-4); }

@@ -12,6 +12,8 @@ import textwrap
 import time
 from pathlib import Path
 
+import pytest
+
 from stepik_grader.core import reporter, runner
 
 
@@ -79,6 +81,48 @@ class TestOutputSurvivesALingeringGrandchild:
 
         assert time.perf_counter() - started < 15.0
         assert outcome.stdout.strip() == b"ok"
+
+    @pytest.mark.parametrize("max_output_bytes", [None, 1_000_000], ids=["без лимита", "с лимитом"])
+    def test_verdict_does_not_depend_on_the_output_limit(
+        self, tmp_path: Path, max_output_bytes: int | None
+    ) -> None:
+        """issue #1248: вывод и ``timed_out`` одинаковы при любом значении лимита.
+
+        ``max_output_bytes`` объявлен необязательным, но без него ``LocalRunner``
+        уходил в одиночный ``communicate()``: живой внук не давал EOF, чтение
+        ждало весь таймаут и возвращало ПУСТОЙ вывод с ``timed_out=True``. Боевой
+        путь лимит задаёт всегда (``grader_core`` берёт его из ``CONFIG``),
+        поэтому у пользователя дефект не проявлялся — задет был контракт
+        ``RunSpec``: тот, кто соберёт spec руками (веб-адаптеры, стенды, будущий
+        серверный Runner), получал другой вердикт на том же решении.
+        """
+        solution = _solution(
+            tmp_path,
+            """
+            import subprocess
+            import sys
+
+            print("ok")
+            sys.stdout.flush()
+            subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+            """,
+        )
+
+        outcome = runner.LocalRunner().run(
+            runner.RunSpec(
+                stdin=None,
+                timeout=10.0,
+                path=solution,
+                max_output_bytes=max_output_bytes,
+            )
+        )
+
+        assert outcome.stdout.strip() == b"ok", (
+            f"вывод потерян при max_output_bytes={max_output_bytes!r}"
+        )
+        assert not outcome.timed_out, (
+            f"ложный TLE на верном решении при max_output_bytes={max_output_bytes!r}"
+        )
 
     def test_plain_solution_is_unaffected(self, tmp_path: Path) -> None:
         """Обычное решение читается как раньше — правка не меняет штатный путь."""

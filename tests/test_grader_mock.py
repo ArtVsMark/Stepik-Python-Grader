@@ -76,8 +76,9 @@ def _make_popen_mock(
     else:
         mock_proc.wait.return_value = returncode
 
-    # Fast-путь (без лимита/отмены) run_single_test не использует, но communicate
-    # застаблен на случай прямых вызовов.
+    # issue #1248: отдельного fast-пути через `communicate()` больше нет —
+    # сбор вывода идёт дренажом при любых значениях лимита и отмены. Стаб
+    # оставлен на случай прямых вызовов из чужих тестов.
     mock_proc.communicate.return_value = (stdout, stderr)
     return mock_proc
 
