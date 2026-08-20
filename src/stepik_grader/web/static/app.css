@@ -645,6 +645,10 @@ select.form-input { cursor: pointer; }
 .single-pane > .split-pane-panel { border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .auth-state { font-weight: 500; }
 .auth-state-warn { color: var(--color-warning); }
+/* issue #1213: причина отказа стоит НАД развилкой «мастер / готовый файл» —
+   иначе выбор предлагается раньше, чем сказано, из-за чего он возник. */
+.auth-problem { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  margin-bottom: var(--space-3); }
 .auth-choice .row { gap: var(--space-3); }
 .config-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text); }
 .config-label { color: var(--color-text-muted); }

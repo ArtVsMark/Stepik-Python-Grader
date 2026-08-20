@@ -128,3 +128,62 @@ def test_perform_browser_auth_secrets_owner_only_on_posix(tmp_path: Path, monkey
     monkeypatch.setattr(auth_adapter, "authorize_and_get_token", lambda *a, **k: {})
     auth_adapter.perform_browser_auth(path, "cid", "csec", "uri")
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+class TestSecretsStateNamesTheProblem:
+    """`no_secrets` не говорит, ЧТО случилось, — а лечится это по-разному (#1213).
+
+    `auth_status` сводит три случая в один: файла нет, файл нечитаем, кредов в
+    нём неполно. Для его контракта («нужна форма») этого достаточно, и логика
+    там намеренно не меняется. Пользователю же общий отказ оставляет тупик: не
+    сказано ни имя файла, ни путь, ни причина.
+    """
+
+    def test_missing_file(self, tmp_path: Path) -> None:
+        assert auth_adapter.secrets_state(tmp_path / "nope.json") == "missing"
+
+    def test_directory_is_not_a_file(self, tmp_path: Path) -> None:
+        """Каталог с таким именем — тоже «нет файла», а не «нечитаем»."""
+        (tmp_path / "secrets.json").mkdir()
+
+        assert auth_adapter.secrets_state(tmp_path / "secrets.json") == "missing"
+
+    def test_broken_json_is_unreadable(self, tmp_path: Path) -> None:
+        path = tmp_path / "secrets.json"
+        path.write_text("{ это не json", encoding="utf-8")
+
+        assert auth_adapter.secrets_state(path) == "unreadable"
+
+    def test_partial_credentials_are_incomplete(self, tmp_path: Path) -> None:
+        """Файл читается, но половина полей пуста — третья, отдельная причина."""
+        path = tmp_path / "secrets.json"
+        path.write_text(json.dumps({"client_id": "a", "client_secret": " "}), encoding="utf-8")
+
+        assert auth_adapter.secrets_state(path) == "incomplete"
+
+    def test_full_credentials_are_ok(self, tmp_path: Path) -> None:
+        path = tmp_path / "secrets.json"
+        path.write_text(
+            json.dumps({"client_id": "a", "client_secret": "b", "redirect_uri": "c"}),
+            encoding="utf-8",
+        )
+
+        assert auth_adapter.secrets_state(path) == "ok"
+
+    def test_auth_status_contract_is_untouched(self, tmp_path: Path) -> None:
+        """Новая функция ничего не меняет в старой — это её главное свойство.
+
+        Все три случая по-прежнему дают `no_secrets`: фронт, который знает
+        только про два состояния, продолжает работать как работал.
+        """
+        broken = tmp_path / "broken.json"
+        broken.write_text("{", encoding="utf-8")
+        partial = tmp_path / "partial.json"
+        partial.write_text(json.dumps({"client_id": "a"}), encoding="utf-8")
+
+        reasons = {
+            auth_adapter.auth_status(path)["reason"]
+            for path in (tmp_path / "nope.json", broken, partial)
+        }
+
+        assert reasons == {"no_secrets"}
