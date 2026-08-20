@@ -152,10 +152,36 @@ function renderAuthPanel(data) {
   }
 
   if (authChoice === null) {
-    panel.innerHTML = renderAuthChoice();
+    panel.innerHTML = renderSecretsProblem(data, path) + renderAuthChoice();
     return;
   }
   panel.innerHTML = authChoice === "existing" ? renderExistingForm(path) : renderWizardForm();
+}
+
+/** Что именно не так с `secrets.json` и по какому пути искали (issue #1213).
+ *
+ * Развилка ниже спрашивает «мастер или готовый файл?», но не говорит, почему
+ * спрашивает. Пользователь видел общий отказ: ни имени файла, ни пути, ни
+ * причины — и решал, ткнуть ли наугад. Сервер всё это время знал и путь, и
+ * состояние (`secrets_state` в ответе `/api/auth/status`).
+ *
+ * Категория, а не содержимое: в файле лежат `client_secret` и токен.
+ */
+function renderSecretsProblem(data, path) {
+  const key = {
+    missing: "auth.secrets_missing",
+    unreadable: "auth.secrets_unreadable",
+    incomplete: "auth.secrets_incomplete",
+  }[data && data.secrets_state];
+  if (!key) return "";
+  // Настроенный путь бывает относительным («secrets.json») и на вопрос «где
+  // искали» не отвечает — показываем разрешённый, если сервер его прислал.
+  const shown = (data && data.secrets_path_resolved) || path;
+  return (
+    '<div class="auth-problem"><span class="auth-state auth-state-warn">' +
+    esc(t(key)) + "</span> " +
+    '<code class="config-value">' + esc(shown) + "</code></div>"
+  );
 }
 
 /** Развилка первого запуска: мастер или готовый файл (issue #723). */
