@@ -80,6 +80,9 @@ jobs:
   # Markdown-ссылки README ↔ docs не должны протухать. Проверка на чистом stdlib
   # (без pip install) — быстрая и детерминированная, поэтому отдельным job.
   docs-guardrails:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -125,6 +128,9 @@ jobs:
   # него девятью установками зависимостей незачем, а при забитой очереди Actions
   # эти повторы и есть то, что вытесняет чужие прогоны.
   static:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -169,6 +175,9 @@ jobs:
         run: python scripts/check_version_consistency.py
 
   test:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
     # issue #808 (SUP-04): матрица гоняет тесты, ставит зависимости и исполняет
@@ -333,6 +342,9 @@ jobs:
   # here from the `test` job, issue #283) — one place doing badge commits
   # avoids two jobs racing to push .github/badges/*.json independently.
   coverage-combine:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
     # issue #420: + sandbox-linux — его .coverage.sandbox-linux (покрытие
     # _linux.py, недостижимое в матрице без bwrap) подхватывается download'ом
     # по маске coverage-data-* и вливается в cross-OS combine.
@@ -516,6 +528,9 @@ jobs:
   # itself is a dev-only extra (see pyproject.toml's `e2e` group) -- it is
   # NOT a new runtime dependency.
   e2e:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     # issue #1231: journey выполняются и на `push`. Их пропуск был частью
     # короткого прогона: «уже прошли на PR по тому же коду» верно ровно до
@@ -588,6 +603,9 @@ jobs:
   # Отдельный job (не строка в матрице test): не бьём по per-OS gate (#294) /
   # cross-OS combine (#283); .coverage вливается в combine → _linux.py > 0%.
   sandbox-linux:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     container:
       image: python:3.12-slim
@@ -648,6 +666,9 @@ jobs:
   # обновить границы версий). Полный инвентарь и ручной аудит — docs/dev/supply-chain.md.
   # pip-audit ставится ad-hoc, НЕ в pyproject.toml (не runtime и не dev-зависимость).
   supply-chain:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

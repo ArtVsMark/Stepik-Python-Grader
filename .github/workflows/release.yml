@@ -21,6 +21,9 @@ jobs:
   # коммите из main. Один прогон на ubuntu/3.12: кросс-платформенную матрицу
   # коммит уже прошёл в CI до мержа, здесь гейт против «тег мимо main».
   verify:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,6 +89,9 @@ jobs:
   # release и pypi-publish собирали `python -m build` дважды (двойная сборка,
   # риск рассинхрона wheel/sdist между двумя запусками).
   build:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -143,6 +149,9 @@ jobs:
           path: dist/
 
   github-release:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
     # issue #809: публикация только после зелёного `verify` на этом же коммите.
     needs: [build, verify]
     runs-on: ubuntu-latest
@@ -211,6 +220,9 @@ jobs:
   # `build` (issue #559), so if the trusted publisher is not configured yet,
   # only THIS job fails; the GitHub Release still publishes.
   pypi-publish:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
     # issue #809: тот же гейт. Версия в PyPI неперезаписываема — это
     # единственная ошибка релиза, которую нельзя откатить.
     needs: [build, verify]
