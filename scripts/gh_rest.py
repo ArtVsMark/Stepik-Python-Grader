@@ -22,7 +22,9 @@
 3. **Исчерпанная квота — это «ждать», а не «упало».** ``403`` с
    ``x-ratelimit-remaining: 0`` распознаётся отдельно от прочих ошибок:
    печатается время сброса, код возврата — :data:`EXIT_WAIT`. Повторять запрос
-   бессмысленно: счётчик растёт и после нуля.
+   бессмысленно: счётчик растёт и после нуля. Но именно ``0``, а не
+   «заголовка нет»: ``403`` без заголовков лимита — отказ по другой причине, и
+   она берётся из тела ответа (issue #1273).
 4. **Условный запрос не расходует лимит вовсе.** Ответ ``304 Not Modified`` на
    ``If-None-Match`` GitHub не засчитывает, поэтому GET'ы носят ``ETag`` в
    кэше между запусками процесса.
@@ -42,10 +44,16 @@ GraphQL, REST-эквивалента у него нет; это ровно то�
     python scripts/gh_rest.py compare 1242           # отставание ветки от базовой
     python scripts/gh_rest.py create-pr --title T --head branch --body B
     python scripts/gh_rest.py update-branch 1242     # подтянуть main в ветку PR
-    python scripts/gh_rest.py merge 1242             # смержить (squash)
+    python scripts/gh_rest.py merge 1242             # смержить (squash), см. ниже
     python scripts/gh_rest.py rate                   # остаток квоты; сам её не тратит
 
 Код возврата 0 — успех; 1 — ошибка; 2 — квота исчерпана, надо ждать сброса.
+
+**Мерж из облачной агентской сессии невозможен** и починке не подлежит: сервер
+отвечает ``403`` с «Merging into a protected base branch is not permitted for
+this session type». Это свойство типа сессии, а не прав токена и не настроек
+репозитория, поэтому подкоманда ``merge`` полезна в локальном окне, а из облака
+PR доводится до зелёного и мержится человеком.
 """
 
 from __future__ import annotations
@@ -323,26 +331,55 @@ def _cache_write(url: str, token: str, etag: str, data: Any) -> None:
         return
 
 
-def _quota_from_headers(headers: Any) -> tuple[int, int, str]:
-    """Из заголовков ответа — ``(remaining, reset, resource)``."""
+def _quota_from_headers(headers: Any) -> tuple[int | None, int, str]:
+    """Из заголовков ответа — ``(remaining, reset, resource)``.
 
-    def _int(name: str) -> int:
+    ``remaining`` — ``None``, когда заголовка нет вовсе. Разница существенная:
+    «ноль» и «неизвестно» ведут к противоположным действиям, и подмена второго
+    первым уже выдавала отказ по политике за исчерпанную квоту (issue #1273).
+    """
+
+    def _optional_int(name: str) -> int | None:
+        raw = headers.get(name) if headers else None
+        if raw is None or not str(raw).strip():
+            return None
         try:
-            return int(headers.get(name) or 0)
+            return int(raw)
         except (TypeError, ValueError):
-            return 0
+            return None
 
+    resource = (headers.get("x-ratelimit-resource") if headers else None) or "core"
     return (
-        _int("x-ratelimit-remaining"),
-        _int("x-ratelimit-reset"),
-        str(headers.get("x-ratelimit-resource") or "core"),
+        _optional_int("x-ratelimit-remaining"),
+        _optional_int("x-ratelimit-reset") or 0,
+        str(resource),
     )
+
+
+def _error_message(exc: urllib.error.HTTPError) -> str:
+    """``message`` из тела ответа — там названа настоящая причина отказа.
+
+    Читается ОДИН раз и до классификации: поток одноразовый, а прежде ветка
+    401/403 выходила раньше чтения — и единственная строка, объяснявшая отказ,
+    терялась (issue #1273). Именно в ней приходило, например, «Merging into a
+    protected base branch is not permitted for this session type».
+    """
+    try:
+        body = json.loads(exc.read().decode("utf-8"))
+    except (OSError, ValueError, AttributeError):
+        return ""
+    return str(body.get("message", "")) if isinstance(body, dict) else ""
 
 
 def _raise_for_error(exc: urllib.error.HTTPError, path: str) -> None:
     """Перевести HTTP-ошибку в осмысленное исключение модуля."""
     remaining, reset, resource = _quota_from_headers(exc.headers)
     retry_after = exc.headers.get("retry-after") if exc.headers else None
+    detail = _error_message(exc)
+    # Квота — только когда сервер про неё СКАЗАЛ: заголовок есть и равен нулю
+    # либо пришёл retry-after. Отсутствие заголовков — это «причина другая»,
+    # а не «лимит кончился»: советовать ждать сброса там, где ждать нечего,
+    # хуже, чем не советовать ничего.
     if exc.code in (403, 429) and (remaining == 0 or retry_after):
         reset_at = reset
         if not reset_at and retry_after:
@@ -354,15 +391,8 @@ def _raise_for_error(exc: urllib.error.HTTPError, path: str) -> None:
             f"лимит исчерпан на {path}", reset_at=reset_at, resource=resource
         ) from exc
     if exc.code in (401, 403):
-        raise GitHubError(
-            f"GitHub отказал ({exc.code}) на {path}: токен недействителен или без нужных прав"
-        ) from exc
-    detail = ""
-    try:
-        body = json.loads(exc.read().decode("utf-8"))
-        detail = str(body.get("message", ""))
-    except (OSError, ValueError, AttributeError):
-        detail = ""
+        reason = detail or "причина не названа; обычно это права токена"
+        raise GitHubError(f"GitHub отказал ({exc.code}) на {path}: {reason}") from exc
     suffix = f": {detail}" if detail else ""
     raise GitHubError(f"GitHub ответил {exc.code} на {path}{suffix}") from exc
 
