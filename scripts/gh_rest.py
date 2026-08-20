@@ -57,6 +57,7 @@ TLS-проверки** (issue #1259 — доверенный набор зада
     python scripts/gh_rest.py auto-merge 1242        # смержить самому, когда позеленеет
     python scripts/gh_rest.py merge 1242             # смержить (squash), см. ниже
     python scripts/gh_rest.py sub-issues 915         # дочерние issue эпика
+    python scripts/gh_rest.py queue                  # очередь мержа: кого обновлять
     python scripts/gh_rest.py rate                   # остаток квоты; сам её не тратит
 
 Код возврата 0 — успех; 1 — ошибка; 2 — квота исчерпана, надо ждать сброса.
@@ -100,6 +101,8 @@ __all__ = [
     "GitHubError",
     "MissingToken",
     "PullSummary",
+    "QueueEntry",
+    "QueueReport",
     "Quota",
     "RateLimited",
     "Response",
@@ -118,12 +121,16 @@ __all__ = [
     "graphql",
     "issue",
     "issue_comments",
+    "latest_checks_by_name",
     "list_pulls",
     "main",
     "main_run",
     "merge_pull",
+    "merge_queue",
     "pull",
     "pull_checks",
+    "pull_files",
+    "queue_order",
     "rate_limit",
     "relaxed_ca_enabled",
     "remove_label",
@@ -258,6 +265,9 @@ class PullSummary:
     author: str
     draft: bool
     updated_at: str
+    # Голова ветки приходит в том же ответе списка. Держим её здесь, чтобы
+    # очередь спрашивала проверки сразу, не тратя по запросу на каждый PR.
+    sha: str = ""
 
     def describe(self) -> str:
         """Одна строка списка: номер, состояние, ветка, заголовок."""
@@ -742,6 +752,7 @@ def list_pulls(
             author=str(item.get("user", {}).get("login", "")),
             draft=bool(item.get("draft", False)),
             updated_at=str(item.get("updated_at", "")),
+            sha=str(item.get("head", {}).get("sha", "")),
         )
         for item in items
         if isinstance(item, dict)
@@ -794,6 +805,136 @@ def compare(repo: str, base: str, head: str, **kwargs: Any) -> Divergence:
     return Divergence(
         ahead=ahead if isinstance(ahead, int) else 0,
         behind=behind if isinstance(behind, int) else 0,
+    )
+
+
+def pull_files(repo: str, number: int, **kwargs: Any) -> list[str]:
+    """Файлы, которые меняет PR — для правила «сначала пересекающиеся»."""
+    data = _get(f"repos/{repo}/pulls/{number}/files?per_page=100", **kwargs)
+    items = data if isinstance(data, list) else []
+    return sorted(str(item.get("filename", "")) for item in items if isinstance(item, dict))
+
+
+@dataclasses.dataclass(frozen=True)
+class QueueEntry:
+    """Один PR глазами очереди мержа."""
+
+    number: int
+    title: str
+    ready: bool
+    #: Почему не готов; у готового пусто.
+    reason: str = ""
+    #: Изменённые файлы — спрашиваются только у готовых, остальным не нужны.
+    files: tuple[str, ...] = ()
+    #: Номера готовых PR, с которыми есть общий файл.
+    overlaps: tuple[int, ...] = ()
+
+    def describe(self, position: int, total_ahead: int) -> str:
+        """Строка списка: место, номер, заголовок и что с ним делать."""
+        head = "  ← обновлять только этот" if position == 1 else f"  впереди: {total_ahead}"
+        shared = ""
+        if self.overlaps:
+            names = ", ".join(f"#{n}" for n in self.overlaps)
+            shared = f" · общий файл с {names}"
+        return f"{position}. #{self.number}  {self.title}{head}{shared}"
+
+
+@dataclasses.dataclass(frozen=True)
+class QueueReport:
+    """Очередь мержа целиком: кого обновлять, кто ждёт, что с ``main``."""
+
+    ready: tuple[QueueEntry, ...]
+    waiting: tuple[QueueEntry, ...]
+    main_busy: bool
+    main_red: bool
+
+    @property
+    def head(self) -> QueueEntry | None:
+        """Первый в очереди — единственный, кого обновляют из ``main``."""
+        return self.ready[0] if self.ready else None
+
+    def position(self, number: int) -> int:
+        """Место PR в очереди, считая с 1; 0 — его в очереди нет."""
+        for index, entry in enumerate(self.ready, start=1):
+            if entry.number == number:
+                return index
+        return 0
+
+    def ahead_of(self, number: int) -> list[int]:
+        """Номера PR, стоящих перед этим."""
+        place = self.position(number)
+        return [entry.number for entry in self.ready[: place - 1]] if place else []
+
+
+def queue_order(entries: list[QueueEntry]) -> list[QueueEntry]:
+    """Порядок мержа среди готовых PR — чистая функция, без сети.
+
+    Правило порядка ровно то, что записано в ``CLAUDE.md``: сначала PR, у
+    которых есть общий файл с другим готовым (их конфликт вскроется всё равно,
+    и дешевле вскрыть его сразу), затем остальные по готовности — стабильно по
+    номеру, то есть кто раньше пришёл.
+
+    Приоритета «чинит красный ``main``» здесь нет намеренно: из REST он не
+    выводится, и угадывать его — значит ставить во главу очереди не тот PR.
+    Про красную ``main`` отчёт говорит отдельной строкой, а решение остаётся
+    человеку.
+    """
+    by_number = {entry.number: entry for entry in entries}
+    linked: dict[int, list[int]] = {number: [] for number in by_number}
+    for first in entries:
+        for second in entries:
+            if first.number >= second.number:
+                continue
+            if set(first.files) & set(second.files):
+                linked[first.number].append(second.number)
+                linked[second.number].append(first.number)
+    marked = [
+        dataclasses.replace(entry, overlaps=tuple(sorted(linked[entry.number])))
+        for entry in entries
+    ]
+    return sorted(marked, key=lambda entry: (0 if entry.overlaps else 1, entry.number))
+
+
+def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
+    """Собрать очередь мержа из состояния API (issue #1282).
+
+    Очередь **вычисляется, а не хранится**: ни меток, ни файла состояния, ни
+    табло в issue. Хранимый реестр расходился бы между окнами и протухал, а
+    порядок и так однозначно выводится из того, что уже есть в API.
+
+    Цена запроса: один список PR плюс по одному запросу проверок на каждый
+    открытый PR и по одному запросу файлов на каждый **готовый**. У неготовых
+    файлы не спрашиваются — их порядок всё равно не считается.
+    """
+    pulls = [item for item in list_pulls(repo, **kwargs) if not item.draft]
+    entries: list[QueueEntry] = []
+    waiting: list[QueueEntry] = []
+    for item in pulls:
+        total, completed, red = summarize_checks(pull_checks(repo, item.sha, **kwargs))
+        if not total:
+            waiting.append(
+                QueueEntry(item.number, item.title, False, "проверок нет — CI не стартовал")
+            )
+        elif red:
+            waiting.append(QueueEntry(item.number, item.title, False, "красные: " + ", ".join(red)))
+        elif completed < total:
+            waiting.append(
+                QueueEntry(item.number, item.title, False, f"проверки идут ({completed}/{total})")
+            )
+        else:
+            files = pull_files(repo, item.number, **kwargs)
+            entries.append(QueueEntry(item.number, item.title, True, files=tuple(files)))
+
+    runs = main_run(repo, **kwargs)
+    listed = [run for run in runs.get("workflow_runs", []) if isinstance(run, dict)]
+    busy = any(run.get("status") != "completed" for run in listed)
+    done = [run for run in listed if run.get("status") == "completed"]
+    red_main = bool(done) and done[0].get("conclusion") not in _OK_CONCLUSIONS
+    return QueueReport(
+        ready=tuple(queue_order(entries)),
+        waiting=tuple(sorted(waiting, key=lambda entry: entry.number)),
+        main_busy=busy,
+        main_red=red_main,
     )
 
 
@@ -1119,10 +1260,34 @@ def rate_limit(**kwargs: Any) -> dict[str, Quota]:
     return quotas
 
 
+def _check_freshness(item: dict[str, Any]) -> tuple[str, int]:
+    """Ключ свежести записи проверки: время старта, при равенстве — идентификатор."""
+    return str(item.get("started_at") or ""), int(item.get("id") or 0)
+
+
+def latest_checks_by_name(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """По одной, самой свежей записи на каждое имя проверки.
+
+    ``ci.yml`` держит concurrency-группу и гасит устаревшие прогоны, а
+    перезапуск (снятие черновика, повторный пуш) создаёт вторую запись с тем же
+    именем на том же коммите. В ответе REST обе лежат рядом, и без этого отбора
+    отменённый предшественник считался бы красным — то есть свежий зелёный PR
+    выпадал бы из очереди мержа навсегда. Тот же приём и по той же причине живёт
+    в ``check_pr_ready.py`` (issue #1115).
+    """
+    freshest: dict[str, dict[str, Any]] = {}
+    for item in items:
+        name = str(item.get("name", ""))
+        current = freshest.get(name)
+        if current is None or _check_freshness(item) >= _check_freshness(current):
+            freshest[name] = item
+    return list(freshest.values())
+
+
 def summarize_checks(check_runs: dict[str, Any]) -> tuple[int, int, list[str]]:
     """Сводка по check-runs: ``(всего, завершено, красные имена)``."""
     listed = check_runs.get("check_runs", []) if isinstance(check_runs, dict) else []
-    runs = [item for item in listed if isinstance(item, dict)]
+    runs = latest_checks_by_name([item for item in listed if isinstance(item, dict)])
     completed = sum(1 for item in runs if item.get("status") == "completed")
     red = sorted(
         str(item.get("name", "?"))
@@ -1231,6 +1396,48 @@ def _cmd_checks(args: argparse.Namespace) -> int:
         print("Красные: " + ", ".join(red))
     print("main: " + ("идёт прогон — ждать" if active else "свободна"))
     return EXIT_FAIL if red else EXIT_OK
+
+
+def _cmd_queue(args: argparse.Namespace) -> int:
+    """Очередь мержа: кого обновлять из main, кто ждёт неподвижно."""
+    report = merge_queue(args.repo)
+    if args.json:
+        _print_json(
+            {
+                "ready": [dataclasses.asdict(entry) for entry in report.ready],
+                "waiting": [dataclasses.asdict(entry) for entry in report.waiting],
+                "head": report.head.number if report.head else None,
+                "main_busy": report.main_busy,
+                "main_red": report.main_red,
+            }
+        )
+        return EXIT_OK
+
+    if report.main_red:
+        print(
+            "main КРАСНАЯ — первым мержится то, что её чинит. Порядок ниже "
+            "действует после починки: определить чинящий PR из API нельзя."
+        )
+    if report.main_busy:
+        print("на main идёт прогон — мерж ждёт его завершения")
+
+    print(f"Очередь мержа: готовых {len(report.ready)}, ждут проверок {len(report.waiting)}")
+    for position, entry in enumerate(report.ready, start=1):
+        print("  " + entry.describe(position, position - 1))
+    if report.waiting:
+        print("\nВ очередь не входят:")
+        for entry in report.waiting:
+            print(f"  #{entry.number}  {entry.title} — {entry.reason}")
+
+    head = report.head
+    if head is None:
+        print("\nОбновлять некого: готовых PR нет.")
+        return EXIT_OK
+    print(
+        f"\nОбновляется ТОЛЬКО голова очереди — остальные стоят неподвижно:\n"
+        f"  python scripts/gh_rest.py update-branch {head.number}"
+    )
+    return EXIT_OK
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:
@@ -1601,6 +1808,9 @@ def _build_parser() -> argparse.ArgumentParser:
     cancel = sub.add_parser("cancel-run", help="отменить зависший прогон")
     cancel.add_argument("run", type=int)
     cancel.set_defaults(handler=_cmd_cancel_run)
+
+    queue = sub.add_parser("queue", help="очередь мержа: кого обновлять, кто ждёт")
+    queue.set_defaults(handler=_cmd_queue)
 
     rate = sub.add_parser("rate", help="остаток квоты (запрос её не тратит)")
     rate.add_argument(

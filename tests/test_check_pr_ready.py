@@ -497,3 +497,43 @@ class TestAuthorIsNotLost:
 
         assert not verdict.ready
         assert any("PR открыт ботом" in reason for reason in verdict.reasons)
+
+
+class TestQueuePosition:
+    """issue #1282: зелёный, но не первый в очереди — это «ждать», а не «готов».
+
+    Массовое обновление веток после каждого мержа гарантирует, что обновлённые
+    PR устареют снова, и холостые прогоны растут квадратично от длины очереди.
+    Гейт обязан говорить это до того, как кто-то нажмёт update-branch.
+    """
+
+    def _report(self, module: ModuleType, ready: list[int]) -> Any:
+        import gh_rest
+
+        return gh_rest.QueueReport(
+            ready=tuple(gh_rest.QueueEntry(number, f"PR {number}", True) for number in ready),
+            waiting=(),
+            main_busy=False,
+            main_red=False,
+        )
+
+    def test_head_of_the_queue_is_not_blocked(self, module: ModuleType) -> None:
+        assert module.queue_blockers(self._report(module, [10, 11]), 10) == []
+
+    def test_second_in_line_waits_and_is_told_by_whom(self, module: ModuleType) -> None:
+        reasons = module.queue_blockers(self._report(module, [10, 11, 12]), 12)
+
+        assert len(reasons) == 1
+        assert "#10" in reasons[0] and "#11" in reasons[0]
+        assert "gh_rest.py queue" in reasons[0], "гейт обязан называть команду, а не только беду"
+
+    def test_pull_outside_the_queue_is_not_blocked_by_it(self, module: ModuleType) -> None:
+        """Не готов по своим проверкам — причину уже назвал локальный разбор.
+
+        Иначе один и тот же PR получал бы две причины об одном и том же, а
+        вторая ещё и врала бы: в очередь он не входит не из-за очереди.
+        """
+        assert module.queue_blockers(self._report(module, [10]), 999) == []
+
+    def test_empty_queue_blocks_nobody(self, module: ModuleType) -> None:
+        assert module.queue_blockers(self._report(module, []), 10) == []
