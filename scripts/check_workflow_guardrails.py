@@ -39,6 +39,7 @@ __all__ = [
     "check_ci_listens_to_ready_for_review",
     "check_coverage_gate_is_explicit",
     "check_every_job_has_a_timeout",
+    "check_pr_opener_uses_its_own_token",
     "check_queue_mover_uses_its_own_token",
     "check_release_gates_match_promises",
     "check_release_pipeline",
@@ -53,6 +54,7 @@ _WORKFLOWS = _ROOT / ".github" / "workflows"
 _CI = _WORKFLOWS / "ci.yml"
 _RELEASE = _WORKFLOWS / "release.yml"
 _QUEUE_MOVER = _WORKFLOWS / "merge-queue.yml"
+_PR_OPENER = _WORKFLOWS / "agent-pr.yml"
 
 # Порог per-OS гейта покрытия (issue #954). Держится синхронно с флагом
 # `--cov-fail-under` в шаге `Run tests`; cross-OS агрегат строже (90) и живёт
@@ -407,6 +409,50 @@ def check_queue_mover_uses_its_own_token(errors: list[str], source: str | None =
         )
 
 
+def check_pr_opener_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Открыватель PR ходит своим токеном, а не штатным ``GITHUB_TOKEN`` (issue #1302).
+
+    Смысл открывателя ровно один: автором PR должен стать человек, потому что
+    squash атрибутирует итоговый коммит автору pull request. С ``GITHUB_TOKEN``
+    автором станет бот — и гейт ``check_pr_ready.py`` откажется мержить,
+    то есть механизм сломается именно в том месте, ради которого заведён, и
+    молча: PR откроется, проверки пройдут, а очередь встанет.
+    """
+    if source is None:
+        if not _PR_OPENER.is_file():
+            errors.append(f"{_PR_OPENER.name}: файла нет — открыватель PR не проверен")
+            return
+        source = _PR_OPENER.read_text(encoding="utf-8")
+
+    step = _step_calling(source, "open_agent_prs.py")
+    if step is None:
+        errors.append(
+            f"{_PR_OPENER.name}: не найден шаг с 'open_agent_prs.py'. Если его "
+            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_PR_OPENER.name}: PR открывается штатным GITHUB_TOKEN — автором станет "
+            "бот, и мерж-гейт такой PR не пропустит. Нужен отдельный токен"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_PR_OPENER.name}: шаг открытия PR не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
+def _step_calling(source: str, needle: str) -> str | None:
+    """Текст шага, который зовёт ``needle``; ``None`` — такого шага нет."""
+    steps = re.split(r"^      - ", source, flags=re.MULTILINE)
+    for step in steps[1:]:
+        if needle in step:
+            return step
+    return None
+
+
 def _update_step(source: str) -> str | None:
     """Текст шага, который зовёт ``update-branch``; ``None`` — такого шага нет."""
     steps = re.split(r"^      - ", source, flags=re.MULTILINE)
@@ -427,6 +473,7 @@ def main() -> int:
     check_release_publishes_verified_assets(errors)
     check_every_job_has_a_timeout(errors)
     check_queue_mover_uses_its_own_token(errors)
+    check_pr_opener_uses_its_own_token(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
