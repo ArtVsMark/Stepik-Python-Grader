@@ -21,7 +21,7 @@ import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core.mode_detector import (
     _ast_class_names,
     _ast_function_names,
@@ -44,6 +44,11 @@ __all__ = [
     "resolve_test_dir",
 ]
 
+# issue #996 (PY-1-07, LNCH-3-03): снимок на момент импорта — ради фасада
+# grader.py и внешнего кода, который на это имя ссылается. Внутри модуля он НЕ
+# используется: кодировка читается `get_config()` в момент ВЫЗОВА, иначе
+# `override_config(encoding=...)` и `--config` не действуют на уже
+# импортированный загрузчик (то же правило, что для таймаута в grader_core).
 ENCODING: str = CONFIG.encoding
 
 # Паттерн имён файлов-решений.  Матчит (fullmatch):
@@ -176,16 +181,17 @@ def read_test_text(file_path: pathlib.Path) -> str:
     задачам сохраняется, а причина названа. BOM срезается независимо от
     кодировки (``utf-8-sig`` помог бы только UTF-8, а ``encoding`` настраивается).
     """
+    encoding = get_config().encoding
     raw = file_path.read_bytes()
     try:
-        text = raw.decode(ENCODING)
+        text = raw.decode(encoding)
     except UnicodeDecodeError as exc:
-        text = raw.decode(ENCODING, errors="replace")
+        text = raw.decode(encoding, errors="replace")
         warnings.warn(
-            f"{file_path}: файл тестов не в {ENCODING} ({exc.reason}, байт "
+            f"{file_path}: файл тестов не в {encoding} ({exc.reason}, байт "
             f"{exc.object[exc.start : exc.start + 1]!r} в позиции {exc.start}) — "
             "нечитаемые символы заменены на «�», ожидаемый вывод может не "
-            f"совпасть с фактическим. Пересохраните файл в {ENCODING}.",
+            f"совпасть с фактическим. Пересохраните файл в {encoding}.",
             stacklevel=2,
         )
     return text.lstrip("﻿")

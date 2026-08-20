@@ -17,13 +17,17 @@ import ast
 import pathlib
 from collections.abc import Iterable
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core.storage import load_json_file
 
 __all__ = [
     "is_function_only_solution",
 ]
 
+# issue #996 (PY-1-07, LNCH-3-03): снимок на момент импорта — ради фасада и
+# внешних ссылок на имя. Внутри модуля кодировка читается `get_config()` в
+# момент ВЫЗОВА: связанная на импорте, она игнорирует и `--config`, и
+# `override_config()`, то есть настройка молча не действует.
 ENCODING: str = CONFIG.encoding
 
 
@@ -230,7 +234,7 @@ def _ast_function_names(solution_path: pathlib.Path) -> list[str]:
     теста быть не могут.
     """
     try:
-        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return []
@@ -248,7 +252,7 @@ def _ast_class_names(solution_path: pathlib.Path) -> list[str]:
     нельзя.
     """
     try:
-        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return []
@@ -273,7 +277,7 @@ def _ast_function_name(solution_path: pathlib.Path) -> str | None:
         # лишь имя функции: подставной символ в комментарии на AST не влияет,
         # а если исходник действительно не разбирается — вернём None, как и
         # для любого синтаксически неверного файла.
-        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return None
@@ -305,7 +309,7 @@ def _reads_function_marker(type_file: pathlib.Path) -> bool:
     который импортирует этот модуль, — общий хелпер замкнул бы DAG.
     """
     try:
-        raw = type_file.read_bytes().decode(ENCODING, errors="replace")
+        raw = type_file.read_bytes().decode(get_config().encoding, errors="replace")
     except OSError:
         return False
     return raw.lstrip("﻿").strip() == "function"
@@ -366,7 +370,7 @@ def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str
     # 3. AST-анализ файла решения
     try:
         # issue #792 (PY-03): то же декодирование с заменой — см. выше.
-        file_content = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        file_content = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         if is_function_only_solution(file_content):
             return "function"
     except OSError:
