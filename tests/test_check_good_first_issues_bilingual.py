@@ -228,3 +228,46 @@ class TestFetchAndMain:
         printed = capsys.readouterr().out
         assert "good first issue" in printed
         assert "--repo" in printed
+
+    def test_both_labels_are_checked_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Пул для внешних — две метки: путь не кончается на первом вкладе.
+
+        Проверялась только `good first issue`, и сделавший её участник шёл за
+        вторым вкладом в `help wanted` — на русский текст. Барьер не снимался,
+        а сдвигался на шаг вперёд.
+        """
+        module = _load_module()
+        asked: list[str] = []
+
+        def _record(_repo: str, label: str, **_kwargs: object) -> list[tuple[int, str]]:
+            asked.append(label)
+            return []
+
+        monkeypatch.setattr(module, "fetch_open_issues", _record)
+
+        assert module.main([]) == 0
+        assert asked == list(module.DEFAULT_LABELS)
+
+    def test_issue_with_both_labels_is_warned_about_once(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Метки висят вместе часто — предупреждение об одной задаче одно."""
+        module = _load_module()
+        monkeypatch.setattr(module, "fetch_open_issues", lambda *_a, **_k: [(42, _RUSSIAN)])
+
+        assert module.main([]) == 0
+        assert capsys.readouterr().out.count("::warning::#42") == 1
+
+    def test_label_flag_narrows_the_pool(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Явная метка отменяет обе умолчательные, а не добавляется к ним."""
+        module = _load_module()
+        asked: list[str] = []
+
+        def _record(_repo: str, label: str, **_kwargs: object) -> list[tuple[int, str]]:
+            asked.append(label)
+            return []
+
+        monkeypatch.setattr(module, "fetch_open_issues", _record)
+
+        assert module.main(["--label", "help wanted"]) == 0
+        assert asked == ["help wanted"]
