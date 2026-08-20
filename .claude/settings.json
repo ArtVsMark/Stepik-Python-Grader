@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": {
+    "commit": "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>\nCo-Authored-By: Artem Markitanov <86671904+ArtVsMark@users.noreply.github.com>",
+    "pr": "Работа сделана вместе: [@ArtVsMark](https://github.com/ArtVsMark) — постановка, решения и приёмка; [Claude Code](https://claude.com/claude-code) — реализация."
+  },
+  "permissions": {
+    "deny": [
+      "mcp__github__get_issue",
+      "mcp__github__get_issue_comments",
+      "mcp__github__list_issues",
+      "mcp__github__search_issues",
+      "mcp__github__create_issue",
+      "mcp__github__update_issue",
+      "mcp__github__add_issue_comment",
+      "mcp__github__list_sub_issues",
+      "mcp__github__add_sub_issue",
+      "mcp__github__get_pull_request",
+      "mcp__github__get_pull_request_comments",
+      "mcp__github__get_pull_request_diff",
+      "mcp__github__get_pull_request_files",
+      "mcp__github__get_pull_request_reviews",
+      "mcp__github__get_pull_request_status",
+      "mcp__github__list_pull_requests",
+      "mcp__github__search_pull_requests",
+      "mcp__github__update_pull_request",
+      "mcp__github__update_pull_request_branch",
+      "mcp__github__merge_pull_request",
+      "mcp__github__list_workflow_runs",
+      "mcp__github__list_workflow_jobs",
+      "mcp__github__get_workflow_run",
+      "mcp__github__get_workflow_run_usage",
+      "mcp__github__cancel_workflow_run",
+      "mcp__github__rerun_workflow_run",
+      "mcp__github__rerun_failed_jobs",
+      "mcp__github__list_commits",
+      "mcp__github__list_branches"
+    ],
+    "ask": [
+      "mcp__github",
+      "mcp__github-mcp-server"
+    ]
+  }
+}

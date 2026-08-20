@@ -467,3 +467,33 @@ class TestStaleBranchIsNotReady:
         )
 
         assert not verdict.ready
+
+
+class TestAuthorIsNotLost:
+    """PR от бота не мержится: squash перепишет авторство в main (issue #1280)."""
+
+    def test_bot_author_blocks_the_merge(self, module: ModuleType) -> None:
+        """Автор-бот — причина «нельзя», а не косметика."""
+        reasons = module.bot_author_blockers(_pull(user={"login": "claude[bot]", "type": "Bot"}))
+
+        assert reasons and "автором коммита в main станет он" in reasons[0]
+
+    def test_human_author_passes(self, module: ModuleType) -> None:
+        """Обычный PR человека проверка не трогает."""
+        assert module.bot_author_blockers(_pull(user={"login": "ArtVsMark", "type": "User"})) == []
+
+    def test_missing_author_is_not_an_accusation(self, module: ModuleType) -> None:
+        """Поля нет — это «неизвестно», а не «бот»."""
+        assert module.bot_author_blockers(_pull()) == []
+
+    def test_verdict_names_the_reason(self, module: ModuleType) -> None:
+        """Причина доезжает до вердикта целиком, а не теряется по дороге."""
+        verdict = module.evaluate(
+            _pull(user={"login": "claude[bot]", "type": "Bot"}),
+            _runs(("completed", "success")),
+            _checks(("test", "completed", "success")),
+            {"test"},
+        )
+
+        assert not verdict.ready
+        assert any("PR открыт ботом" in reason for reason in verdict.reasons)
