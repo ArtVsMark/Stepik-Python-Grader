@@ -38,10 +38,12 @@ __all__ = [
     "VERIFY_JOB",
     "check_ci_listens_to_ready_for_review",
     "check_coverage_gate_is_explicit",
+    "check_every_job_has_a_timeout",
     "check_release_gates_match_promises",
     "check_release_pipeline",
     "check_release_publishes_verified_assets",
     "extract_job",
+    "jobs_without_timeout",
     "main",
 ]
 
@@ -286,6 +288,77 @@ def check_release_publishes_verified_assets(errors: list[str], source: str | Non
         print("release.yml: пропажа ассетов и содержимое колеса под гейтом.")
 
 
+def jobs_without_timeout(source: str) -> list[str]:
+    """Имена job'ов без ``timeout-minutes`` (issue #1271).
+
+    Разбор построчный, как и остальные проверки этого файла: PyYAML в
+    зависимостях нет намеренно, а YAML workflow'ов у нас плоский. Job — строка
+    вида ``  имя:`` на двух пробелах; его тело — всё до следующей такой строки.
+    """
+    lines = source.split("\n")
+    # Считаем только внутри `jobs:`. Ключи `on:` (`push`, `schedule`,
+    # `workflow_dispatch`) стоят на том же отступе и на первый взгляд неотличимы
+    # от job'ов — без этой границы гейт требовал таймаут у триггера.
+    try:
+        first = next(index for index, line in enumerate(lines) if line.rstrip() == "jobs:")
+    except StopIteration:
+        return []
+    end = next(
+        (
+            index
+            for index in range(first + 1, len(lines))
+            if lines[index] and not lines[index][0].isspace()
+        ),
+        len(lines),
+    )
+    lines = lines[first:end]
+    starts = [
+        (index, match.group(1))
+        for index, line in enumerate(lines)
+        if (match := re.match(r"^  ([a-z][a-z0-9-]*):\s*$", line))
+    ]
+    bounds = [index for index, _ in starts] + [len(lines)]
+    missing = []
+    for position, (index, name) in enumerate(starts):
+        body = lines[index : bounds[position + 1]]
+        if not any(line.strip().startswith("timeout-minutes:") for line in body):
+            missing.append(name)
+    return missing
+
+
+def check_every_job_has_a_timeout(errors: list[str], sources: dict[str, str] | None = None) -> None:
+    """У каждого job'а есть свой предел (issue #1271).
+
+    Без ``timeout-minutes`` действует умолчание GitHub — **шесть часов**, и
+    зависший шаг держит не только свой job. Замер 19.08: `e2e` встал на
+    установке Playwright и три с половиной часа держал прогон `main`, а вместе с
+    ним всю очередь мержа — при этом ни одна проверка не была красной. Гейт
+    очереди читает такое состояние как «идёт прогон, ждите», то есть беда
+    выглядит нормальной работой.
+
+    Проверка ровно в духе этого файла: ломается молча, проявляется один раз — и
+    именно в момент, когда ждать дороже всего.
+    """
+    if sources is None:
+        sources = {}
+        for path in (_CI, _RELEASE):
+            if not path.is_file():
+                errors.append(f"{path.name}: файла нет — таймауты job'ов не проверены")
+                continue
+            sources[path.name] = path.read_text(encoding="utf-8")
+
+    if not sources:
+        return
+
+    for name, source in sources.items():
+        missing = jobs_without_timeout(source)
+        if missing:
+            errors.append(
+                f"{name}: без timeout-minutes остались job'ы: {', '.join(sorted(missing))}. "
+                "Умолчание GitHub — 6 часов: зависший шаг держит очередь мержа целиком."
+            )
+
+
 def main() -> int:
     """Вернуть 0, если инварианты workflow держатся; 1 — если нарушены."""
     errors: list[str] = []
@@ -295,6 +368,7 @@ def main() -> int:
     check_ci_listens_to_ready_for_review(errors)
     check_coverage_gate_is_explicit(errors)
     check_release_publishes_verified_assets(errors)
+    check_every_job_has_a_timeout(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)

@@ -28,14 +28,24 @@
 4. **Условный запрос не расходует лимит вовсе.** Ответ ``304 Not Modified`` на
    ``If-None-Match`` GitHub не засчитывает, поэтому GET'ы носят ``ETag`` в
    кэше между запусками процесса.
+5. **Стоп-кран по остатку.** Остаток читается из заголовков каждого ответа
+   даром; упав ниже порога (:data:`DEFAULT_QUOTA_FLOOR`), модуль предупреждает,
+   а перед GraphQL-мутацией — отказывается работать с кодом
+   :data:`EXIT_WAIT`. Смысл в том, чтобы конвейер вставал **до** нуля, а не на
+   нуле: операция, начатая с остатком в пару запросов, бросается на середине
+   (issue #1280).
 
 Чего здесь **нет** и не будет: покрытия всего GitHub API (только операции
 конвейера), обхода лимитов вторым токеном и **автоматического ослабления
 TLS-проверки** (issue #1259 — доверенный набор задаёт окружение, а не модуль;
 исключение включается только явным ``GH_REST_RELAXED_CA=1`` и не молча).
-Auto-merge остаётся за MCP — ``enablePullRequestAutoMerge`` существует только в
-GraphQL, REST-эквивалента у него нет; это ровно тот случай «чего нет в REST»,
-ради которого исключение и оговорено.
+
+**GraphQL здесь тоже есть — но ровно в одну строку.** ``auto-merge``
+(``enablePullRequestAutoMerge``) REST-эквивалента не имеет, поэтому уходит на
+``POST /graphql`` напрямую: одна короткая мутация стоит единицы points, тогда
+как та же операция через MCP-инструмент — около трёхсот. Sub-issues, наоборот,
+из списка исключений выбыли: у них REST-эндпоинты появились, и подкоманды
+``sub-issues``/``add-sub-issue`` ходят обычным транспортом.
 
 Запуск::
 
@@ -44,7 +54,9 @@ GraphQL, REST-эквивалента у него нет; это ровно то�
     python scripts/gh_rest.py compare 1242           # отставание ветки от базовой
     python scripts/gh_rest.py create-pr --title T --head branch --body B
     python scripts/gh_rest.py update-branch 1242     # подтянуть main в ветку PR
+    python scripts/gh_rest.py auto-merge 1242        # смержить самому, когда позеленеет
     python scripts/gh_rest.py merge 1242             # смержить (squash), см. ниже
+    python scripts/gh_rest.py sub-issues 915         # дочерние issue эпика
     python scripts/gh_rest.py queue                  # очередь мержа: кого обновлять
     python scripts/gh_rest.py rate                   # остаток квоты; сам её не тратит
 
@@ -78,7 +90,9 @@ from typing import Any
 
 __all__ = [
     "API",
+    "DEFAULT_QUOTA_FLOOR",
     "DEFAULT_REPO",
+    "ENV_QUOTA_FLOOR",
     "ENV_RELAXED_CA",
     "EXIT_FAIL",
     "EXIT_OK",
@@ -94,6 +108,7 @@ __all__ = [
     "Response",
     "TlsVerificationError",
     "add_labels",
+    "add_sub_issue",
     "branch_runs",
     "cancel_run",
     "close_issue",
@@ -101,6 +116,9 @@ __all__ = [
     "compare",
     "create_issue",
     "create_pull",
+    "enable_auto_merge",
+    "ensure_quota",
+    "graphql",
     "issue",
     "issue_comments",
     "latest_checks_by_name",
@@ -119,6 +137,7 @@ __all__ = [
     "request",
     "resolve_token",
     "run_jobs",
+    "sub_issues",
     "update_branch",
     "update_issue",
 ]
@@ -146,6 +165,18 @@ _TIMEOUT = 30
 # окружения. Значение ровно «1»: у переключателя безопасности не должно быть
 # догадок о намерении, а опечатка обязана означать «выключено».
 ENV_RELAXED_CA = "GH_REST_RELAXED_CA"
+
+# issue #1280: стоп-кран. Останавливаться надо ДО нуля — на нуле операция уже
+# брошена на середине, а счётчик попыток продолжает расти (замер 20.08.2026:
+# used=10 435 при лимите 5000, то есть окна обращались и после нуля). Шестьсот
+# — это цена двух GraphQL-операций через MCP-инструмент (~300 points каждая):
+# ниже порога не хватит даже на две, а значит начинать нечего.
+DEFAULT_QUOTA_FLOOR = 600
+ENV_QUOTA_FLOOR = "GH_REST_QUOTA_FLOOR"
+
+# Предупреждение о низком остатке печатается один раз на процесс: смысл в
+# сигнале, а не в шуме на каждый запрос пакетной операции.
+_WARNED_RESOURCES: set[str] = set()
 
 Opener = Callable[[urllib.request.Request], Any]
 
@@ -366,6 +397,68 @@ def _quota_from_headers(headers: Any) -> tuple[int | None, int, str]:
     )
 
 
+def quota_floor(*, env: dict[str, str] | None = None) -> int:
+    """Порог стоп-крана: ниже него конвейер не начинает новую операцию.
+
+    Берётся из ``GH_REST_QUOTA_FLOOR``; мусор в переменной — это
+    :data:`DEFAULT_QUOTA_FLOOR`, а не ноль: опечатка не должна молча снимать
+    защиту.
+    """
+    source = os.environ if env is None else env
+    raw = str(source.get(ENV_QUOTA_FLOOR, "")).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_QUOTA_FLOOR
+    return max(0, value)
+
+
+def _note_quota(headers: Any) -> None:
+    """Предупредить о низком остатке по заголовкам ответа (бесплатно)."""
+    remaining, reset, resource = _quota_from_headers(headers)
+    if remaining is None or remaining > quota_floor() or resource in _WARNED_RESOURCES:
+        return
+    _WARNED_RESOURCES.add(resource)
+    when = time.strftime("%H:%M:%S", time.localtime(reset)) if reset else "?"
+    print(
+        f"ВНИМАНИЕ: квота GitHub ({resource}) на исходе — осталось {remaining} "
+        f"при пороге {quota_floor()}, сброс в {when}. Длинные операции лучше "
+        "не начинать: брошенная на середине дороже отложенной.",
+        file=sys.stderr,
+    )
+
+
+def ensure_quota(
+    resource: str = "core", *, floor: int | None = None, **kwargs: Any
+) -> Quota | None:
+    """Стоп-кран перед дорогой операцией: хватит ли остатка, чтобы начинать.
+
+    Сверка бесплатна — ``rate_limit`` не расходует лимит вовсе, поэтому
+    спрашивать можно свободно.
+
+    Args:
+        resource: ресурс лимита — ``core``, ``graphql``, ``search``.
+        floor: порог; по умолчанию :func:`quota_floor`.
+
+    Returns:
+        Остаток по ресурсу, либо ``None``, если GitHub про него не сказал.
+
+    Raises:
+        RateLimited: остаток ниже порога — ждать сброса, а не начинать.
+    """
+    limit = quota_floor() if floor is None else floor
+    quota = rate_limit(**kwargs).get(resource)
+    if quota is None:
+        return None
+    if quota.remaining <= limit:
+        raise RateLimited(
+            f"стоп-кран: остаток {resource} — {quota.remaining} при пороге {limit}",
+            reset_at=quota.reset,
+            resource=resource,
+        )
+    return quota
+
+
 def _error_message(exc: urllib.error.HTTPError) -> str:
     """``message`` из тела ответа — там названа настоящая причина отказа.
 
@@ -457,6 +550,7 @@ def request(
             status = int(getattr(response, "status", 200) or 200)
             etag = response.headers.get("etag") if response.headers else None
             data = json.loads(raw) if raw.strip() else None
+            _note_quota(response.headers)
     except urllib.error.HTTPError as exc:
         # 304 приходит именно ошибкой: urllib считает не-2xx исключением. Это
         # успех — и единственный ответ, который квоту не расходует вовсе.
@@ -470,6 +564,51 @@ def request(
     if use_cache and req.get_method() == "GET" and etag:
         _cache_write(url, resolved, etag, data)
     return Response(status=status, data=data, etag=etag)
+
+
+def graphql(
+    query: str,
+    variables: dict[str, Any] | None = None,
+    *,
+    floor: int | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Одна GraphQL-операция — для того единственного, чего нет в REST.
+
+    Это не лазейка обратно в GraphQL, а его экономная форма: дорого стоит не
+    сам протокол, а запрос, тянущий десятки полей. Короткая мутация обходится
+    в единицы points, поэтому ``auto-merge`` дешевле выполнить здесь, чем
+    отдавать MCP-инструменту (~300 points за операцию).
+
+    Перед отправкой срабатывает стоп-кран: начинать операцию на исходе квоты
+    хуже, чем отложить её.
+
+    Args:
+        query: текст операции.
+        variables: переменные операции.
+        floor: порог стоп-крана; по умолчанию :func:`quota_floor`.
+
+    Returns:
+        Содержимое поля ``data`` ответа.
+
+    Raises:
+        RateLimited: остаток ниже порога либо GitHub ответил ``RATE_LIMITED``.
+        GitHubError: операция вернула ``errors``.
+    """
+    kwargs.pop("use_cache", None)
+    ensure_quota("graphql", floor=floor, **kwargs)
+    payload: dict[str, Any] = {"query": query, "variables": variables or {}}
+    answer = request("POST", "graphql", body=payload, use_cache=False, **kwargs).data
+    body = answer if isinstance(answer, dict) else {}
+    errors = body.get("errors")
+    if errors:
+        first = errors[0] if isinstance(errors, list) and errors else {}
+        detail = str(first.get("message", errors)) if isinstance(first, dict) else str(errors)
+        if isinstance(first, dict) and first.get("type") == "RATE_LIMITED":
+            raise RateLimited(f"GraphQL отказал по лимиту: {detail}", resource="graphql")
+        raise GitHubError(f"GraphQL вернул ошибку: {detail}")
+    data = body.get("data")
+    return data if isinstance(data, dict) else {}
 
 
 def _relaxed_context() -> ssl.SSLContext:
@@ -864,6 +1003,80 @@ def merge_pull(
     return data if isinstance(data, dict) else {}
 
 
+_AUTO_MERGE_MUTATION = """
+mutation($pullRequestId: ID!, $mergeMethod: PullRequestMergeMethod!) {
+  enablePullRequestAutoMerge(
+    input: {pullRequestId: $pullRequestId, mergeMethod: $mergeMethod}
+  ) {
+    pullRequest {
+      number
+      autoMergeRequest { enabledAt mergeMethod }
+    }
+  }
+}
+"""
+
+
+def enable_auto_merge(
+    repo: str,
+    number: int,
+    *,
+    method: str = "squash",
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Включить авто-мерж: PR смержится сам, когда пройдут проверки.
+
+    Именно эта функция снимает нужду сидеть и опрашивать статусы — а опрос и
+    есть то, что дважды за день выжигало квоту до нуля.
+
+    ``node_id`` берётся из REST (один дешёвый запрос), мутация уходит на
+    ``POST /graphql``: REST-эквивалента у ``enablePullRequestAutoMerge`` не
+    существует.
+
+    Raises:
+        GitHubError: у PR нет ``node_id`` — отвечать мутации нечем.
+    """
+    node_id = pull(repo, number, **kwargs).get("node_id")
+    if not node_id:
+        raise GitHubError(f"PR #{number}: GitHub не вернул node_id, включать авто-мерж нечему")
+    data = graphql(
+        _AUTO_MERGE_MUTATION,
+        {"pullRequestId": str(node_id), "mergeMethod": method.upper()},
+        **kwargs,
+    )
+    enabled = data.get("enablePullRequestAutoMerge", {})
+    result = enabled.get("pullRequest", {}) if isinstance(enabled, dict) else {}
+    return result if isinstance(result, dict) else {}
+
+
+def sub_issues(repo: str, number: int, **kwargs: Any) -> list[dict[str, Any]]:
+    """Дочерние issue эпика. С 2025 года это REST, а не GraphQL."""
+    data = _get(f"repos/{repo}/issues/{number}/sub_issues?per_page=100", **kwargs)
+    items = data if isinstance(data, list) else []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def add_sub_issue(repo: str, parent: int, child: int, **kwargs: Any) -> dict[str, Any]:
+    """Подчинить issue ``child`` эпику ``parent``.
+
+    GitHub ждёт внутренний ``id`` дочернего issue, а человек оперирует его
+    номером — номер и превращается в ``id`` одним дополнительным GET.
+
+    Raises:
+        GitHubError: у дочернего issue нет ``id``.
+    """
+    child_id = issue(repo, child, **kwargs).get("id")
+    if not child_id:
+        raise GitHubError(f"issue #{child}: GitHub не вернул id, подчинять нечего")
+    data = request(
+        "POST",
+        f"repos/{repo}/issues/{parent}/sub_issues",
+        body={"sub_issue_id": int(child_id)},
+        **kwargs,
+    ).data
+    return data if isinstance(data, dict) else {}
+
+
 _CLOSE_REASONS = ("completed", "not_planned", "duplicate")
 
 
@@ -1024,7 +1237,13 @@ def cancel_run(repo: str, run_id: int, **kwargs: Any) -> bool:
 
 
 def rate_limit(**kwargs: Any) -> dict[str, Quota]:
-    """Остаток квоты по ресурсам. Сам запрос лимит не расходует."""
+    """Остаток квоты по ресурсам. Сам запрос лимит не расходует.
+
+    Кэш здесь выключен принудительно, даже если вызывающий просил обратное:
+    ``304`` вернул бы остаток на момент прошлого запроса, а вопрос всегда про
+    «сейчас».
+    """
+    kwargs.pop("use_cache", None)
     data = _get("rate_limit", use_cache=False, **kwargs)
     resources = data.get("resources", {}) if isinstance(data, dict) else {}
     quotas: dict[str, Quota] = {}
@@ -1094,6 +1313,42 @@ def _force_utf8_stdio() -> None:
 def _print_json(payload: Any) -> None:
     """Машинный вывод одной строкой."""
     print(json.dumps(payload, ensure_ascii=False, default=str))
+
+
+def _read_body_file(path: str) -> str:
+    """Тело из файла в UTF-8; ``-`` — со стандартного ввода.
+
+    Чтение файлом убирает целый класс бед: длинный текст, переданный
+    ``"$(cat file)"``, в PowerShell разбирается иначе, чем в bash, и упирается
+    в кавычки и кодовую страницу (issue #1281).
+    """
+    if path == "-":
+        return sys.stdin.read()
+    try:
+        return pathlib.Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise GitHubError(f"не читается файл тела {path}: {exc}") from exc
+
+
+def _resolve_body(args: argparse.Namespace, *, positional: str | None = None) -> str:
+    """Единый способ получить тело: ``--body``, ``--body-file`` или позиционный.
+
+    Два источника разом — явная ошибка, а не молчаливый выбор одного: молчание
+    здесь означает «опубликовали не тот текст», а это уже не откатить.
+
+    Raises:
+        GitHubError: тело задано больше чем одним способом.
+    """
+    body = getattr(args, "body", None)
+    body_file = getattr(args, "body_file", None)
+    given = [name for name, value in (("--body", body), ("--body-file", body_file)) if value]
+    if positional:
+        given.append("позиционный текст")
+    if len(given) > 1:
+        raise GitHubError(f"тело задано несколькими способами ({', '.join(given)}) — оставьте один")
+    if body_file:
+        return _read_body_file(body_file)
+    return positional or body or ""
 
 
 def _cmd_pulls(args: argparse.Namespace) -> int:
@@ -1220,13 +1475,16 @@ def _cmd_create_pr(args: argparse.Namespace) -> int:
         title=args.title,
         head=args.head,
         base=args.base,
-        body=args.body,
+        body=_resolve_body(args),
         draft=args.draft,
     )
+    number = created.get("number")
+    labels = getattr(args, "label", None) or []
+    if number and labels:
+        add_labels(args.repo, int(number), labels)
     if args.json:
         _print_json(created)
         return EXIT_OK
-    number = created.get("number")
     print(f"PR #{number} создан: {created.get('html_url')}")
     author = created.get("user", {}) if isinstance(created.get("user"), dict) else {}
     if author.get("type") == "Bot":
@@ -1281,7 +1539,13 @@ def _cmd_issue(args: argparse.Namespace) -> int:
 
 
 def _cmd_close_issue(args: argparse.Namespace) -> int:
-    """Закрыть issue с причиной."""
+    """Закрыть issue с причиной, при желании — сразу с комментарием.
+
+    Комментарий уходит ПЕРЕД закрытием: правило проекта требует называть исход,
+    а комментарий к уже закрытому issue легко потерять из виду.
+    """
+    if args.comment:
+        comment_issue(args.repo, args.number, args.comment)
     closed = close_issue(args.repo, args.number, reason=args.reason)
     if args.json:
         _print_json(closed)
@@ -1290,9 +1554,50 @@ def _cmd_close_issue(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_auto_merge(args: argparse.Namespace) -> int:
+    """Включить авто-мерж на PR."""
+    result = enable_auto_merge(args.repo, args.pull, method=args.method)
+    if args.json:
+        _print_json(result)
+        return EXIT_OK
+    request_info = result.get("autoMergeRequest") or {}
+    method = str(request_info.get("mergeMethod", args.method)).lower()
+    print(f"PR #{args.pull}: авто-мерж включён ({method}) — смержится сам, когда позеленеет.")
+    return EXIT_OK
+
+
+def _cmd_sub_issues(args: argparse.Namespace) -> int:
+    """Показать дочерние issue эпика."""
+    children = sub_issues(args.repo, args.number)
+    if args.json:
+        _print_json(children)
+        return EXIT_OK
+    if not children:
+        print(f"#{args.number}: дочерних issue нет.")
+        return EXIT_OK
+    for item in children:
+        state = item.get("state_reason") or item.get("state")
+        print(f"  #{item.get('number')} [{state}] {item.get('title', '')}")
+    return EXIT_OK
+
+
+def _cmd_add_sub_issue(args: argparse.Namespace) -> int:
+    """Подчинить issue эпику."""
+    add_sub_issue(args.repo, args.parent, args.child)
+    print(f"#{args.child} подчинён эпику #{args.parent}.")
+    return EXIT_OK
+
+
 def _cmd_comment(args: argparse.Namespace) -> int:
     """Оставить комментарий к issue или PR."""
-    posted = comment_issue(args.repo, args.number, args.text)
+    text = _resolve_body(args, positional=args.text)
+    if not text.strip():
+        print(
+            "Пустой комментарий не отправляю: задайте --body, --body-file или текст.",
+            file=sys.stderr,
+        )
+        return EXIT_FAIL
+    posted = comment_issue(args.repo, args.number, text)
     if args.json:
         _print_json(posted)
         return EXIT_OK
@@ -1302,7 +1607,7 @@ def _cmd_comment(args: argparse.Namespace) -> int:
 
 def _cmd_create_issue(args: argparse.Namespace) -> int:
     """Завести issue."""
-    created = create_issue(args.repo, title=args.title, body=args.body, labels=args.label)
+    created = create_issue(args.repo, title=args.title, body=_resolve_body(args), labels=args.label)
     if args.json:
         _print_json(created)
         return EXIT_OK
@@ -1375,15 +1680,30 @@ def _cmd_cancel_run(args: argparse.Namespace) -> int:
 
 
 def _cmd_rate(args: argparse.Namespace) -> int:
-    """Показать остаток квоты — сам запрос её не расходует."""
+    """Показать остаток квоты — сам запрос её не расходует.
+
+    Заодно это стоп-кран, пригодный как гейт: ресурс ниже порога — код
+    возврата :data:`EXIT_WAIT`, то есть «ждать», а не «упало».
+    """
     quotas = rate_limit()
+    floor = quota_floor() if args.floor is None else args.floor
+    low = [q for name, q in quotas.items() if name in ("core", "graphql") and q.remaining <= floor]
     if args.json:
         _print_json({name: dataclasses.asdict(quota) for name, quota in quotas.items()})
-        return EXIT_OK
+        return EXIT_WAIT if low else EXIT_OK
     for name in ("core", "graphql", "search"):
         quota = quotas.get(name)
         if quota is not None:
             print(quota.describe())
+    if low:
+        names = ", ".join(quota.resource for quota in low)
+        print(
+            f"Стоп-кран: {names} ниже порога {floor}. Новые операции не начинать — "
+            "дождаться сброса; что при этом всё ещё доступно, описано в "
+            "docs/agent/preflight.md § Маршрут при исчерпании лимитов.",
+            file=sys.stderr,
+        )
+        return EXIT_WAIT
     return EXIT_OK
 
 
@@ -1413,12 +1733,19 @@ def _build_parser() -> argparse.ArgumentParser:
     create.add_argument("--head", required=True, help="ветка-источник")
     create.add_argument("--base", default="main")
     create.add_argument("--body", default="")
+    create.add_argument("--body-file", help="тело из файла UTF-8; '-' — со стандартного ввода")
+    create.add_argument("--label", action="append", default=[], help="метка (повторяемый)")
     create.add_argument("--draft", action="store_true")
     create.set_defaults(handler=_cmd_create_pr)
 
     update = sub.add_parser("update-branch", help="подтянуть base в ветку PR")
     update.add_argument("pull", type=int)
     update.set_defaults(handler=_cmd_update_branch)
+
+    auto = sub.add_parser("auto-merge", help="включить авто-мерж: смержится сам по зелёному")
+    auto.add_argument("pull", type=int)
+    auto.add_argument("--method", default="squash", choices=["squash", "merge", "rebase"])
+    auto.set_defaults(handler=_cmd_auto_merge)
 
     merge = sub.add_parser("merge", help="смержить PR")
     merge.add_argument("pull", type=int)
@@ -1432,16 +1759,20 @@ def _build_parser() -> argparse.ArgumentParser:
     close = sub.add_parser("close-issue", help="закрыть issue с причиной")
     close.add_argument("number", type=int)
     close.add_argument("--reason", default="completed", choices=_CLOSE_REASONS)
+    close.add_argument("--comment", help="комментарий перед закрытием: чем закончилось")
     close.set_defaults(handler=_cmd_close_issue)
 
     comment = sub.add_parser("comment", help="комментарий к issue или PR")
     comment.add_argument("number", type=int)
-    comment.add_argument("text", help="текст комментария")
+    comment.add_argument("text", nargs="?", help="текст комментария (синоним --body)")
+    comment.add_argument("--body", default="", help="текст комментария")
+    comment.add_argument("--body-file", help="тело из файла UTF-8; '-' — со стандартного ввода")
     comment.set_defaults(handler=_cmd_comment)
 
     new_issue = sub.add_parser("create-issue", help="завести issue")
     new_issue.add_argument("--title", required=True)
     new_issue.add_argument("--body", default="")
+    new_issue.add_argument("--body-file", help="тело из файла UTF-8; '-' — со стандартного ввода")
     new_issue.add_argument("--label", action="append", default=[])
     new_issue.set_defaults(handler=_cmd_create_issue)
 
@@ -1454,6 +1785,15 @@ def _build_parser() -> argparse.ArgumentParser:
     comments = sub.add_parser("comments", help="комментарии issue или PR")
     comments.add_argument("number", type=int)
     comments.set_defaults(handler=_cmd_comments)
+
+    children = sub.add_parser("sub-issues", help="дочерние issue эпика")
+    children.add_argument("number", type=int)
+    children.set_defaults(handler=_cmd_sub_issues)
+
+    adopt = sub.add_parser("add-sub-issue", help="подчинить issue эпику")
+    adopt.add_argument("parent", type=int)
+    adopt.add_argument("--child", type=int, required=True, help="номер дочернего issue")
+    adopt.set_defaults(handler=_cmd_add_sub_issue)
 
     runs = sub.add_parser("runs", help="прогоны ci.yml по ветке")
     runs.add_argument("--branch", default="main")
@@ -1473,6 +1813,9 @@ def _build_parser() -> argparse.ArgumentParser:
     queue.set_defaults(handler=_cmd_queue)
 
     rate = sub.add_parser("rate", help="остаток квоты (запрос её не тратит)")
+    rate.add_argument(
+        "--floor", type=int, help=f"порог стоп-крана (по умолчанию {DEFAULT_QUOTA_FLOOR})"
+    )
     rate.set_defaults(handler=_cmd_rate)
     return parser
 
