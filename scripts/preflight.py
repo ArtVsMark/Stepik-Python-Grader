@@ -286,6 +286,30 @@ def check_branch_not_taken(
     )
 
 
+def _mypy_command(*, platform: str = sys.platform) -> list[str]:
+    """Команда проверки типов — той же платформы, что и в CI.
+
+    Гейт обещает зеркалить CI, а шаг ``static`` там идёт **только на Linux**.
+    На Windows тот же вызов без ``--platform`` даёт семь ошибок, которых в CI
+    нет вовсе: ``fcntl.flock`` и ``signal.SIGKILL`` в win32-заглушках stdlib
+    отсутствуют, а код, который их зовёт, живёт под проверкой ОС в рантайме.
+
+    Разница не косметическая: у владельца на Windows гейт краснел **всегда**,
+    то есть зелёного состояния не существовало в принципе — а гейт, который
+    невозможно пройти, обходят целиком, вместе со всеми остальными проверками.
+
+    Args:
+        platform: платформа запуска; подменяется в тестах.
+
+    Returns:
+        Аргументы запуска ``mypy``; на не-Linux добавляется ``--platform linux``.
+    """
+    command = [sys.executable, "-m", "mypy"]
+    if not platform.startswith("linux"):
+        command += ["--platform", "linux"]
+    return [*command, "src/stepik_grader", "scripts"]
+
+
 def owner_name(*, pyproject: str | None = None) -> str:
     """Имя владельца проекта — из ``[project].authors`` в ``pyproject.toml``.
 
@@ -807,11 +831,7 @@ def main(argv: list[str] | None = None) -> int:
                 "ruff format", [sys.executable, "-m", "ruff", "format", "--check", "."], log_dir
             )
         )
-        checks.append(
-            _run_stage(
-                "mypy", [sys.executable, "-m", "mypy", "src/stepik_grader", "scripts"], log_dir
-            )
-        )
+        checks.append(_run_stage("mypy", _mypy_command(), log_dir))
         if not args.no_tests:
             checks.append(
                 _run_stage(

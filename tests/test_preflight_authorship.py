@@ -191,3 +191,24 @@ class TestCheckOnRealRepo:
     def test_branch_without_commits_is_green(self, gate: ModuleType, repo: pathlib.Path) -> None:
         """Коммитов ещё нет — терять нечего, гейт не мешает работать."""
         assert gate.check_commit_authorship().ok
+
+
+class TestMypyMirrorsCi:
+    """Гейт обещает зеркалить CI — значит и платформу проверки типов тоже."""
+
+    def test_linux_runs_without_the_flag(self, module: ModuleType) -> None:
+        """На Linux добавлять нечего: CI гоняет ровно этот вызов."""
+        command = module._mypy_command(platform="linux")
+
+        assert "--platform" not in command
+        assert command[-2:] == ["src/stepik_grader", "scripts"]
+
+    def test_windows_asks_for_the_ci_platform(self, module: ModuleType) -> None:
+        """На Windows без флага семь ошибок, которых в CI не существует."""
+        command = module._mypy_command(platform="win32")
+
+        assert command[-4:] == ["--platform", "linux", "src/stepik_grader", "scripts"]
+
+    def test_macos_too(self, module: ModuleType) -> None:
+        """Правило про платформу CI, а не про Windows: macOS ведёт себя так же."""
+        assert "--platform" in module._mypy_command(platform="darwin")
