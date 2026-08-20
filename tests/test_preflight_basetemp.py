@@ -60,12 +60,29 @@ class TestChoice:
         """Пустая переменная — не «каталог в корне», а «не задано»."""
         assert gate.basetemp_dir(env={"PREFLIGHT_BASETEMP": ""}).name == "grader-preflight"
 
+    def test_default_choice_fits_its_own_limit(self, gate: ModuleType) -> None:
+        """Выбор по умолчанию обязан проходить собственную проверку длины.
+
+        Иначе гейт отказывался бы работать на машине, где системный временный
+        каталог сам по себе глубокий, — и отказ выглядел бы придиркой к
+        каталогу, который выбрал он же.
+        """
+        chosen = gate.basetemp_dir(env={})
+
+        assert len(str(chosen)) <= gate._MAX_BASETEMP_LEN
+
 
 class TestFitness:
     """Пригодность каталога проверяется ДО запуска, а не лавиной ошибок сбора."""
 
     def test_writable_dir_has_no_problem(self, gate: ModuleType, tmp_path: pathlib.Path) -> None:
-        assert gate.basetemp_problem(tmp_path / "fresh") is None
+        """`name="posix"` — чтобы вопрос был про доступность, а не про длину.
+
+        Длина `tmp_path` — свойство машины, а не теста: в CI на Windows он сам
+        перевалил за порог, и три теста этого файла покраснели на вопросах,
+        которых не задавали.
+        """
+        assert gate.basetemp_problem(tmp_path / "fresh", name="posix") is None
 
     def test_missing_parents_are_created(self, gate: ModuleType, tmp_path: pathlib.Path) -> None:
         """Каталога ещё нет — это не помеха, а обычное первое использование.
@@ -105,7 +122,7 @@ class TestFitness:
 
         monkeypatch.setattr(pathlib.Path, "mkdir", deny)
 
-        problem = gate.basetemp_problem(tmp_path / "denied")
+        problem = gate.basetemp_problem(tmp_path / "denied", name="posix")
 
         assert problem is not None
         assert "PermissionError" in problem
