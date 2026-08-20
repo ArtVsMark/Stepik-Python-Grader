@@ -366,6 +366,14 @@
               <h3 data-i18n="glossary.empty_title">Карточка не выбрана</h3>
               <p data-i18n="glossary.empty_text">Выберите термин слева, чтобы увидеть описание.</p>
             </div>
+            <!-- issue #969: адрес указывает на карточку, которой нет. Отдельный
+                 блок, а не подмена текста в #glossary-empty: у пустого состояния
+                 свой смысл («ничего не выбрано»), и оба перерисовываются при
+                 смене языка через data-i18n. -->
+            <div id="glossary-not-found" class="empty-state" hidden>
+              <h3 data-i18n="glossary.not_found_title">Карточка не найдена</h3>
+              <p data-i18n="glossary.not_found_text">В базе нет карточки с таким адресом — возможно, ссылка устарела.</p>
+            </div>
             <div id="glossary-detail-content" hidden></div>
           </div>
         </div>
@@ -395,6 +403,11 @@
             <div id="rules-empty" class="empty-state">
               <h3 data-i18n="rules.empty_title">Правило не выбрано</h3>
               <p data-i18n="rules.empty_text">Выберите код слева, чтобы увидеть объяснение и примеры «до/после».</p>
+            </div>
+            <!-- issue #969: то же для правил — deep-link #/rules/<код>. -->
+            <div id="rules-not-found" class="empty-state" hidden>
+              <h3 data-i18n="rules.not_found_title">Правило не найдено</h3>
+              <p data-i18n="rules.not_found_text">Правила с таким кодом нет в справочнике — возможно, ссылка устарела.</p>
             </div>
             <div id="rules-detail-content" hidden></div>
           </div>
