@@ -253,32 +253,35 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
                 stacklevel=2,
             )
         if input_blocks and output_blocks:
-            # issue #48 R-03: Format 1/2 files sitting next to input.txt/output.txt
-            # are silently ignored below (Format 3 wins and returns early) -- warn
-            # so a user who hand-authored Format 1 and later got input.txt added by
-            # downloader.py isn't left wondering why their .clue files don't matter.
+            # issue #48 R-03: файлы форматов 1/2 рядом с input.txt/output.txt
+            # молча игнорируются ниже (формат 3 выигрывает и выходит первым) —
+            # предупреждаем, чтобы автор ручного формата 1, которому downloader.py
+            # позже положил input.txt, не гадал, почему его .clue не действуют.
+            #
+            # issue #917 (RUN-2-05): текст переведён на русский — предупреждение
+            # обязано доходить до пользователя, а не только существовать в коде,
+            # и англоязычная строка посреди русского вывода этому мешает.
             if any(
                 f.suffix == ".clue" or re.match(r"^input_\d+\.txt$", f.name)
                 for f in dir_path.iterdir()
                 if f not in (input_file, output_file)
             ):
                 warnings.warn(
-                    f"{test_dir}: Format 1/2 test files (N/N.clue or input_N.txt) found "
-                    "alongside input.txt/output.txt -- Format 3 takes priority and the "
-                    "others are ignored.",
+                    f"{test_dir}: рядом с input.txt/output.txt лежат файлы форматов "
+                    "1 (N/N.clue) и/или 2 (input_N.txt) — приоритет у формата 3, "
+                    "остальные файлы не загружены.",
                     stacklevel=2,
                 )
-            # issue #246 (F-07): zip(..., strict=False) below silently truncates to
-            # the shorter list when input.txt/output.txt disagree on block count --
-            # warn instead of quietly dropping test cases and risking a false-positive
-            # "all tests pass" from a truncated set.
+            # issue #246 (F-07): zip(..., strict=False) ниже молча обрезает набор
+            # по более короткому списку, когда input.txt и output.txt расходятся в
+            # числе блоков — предупреждаем, вместо того чтобы тихо потерять кейсы и
+            # выдать ложное «все тесты пройдены» на усечённом наборе.
             if len(input_blocks) != len(output_blocks):
                 warnings.warn(
-                    f"{test_dir}: input.txt has {len(input_blocks)} test block(s) but "
-                    f"output.txt has {len(output_blocks)} -- only the first "
-                    f"{min(len(input_blocks), len(output_blocks))} block(s) are used, "
-                    "the rest are silently dropped. Check the # TEST_N: markers in "
-                    "both files match.",
+                    f"{test_dir}: в input.txt {len(input_blocks)} блок(ов), а в "
+                    f"output.txt — {len(output_blocks)}: загружены только первые "
+                    f"{min(len(input_blocks), len(output_blocks))}, остальные "
+                    "отброшены. Сверьте маркеры `# TEST_N:` в обоих файлах.",
                     stacklevel=2,
                 )
             for i, (inp, out) in enumerate(zip(input_blocks, output_blocks, strict=False), 1):

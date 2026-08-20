@@ -706,6 +706,29 @@ def run_single_test(
     return _map_outcome_to_result(outcome, case, timeout)
 
 
+def _borrowed_test_dir_warning(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str | None:
+    """Сообщение о наборе, взятом не из папки решения (issue #917, RUN-2-08/PY-1-06).
+
+    ``resolve_test_dir`` умеет подниматься на уровень выше: решение в подпапке без
+    собственных тестов грейдится набором родительского каталога. Приём законный —
+    так лежат курсы, где один набор общий на несколько файлов, — но **молчаливый**:
+    если наверху тесты другой задачи, пользователь видит «0/5 пройдено» и считает
+    ошибочным своё решение, а не подбор набора.
+
+    Возвращает ``None``, когда набор лежит в папке решения или внутри неё
+    (``tests/``, ``<stem>/``) — то есть в штатном случае, где предупреждать не о чем.
+    """
+    solution_dir = solution_path.resolve().parent
+    tests_dir = test_dir.resolve()
+    if tests_dir == solution_dir or solution_dir in tests_dir.parents:
+        return None
+    return (
+        f"{solution_path.name}: рядом с решением тест-кейсов нет — набор взят из "
+        f"{tests_dir}. Если этот набор относится к другой задаче, вердикт к решению "
+        "отношения не имеет: положите тесты в папку решения или в её подпапку tests/."
+    )
+
+
 def run_tests(
     solution_path: pathlib.Path,
     test_dir: pathlib.Path,
@@ -746,7 +769,9 @@ def run_tests(
         first_fail (int | None) — индекс первого упавшего теста
         warnings   (list[str]) — предупреждения загрузки набора (issue #935):
                              рассогласование блоков формата 3, непарные файлы,
-                             смешение форматов. Пустой список — набор полон
+                             смешение форматов, а также набор, взятый не из папки
+                             решения (issue #917). Пустой список — набор полон и
+                             принадлежит решению
         cases      (list)  — детальные результаты по каждому кейсу; каждый
                              включает "stdin" (вход кейса, issue #397)
     """
@@ -765,6 +790,13 @@ def run_tests(
     load_warnings = [str(w.message) for w in caught]
     for message in caught:
         warnings.warn_explicit(message.message, message.category, message.filename, message.lineno)
+    # issue #917 (RUN-2-08/PY-1-06): набор, одолженный у родительской папки, —
+    # такое же «загружено не то, что думает пользователь», как и усечённый набор
+    # выше, поэтому идёт тем же каналом: и в stderr, и в машиночитаемые warnings.
+    borrowed = _borrowed_test_dir_warning(solution_path, test_dir)
+    if borrowed is not None:
+        load_warnings.append(borrowed)
+        warnings.warn(borrowed, stacklevel=2)
     # Определяем режим запуска один раз для всех тест-кейсов.
     _apply_run_mode_override(test_cases, solution_path, test_dir)
 
