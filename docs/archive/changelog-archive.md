@@ -18,11 +18,442 @@
 
 ---
 
-## Архив версионированных релизов (1.1.0 – 1.7.0)
+## Архив версионированных релизов (1.1.0 – 1.8.0)
 
 > Вынесены из живого `CHANGELOG.md` (issue #373): в живой части остаются
 > `[Unreleased]` + три последних MINOR. Полный построчный лог более ранних
 > релизов — здесь; формат идентичен живому CHANGELOG (`## [X.Y.0] - ДАТА`).
+
+## [1.8.0] - 2026-07-14
+
+### Internal
+- Replaced fixed `time.sleep` pauses in the async web-layer tests with a shared
+  `wait_until(predicate, timeout, interval)` helper (`tests/_wait.py`, issue
+  #357). The job-model and playground tests polled workers with hard-coded
+  0.02–0.3s sleeps — timing-dependent and flaky on slow CI. They now wait on the
+  actual condition (job status `running`, terminal status, pidfile appears,
+  killed process reaped) with a deadline, so `test_runs.py`,
+  `test_web_playground.py` and `test_web.py` no longer contain bare host-side
+  `time.sleep` (the deliberate `time.sleep(30)` TLE fixtures inside solution
+  bodies are untouched). Also faster — the suite returns as soon as the
+  condition holds. Verified with 3 consecutive green web-suite runs.
+
+### Refactored
+- Unified the two glossaries behind one RE-hint resolver (issue #356): the CLI
+  reporter and the web error card both resolved RuntimeError hints only from the
+  compact `core/glossary.py` map (~28 exceptions), leaving the bundled JSON base
+  (`glossary/data/`, ~140 exception cards) invisible to them. A new
+  `core/error_glossary.py` (`resolve_error_hint`) now consults the bundled base
+  first (by `id == exception name lowercased`) and fills empty fields from the
+  compact map, so CLI and web show the same, richer card for covered exceptions.
+  A single `card_url()` replaces the three previously divergent URL strategies
+  (compact anchor, bundled `#e-<Name>`, empty). The bundled provider loads
+  lazily and is mtime-cached; a broken/absent base degrades gracefully to the
+  compact map. `core/glossary.py` stays a leaf, `core/reporter.py` still imports
+  no web layer, and the DAG stays acyclic (`glossary/` does not import `core/`).
+  Exception-name extraction is factored out into `exception_name_from_error`.
+- Consolidated the CLI's two parallel i18n mechanisms into one (issue #355):
+  the hardcoded `_MESSAGES` dict in `cli/__init__.py` (48 keys) is merged into
+  the JSON locale catalog (`core/locales/{ru,en}.json`), and `_t()` is now a
+  thin wrapper reading straight from `_LOCALE_MESSAGES` — no static fallback.
+  New CLI strings now flow through the same JSON catalog as the web layer, so
+  the ru/en parity guardrail (`scripts/check_locale_guardrails.py`) covers them
+  too. The `_MESSAGES` keys did not overlap the existing web catalog, so the
+  merge is a pure addition (35 → 83 keys per locale). `--lang`/auto-detection
+  behaviour is unchanged; `test_i18n.py` is rewritten for the single-catalog
+  model.
+- Small code-style hygiene from the 2026-07 audit (issue #354, behaviour
+  unchanged):
+  - Added `__all__` to the 8 modules that lacked it (project checklist requires
+    it): `downloader`, `diagnostic_stepik`, `pytest_plugin`,
+    `core/{executor,stepik_client,storage,microbench_runner,parsers}`.
+  - Bare `print()` → an `_console`-with-`print()`-fallback helper (rich,
+    graceful, `markup=False`) in the three CLI-ish modules that used bare
+    prints: `downloader.py` (19), `diagnostic_stepik.py` (20),
+    `downloader_config.py` (8) — following the leaf-local `_console` pattern of
+    `glossary/coverage.py`.
+  - `os.path.relpath` → `Path.relative_to(other, walk_up=True)` (Python 3.12+,
+    "paths are pathlib"): `cli/commands.py` (a new `_rel()` helper, 5 sites),
+    `core/reporter.py` (4), `core/test_loader.py` (1, collapsing a
+    try/relative_to/except-relpath into one line). `import os` dropped where it
+    became unused.
+  - `run_single_test` (`core/grader_core.py`): 7 near-identical early-return
+    error dicts → a `_fail_result()` factory.
+  - `main()` (`cli/__init__.py`): the duplicated watch/no-watch branches of
+    modes 1 and 2 → a shared `_dispatch_with_watch()` helper.
+  - Deduplicated the per-solution `test_dir` resolution shared by modes 2/3
+    (`cli/commands.py`) into `_resolve_individual_test_dir()`.
+- `downloader.py` SRP split (issue #302): the 32 KB module mixing config,
+  HTML parsing, ZIP/GitHub download, format writing and interactive prompts
+  is now a ~13 KB coordinator (`build_task_directory`, `save_task_files`,
+  `process_step_url`, `main`). Extracted, each a focused module: HTML text
+  parsing → `core/task_page_parser.py`, test-format writing →
+  `core/tests_writer.py`, ZIP/GitHub fetching → `core/test_source_fetcher.py`,
+  Stepik API/URL parsing → `core/step_content.py` (all leaf/near-leaf, no
+  back-import of `downloader`), and config + interactive prompts →
+  `downloader_config.py`. All previously public names remain importable from
+  `stepik_grader.downloader` via re-export (back-compat verified by test); the
+  duplicated Format-3 (`# TEST_N:`) writing in the two download paths is now a
+  single `write_testblock_tests`. Behaviour and on-disk formats unchanged;
+  downloader tests re-split across per-module test files.
+
+### Fixed
+- Documentation drift found by the 2026-07 audit (issue #353), all corrected
+  against the actual code:
+  - CLAUDE.md invariant #4 was titled "Нет sandbox", contradicting its own
+    metrics footnote and the `core/sandbox/` backends — reworded to
+    "sandbox is opt-in" (`--sandbox`/#266); the "no isolation by default" body
+    is kept.
+  - The diagnostic-logging epic #146 (`core/diag_log.py`, #341) was still listed
+    as open in CLAUDE.md, CHECKPOINT.md and docs/claude-handoff.md — moved to
+    "implemented".
+  - docs/project-structure.md gained the three missing modules
+    (`core/diag_log.py`, `core/tracer.py`, `web/playground.py`) and dropped the
+    circular "core/ tree lives in CLAUDE.md" cross-reference.
+  - Web docs: web-current.md § Layout no longer claims draggable splitters or a
+    3-column detail panel (`.split-pane` is a fixed `1fr 1fr`; "Детали" is a
+    tab); the "two sections / three blocks" framing is now four sections
+    (Песочница/#314). web-design.md marks glossary deep-linking `#/glossary/<id>`
+    as implemented (#329). api.md fixes the self-contradictory cancel response
+    (200 for an existing job, 404 only when absent) and drops the non-existent
+    `mode=file`. The `state.section` comment in app.js now lists all four values.
+  - Metric drift (test count 1179 → 1308) is intentionally deferred to the
+    v1.8.0 release (issue #358).
+- File-write races in two best-effort stores (issue #352): stats rotation
+  (`core/stats.py`, the read-modify-write in `_rotate_if_needed`) and the
+  glossary "missing" queue (`glossary/json_provider.append_missing_entries`,
+  a whole-file load→merge→save) had no locking, so the web layer's
+  `ThreadPoolExecutor` could interleave concurrent writers and drop entries.
+  Both critical sections are now serialized by a module-level `threading.Lock`.
+  This covers the single-process, multi-thread (web) model; cross-process races
+  (CLI and web at once) are explicitly out of scope and will be closed by the
+  SQLite/WAL history layer (issue #344). Best-effort semantics are unchanged (an
+  `OSError` still never breaks grading). Adds concurrent-writer regression tests
+  for both stores.
+- `--sandbox` was silently ignored when combined with `--serve` (issue #351):
+  the `--serve` branch returns before `set_runner()`, so the web server always
+  executed code with the plain `LocalRunner` even when the user explicitly asked
+  for the sandbox — a false sense of isolation. `stepik-grader --serve
+  --sandbox` now fails fast with an explicit, localized error (`ru`/`en`)
+  instead of starting an unprotected server. Wiring `SandboxRunner` into the
+  web layer remains a separate task (outside issue #266).
+- Broken `TYPE_CHECKING` import in `core/reporter.py` (issue #350): the
+  annotation-only import read `from core.grader_core import TestCase` — a path
+  missing the `stepik_grader.` prefix. Under `TYPE_CHECKING` it never failed at
+  runtime, and `mypy --ignore-missing-imports` stayed silent, so `TestCase` in
+  every reporter annotation was effectively `Any` and went unchecked. Fixed to
+  `from stepik_grader.core.grader_core import TestCase` (which re-exports it
+  from `test_loader`); mypy still passes, confirming no hidden type errors were
+  masked behind the `Any`.
+- Small web UI inconsistencies from the audit (issue #331). Case-verdict
+  badges now recognize `CANCELLED` (neutral) and `SANDBOX_VIOLATION` (error)
+  from `docs/result-contract.md` instead of silently falling back to a
+  label-less neutral badge. The mode-1/2 "Параметры" config tab now ships
+  markup consistent with the default mode (tests → disabled, `aria-disabled`
+  = `true`) so there's no flash of wrong state before JS initializes. (The
+  third item — cyclic `switch_section` over all four nav sections instead of a
+  two-way check↔glossary toggle — already landed with the sandbox in #317; a
+  regression test is added here.)
+- Documentation drift against the actual web UI (issue #330): the
+  "two modes" phrasing in `grader-workflow.md`, the outdated topbar
+  segment-control navigation diagram and the `command bar` mode-switcher
+  wording in `web-current.md`, the self-contradictory J0 step describing an
+  *automatic* post-download hand-off (it's a manual "Перейти к проверке"
+  button), and stale references to a single `web.py` module (now the `web/`
+  package) in `core/glossary.py` are all corrected to match the shipped
+  four-section UI.
+- Web UI accessibility for grading results (issue #298, WCAG 2.1 AA):
+  results were announced silently to assistive tech. Added a polite
+  `aria-live` region (`#result-announce`) that speaks a one-line outcome
+  summary on completion ("task_1.py — OK, 12 из 12" / "Бенчмарк завершён: N
+  решений" / error/cancel text) — not on every progress tick, to avoid
+  noise. The progress bar now carries `role="progressbar"` +
+  `aria-valuemin/valuemax/valuenow`, and focus moves to the results panel
+  when a run finishes. Verdict badges already conveyed meaning as text (not
+  colour alone) — now pinned by a regression test. The dark-theme
+  `--color-warning` token was lightened from `#bb653b` to `#d98a5c` so the
+  SLOWER verdict / warning text clears the 4.5:1 contrast minimum on dark
+  surfaces (was ~3.5–4.4:1); light theme already passed and is unchanged.
+
+### Changed
+- The web glossary source (`glossary_adapter._all_cards`) is now memoized in
+  memory, keyed by the source's mtime (issue #339). Previously every
+  `/api/glossary`, `/api/glossary/<id>` and `/api/code-terms` request re-read
+  and re-parsed the whole bundled base (~1.2 MB, ~1400 cards) — on the
+  debounced "Функции в коде" panel that meant parsing 1.2 MB on every few
+  keystrokes. Now it parses once and reuses the result (~185× faster on the
+  cache hit locally: 40 ms → 0.2 ms); editing a configured `glossary_store`
+  bumps its mtime and transparently invalidates the cache. Cards are read-only
+  to consumers, so the shared list is safe across request threads. No new
+  dependency, no SQLite.
+- Mode 1 (single-file correctness) in the web UI no longer saves to disk
+  before grading (issue #297). "Проверить" now runs one
+  `POST /api/v1/runs` with `mode="tests"` and the editor's `code` in the
+  request body — the solution executes from a temp file and the target file
+  on disk is never touched, closing the save→grade race two windows on the
+  same folder could hit. Saving is now a separate explicit "Сохранить"
+  button (`POST /api/save-solution`), with an unsaved-changes indicator on
+  the editor and minimal optimistic locking: `save_solution`/`read_source`
+  return the file `mtime`, and saving over an existing file whose on-disk
+  `mtime` drifted from the loaded baseline is refused with
+  `{"ok": false, "conflict": true, message_id: file_changed_on_disk}` (a
+  second save overwrites). `POST /api/v1/runs` accepts `mode="tests"` in
+  addition to `bench`/`microbench`. `GET /api/grade` is unchanged and still
+  serves mode 2 (folder grading).
+
+### Added
+- Opt-in diagnostic logging for the Stepik network/OAuth/download layer (epic
+  #146, issues #147/#148/#149). A new stdlib-only `core/diag_log.py` provides a
+  single logger (`get_logger`, `configure_diagnostics`, `register_secret`,
+  `redact`) that is **silent by default** and enabled explicitly via the
+  `--diagnostic` CLI flag, `STEPIK_GRADER_LOG=debug|info|off`, or
+  `python -m stepik_grader.diagnostic_stepik`. When on, it writes a
+  human-readable `stepik_diagnostics/grader.log` with a **mandatory redaction
+  filter**: `Bearer` tokens, `access_token`/`refresh_token`/`client_secret`/
+  `code` in URLs, headers and JSON bodies, plus any runtime-registered secret
+  value, are replaced with `***redacted***` before anything is written
+  (docs/logging.md, SECURITY.md). `downloader` (URL parse + which of the 4
+  test-case sources matched), `stepik_client` (HTTP GET requests with sanitized
+  URLs, token refresh, code exchange) and `oauth_flow` (auth branch decisions)
+  are instrumented; the normal `_console` output is unchanged. No new
+  dependency (stdlib `logging`). New `tests/test_diag_log.py` covers redaction,
+  opt-in, levels and env activation.
+- "Функции в коде" glossary integration for check modes 1/2 (epic #315,
+  issues #322/#323/#324). The dead "Связанные термины" placeholder in the
+  mode-1/2 config panel is replaced by a real mini-card list of the functions
+  used in the current solution — mode 1 updates from the editor (debounced),
+  mode 2 from the selected solution file; clicking a card opens its full
+  glossary card. The panel is hidden in benchmark modes 3/4 (#324). Backed by
+  an extended `POST /api/code-terms` (#322): it now also accepts `{path}`
+  (confined, read from the workspace), recognizes everyday builtins and
+  builtin-type method calls (`s.split()` → `str.split`, `confidence="low"`
+  since the receiver type isn't known statically), and returns **all**
+  recognized concepts with a `has_card` flag (uncovered ones render dimmed).
+  On a `{path}` request, notable uncovered functions are appended to the
+  "Недостающее" queue (practice-driven AST channel). New `scan_code_concepts`
+  wider set + method heuristic in `glossary/detector.py`; unit + HTTP + e2e
+  tests. The narrow `DEFAULT_NOTABLE_BUILTINS` (missing-queue detector) is left
+  untouched, so grading-side detection keeps ignoring `print`/`len`.
+- Glossary integration in the sandbox (issue #321, epic #314). A "Функции в
+  коде" panel lists mini-cards for the functions/constructs detected in the
+  editor (debounced on edit) — clicking one opens the full card in the
+  Glossary section. New `POST /api/code-terms` endpoint (`{code}` →
+  `{terms: [...]}`) backs it: `glossary_adapter.code_terms` over a new public
+  `glossary.detector.scan_code_concepts` (notable builtins, imported
+  functions, `match/case`), matched to bundled cards by id/alias (and the tail
+  after a dot, so `math.sqrt` → the `sqrt` card); everyday builtins like
+  `print`/`len` are intentionally not surfaced as noise. On a runtime error
+  the sandbox output now shows an error card with the exception type and a
+  working deep-link to its glossary card. New unit tests (`code_terms` +
+  endpoint) and a Playwright e2e journey (mini-card open + error-card
+  deep-link).
+- Variable-relationship diagram in the sandbox step player (issue #320, epic
+  #314). A "Таблица / Диаграмма" toggle in the player's variable panel switches
+  to a Python-Tutor-style memory graph: stack frames on the left, heap object
+  nodes (list/tuple/set/dict/class instances) on the right, with SVG arrows
+  from each reference variable to its object. Aliasing is visible as two arrows
+  into one node (nodes are keyed by heap id), nesting as node→node arrows;
+  primitives stay inline in the frame. Changed variables are highlighted, the
+  diagram re-renders on each step, and it degrades to the table with a note
+  past a node cap. Pure vanilla-JS SVG (no external libs, per the vendored-only
+  policy), boxes measured in the DOM to route the arrows. Frontend-only
+  (`web/static/`) over the #318 trace; new Playwright e2e journey (aliasing +
+  nesting).
+- Step-by-step trace player in the sandbox (issue #319, epic #314). A
+  "Пошагово" button traces the code (`mode="trace"`, #318) and opens a
+  Python-Tutor-style player in the output panel: ⏮ ◀ ▶ ⏭ controls + a step
+  slider + ← → keyboard navigation ("шаг N из M", announced via an
+  `aria-live` region). Each step highlights the active line in a read-only
+  code snapshot (the vendored CodeMirror bundle exports no `Decoration`, and a
+  frozen snapshot is sturdier than decorating the live editor), lists stack
+  frames (globals + each frame's locals, changed variables highlighted, values
+  rendered from the heap refs), shows the program output grown to that step
+  (sliced by `stdout_len`), and on an exception step paints the culprit line
+  red with a deep-link to the matching glossary card. Truncated traces show a
+  "показаны первые N шагов" note. Frontend-only (`web/static/`) over the #318
+  API; new Playwright e2e journeys (loop stepping + keyboard nav, function
+  frame appearance); the e2e `browser` fixture now honors
+  `PLAYWRIGHT_EXECUTABLE_PATH`.
+- Step-by-step execution tracer for the sandbox (issue #318, epic #314).
+  `core/tracer.py` runs code in a subprocess under `sys.settrace` and collects
+  a Python-Tutor-style JSON trace — one snapshot per line/call/return/exception
+  step, each carrying the stack frames (with locals) and a heap of objects
+  referenced by id so the frontend can show aliasing (two names → one object)
+  and nested structures. Values are safe-encoded (string/container/depth caps;
+  non-finite floats and huge ints degraded to keep the JSON valid). Wired as a
+  new async job `mode="trace"` on `POST /api/v1/runs` (`{code, stdin}`, no
+  `path`); execution is bounded by `max_steps` (1000) + timeout. Format is
+  documented in [`docs/dev/trace-format.md`](../dev/trace-format.md). The step-player
+  UI consuming it lands in #319. No OS sandbox (CLAUDE.md invariant 4).
+- Sandbox / playground section in the web UI (issue #317, epic #314): a
+  fourth nav section that runs arbitrary code with arbitrary stdin and shows
+  the program's output — not grading against tests. A separate CodeMirror
+  editor plus a stdin field feed `web/playground.run_playground`, which
+  executes via the same `core.runner.LocalRunner` subprocess path (shared
+  wall-clock timeout, best-effort memory cap, cooperative cancel) and returns
+  `{status: OK|RE|TLE|CANCELLED, stdout, stderr, exit_code, duration_ms,
+  truncated}`. Runs go through the async job model (`POST /api/v1/runs` with
+  the new `mode="playground"`, `{code, stdin}`, no `path`) so a runaway
+  `while True: pass` is cancelable and the UI stays responsive; output is
+  clipped to 100k chars. The command-palette "switch section" now cycles all
+  four sections (was check↔glossary only). Step-through execution and variable
+  visualization land in follow-ups (#318/#319/#320). No OS sandbox (CLAUDE.md
+  invariant 4).
+- Draft cards auto-generated from the official Python docs (issue #328). A new
+  offline generator (`scripts/generate_draft_cards.py`) introspects every
+  inventory entity still missing a card and emits a `status="draft"`
+  `GlossaryCard` from the live stdlib: signature via `inspect.signature` (or
+  the docstring's first line), body from `inspect.getdoc`, a templated
+  `docs.python.org` link, and a section mirroring the imported base so the
+  drafts fall under the same section chips. Drafts ship as
+  `glossary/data/drafts.json` (832 cards) — this brings the bundled base to
+  ~100% coverage of the offline stdlib inventory. In the web glossary drafts
+  are muted in the list, badged "черновик" in the detail, and filterable via a
+  new status select (Все / Готовые / Черновики); id = full qualname so a
+  method draft (`str.split`) also closes its coverage gap. The generator is
+  idempotent and never overwrites existing (hand-edited) cards.
+- Built-in type methods in the stdlib coverage inventory (issue #327).
+  `build_stdlib_inventory` now also enumerates the public callable methods of
+  the notable built-in types (`NOTABLE_BUILTIN_TYPES`: str/list/dict/set/
+  tuple/bytes/int/float/…) as `kind="method"` items with `str.split`-style
+  qualnames — the beginner-facing layer the builtins scan missed (it only saw
+  the classes). Coverage gains a `methods` category; a method counts as
+  covered only on a full-qualname match (`str.split`), never the bare method
+  name, so one `split` card can't falsely cover every type's method. In the
+  missing queue a method maps to `kind="function"` (MissingKind is unchanged;
+  the full context lives in `module`/`qualname`).
+- Glossary section filters, sort and deep-linking (issue #329). The web
+  "Глоссарий" section gains a filter toolbar: quick section chips —
+  **Строки / Списки / Кортежи / Словари / Множества** kept as *separate*
+  chips (never merged, unlike the upstream Glossary-Python), a section
+  dropdown, a `kind` filter and a sort (A–Я / by section / by version) — plus
+  a "Показано N из M" counter. Facets combine server-side: `GET /api/glossary`
+  now accepts `section`, `kind`, `status` and `sort` alongside `q`. Cards are
+  reachable by deep-link `#/glossary/<id>` (shareable direct links; the same
+  route backs error-card jumps). `glossary_search` gained the matching
+  keyword-only params.
+- Curated WA hint for non-UTF-8 output (issue #301): a solution that writes
+  raw bytes to stdout (`sys.stdout.buffer.write(b"\xff...")`) is decoded with
+  `errors="replace"`, so its diff shows `�` (U+FFFD) with no explanation.
+  `web/viewmodels._wa_suggestion` now detects `�` in the actual output and
+  returns a `message_id="output_invalid_utf8"` hint (ru/en) pointing at the
+  likely cause (printing raw bytes / wrong encoding), taking priority over
+  the trailing-whitespace hint. The runner's decode strategy is unchanged
+  (still `errors="replace"`, a deliberate non-goal).
+- Bundled glossary base (issue #326): 581 cards imported from Glossary-Python
+  now ship in the wheel at `stepik_grader/glossary/data/*.json` (one file per
+  colour-group). The web "Глоссарий" section serves them as the zero-config
+  default when `CONFIG.glossary_store` is unset, turning the section from a
+  ~28-exception fallback into a full reference; the compact `core/glossary.py`
+  fallback remains for when the bundled dir is absent/broken. A reproducible,
+  offline importer (`scripts/import_glossary_python.py`) does the one-time
+  conversion (`name→title`, `docs→docs_url`, `version` null→`""`, exception
+  ids lowercased to match the anchor convention). `stdlib` coverage
+  (`python -m stepik_grader.glossary.coverage --cards …`) rises from 0 to
+  ~190+ covered (builtins 94%).
+- `GlossaryCard` gains four optional fields (issue #325): `syntax`
+  (signature/usage template), `docs_url` (link to official docs.python.org;
+  `docs` accepted as an alias, mirroring `hint`→`summary`), `version`
+  (minimum Python version, e.g. `3.10`; JSON `null` normalises to `""`), and
+  `subcat` (subcategory within `section`, for the glossary section's
+  filters). All are backward-compatible — existing JSON bases without them
+  still load — and the web glossary card now renders syntax, examples, a
+  Python-version badge and a docs.python.org link. Foundation for the
+  glossary content epic (import from Glossary-Python #326, redesign #329).
+- `POST /api/v1/runs` job status gets a fifth, additive value: `"cancelled"`
+  (issue #296), alongside `queued`/`running`/`done`/`error`. Previously a
+  user-cancelled job reported `status="error"` with
+  `message_id="run_cancelled"` — semantically a cancellation is not a
+  failure of the solution or the grader, and future clients (server mode,
+  an IDE extension) would otherwise have to parse `message_id` just to tell
+  "user changed their mind" apart from "grader crashed" (e.g. to decide
+  whether a retry makes sense — it does for `error`, never for
+  `cancelled`). `message_id="run_cancelled"` is still set on the terminal
+  status either way. The web UI now renders a cancelled run with a neutral
+  tone (`.msg-neutral`) instead of the error-red `.msg`. Landed before the
+  `/api/v1/*` contract freeze (issue #156) while the change is still cheap.
+
+### Fixed
+- Empty/missing `tests/` no longer reported as `FAIL 0/0` (issue #299): both
+  the web `grade_path()` row status and the CLI correctness table
+  (`core/reporter._correctness_status`) now return `"NO TESTS"` when
+  `total == 0` — matching the contract already documented in
+  `docs/result-contract.md`, which the code had drifted from. Previously a
+  solution folder with an existing-but-empty `tests/` dir looked identical to
+  a genuinely wrong solution.
+- `core/runner._measure_peak_memory`'s "peak memory measurement unreliable"
+  `UserWarning` no longer floods the console during batch grading (mode 2)
+  or a long-running `--serve`: the message used to interpolate the child
+  `pid`, so every occurrence was a distinct string that defeated Python's
+  own "default" warning filter dedup (which keys on the exact rendered
+  text) — one warning per trivially-fast solution (`print(1)` and similar,
+  common Stepik exercises) instead of once per process. Message text is now
+  constant; the stdlib filter shows it once per interpreter session.
+
+### Docs
+- New `docs/audit-2026-07.md`: one-off deep multi-role project audit
+  (architecture, code quality, tests/CI, product, UX, docs drift) snapshotted
+  at v1.7.0+49 with all quality gates re-run (1308 passed, ruff/mypy clean).
+  Includes the design proposal for the upcoming "Правила/PEP" and "Подучить"
+  (frequent mistakes) sections: opt-in SQLite history (epic #130), ruff-based
+  lint integration behind a `[lint]` extra, run-count-based card decay.
+  Registered in the `docs/README.md` index; follow-up epics/issues are opened
+  from the audit's findings.
+- `docs/README.md` navigation index now lists `docs/archive/changelog-archive.md`
+  (issue #300) — it existed in `docs/` since the CHANGELOG split but was
+  never added to the index.
+- New CI guardrail (`scripts/check_docs_guardrails.py`): every `docs/*.md`
+  file must be referenced from `docs/README.md`, or the check fails — makes
+  the class of drift behind issue #300 impossible to reintroduce silently.
+  `docs/adr/*.md` is exempt (cataloged by its own `docs/adr/README.md` index).
+- `core/sandbox/__init__.py`, `core/sandbox/_linux.py`, `core/runner.py`
+  docstrings no longer describe `nsjail` as an implemented Linux fallback
+  backend (issue #293): `bwrap` is the only Linux `--sandbox` backend in this
+  MVP, matching what `SECURITY.md`/`docs/server-mode.md` already documented
+  correctly — only the code docstrings had drifted.
+
+### CI
+- Per-OS coverage margin (issue #294): each CI matrix OS job's own
+  `--cov-fail-under=85` gate used to count the OTHER two platforms'
+  `core/sandbox/` backend files as permanently uncovered (structurally
+  unreachable on that OS), leaving as little as ~1.1pp margin on ubuntu. New
+  `scripts/generate_ci_coveragerc.py` generates a CI-only `.coveragerc.ci`
+  that additionally omits, for each job, only the backend files unreachable
+  on its own OS; the `coverage-combine` cross-OS aggregate job (
+  `--fail-under=90`) is untouched and still sees every file from whichever
+  job(s) can actually exercise it — no file is omitted everywhere at once.
+  `fail_under = 85` itself is unchanged; local `pytest` runs are unaffected
+  (this mechanism is CI-only).
+
+### Docs
+- `docs/installation.md`: new troubleshooting note for `stepik-grader ...`
+  failing with `ModuleNotFoundError: No module named 'stepik_grader'` even
+  though the command itself resolves — root cause is a stale global editable
+  install (commonly predating the project's src-layout migration, issue #35)
+  shadowing the working `.venv` install. Covers diagnosis
+  (`Get-Command`/`which stepik-grader`) and cleanup (`pip uninstall`, plus
+  manual removal of orphaned `.dist-info`/`.pth`/`_finder.py` files when pip
+  can't find a RECORD to uninstall from).
+
+### Refactored
+- CodeMirror 6 frontend vendoring (issue #295): the 8 separate esm.sh
+  per-package bundles + import map + 4 Node.js browser-compat polyfill files
+  (issue #265) are replaced by a single self-contained esbuild bundle,
+  `static/vendor/codemirror-bundle@6.mjs`. `app.js` now imports it directly
+  by URL instead of via bare specifiers resolved through an import map.
+  Building from the real npm packages (not esm.sh's per-package re-bundles)
+  lets tree-shaking eliminate the optional debug/tracing code path that
+  needed the Node shims in the first place — none are needed anymore
+  (verified: no `events`/`tty`/`process`/`async_hooks` references in the
+  output). ~12 HTTP requests for the editor down to 1; bundle is smaller than
+  the sum of the files it replaces. No build tooling added to the repo or CI
+  — the bundle is built once outside the repo and committed as a finished
+  artifact, same philosophy as before (see `static/vendor/VERSIONS.md` for
+  the reproducible build recipe and full pinned dependency list, now
+  including previously-undocumented transitive deps `@codemirror/autocomplete`,
+  `@lezer/python`, `style-mod`, `w3c-keyname`, `crelt`).
+
+---
 
 ## [1.7.0] - 2026-07-12
 
