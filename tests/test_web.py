@@ -2495,13 +2495,22 @@ def test_consent_modal_traps_focus_and_restores_it() -> None:
     удерживает: `Tab` свободно уходил на страницу под оверлеем, где можно было
     нажимать кнопки, пока диалог «ждёт» ответа. Плюс `Escape`: диалог с двумя
     вариантами обязан закрываться отказом.
+
+    Гарантии прежние, но с #1225 их даёт общий помощник `openModal`, а не своя
+    копия ловушки: копий было три, они разошлись, и фикс #804 (слушать `keydown`
+    на `document`, а не на оверлее) попал только в одну из них.
     """
     start = web_server._STATIC_JS_SOURCES.index("function _requestAiConsent(")
     body = web_server._STATIC_JS_SOURCES[start : web_server._STATIC_JS_SOURCES.index("\n}", start)]
 
-    assert 'e.key === "Escape"' in body, "Escape должен закрывать диалог отказом"
-    assert 'e.key !== "Tab"' in body, "нужен перехват Tab на краях"
-    assert "returnFocus" in body, "фокус обязан вернуться туда, откуда открыли"
+    assert "openModal(" in body, "окно согласия обязано брать общий помощник"
+
+    helper = web_server._STATIC_JS_SOURCES[
+        web_server._STATIC_JS_SOURCES.index("function openModal(") :
+    ][:2600]
+    assert 'e.key === "Escape"' in helper, "Escape должен закрывать диалог отказом"
+    assert 'e.key !== "Tab"' in helper, "нужен перехват Tab на краях"
+    assert "returnFocus" in helper, "фокус обязан вернуться туда, откуда открыли"
 
 
 def test_waiting_states_share_one_skeleton_language() -> None:

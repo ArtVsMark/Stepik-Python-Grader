@@ -6,7 +6,7 @@
 // кнопкой Submit в форме GitHub: у грейдера нет ни токена, ни сервера для этого
 // (эпик #751). Сборка URL, редакция секретов и усечение живут в
 // core/feedback.py — здесь только рендер и переходы.
-import { $, esc, state, t } from "./core.js";
+import { $, esc, openModal, state, t } from "./core.js";
 
 const KIND_HINT_KEYS = {
   bug: "feedback.kind_hint_bug",
@@ -29,8 +29,10 @@ const FIELD_LABEL_KEYS = {
 const DRAFT_DEBOUNCE_MS = 500;
 
 let feedbackKind = "bug";
-let feedbackReturnFocus = null;
 let draftTimer = null;
+// Закрывающая функция открытого окна: её отдаёт openModal, она же снимает
+// слушатели и возвращает фокус. null — окно закрыто.
+let closeModal = null;
 
 function _kindHint() {
   const hint = $("#feedback-kind-hint");
@@ -154,52 +156,33 @@ function setFeedbackKind(kind) {
   refreshFeedbackDraft();
 }
 
-function _feedbackKeydown(e) {
-  if (e.key === "Escape") {
-    e.preventDefault();
-    closeFeedback();
-    return;
-  }
-  if (e.key !== "Tab") return;
-  const stops = $("#feedback-overlay").querySelectorAll(
-    "button, input, textarea, a[href], summary",
-  );
-  const visible = [...stops].filter(el => el.offsetParent !== null);
-  if (!visible.length) return;
-  const first = visible[0];
-  const last = visible[visible.length - 1];
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault();
-    last.focus();
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault();
-    first.focus();
-  }
-}
-
 function openFeedback() {
   const overlay = $("#feedback-overlay");
   if (!overlay) return;
-  feedbackReturnFocus = document.activeElement;
-  overlay.hidden = false;
-  overlay.addEventListener("keydown", _feedbackKeydown);
+  // issue #1225: ловушка Tab, Escape и возврат фокуса — в общем помощнике
+  // core.js, своей копии здесь больше нет. Пока слушатель висел на самом
+  // оверлее, клик по подложке уводил фокус на body — и клавиатура переставала
+  // управлять окном, хотя мышью всё работало.
+  //
+  // closeOnBackdrop: false — поведение сохранено намеренно: в окне лежит
+  // написанный, но ещё не отправленный текст, и промах мимо диалога не должен
+  // его смахивать.
+  closeModal = openModal(overlay, {
+    initialFocus: $("#feedback-summary"),
+    closeOnBackdrop: false,
+    onClose: () => {
+      clearTimeout(draftTimer);
+      closeModal = null;
+    },
+  });
   _kindHint();
   // Предпросмотр готовим сразу: окружение уже известно, и пользователь видит,
   // что уйдёт, до того как что-то напишет.
   refreshFeedbackDraft();
-  const summary = $("#feedback-summary");
-  if (summary) summary.focus();
 }
 
 function closeFeedback() {
-  const overlay = $("#feedback-overlay");
-  if (!overlay) return;
-  clearTimeout(draftTimer);
-  overlay.hidden = true;
-  overlay.removeEventListener("keydown", _feedbackKeydown);
-  if (feedbackReturnFocus && typeof feedbackReturnFocus.focus === "function") {
-    feedbackReturnFocus.focus();
-  }
+  if (closeModal) closeModal();
 }
 
 function initFeedback() {
