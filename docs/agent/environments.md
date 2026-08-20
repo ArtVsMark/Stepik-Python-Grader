@@ -26,7 +26,7 @@
 | **Песочница, backend Linux** (`--sandbox`) | `bwrap` в `/usr/bin`; Windows- и macOS-backend'ы отсюда не наблюдаемы |
 | **Веб в реальном браузере** | Chromium в `/opt/pw-browsers`, Playwright из группы `e2e` |
 | Python 3.12 и 3.13 | оба в системе, venv на 3.12 |
-| GitHub: issue, PR, ревью, метки | MCP-инструменты |
+| GitHub: issue, PR, ревью, метки | `scripts/gh_rest.py` (REST). MCP — только закрытый список исключений: Projects V2, Discussions, минимизация комментария и **создание PR** (автором должен быть человек) |
 
 Чего здесь нет **принципиально**: реального `secrets.json`, живой сети до
 `stepik.org` (`CONNECT tunnel failed, 403`), графической оболочки (`DISPLAY` и

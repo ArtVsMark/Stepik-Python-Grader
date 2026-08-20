@@ -72,6 +72,7 @@ import gh_rest
 
 __all__ = [
     "Verdict",
+    "bot_author_blockers",
     "branch_is_stale",
     "check_names",
     "default_fetch",
@@ -230,6 +231,31 @@ def main_branch_blockers(main_runs: dict[str, Any]) -> list[str]:
     return []
 
 
+def bot_author_blockers(pull: dict[str, Any]) -> list[str]:
+    """Причины отказа, связанные с авторством PR (issue #1280).
+
+    Squash-мерж атрибутирует итоговый коммит **автору pull request**, а не
+    автору коммитов ветки. Проверено на PR #1277: коммит писал
+    ``Claude <noreply@anthropic.com>``, а в ``main`` он значится за человеком,
+    потому что PR открыл человек. Обратное так же верно: PR, открытый ботом,
+    запишет в ``main`` автором бота — и участие человека из истории исчезнет
+    насовсем, потому что переписать защищённую ветку нечем.
+
+    Поэтому такой PR не мержится, а пересоздаётся от человека: дешевле, чем
+    навсегда потерянное авторство.
+    """
+    raw = pull.get("user")
+    author: dict[str, Any] = raw if isinstance(raw, dict) else {}
+    login = str(author.get("login", "?"))
+    if author.get("type") == "Bot" or login.endswith("[bot]"):
+        return [
+            f"PR открыт ботом ({login}): после squash автором коммита в main станет он, "
+            "а не человек. Пересоздайте PR от своего имени — переписать историю "
+            "защищённой ветки потом нельзя"
+        ]
+    return []
+
+
 def evaluate(
     pull: dict[str, Any],
     workflow_runs: dict[str, Any],
@@ -249,6 +275,7 @@ def evaluate(
         reasons.append(f"PR не открыт (state={pull.get('state')})")
     if pull.get("draft"):
         reasons.append("PR — черновик")
+    reasons.extend(bot_author_blockers(pull))
     mergeable_state = pull.get("mergeable_state")
     if mergeable_state not in {"clean", "unstable", "has_hooks"}:
         reasons.append(f"ветка не готова к мержу (mergeable_state={mergeable_state})")

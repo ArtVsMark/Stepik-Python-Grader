@@ -68,16 +68,20 @@ __all__ = [
     "Check",
     "added_changelog_fragments",
     "added_changelog_lines",
+    "authored_by_tool",
     "buffer_section",
     "changed_public_names",
     "check_branch_fresh",
     "check_branch_not_main",
     "check_branch_not_taken",
     "check_changelog_buffer",
+    "check_commit_authorship",
+    "commits_without_owner",
     "lock_is_active",
     "lock_path",
     "logs_dir",
     "main",
+    "owner_name",
     "read_stamp",
     "stamp_is_current",
     "stamp_path",
@@ -279,6 +283,118 @@ def check_branch_not_taken(
             "сохраняет прежнюю вершину предком"
         ),
         blocking=False,
+    )
+
+
+def _mypy_command(*, platform: str = sys.platform) -> list[str]:
+    """Команда проверки типов — той же платформы, что и в CI.
+
+    Гейт обещает зеркалить CI, а шаг ``static`` там идёт **только на Linux**.
+    На Windows тот же вызов без ``--platform`` даёт семь ошибок, которых в CI
+    нет вовсе: ``fcntl.flock`` и ``signal.SIGKILL`` в win32-заглушках stdlib
+    отсутствуют, а код, который их зовёт, живёт под проверкой ОС в рантайме.
+
+    Разница не косметическая: у владельца на Windows гейт краснел **всегда**,
+    то есть зелёного состояния не существовало в принципе — а гейт, который
+    невозможно пройти, обходят целиком, вместе со всеми остальными проверками.
+
+    Args:
+        platform: платформа запуска; подменяется в тестах.
+
+    Returns:
+        Аргументы запуска ``mypy``; на не-Linux добавляется ``--platform linux``.
+    """
+    command = [sys.executable, "-m", "mypy"]
+    if not platform.startswith("linux"):
+        command += ["--platform", "linux"]
+    return [*command, "src/stepik_grader", "scripts"]
+
+
+def owner_name(*, pyproject: str | None = None) -> str:
+    """Имя владельца проекта — из ``[project].authors`` в ``pyproject.toml``.
+
+    Источник один и тот же для всех окон: git-идентичность у локальной машины,
+    облачного контейнера и CI разная (и по имени, и по почте), а вопрос
+    «участвует ли автор» — про человека, а не про то, из какой среды ушёл
+    коммит.
+    """
+    raw = pyproject if pyproject is not None else _read(_ROOT / "pyproject.toml")
+    match = re.search(r'authors\s*=\s*\[\s*\{\s*name\s*=\s*"([^"]+)"', raw)
+    return match.group(1) if match else ""
+
+
+def authored_by_tool(author: str) -> bool:
+    """Похож ли автор коммита на инструмент, а не на человека.
+
+    Проверка узкая намеренно: слово «bot» встречается в человеческих
+    никах, поэтому засчитываются только имя Claude и суффикс ``[bot]``,
+    которым GitHub помечает приложения.
+    """
+    name = author.casefold().strip()
+    return "claude" in name or name.endswith("[bot]")
+
+
+def commits_without_owner(log: str, owner: str) -> list[str]:
+    """Коммиты инструмента, в которых человек не назван ни автором, ни соавтором.
+
+    Проверяются **только** коммиты, ушедшие от инструмента: вопрос стоит не
+    «указан ли владелец везде» (у внешнего контрибьютора свои коммиты, и
+    требовать там чужое имя незачем), а «не приписана ли совместная работа
+    одному инструменту».
+
+    Args:
+        log: вывод ``git log`` в формате ``%h%x1f%an%x1f%B%x1e``.
+        owner: имя владельца проекта.
+
+    Returns:
+        Короткие хеши коммитов, где человека нет вовсе.
+    """
+    if not owner:
+        return []
+    lost: list[str] = []
+    for record in log.split("\x1e"):
+        if not record.strip():
+            continue
+        parts = record.strip().split("\x1f")
+        if len(parts) < 3:
+            continue
+        short, author, message = parts[0], parts[1], parts[2]
+        if not authored_by_tool(author):
+            continue
+        trailers = [line for line in message.splitlines() if line.lower().startswith("co-authored")]
+        if any(owner.casefold() in line.casefold() for line in trailers):
+            continue
+        lost.append(short)
+    return lost
+
+
+def check_commit_authorship(git: GitRunner = _git) -> Check:
+    """Коммит инструмента обязан называть человека — автором или соавтором.
+
+    Работа делается вместе, и история обязана это показывать. Коммит, ушедший
+    от Claude без трейлера с человеком, приписывает всю работу инструменту:
+    после squash-мержа такой след остаётся в ``main`` навсегда.
+
+    Чинится трейлером, а не переписыванием авторства:
+    ``git commit --amend --trailer "Co-Authored-By: ..."``.
+    """
+    owner = owner_name()
+    title = "автор участвует в коммитах"
+    if not owner:
+        return Check(name=title, ok=True, detail="владелец в pyproject не назван", blocking=False)
+    log = git("log", "--format=%h%x1f%an%x1f%B%x1e", f"{_BASE}..HEAD")
+    lost = commits_without_owner(log, owner)
+    if not lost:
+        return Check(name=title, ok=True, detail=f"{owner} не потерян в коммитах ветки")
+    return Check(
+        name=title,
+        ok=False,
+        detail=f"нет ни автором, ни соавтором: {', '.join(lost)}",
+        hint=(
+            f'git commit --amend --trailer "Co-Authored-By: {owner} '
+            '<86671904+ArtVsMark@users.noreply.github.com>" — и так для каждого '
+            "названного коммита (rebase -i при нескольких)"
+        ),
     )
 
 
@@ -688,6 +804,7 @@ def main(argv: list[str] | None = None) -> int:
         check_branch_fresh(),
         check_branch_not_taken(),
         check_changelog_buffer(),
+        check_commit_authorship(),
         check_tests_mentioning_changed_names(),
     ]
 
@@ -714,11 +831,7 @@ def main(argv: list[str] | None = None) -> int:
                 "ruff format", [sys.executable, "-m", "ruff", "format", "--check", "."], log_dir
             )
         )
-        checks.append(
-            _run_stage(
-                "mypy", [sys.executable, "-m", "mypy", "src/stepik_grader", "scripts"], log_dir
-            )
-        )
+        checks.append(_run_stage("mypy", _mypy_command(), log_dir))
         if not args.no_tests:
             checks.append(
                 _run_stage(
