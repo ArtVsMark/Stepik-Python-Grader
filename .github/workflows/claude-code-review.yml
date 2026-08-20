@@ -54,6 +54,22 @@ jobs:
           # вендора, что и сам action, и права job'а read-only.
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
+          # issue #1272: без этой строки ревью отказывалось работать на каждом
+          # PR, где последнее событие пришло от агентского окна — «Workflow
+          # initiated by non-human actor: claude (type: Bot)». Причина не в
+          # авторстве PR (он создаётся от человека, и первый прогон проходит), а
+          # в событии `synchronize`: его шлёт тот, кто толкнул в ветку, а
+          # обновление ветки из `main` обязательно — в ruleset включено
+          # «Require branches to be up to date». То есть красная проверка
+          # получалась на каждом PR, и ревьюилось состояние ДО обновления.
+          #
+          # Список именной, а не `*`: разрешён ровно один бот — тот, чьи правки
+          # и так подписаны сессией владельца. `*` пустил бы сюда любое
+          # приложение с доступом к репозиторию. Периметр от этой строки не
+          # расширяется: job остаётся read-only, форковые PR по-прежнему
+          # пропускаются (условие `if` выше), а запуск по упоминанию
+          # (`claude.yml`) сохраняет свой гейт по `author_association`.
+          allowed_bots: 'claude'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
