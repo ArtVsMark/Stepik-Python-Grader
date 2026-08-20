@@ -99,6 +99,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      # issue #1262: логическая версия (`1.11`, `1.10.234` — то же число, что
+      # в бейдже README) считается по git-истории, которой в установленном
+      # пакете нет. Значит она считается здесь, до сборки, и уезжает в колесо
+      # файлом `_build_info.json`; окно лаунчера потом только читает его —
+      # без git и без подпроцессов (issue #1166/#1149).
+      - name: Build info for the package (issue #1262)
+        run: |
+          python -m pip install --upgrade "setuptools-scm>=8"
+          python scripts/generate_build_info.py
+
       - name: Build sdist and wheel
         run: |
           python -m pip install --upgrade build

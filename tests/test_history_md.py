@@ -1,7 +1,7 @@
 """Guard: HISTORY.md держит форму, ради которой заводился (issue #1181).
 
 Документ собирает историю проекта в одном месте: пролог о происхождении,
-одиннадцать релизов единым форматом, таблица эволюции метрик. Раньше это жило
+релизы единым форматом, таблица эволюции метрик. Раньше это жило
 в двух файлах (`docs/archive/history.md` и `docs/use/versions.md`), и они
 разошлись — ровно так же, как разошлись «1700+/2100+» в метриках.
 
@@ -22,6 +22,9 @@ _HISTORY = _ROOT / "HISTORY.md"
 #: Записи о релизе: `## v1.4.0 · 5 июля 2026 · тема`.
 _RELEASE_HEADING = re.compile(r"^## (v\d+\.\d+\.\d+) · ", re.MULTILINE)
 
+#: Любой заголовок второго уровня — граница раздела.
+_SECTION_HEADING = re.compile(r"^## ", re.MULTILINE)
+
 #: Строка таблицы метрик: `| v1.4.0 | 622 | 95% | … |`.
 _METRICS_ROW = re.compile(r"^\|\s*(v\d+\.\d+\.\d+)\s*\|", re.MULTILINE)
 
@@ -37,9 +40,15 @@ def text() -> str:
 
 
 def test_every_tagged_release_has_an_entry(text: str) -> None:
-    """Одиннадцать версий, ни одна не растворена в «спринтах» и «партиях»."""
+    """Все версии на месте, ни одна не растворена в «спринтах» и «партиях».
+
+    Набор задан списком, а не вычисляется из git-тегов намеренно: в клоне без
+    тегов (так клонирует облачная сессия) вычисляемый набор оказался бы пустым,
+    и гейт зеленел бы на пустоте. Поэтому при релизе список расширяется тем же
+    PR, что и запись, — это часть релизной процедуры, а не помеха ей.
+    """
     documented = set(_RELEASE_HEADING.findall(text))
-    expected = {f"v1.{minor}.0" for minor in range(11)}
+    expected = {f"v1.{minor}.0" for minor in range(12)}
 
     assert documented == expected, f"нет записей: {sorted(expected - documented)}"
 
@@ -65,10 +74,15 @@ def test_prologue_credits_the_upstream_project(text: str) -> None:
 def test_no_release_entry_grows_into_a_work_log(text: str) -> None:
     """Каждая запись — не длиннее экрана."""
     positions = [m.start() for m in _RELEASE_HEADING.finditer(text)]
-    bounds = [*positions, len(text)]
+    # Запись кончается на следующем заголовке — любом, а не только релизном.
+    # Иначе последняя запись меряется вместе со всем хвостом документа (таблица
+    # метрик, послесловие), то есть предел для неё зависит от того, сколько
+    # релизов накопилось ниже, и с каждым релизом ужимается ещё на строку.
+    section_starts = [m.start() for m in _SECTION_HEADING.finditer(text)]
     too_long = []
-    for index, start in enumerate(positions):
-        entry = text[start : bounds[index + 1]]
+    for start in positions:
+        following = [s for s in section_starts if s > start]
+        entry = text[start : following[0] if following else len(text)]
         lines = entry.count("\n")
         if lines > _MAX_RELEASE_LINES:
             too_long.append(f"{_RELEASE_HEADING.match(entry).group(1)}: {lines} строк")
