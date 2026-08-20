@@ -171,6 +171,11 @@ _PAIRS: list[Pair] = [
     Pair("error / surface", "--color-error", "--color-surface", 4.5),
     Pair("success / surface", "--color-success", "--color-surface", 4.5),
     Pair("warning / surface", "--color-warning", "--color-surface", 4.5),
+    # issue #1213: строка «что не так с secrets.json» стоит в панели
+    # доступа прямо на фоне раздела. Пару нашёл браузерный тест — ровно
+    # тем, ради чего он и заведён: новая разметка добавила настоящее
+    # сочетание, которого не было в списке.
+    Pair("warning / bg", "--color-warning", "--color-bg", 4.5),
     # issue #425: цвета подсветки синтаксиса CodeMirror на фоне редактора
     # (--color-surface) — все ≥4.5:1 в обеих темах.
     Pair("cm-keyword / surface", "--cm-keyword", "--color-surface", 4.5),
