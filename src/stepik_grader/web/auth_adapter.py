@@ -15,6 +15,7 @@ HTTP-обработчика. Для удалённого сервера (#151, �
 from __future__ import annotations
 
 import pathlib
+import threading
 from typing import Any
 
 from stepik_grader.core.oauth_flow import authorize_and_get_token, token_is_valid
@@ -125,6 +126,7 @@ def perform_browser_auth(
     client_id: str,
     client_secret: str,
     redirect_uri: str,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Записать креды в ``secrets.json`` (0600) и провести браузерный OAuth (issue #402).
 
@@ -146,5 +148,7 @@ def perform_browser_auth(
         {"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri}
     )
     save_secrets(secrets_path, existing)
-    authorize_and_get_token(client_id, client_secret, redirect_uri, secrets_path)
+    authorize_and_get_token(
+        client_id, client_secret, redirect_uri, secrets_path, cancel_event=cancel_event
+    )
     return {"authorized": True, "reason": "ok"}

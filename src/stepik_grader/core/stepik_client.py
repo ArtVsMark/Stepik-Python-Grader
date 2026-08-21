@@ -55,6 +55,7 @@ __all__ = [
     "STEPIK_HOST",
     "ExternalUrlRejected",
     "OAuthCallbackPortBusy",
+    "OAuthCancelled",
     "StepikNetworkError",
     "StepikResponseFormatError",
     "SubmissionResult",
@@ -326,6 +327,15 @@ class OAuthCallbackPortBusy(RuntimeError):
     ``redirect_uri``, а прежде он приходил тем же путём, что и отказ сервера, и
     пользователь читал совет «проверьте client_id / client_secret» — то есть
     правил ровно то, что было в порядке.
+    """
+
+
+class OAuthCancelled(RuntimeError):
+    """Ожидание кода прервано вызывающей стороной (issue #971).
+
+    Отдельный тип, а не ``TimeoutError``: отмена — это не сбой авторизации.
+    Веб-слой финализирует такую job'у статусом ``cancelled``, а не ``error``,
+    иначе пользователь, сам нажавший «отмена», получал бы сообщение о поломке.
     """
 
 
@@ -659,6 +669,7 @@ def wait_for_auth_code(
     path: str,
     expected_state: str,
     timeout: int = 120,
+    cancel_event: threading.Event | None = None,
 ) -> str:
     """Запускает временный HTTP-сервер и ожидает OAuth-колбэк с кодом авторизации.
 
@@ -714,8 +725,16 @@ def wait_for_auth_code(
             # Короткий тик, а не весь остаток: ``handle_request`` блокирует поток
             # до запроса или до своего таймаута, и без тика отмена/выход из цикла
             # ждали бы полного дедлайна даже после получения кода.
+            # issue #971: отмена проверяется ДО и ПОСЛЕ обслуживания запроса.
+            # До — чтобы отменённое ожидание не занимало поток ещё один тик;
+            # после — потому что `handle_request` блокирует на всю длину тика, и
+            # отмена, пришедшая в этот момент, иначе ждала бы следующего круга.
+            if cancel_event is not None and cancel_event.is_set():
+                raise OAuthCancelled("ожидание кода авторизации отменено")
             server.timeout = min(_OAUTH_POLL_SECONDS, remaining)
             server.handle_request()
+            if cancel_event is not None and cancel_event.is_set():
+                raise OAuthCancelled("ожидание кода авторизации отменено")
             if auth_data.get("code") or auth_data.get("error"):
                 break
     finally:
@@ -734,6 +753,7 @@ def authorize_via_browser(
     client_id: str,
     client_secret: str,
     redirect_uri: str,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Открывает браузер, ожидает OAuth-код, обменивает на токены.
 
@@ -761,7 +781,7 @@ def authorize_via_browser(
     with contextlib.suppress(OSError):
         webbrowser.open(auth_url)
 
-    code = wait_for_auth_code(host, port, path, state)
+    code = wait_for_auth_code(host, port, path, state, cancel_event=cancel_event)
     register_secret(client_secret)
     register_secret(code)
     _log.info("обмениваю authorization_code на токены через %s/oauth2/token/", API_HOST)

@@ -187,6 +187,7 @@ def authorize_and_get_token(
     client_secret: str,
     redirect_uri: str,
     secrets_path: pathlib.Path = pathlib.Path("secrets.json"),
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Выполняет полный OAuth2 flow и сохраняет токены в secrets_path.
 
@@ -197,7 +198,7 @@ def authorize_and_get_token(
     Returns:
         Обновлённый словарь secrets (исходные поля + новые токены).
     """
-    token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
+    token_data = authorize_via_browser(client_id, client_secret, redirect_uri, cancel_event)
 
     secrets: dict[str, Any] = {}
     if secrets_path.exists() and secrets_path.is_file():
