@@ -191,6 +191,11 @@ function setMode(m) {
 // клампы те же, что у CLI (5–100 повторов, 100–500 000 вызовов), выбор
 // запоминается между сессиями — как режим (issue #727). --------------------
 
+// issue #968: сколько строк диффа рисуем сразу. Меньше серверного предела на
+// вывод кейса (viewmodels._MAX_CASE_LINES): сервер режет патологию, а это —
+// граница единовременной отрисовки, снимаемая кнопкой «показать всё».
+const DIFF_MAX_ROWS = 500;
+
 const BENCH_PROFILE_KEY = "grader_repeats";
 const MICRO_PROFILE_KEY = "grader_micro_profile";
 
@@ -577,20 +582,21 @@ async function grade() {
     return;
   }
   const q = new URLSearchParams({ path, mode: backendMode, lang: state.lang }); // issue #364
+  let outcome = null; // issue #967: исход этого прогона, null — прогон не дал результата
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
     state.lastResult = data;
+    outcome = data;
     render(data);
     updateCheckSidebarBadge(data);
     announceResult(summaryFromResult(data)); // issue #298
-    updateStepikSubmitButton(data); // issue #683
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
     toast(t("common.request_error"), "error");
     announceResult(t("common.request_error")); // issue #298
   } finally {
-    _finishGradeUI();
+    _finishGradeUI(outcome); // issue #683 — кнопка Stepik обновляется отсюда
   }
 }
 
@@ -660,11 +666,20 @@ function clearSaveError() {
   }
 }
 
-function _finishGradeUI() {
+// issue #967 (FE-2-01): `result` — исход ИМЕННО ЭТОГО прогона, а не то, что
+// лежит в `state.lastResult`. Разница видна на упавшем прогоне: `lastResult`
+// хранит прошлый результат, и кнопка «Отправить в Stepik» осталась бы активной
+// после кода, который только что не прошёл. `null` — «результата нет»
+// (ошибка, отмена, сбой старта), то есть отправлять нечего.
+function _finishGradeUI(result = null) {
   updateRunButtonState();
   $("#run").textContent = t("check.run");
   renderDetailPanel();
   renderResultSummaryBadges();
+  // Раньше кнопку обновляли только synchronous-путь и setMode, а режим 1 в вебе
+  // всегда идёт через async-джобу — она эту ветку не звала вовсе, и состояние
+  // кнопки отставало на один прогон. Место одно на все пути завершения.
+  updateStepikSubmitButton(result);
   // issue #298 (a11y): после завершения прогона фокус уходит на панель
   // результатов (tabindex="-1"), чтобы клавиатурный/скринридер-пользователь
   // оказался у сводки, а не остался на кнопке «Запустить».
@@ -834,6 +849,10 @@ async function gradeAsync(path, backendMode, code = null) {
 
   const runId = created.run_id;
   state.activeRunId = runId;
+  // issue #967 (FE-2-01): исход этого прогона. Заполняется только веткой
+  // `done` — отмена и ошибка результата не дают, и кнопка Stepik обязана это
+  // отразить, а не сохранить состояние от прошлого вердикта.
+  let outcome = null;
   const cancelBtn = $("#cancel-run");
   cancelBtn.hidden = false;
   cancelBtn.disabled = false;
@@ -885,6 +904,7 @@ async function gradeAsync(path, backendMode, code = null) {
         $("#bar").innerHTML = "";
         if (data.status === "done") {
           state.lastResult = data.result;
+          outcome = data.result;
           render(data.result);
           updateCheckSidebarBadge(data.result);
           announceResult(summaryFromResult(data.result)); // issue #298
@@ -910,7 +930,7 @@ async function gradeAsync(path, backendMode, code = null) {
     poll();
   });
 
-  _finishGradeUI();
+  _finishGradeUI(outcome);
 }
 
 function updateProgressBar(done, total) {
@@ -1075,6 +1095,7 @@ function selectCase(rowIndex, caseIndex) {
   state.selectedRow = rowIndex;
   state.selectedCase = caseIndex;
   state.explainOpen = false;
+  state.diffShowAll = false; // issue #968: согласие даётся на конкретный кейс
   highlightSelectedCaseRow();
   renderDetailPanel();
   setResultTab("detail");
@@ -1177,12 +1198,19 @@ function diffRow(kind, lineNo, html, title) {
  * отдельно. Полноценный LCS тут избыточен: он усложнил бы код ради редкого
  * случая сдвига, который и так виден по маркерам.
  */
-function renderInlineDiff(expected, actual) {
+function renderInlineDiff(expected, actual, { full = false } = {}) {
   const exp = String(expected ?? "").split("\n");
   const act = String(actual ?? "").split("\n");
   const rows = [];
+  const total = Math.max(exp.length, act.length);
+  // issue #968: на каждую строку приходится div и три span, а на различающуюся
+  // — две таких строки. Без границы забытый выход из цикла (десятки тысяч
+  // строк) складывался в сотни тысяч узлов, вставляемых одним innerHTML:
+  // вкладка замирала, и посмотреть результат прогона было уже нельзя. Предел
+  // снимается кнопкой — решает человек, а не мы за него.
+  const limit = full ? total : Math.min(total, DIFF_MAX_ROWS);
 
-  for (let i = 0; i < Math.max(exp.length, act.length); i++) {
+  for (let i = 0; i < limit; i++) {
     const e = exp[i];
     const a = act[i];
 
@@ -1208,9 +1236,19 @@ function renderInlineDiff(expected, actual) {
     rows.push(diffRow("actual", i + 1, wrap(bMid)));
   }
 
+  const more =
+    limit < total
+      ? '<div class="hint diff-truncated">' +
+        esc(t("grade.diff_truncated", { shown: limit, total })) +
+        ' <button type="button" class="btn btn-secondary btn-sm" id="diff-show-all">' +
+        esc(t("grade.diff_show_all")) +
+        "</button></div>"
+      : "";
+
   return (
     '<div class="field-label">' + esc(t("grade.diff_title")) + "</div>" +
     '<div class="inline-diff">' + rows.join("") + "</div>" +
+    more +
     '<div class="hint">' + esc(t("grade.diff_legend")) + "</div>"
   );
 }
@@ -1246,7 +1284,12 @@ function renderDetailPanel() {
   // issue #368 (2.е): ядро разбора — сравнение «Ожидалось / Получено». Для WA —
   // двухколоночно (на узкой панели колонки стекаются), плюс diff.
   if (c.verdict === "WA") {
-    h += renderInlineDiff(c.expected, c.actual);
+    h += renderInlineDiff(c.expected, c.actual, { full: state.diffShowAll });
+    // issue #968: сервер отдал только начало вывода — говорим об этом, иначе
+    // человек ищет расхождение в конце, которого на экране нет.
+    if (c.output_truncated) {
+      h += '<div class="hint">' + esc(t("grade.output_truncated")) + "</div>";
+    }
     // Сырой unified diff остаётся, но свёрнутым: выровненный разбор выше
     // отвечает на «чем именно отличается», а этот — для привычных к difflib.
     if (c.diff) {
@@ -1286,6 +1329,16 @@ function renderDetailPanel() {
   }
   h += '<div id="detail-actions" class="action-cards"></div>';
   content.innerHTML = h;
+  // issue #968: «показать всё» — осознанное решение человека рисовать длинный
+  // дифф целиком. Флаг живёт до смены кейса: снимается в selectCase, иначе
+  // следующий кейс с огромным выводом отрисовался бы без границы молча.
+  const showAll = $("#diff-show-all");
+  if (showAll) {
+    showAll.addEventListener("click", () => {
+      state.diffShowAll = true;
+      renderDetailPanel();
+    });
+  }
   const aiBtn = $("#ai-explain-btn");
   if (aiBtn) {
     aiBtn.addEventListener("click", () =>

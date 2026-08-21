@@ -79,6 +79,10 @@ def _poll_memory(
     backstop ``RLIMIT_AS`` (см. ``_linux.py``); на macOS поллинг —
     единственная линия обороны.
     """
+    # issue #996 (JRN-1-01): пик публикуется СРАЗУ, а не одной строкой на
+    # выходе из функции. Выход наступает после `stop`, а `join` вызывающей
+    # стороны ограничен по времени: не успел поток — замер терялся целиком.
+    # В `LocalRunner` тот же порядок делал пик нулевым ВСЕГДА (см. runner.py).
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
@@ -87,6 +91,7 @@ def _poll_memory(
                 rss = sample_tree_rss(ps_proc)
                 if rss > peak:
                     peak = rss
+                    peak_result[0] = peak
                 if rss > max_memory_mb:
                     exceeded.set()
                     proc.kill()
@@ -96,7 +101,6 @@ def _poll_memory(
             stop.wait(0.02)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
-    peak_result[0] = peak
 
 
 def build_minimal_env() -> dict[str, str]:

@@ -117,12 +117,14 @@ __all__ = [
     "compare",
     "create_issue",
     "create_pull",
+    "disable_auto_merge",
     "enable_auto_merge",
     "ensure_label",
     "ensure_quota",
     "graphql",
     "issue",
     "issue_comments",
+    "issues_with_label",
     "latest_checks_by_name",
     "list_pulls",
     "main",
@@ -1192,6 +1194,51 @@ def enable_auto_merge(
     enabled = data.get("enablePullRequestAutoMerge", {})
     result = enabled.get("pullRequest", {}) if isinstance(enabled, dict) else {}
     return result if isinstance(result, dict) else {}
+
+
+_DISABLE_AUTO_MERGE_MUTATION = """
+mutation($pullRequestId: ID!) {
+  disablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId}) {
+    pullRequest { number autoMergeRequest { enabledAt } }
+  }
+}
+"""
+
+
+def disable_auto_merge(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
+    """Выключить авто-мерж — обратная сторона :func:`enable_auto_merge`.
+
+    Живёт здесь по той же причине, что и включение: REST-эквивалента у
+    ``disablePullRequestAutoMerge`` нет, а короткая мутация стоит единицы
+    points против ~300 за ту же операцию через MCP-инструмент.
+
+    Зачем это нужно (issue #1303): метка ``merge-when-green`` — выраженное
+    согласие на мерж, и оно обязано быть **обратимым**. Снял метку — согласие
+    отозвано; если бы авто-мерж при этом оставался включённым, отозвать решение
+    было бы нечем, и PR уехал бы в ``main`` вопреки автору.
+
+    Raises:
+        GitHubError: у PR нет ``node_id`` — отвечать мутации нечем.
+    """
+    node_id = pull(repo, number, **kwargs).get("node_id")
+    if not node_id:
+        raise GitHubError(f"PR #{number}: GitHub не вернул node_id, выключать авто-мерж нечему")
+    data = graphql(_DISABLE_AUTO_MERGE_MUTATION, {"pullRequestId": str(node_id)}, **kwargs)
+    disabled = data.get("disablePullRequestAutoMerge", {})
+    result = disabled.get("pullRequest", {}) if isinstance(disabled, dict) else {}
+    return result if isinstance(result, dict) else {}
+
+
+def issues_with_label(repo: str, label: str, **kwargs: Any) -> list[dict[str, Any]]:
+    """Открытые issue и PR с указанной меткой (один запрос вместо перебора).
+
+    GitHub отдаёт PR через тот же эндпоинт issue, помечая их полем
+    ``pull_request`` — по нему вызывающая сторона и отличает одно от другого.
+    """
+    query = urllib.parse.urlencode({"labels": label, "state": "open", "per_page": 100})
+    data = _get(f"repos/{repo}/issues?{query}", **kwargs)
+    items = data if isinstance(data, list) else []
+    return [item for item in items if isinstance(item, dict)]
 
 
 def sub_issues(repo: str, number: int, **kwargs: Any) -> list[dict[str, Any]]:
