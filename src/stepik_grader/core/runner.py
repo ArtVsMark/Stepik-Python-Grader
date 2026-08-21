@@ -615,6 +615,25 @@ _SECRET_ENV_SUBSTRINGS: tuple[str, ...] = (
     "ACCESS_KEY",
     "PRIVATE_KEY",
     "CREDENTIAL",
+    # issue #996 (SEC-2-06): `AUTH` покрывает то, что списком «секретных слов»
+    # не ловилось вовсе — `SSH_AUTH_SOCK` и `XAUTHORITY`. Ни то, ни другое не
+    # содержит самого секрета, и именно поэтому опаснее: сокет ssh-агента даёт
+    # решению подписать что угодно ключами пользователя, не раскрывая ключ, а
+    # X-cookie — доступ к его дисплею. Утечка при этом невидима: ключ остаётся
+    # на месте, а подпись уже сделана.
+    "AUTH",
+)
+
+# Переменные, чьё имя ни о чём не говорит, но значение — тот же доступ:
+# путь к связке ключей GPG, конфиг кластера, адрес агента. Списком подстрок их
+# не выразить, не задев безобидных соседей, поэтому — точные имена.
+_SECRET_ENV_NAMES: frozenset[str] = frozenset(
+    {
+        "GNUPGHOME",
+        "GPG_AGENT_INFO",
+        "KUBECONFIG",
+        "SSH_AGENT_PID",
+    }
 )
 
 
@@ -625,8 +644,10 @@ def _scrub_secret_env(env: dict[str, str]) -> None:
     ОС-изоляции и наследует окружение грейдера (а под ``--serve`` без
     ``--sandbox`` — всё окружение сервера), но собственные секреты грейдера коду
     решения не нужны и не должны в него утекать. Убирается сконфигурированное имя
-    AI-ключа (``CONFIG.ai_api_key_env``, даже если оператор его переименовал) и
-    любая переменная, чьё имя содержит типовую секрет-подстроку. Sandbox-бэкенды
+    AI-ключа (``CONFIG.ai_api_key_env``, даже если оператор его переименовал),
+    любая переменная с типовой секрет-подстрокой в имени и отдельный список
+    точных имён — тех, где секрета в значении нет, а доступ есть: сокет
+    ssh-агента, X-cookie, связка GPG, конфиг кластера (issue #996, SEC-2-06). Sandbox-бэкенды
     чистят окружение целиком; здесь — консервативный denylist, чтобы не сломать
     project-import (см. ``supports_project_imports``).
     """
@@ -637,7 +658,12 @@ def _scrub_secret_env(env: dict[str, str]) -> None:
     # и устаревшее значение означает, что чистится не та переменная.
     ai_key_var = get_config().ai_api_key_env
     for name in list(env):
-        if name == ai_key_var or any(sub in name.upper() for sub in _SECRET_ENV_SUBSTRINGS):
+        upper = name.upper()
+        if (
+            name == ai_key_var
+            or upper in _SECRET_ENV_NAMES
+            or any(sub in upper for sub in _SECRET_ENV_SUBSTRINGS)
+        ):
             env.pop(name, None)
 
 
