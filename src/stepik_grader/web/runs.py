@@ -133,6 +133,14 @@ _JOBS_LOCK = threading.Lock()
 _executor: ThreadPoolExecutor | None = None
 _executor_lock = threading.Lock()
 
+# issue #971: авторизация живёт в СВОЁМ пуле. Она блокирует поток до двух минут
+# (ждёт, пока человек нажмёт кнопку в браузере), а пул проверок по умолчанию на
+# два воркера — две таких job'ы занимали его целиком, и «Проверить» переставала
+# отвечать, хотя грейдер простаивал. Один воркер: параллельных авторизаций не
+# бывает по смыслу — браузер и callback-порт всё равно одни.
+_auth_executor: ThreadPoolExecutor | None = None
+_auth_executor_lock = threading.Lock()
+
 
 def _get_executor() -> ThreadPoolExecutor:
     """Ленивый singleton (как ``config.get_config()``) — не создаёт пул
@@ -144,6 +152,16 @@ def _get_executor() -> ThreadPoolExecutor:
             if _executor is None:
                 _executor = ThreadPoolExecutor(max_workers=max(1, CONFIG.job_workers))
     return _executor
+
+
+def _get_auth_executor() -> ThreadPoolExecutor:
+    """Пул под блокирующую авторизацию — отдельный от пула проверок (issue #971)."""
+    global _auth_executor
+    if _auth_executor is None:
+        with _auth_executor_lock:
+            if _auth_executor is None:
+                _auth_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="grader-auth")
+    return _auth_executor
 
 
 def shutdown_jobs(*, wait: bool = False) -> None:
@@ -172,6 +190,13 @@ def shutdown_jobs(*, wait: bool = False) -> None:
         executor, _executor = _executor, None
     if executor is not None:
         executor.shutdown(wait=wait, cancel_futures=True)
+    # issue #971: второй пул гасится тем же заходом — иначе Ctrl+C оставлял бы
+    # висеть поток авторизации, ради которого и заводился shutdown_jobs.
+    global _auth_executor
+    with _auth_executor_lock:
+        auth_executor, _auth_executor = _auth_executor, None
+    if auth_executor is not None:
+        auth_executor.shutdown(wait=wait, cancel_futures=True)
 
 
 def _evict_overflow_locked() -> None:
@@ -293,13 +318,33 @@ def submit_job(
         # только терминальные, каждый результат живёт 15 мин).
         if _count_active_locked() >= max(1, CONFIG.max_active_runs):
             raise TooManyRunsError(CONFIG.max_active_runs)
+        # issue #971: вторая авторизация не ставится в очередь, а переиспользует
+        # текущую. Параллельных браузерных flow не бывает: браузер и
+        # callback-порт одни, вторая попытка упёрлась бы в занятый порт. Отдать
+        # уже идущую job'у честнее отказа — UI получает тот же run_id и
+        # продолжает следить за тем же процессом.
+        if kind == "auth":
+            running = _active_auth_job_locked()
+            if running is not None:
+                return running
         _JOBS[job.id] = job
         # issue #811: потолок реестра — ПОСЛЕ вставки, иначе он держался бы с
         # точностью до одной записи (вытеснили до предела, тут же добавили).
         # Только что вставленная job не терминальна, поэтому себя не вытеснит.
         _evict_overflow_locked()
-    job.future = _get_executor().submit(_run_job, job, kind, path, params, code, stdin, workspace)
+    # issue #971: авторизация уходит в свой пул — блокирующий OAuth не должен
+    # занимать воркеры, которыми считаются решения.
+    pool = _get_auth_executor() if kind == "auth" else _get_executor()
+    job.future = pool.submit(_run_job, job, kind, path, params, code, stdin, workspace)
     return job
+
+
+def _active_auth_job_locked() -> Job | None:
+    """Идущая auth-job'а, если она есть (issue #971). Вызывать под ``_JOBS_LOCK``."""
+    for existing in _JOBS.values():
+        if existing.kind == "auth" and existing.status not in _TERMINAL_STATUSES:
+            return existing
+    return None
 
 
 def get_job(run_id: str) -> Job | None:
@@ -654,6 +699,7 @@ def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:
     OAuth/requests-стека; в самом ``--serve`` он всё равно грузится через
     ``server.py`` (верхнеуровневый импорт).
     """
+    from stepik_grader.core.stepik_client import OAuthCancelled
     from stepik_grader.web import auth_adapter
 
     try:
@@ -662,7 +708,16 @@ def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:
             str(params["client_id"]),
             str(params["client_secret"]),
             str(params["redirect_uri"]),
+            cancel_event=job.cancel_event,
         )
+    except OAuthCancelled:
+        # issue #971: отмена — не сбой авторизации. Человек, сам нажавший
+        # «отмена», не должен читать сообщение о поломке; и `error` тут
+        # означал бы «повторите», хотя повторять нечего.
+        with job.lock:
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+        return
     except Exception as exc:
         with job.lock:
             job.status = "error"

@@ -3038,7 +3038,9 @@ class TestAuthApi:
 
         captured: dict[str, object] = {}
 
-        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+            # **kwargs: подмена не должна падать от новых необязательных
+            # параметров настоящей функции (issue #971 добавил cancel_event).
             captured["args"] = (client_id, client_secret, redirect_uri)
             return {"access_token": "t"}
 
@@ -3103,7 +3105,9 @@ class TestAuthApi:
 
         captured: dict[str, object] = {}
 
-        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+            # **kwargs: подмена не должна падать от новых необязательных
+            # параметров настоящей функции (issue #971 добавил cancel_event).
             captured["args"] = (client_id, client_secret, redirect_uri)
             return {"access_token": "t"}
 
