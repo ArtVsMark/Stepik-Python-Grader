@@ -156,7 +156,16 @@ def move_queue(
     outcome = Outcome()
     report = gh_rest.merge_queue(repo, **kwargs)
     if not report.ready:
-        outcome.say("готовых PR нет — двигать нечего")
+        # issue #1326: при красной базе очередь замирает, и «двигать нечего»
+        # звучало бы как «всё спокойно». Причина называется: иначе следующий
+        # разбор начнётся с вопроса, почему зелёные PR стоят.
+        if report.main_red:
+            outcome.say(
+                "последний прогон main красный — очередь заморожена; "
+                "двигается только PR с меткой blocker (тот, что чинит базу)"
+            )
+        else:
+            outcome.say("готовых PR нет — двигать нечего")
         return outcome
 
     for entry in report.ready:
