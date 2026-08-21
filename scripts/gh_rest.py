@@ -77,6 +77,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import shutil
 import ssl
 import subprocess
@@ -85,7 +86,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 __all__ = [
@@ -275,6 +276,11 @@ class PullSummary:
     # него нам недоступен. Из очереди он не выпадает — мержится как все, — но
     # обновлять его ветку должен владелец форка или мейнтейнер кнопкой.
     fork: bool = False
+    # issue #1326: метки и тело приходят в том же ответе списка, лишних
+    # запросов не стоят, а без них не вычислить приоритет: метка `blocker`
+    # живёт на PR, а остальная шкала наследуется от issue через `Closes #N`.
+    labels: tuple[str, ...] = ()
+    body: str = ""
 
     def describe(self) -> str:
         """Одна строка списка: номер, состояние, ветка, заголовок."""
@@ -761,6 +767,12 @@ def list_pulls(
             updated_at=str(item.get("updated_at", "")),
             sha=str(item.get("head", {}).get("sha", "")),
             fork=str(item.get("head", {}).get("repo", {}).get("full_name", "")) != repo,
+            labels=tuple(
+                str(label.get("name", ""))
+                for label in (item.get("labels") or [])
+                if isinstance(label, dict) and label.get("name")
+            ),
+            body=str(item.get("body") or ""),
         )
         for item in items
         if isinstance(item, dict)
@@ -823,6 +835,41 @@ def pull_files(repo: str, number: int, **kwargs: Any) -> list[str]:
     return sorted(str(item.get("filename", "")) for item in items if isinstance(item, dict))
 
 
+# issue #1326: шкала приоритета очереди. Порядок ровно тот, что записан в
+# CLAUDE.md, — механизм исполняет правило, а не пересказывает его своими
+# словами. Метки ставит владелец: `blocker` на PR означает «чинит красный
+# main», остальное наследуется от закрываемой задачи.
+PRIORITY_LABELS: tuple[str, ...] = (
+    "blocker",
+    "P0",
+    "priority-high",
+    "P1",
+    "priority-medium",
+    "P2",
+    "P3",
+)
+_DEFAULT_PRIORITY = len(PRIORITY_LABELS)
+
+# `Closes #12`, `fixes #12`, `resolve #12` — формы, которые GitHub понимает как
+# закрытие задачи. Приоритет наследуется по этой же связи: дублировать метку на
+# PR не нужно, а рассинхрону тогда неоткуда взяться.
+_CLOSES_RE = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)", re.IGNORECASE)
+
+
+def closes_issues(body: str) -> list[int]:
+    """Номера задач, которые PR закрывает по своему телу — без сети."""
+    return [int(number) for number in _CLOSES_RE.findall(body or "")]
+
+
+def priority_rank(labels: Iterable[str]) -> tuple[int, str]:
+    """Место в шкале и его обоснование; чем меньше число, тем раньше мержить."""
+    known = {label.lower(): label for label in labels}
+    for rank, name in enumerate(PRIORITY_LABELS):
+        if name.lower() in known:
+            return rank, f"приоритет {known[name.lower()]}"
+    return _DEFAULT_PRIORITY, "по готовности"
+
+
 @dataclasses.dataclass(frozen=True)
 class QueueEntry:
     """Один PR глазами очереди мержа."""
@@ -839,6 +886,11 @@ class QueueEntry:
     #: PR из форка: место в очереди у него обычное, а ветку из `main` за него
     #: не обновить — репозиторий чужой (issue #1287).
     fork: bool = False
+    #: Место в шкале приоритета: меньше — раньше (issue #1326).
+    priority: int = _DEFAULT_PRIORITY
+    #: Чем приоритет обоснован — метка или «по готовности». Показывается в
+    #: выводе: иначе порядок выглядит произвольным, как до #1326.
+    priority_reason: str = "по готовности"
 
     def describe(self, position: int, total_ahead: int) -> str:
         """Строка списка: место, номер, заголовок и что с ним делать."""
@@ -847,7 +899,8 @@ class QueueEntry:
         if self.overlaps:
             names = ", ".join(f"#{n}" for n in self.overlaps)
             shared = f" · общий файл с {names}"
-        return f"{position}. #{self.number}  {self.title}{head}{shared}"
+        why = "" if self.priority >= _DEFAULT_PRIORITY else f" · {self.priority_reason}"
+        return f"{position}. #{self.number}  {self.title}{head}{why}{shared}"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -880,15 +933,18 @@ class QueueReport:
 def queue_order(entries: list[QueueEntry]) -> list[QueueEntry]:
     """Порядок мержа среди готовых PR — чистая функция, без сети.
 
-    Правило порядка ровно то, что записано в ``CLAUDE.md``: сначала PR, у
-    которых есть общий файл с другим готовым (их конфликт вскроется всё равно,
-    и дешевле вскрыть его сразу), затем остальные по готовности — стабильно по
-    номеру, то есть кто раньше пришёл.
+    Правило порядка ровно то, что записано в ``CLAUDE.md``:
 
-    Приоритета «чинит красный ``main``» здесь нет намеренно: из REST он не
-    выводится, и угадывать его — значит ставить во главу очереди не тот PR.
-    Про красную ``main`` отчёт говорит отдельной строкой, а решение остаётся
-    человеку.
+    1. **приоритет** (issue #1326) — ``blocker``, затем ``P0``,
+       ``priority-high`` и далее по шкале :data:`PRIORITY_LABELS`. Метку ставит
+       владелец на задачу, а PR наследует её через ``Closes #N``;
+    2. **общий файл** с другим готовым PR: их конфликт вскроется всё равно, и
+       дешевле вскрыть его сразу;
+    3. **готовность** — стабильно по номеру, то есть кто раньше пришёл.
+
+    «Чинит красный ``main``» решается не здесь, а в :func:`merge_queue`: при
+    красной базе очередь не переупорядочивается, а **замирает** — двигать
+    можно только PR с меткой ``blocker``.
     """
     by_number = {entry.number: entry for entry in entries}
     linked: dict[int, list[int]] = {number: [] for number in by_number}
@@ -903,7 +959,14 @@ def queue_order(entries: list[QueueEntry]) -> list[QueueEntry]:
         dataclasses.replace(entry, overlaps=tuple(sorted(linked[entry.number])))
         for entry in entries
     ]
-    return sorted(marked, key=lambda entry: (0 if entry.overlaps else 1, entry.number))
+    # issue #1326: приоритет — первый ключ сортировки. До него порядок считался
+    # только по готовности, и срочный PR стоял в общей череде наравне с
+    # косметикой: владелец мог сколько угодно называть задачу приоритетной, на
+    # очередь это не влияло никак.
+    return sorted(
+        marked,
+        key=lambda entry: (entry.priority, 0 if entry.overlaps else 1, entry.number),
+    )
 
 
 def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
@@ -920,6 +983,10 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
     pulls = [item for item in list_pulls(repo, **kwargs) if not item.draft]
     entries: list[QueueEntry] = []
     waiting: list[QueueEntry] = []
+    # Метки закрываемых задач спрашиваются один раз на задачу: два PR могут
+    # закрывать одну и ту же, а лишний запрос здесь — это лишний запрос на
+    # каждом обходе очереди.
+    issue_labels: dict[int, tuple[str, ...]] = {}
     for item in pulls:
         total, completed, red = summarize_checks(pull_checks(repo, item.sha, **kwargs))
         if not total:
@@ -934,8 +1001,17 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
             )
         else:
             files = pull_files(repo, item.number, **kwargs)
+            rank, why = _priority_for(repo, item, issue_labels, **kwargs)
             entries.append(
-                QueueEntry(item.number, item.title, True, files=tuple(files), fork=item.fork)
+                QueueEntry(
+                    item.number,
+                    item.title,
+                    True,
+                    files=tuple(files),
+                    fork=item.fork,
+                    priority=rank,
+                    priority_reason=why,
+                )
             )
 
     runs = main_run(repo, **kwargs)
@@ -943,12 +1019,70 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
     busy = any(run.get("status") != "completed" for run in listed)
     done = [run for run in listed if run.get("status") == "completed"]
     red_main = bool(done) and done[0].get("conclusion") not in _OK_CONCLUSIONS
+    ordered = queue_order(entries)
+    if red_main:
+        # issue #1326: красный `main` — не «пропусти вперёд», а «очередь
+        # замирает». Мержить поверх сломанной базы нельзя вообще: проверки
+        # остальных всё равно пройдут на ней же. Двигаем только то, что её
+        # чинит, — это метка `blocker` на самом PR, потому что срочно здесь
+        # конкретное исправление, а не задача.
+        frozen = [entry for entry in ordered if "blocker" not in _entry_labels(entry, pulls)]
+        ordered = [entry for entry in ordered if entry not in frozen]
+        waiting.extend(
+            dataclasses.replace(
+                entry,
+                ready=False,
+                reason="красный main — очередь ждёт фикса (метка blocker двигает вне очереди)",
+            )
+            for entry in frozen
+        )
     return QueueReport(
-        ready=tuple(queue_order(entries)),
+        ready=tuple(ordered),
         waiting=tuple(sorted(waiting, key=lambda entry: entry.number)),
         main_busy=busy,
         main_red=red_main,
     )
+
+
+def _entry_labels(entry: QueueEntry, pulls: list[PullSummary]) -> tuple[str, ...]:
+    """Метки самого PR по уже полученному списку — без дополнительного запроса."""
+    for item in pulls:
+        if item.number == entry.number:
+            return item.labels
+    return ()
+
+
+def _priority_for(
+    repo: str,
+    item: PullSummary,
+    cache: dict[int, tuple[str, ...]],
+    **kwargs: Any,
+) -> tuple[int, str]:
+    """Приоритет PR: свои метки плюс метки задач, которые он закрывает.
+
+    Дублировать приоритет на PR не нужно (issue #1326): он живёт на задаче, где
+    и принимается решение о важности, а PR связан с ней строкой ``Closes #N``.
+    Одна пометка вместо двух — и рассинхрону неоткуда взяться. Исключение одно:
+    ``blocker`` на самом PR означает «чинит красный main», то есть срочность
+    конкретного исправления.
+    """
+    labels = list(item.labels)
+    for number in closes_issues(item.body):
+        if number not in cache:
+            try:
+                data = issue(repo, number, **kwargs)
+            except GitHubError:
+                # Задача недоступна (удалена, приватная, опечатка в номере) —
+                # это не повод ронять расчёт всей очереди.
+                cache[number] = ()
+            else:
+                cache[number] = tuple(
+                    str(label.get("name", ""))
+                    for label in (data.get("labels") or [])
+                    if isinstance(label, dict) and label.get("name")
+                )
+        labels.extend(cache[number])
+    return priority_rank(labels)
 
 
 def create_pull(
