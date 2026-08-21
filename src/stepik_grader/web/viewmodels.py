@@ -57,6 +57,16 @@ if TYPE_CHECKING:
 # «Модель error cards»).
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
+# issue #968: границы вывода кейса, уезжающего в браузер. Забытый выход из
+# цикла — типичная студенческая ошибка, и решение печатает десятки тысяч строк;
+# до 10 МБ такого вывода превращались в сотни тысяч DOM-узлов диффа. Порог
+# щедрый: он отсекает патологию, а не рабочие случаи (самый длинный вывод в
+# корпусе задач — десятки строк).
+_MAX_CASE_LINES = 2000
+# Отдельно от числа строк: одна строка на мегабайт вешает браузер не хуже
+# тысячи коротких, а `visibleWhitespace` ещё и раздувает её разметкой.
+_MAX_CASE_LINE_CHARS = 4000
+
 __all__ = [
     "estimate_run_count",
     "grade_benchmark",
@@ -245,6 +255,26 @@ def _queue_missing_concept(
         pass
 
 
+def _clip_output(lines: list[str] | None) -> tuple[str, bool]:
+    """Склеить вывод кейса для UI, обрезав патологию (issue #968).
+
+    Возвращает текст и признак усечения. Обрезаются оба измерения: число строк
+    и длина каждой строки — вешает браузер и то, и другое.
+
+    Усечение объявляется флагом, а не молчит: человек должен видеть, что смотрит
+    начало вывода, иначе будет искать несуществующее расхождение в конце.
+    """
+    rows = lines or []
+    clipped = [
+        line if len(line) <= _MAX_CASE_LINE_CHARS else line[:_MAX_CASE_LINE_CHARS]
+        for line in rows[:_MAX_CASE_LINES]
+    ]
+    truncated = len(rows) > _MAX_CASE_LINES or any(
+        len(line) > _MAX_CASE_LINE_CHARS for line in rows[:_MAX_CASE_LINES]
+    )
+    return "\n".join(clipped), truncated
+
+
 def _case_view(
     index: int,
     case: CaseResult,
@@ -258,7 +288,7 @@ def _case_view(
     error = case.get("error", "")
     verdict = case.get("verdict") or ("RE" if error else "?")
     passed = bool(case.get("passed"))
-    actual = "\n".join(case.get("output") or [])
+    actual, actual_truncated = _clip_output(case.get("output"))
 
     # issue #72/#356: карточка ошибки — тип исключения, пояснение и якорь
     # карточки СВОЕГО глоссария (issue #684 — наружу не ссылаемся); из общей
@@ -277,6 +307,9 @@ def _case_view(
         "diff": "" if passed else case.get("diff", ""),
         "stdin": stdin,
         "actual": actual,
+        # issue #968: поле появляется только когда усечение случилось —
+        # молчаливое отсутствие означает «вывод целиком», как и раньше.
+        **({"output_truncated": True} if actual_truncated else {}),
         "actions": _error_card_actions(
             verdict=verdict, stdin=stdin, actual=actual, glossary_ids=glossary_ids
         ),
@@ -310,7 +343,10 @@ def _case_view(
         view["suggestions"] = suggestions
 
     if verdict == "WA":
-        view["expected"] = "\n".join(case.get("expected") or [])
+        expected_text, expected_truncated = _clip_output(case.get("expected"))
+        view["expected"] = expected_text
+        if expected_truncated:
+            view["output_truncated"] = True
     if verdict in ("RE", "TLE"):
         view["stderr"] = error
         view["exit_code"] = case.get("exit_code")
@@ -732,6 +768,7 @@ def grade_path(
     workspace: pathlib.Path | None = None,
     timeout: float | None = None,
     max_memory_mb: int | None = None,
+    display_path: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
@@ -749,11 +786,32 @@ def grade_path(
     проверяется перед каждым решением (симметрично ``grade_benchmark``).
     Используются, когда режим 1 идёт через async job (``web/runs.py``,
     ``kind="tests"``) с кодом в теле — прогресс тикает раз на тест-кейс.
+
+    ``display_path`` — чем подписывать результат, если исполнялся не тот файл,
+    который выбрал пользователь (issue #1211). Режим 1 с кодом в теле грейдит
+    временный файл рядом с задачей (#297 — чтобы не было гонки ``save → grade``),
+    и подпись ``tmpXXXXXX.py`` обесценивала верный вердикт: по ней человек и
+    убеждается, что проверено выбранное им решение. Подменяется ТОЛЬКО подпись —
+    путь исполнения остаётся настоящим, он нужен диагностике.
     """
     resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
         return resolved
     kind, base, solutions = resolved
+
+    def _shown(sol: pathlib.Path) -> str:
+        """Подпись решения: выбранный пользователем файл, если он известен.
+
+        Отдельный случай — код из редактора без выбранного файла: грейдится
+        папка задачи, то есть ``display_path`` совпадает с ``base``, и
+        относительный путь вырождается в ``"."``. На экране точка не значит
+        ничего, поэтому папка подписывается своим именем — оно и отвечает на
+        вопрос «что проверено».
+        """
+        if display_path is None:
+            return _rel(sol, base)
+        shown = _rel(display_path, base)
+        return display_path.name if shown == "." else shown
 
     rows: list[dict[str, Any]] = []
     graded: list[tuple[pathlib.Path, SolutionResult]] = []  # issue #395: для истории
@@ -762,7 +820,7 @@ def grade_path(
             break
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not test_dir.is_dir():
-            rows.append({"file": _rel(sol, base), "status": "NO TESTS", "passed": 0, "total": 0})
+            rows.append({"file": _shown(sol), "status": "NO TESTS", "passed": 0, "total": 0})
             continue
         res = run_tests(
             sol,
@@ -788,7 +846,7 @@ def grade_path(
         # уже есть свой stdin), zip(strict=True) с рассинхроном не нужен.
         rows.append(
             {
-                "file": _rel(sol, base),
+                "file": _shown(sol),
                 "status": status,
                 "passed": res["passed"],
                 "total": res["total"],
@@ -800,7 +858,7 @@ def grade_path(
                         i,
                         c,
                         stdin=c.get("stdin", ""),
-                        source=_rel(sol, base),
+                        source=_shown(sol),
                         missing_queue_path=missing_queue_path,
                         lang=lang,
                     )
@@ -820,7 +878,7 @@ def grade_path(
                 history_recording.cases_from_test_results(res["cases"]),
                 task_key=_task_key(sol.parent, workspace),
                 task_title=sol.parent.name,
-                solution_name=sol.name,
+                solution_name=(display_path or sol).name,
                 solution_hash=hash_solution(sol),
                 duration_s=res["total_time"],
                 lint_records=_web_lint_records([sol]) or None,

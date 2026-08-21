@@ -14,7 +14,7 @@ import contextlib
 import json
 import pathlib
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from stepik_grader.web import auth_adapter, runs
 from stepik_grader.web.commands import filter_commands
@@ -278,7 +278,12 @@ class _ApiRoutesMixin(_GuardMixin):
         self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
 
     def _get_glossary_card(self, parsed: Any, lang: str) -> None:
-        card_id = parsed.path[len("/api/glossary/") :]
+        # issue #969: путь берётся из запроса ЗАКОДИРОВАННЫМ. У карточек есть
+        # кириллические id («остаток», «срез»), фронтенд шлёт их через
+        # encodeURIComponent, и без декодирования сервер искал строку
+        # «%D0%BE%D1%81…» — то есть прямая ссылка на такую карточку не работала
+        # вовсе. Путь здесь не файловый (id ищется в базе), обхода каталогов нет.
+        card_id = unquote(parsed.path[len("/api/glossary/") :])
         card = glossary_get(card_id, lang=lang)
         if card is None:
             self._send(
@@ -350,7 +355,9 @@ class _ApiRoutesMixin(_GuardMixin):
         self._send(200, "application/json; charset=utf-8", _json(progress_report()))
 
     def _get_rule_card(self, parsed: Any, lang: str) -> None:
-        code = parsed.path[len("/api/rules/") :]
+        # issue #969: коды правил ASCII, но декодируем по той же причине —
+        # чтобы соседние эндпоинты не расходились в обращении с путём.
+        code = unquote(parsed.path[len("/api/rules/") :])
         card = rules_get(code)
         if card is None:
             self._send(

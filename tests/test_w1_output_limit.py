@@ -43,7 +43,11 @@ def test_budget_without_limit_passes_everything() -> None:
 
 
 def test_budget_splits_chunk_at_the_boundary() -> None:
-    """Чанк, пересекающий границу, обрезается ровно по остатку бюджета."""
+    """Чанк, пересекающий границу, обрезается по остатку бюджета.
+
+    Переводов строки в этих данных нет, поэтому срез идёт ровно по остатку
+    (issue #996, MTX-9-01: граница строки соблюдается там, где она есть).
+    """
     budget = _OutputBudget(10)
 
     assert budget.take(b"abc") == b"abc"
@@ -351,3 +355,30 @@ def test_microbench_caps_solution_stderr(monkeypatch) -> None:
     # Бюджет общий на stdout+stderr; сверх лимита приезжает только пометка.
     assert len(outcome.stdout) + len(outcome.stderr) <= 20_000 + 200
     assert "вывод обрезан" in outcome.stderr.decode("utf-8", errors="replace")
+
+
+# ---------------------------------------------------------------------------
+# MTX-9-01 (issue #996) — обрезка не порождает псевдо-строку
+# ---------------------------------------------------------------------------
+
+
+def test_budget_cuts_at_a_line_boundary() -> None:
+    """Остаток бюджета режется по последнему переводу строки, а не посреди неё.
+
+    Обрыв на произвольном байте даёт огрызок, неотличимый от настоящей строки:
+    сравнение видит не «вывод обрезан», а другое содержимое, и пользователь
+    получает WA по строке, которой решение не печатало.
+    """
+    budget = _OutputBudget(10)
+
+    # В бюджет влезли бы «раз\nдва\nтр», но «тр» — половина строки.
+    assert budget.take("раз\nдва\nтри\n".encode()) == "раз\n".encode()
+    assert budget.truncated is True
+
+
+def test_budget_keeps_a_chunk_without_newlines() -> None:
+    """Перевода строки в куске нет — отдаём срез: это лучше пустого вывода."""
+    budget = _OutputBudget(4)
+
+    assert budget.take(b"abcdefgh") == b"abcd"
+    assert budget.truncated is True

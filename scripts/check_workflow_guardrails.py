@@ -37,10 +37,13 @@ __all__ = [
     "GITHUB_RELEASE_JOB",
     "VERIFY_JOB",
     "check_ci_listens_to_ready_for_review",
+    "check_consent_workflow_uses_its_own_token",
     "check_coverage_gate_is_explicit",
     "check_every_job_has_a_timeout",
+    "check_pr_opener_uses_its_own_token",
     "check_queue_mover_uses_its_own_token",
     "check_release_gates_match_promises",
+    "check_release_notes_are_translated",
     "check_release_pipeline",
     "check_release_publishes_verified_assets",
     "extract_job",
@@ -53,6 +56,8 @@ _WORKFLOWS = _ROOT / ".github" / "workflows"
 _CI = _WORKFLOWS / "ci.yml"
 _RELEASE = _WORKFLOWS / "release.yml"
 _QUEUE_MOVER = _WORKFLOWS / "merge-queue.yml"
+_PR_OPENER = _WORKFLOWS / "agent-pr.yml"
+_CONSENT = _WORKFLOWS / "merge-when-green.yml"
 
 # Порог per-OS гейта покрытия (issue #954). Держится синхронно с флагом
 # `--cov-fail-under` в шаге `Run tests`; cross-OS агрегат строже (90) и живёт
@@ -187,6 +192,40 @@ def check_release_gates_match_promises(errors: list[str], source: str | None = N
         )
 
     print(f"release gates: job '{VERIFY_JOB}' держит обещания документации.")
+
+
+def check_release_notes_are_translated(errors: list[str], source: str | None = None) -> None:
+    """Перед публикацией стоит отказ на непереведённых записях (issue #1290).
+
+    Английский вклад принимается как есть, а русскую запись CHANGELOG делает
+    мержащий — значит, пропуск перевода стал штатным способом ошибиться, и
+    ловить его обязан механизм, а не память. Место у гейта одно: ``verify``, от
+    которого зависят оба публикующих job'а. Проверка требует ИМЕННО ``--strict``:
+    без него скрипт печатает предупреждение и возвращает 0 — на PR это верно, а
+    на релизе означало бы гейт, который ничего не держит.
+    """
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — гейт перевода не проверен")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    verify = "\n".join(extract_job(source, VERIFY_JOB))
+    if "check_changelog_translated.py" not in verify:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: нет запуска check_changelog_translated.py. "
+            "Непереведённая запись уедет в GitHub Release и на PyPI, где версия "
+            "неперезаписываема."
+        )
+        return
+    if "check_changelog_translated.py --strict" not in verify:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: check_changelog_translated.py зовётся без --strict. "
+            "Без него гейт возвращает 0 и публикацию не останавливает."
+        )
+        return
+
+    print(f"release gates: job '{VERIFY_JOB}' отвергает непереведённые записи.")
 
 
 def check_ci_listens_to_ready_for_review(errors: list[str], source: str | None = None) -> None:
@@ -389,8 +428,9 @@ def check_queue_mover_uses_its_own_token(errors: list[str], source: str | None =
     step = _update_step(source)
     if step is None:
         errors.append(
-            f"{_QUEUE_MOVER.name}: не найден шаг с 'update-branch'. Если его "
-            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+            f"{_QUEUE_MOVER.name}: не найден шаг, двигающий очередь "
+            "(move_merge_queue.py или update-branch). Если его переименовали — "
+            "обновите эту проверку, иначе она сторожит пустоту"
         )
         return
 
@@ -407,11 +447,99 @@ def check_queue_mover_uses_its_own_token(errors: list[str], source: str | None =
         )
 
 
-def _update_step(source: str) -> str | None:
-    """Текст шага, который зовёт ``update-branch``; ``None`` — такого шага нет."""
+def check_pr_opener_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Открыватель PR ходит своим токеном, а не штатным ``GITHUB_TOKEN`` (issue #1302).
+
+    Смысл открывателя ровно один: автором PR должен стать человек, потому что
+    squash атрибутирует итоговый коммит автору pull request. С ``GITHUB_TOKEN``
+    автором станет бот — и гейт ``check_pr_ready.py`` откажется мержить,
+    то есть механизм сломается именно в том месте, ради которого заведён, и
+    молча: PR откроется, проверки пройдут, а очередь встанет.
+    """
+    if source is None:
+        if not _PR_OPENER.is_file():
+            errors.append(f"{_PR_OPENER.name}: файла нет — открыватель PR не проверен")
+            return
+        source = _PR_OPENER.read_text(encoding="utf-8")
+
+    step = _step_calling(source, "open_agent_prs.py")
+    if step is None:
+        errors.append(
+            f"{_PR_OPENER.name}: не найден шаг с 'open_agent_prs.py'. Если его "
+            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_PR_OPENER.name}: PR открывается штатным GITHUB_TOKEN — автором станет "
+            "бот, и мерж-гейт такой PR не пропустит. Нужен отдельный токен"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_PR_OPENER.name}: шаг открытия PR не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
+def check_consent_workflow_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Авто-мерж по метке включается НЕ штатным ``GITHUB_TOKEN`` (issue #1303).
+
+    ``GITHUB_TOKEN`` не имеет прав включать авто-мерж на чужом PR, и отказ
+    выглядит буднично: шаг зелёный, метка стоит, PR не уезжает. То есть беда
+    снова маскируется под нормальную работу — тот же класс, что у открывателя
+    PR и двигателя очереди.
+    """
+    if source is None:
+        if not _CONSENT.is_file():
+            errors.append(f"{_CONSENT.name}: файла нет — авто-мерж по метке не проверен")
+            return
+        source = _CONSENT.read_text(encoding="utf-8")
+
+    step = _step_calling(source, "merge_when_green.py")
+    if step is None:
+        errors.append(
+            f"{_CONSENT.name}: не найден шаг с 'merge_when_green.py'. Если его "
+            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_CONSENT.name}: авто-мерж включается штатным GITHUB_TOKEN — прав не "
+            "хватит, шаг останется зелёным, а PR не уедет. Нужен отдельный токен"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_CONSENT.name}: шаг не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
+def _step_calling(source: str, needle: str) -> str | None:
+    """Текст шага, который зовёт ``needle``; ``None`` — такого шага нет."""
     steps = re.split(r"^      - ", source, flags=re.MULTILINE)
     for step in steps[1:]:
-        if "update-branch" in step:
+        if needle in step:
+            return step
+    return None
+
+
+def _update_step(source: str) -> str | None:
+    """Текст шага, который двигает очередь; ``None`` — такого шага нет.
+
+    issue #1313: обновление переехало из YAML в ``move_merge_queue.py`` — он
+    обходит конфликтный PR вместо того, чтобы ронять прогон. Ищем оба вызова:
+    имя скрипта и прямой ``update-branch``, если он однажды вернётся. Строка
+    ``run:`` обязательна — иначе шагом-обновлением считался бы соседний, у
+    которого имя механизма всего лишь упомянуто в комментарии.
+    """
+    steps = re.split(r"^      - ", source, flags=re.MULTILINE)
+    for step in steps[1:]:
+        commands = "\n".join(
+            line for line in step.splitlines() if not line.lstrip().startswith("#")
+        )
+        if "move_merge_queue.py" in commands or "update-branch" in commands:
             return step
     return None
 
@@ -422,11 +550,14 @@ def main() -> int:
 
     check_release_pipeline(errors)
     check_release_gates_match_promises(errors)
+    check_release_notes_are_translated(errors)
     check_ci_listens_to_ready_for_review(errors)
     check_coverage_gate_is_explicit(errors)
     check_release_publishes_verified_assets(errors)
     check_every_job_has_a_timeout(errors)
     check_queue_mover_uses_its_own_token(errors)
+    check_pr_opener_uses_its_own_token(errors)
+    check_consent_workflow_uses_its_own_token(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
