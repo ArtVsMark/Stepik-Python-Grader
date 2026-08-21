@@ -81,7 +81,9 @@ __all__ = [
     "latest_by_name",
     "main",
     "main_branch_blockers",
+    "metadata_blockers",
     "pending_runs",
+    "pull_labels",
     "queue_blockers",
     "workflows_running_on_pull_requests",
 ]
@@ -256,6 +258,70 @@ def bot_author_blockers(pull: dict[str, Any]) -> list[str]:
     return []
 
 
+# issue #1329: метки конвейера ставит и снимает автоматика — они про поведение
+# очереди, а не про содержание работы, и требовать их от автора незачем.
+_PIPELINE_LABELS = frozenset({"merge-when-green", "hold", "needs-rebase", "blocker"})
+
+# Тип работы: та же шкала, что у issue (CLAUDE.md § Метки при заведении issue).
+_TYPE_LABELS = frozenset(
+    {"bug", "enhancement", "documentation", "tech-debt", "security", "refactor"}
+)
+
+# Явное освобождение от связи с задачей: не каждый PR закрывает issue, и
+# правило не должно порождать пустышки ради формальности. Отличие явного от
+# забытого в том, что его видно.
+_NO_ISSUE_RE = re.compile(r"^\s*Без issue:\s*\S", re.IGNORECASE | re.MULTILINE)
+_CLOSES_RE = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#\d+", re.IGNORECASE)
+
+
+def pull_labels(pull: dict[str, Any]) -> set[str]:
+    """Имена меток PR из ответа REST."""
+    return {
+        str(label.get("name", ""))
+        for label in (pull.get("labels") or [])
+        if isinstance(label, dict) and label.get("name")
+    }
+
+
+def metadata_blockers(pull: dict[str, Any]) -> list[str]:
+    """Чего PR не хватает по правилу разметки (issue #1329).
+
+    Правило про метки было записано только для issue, и на PR их не было:
+    замер по двенадцати открытым — навигационные метки у четырёх, связь с
+    задачей у четырёх. Машина метила PR исправнее человека.
+
+    Вредит это трижды. PR без ``Closes #N`` не закрывает задачу при мерже —
+    трекер начинает врать. Приоритет очереди наследуется по той же связи
+    (issue #1326), и без неё брать его неоткуда. И зона работы (``area/*``)
+    видна до чтения диффа только по метке.
+
+    PR из форка — предупреждение, а не отказ: внешний контрибьютор не обязан
+    знать про наши метки, их проставит мейнтейнер при разборе. Здесь такой PR
+    просто пропускается: гейт про мерж, а не про воспитание.
+    """
+    raw_head = pull.get("head")
+    head: dict[str, Any] = raw_head if isinstance(raw_head, dict) else {}
+    raw_repo = head.get("repo")
+    repo: dict[str, Any] = raw_repo if isinstance(raw_repo, dict) else {}
+    if repo.get("fork"):
+        return []
+
+    reasons: list[str] = []
+    labels = pull_labels(pull) - _PIPELINE_LABELS
+    if not any(label.startswith("area/") for label in labels):
+        reasons.append("нет метки area/* — по ней видно зону работы до чтения диффа")
+    if not (labels & _TYPE_LABELS):
+        kinds = ", ".join(sorted(_TYPE_LABELS))
+        reasons.append(f"нет метки типа работы (одна из: {kinds})")
+    body = str(pull.get("body") or "")
+    if not _CLOSES_RE.search(body) and not _NO_ISSUE_RE.search(body):
+        reasons.append(
+            "в теле нет ни «Closes #N», ни строки «Без issue: <причина>» — "
+            "без связи задача не закроется при мерже, а приоритет очереди брать неоткуда"
+        )
+    return reasons
+
+
 def evaluate(
     pull: dict[str, Any],
     workflow_runs: dict[str, Any],
@@ -276,6 +342,7 @@ def evaluate(
     if pull.get("draft"):
         reasons.append("PR — черновик")
     reasons.extend(bot_author_blockers(pull))
+    reasons.extend(metadata_blockers(pull))
     mergeable_state = pull.get("mergeable_state")
     if mergeable_state not in {"clean", "unstable", "has_hooks"}:
         reasons.append(f"ветка не готова к мержу (mergeable_state={mergeable_state})")

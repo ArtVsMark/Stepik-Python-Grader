@@ -188,6 +188,78 @@ def test_measure_peak_memory_unreliable_warning_deduped_across_calls(
     assert len(unreliable) == 1, unreliable
 
 
+def test_measure_peak_memory_is_published_before_the_thread_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Пик виден вызывающей стороне ПОКА поток ещё работает (issue #996).
+
+    Замер копился в локальной переменной и попадал в ``result`` одной строкой
+    на выходе из функции — а выход наступает только после ``stop.set()``,
+    который ``LocalRunner`` ставит уже ПОСЛЕ сборки ``RunOutcome``. Вердикт
+    поэтому читал ноль всегда, при любой памяти решения. Заглушка запоминает,
+    что видел бы вызывающий в момент каждого замера: со второго он обязан
+    видеть пик, а не ноль.
+    """
+    import types
+
+    from stepik_grader.core import runner
+
+    result: list[float] = [0.0]
+    stop = threading.Event()
+    seen_by_caller: list[float] = []
+    samples = iter([12.0, 48.0])
+
+    class _Sampled:
+        def memory_info(self) -> Any:
+            seen_by_caller.append(result[0])
+            rss_mb = next(samples, None)
+            if rss_mb is None:  # замеры кончились — так же обрывается и реальный процесс
+                stop.set()
+                rss_mb = 0.0
+            return types.SimpleNamespace(rss=int(rss_mb * 1024 * 1024))
+
+        def children(self, recursive: bool = False) -> list[Any]:
+            return []
+
+    monkeypatch.setattr(runner.psutil, "Process", lambda pid: _Sampled())
+
+    runner._measure_peak_memory(_FakeProc(), result, stop)
+
+    assert seen_by_caller[0] == 0.0, "до первого замера показывать нечего"
+    assert seen_by_caller[1] == pytest.approx(12.0), (
+        "первый замер обязан быть опубликован сразу: RunOutcome читает result[0] "
+        "до того, как поток остановлен"
+    )
+    assert result[0] == pytest.approx(48.0), "в result остаётся максимум, а не последний замер"
+
+
+def test_local_runner_reports_peak_memory_of_a_hungry_solution(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Сквозной путь: память, занятая решением, доходит до ``RunOutcome``.
+
+    Модульного теста мало — дефект был в стыке потока и сборки результата, а
+    не в самом замере: ``_run_with_polling`` читает ``result[0]`` раньше, чем
+    поток успевал что-либо туда записать. Прогон целиком отдавал 0.0 на
+    решении, занявшем 24 МБ.
+    """
+    path = tmp_path / "hungry.py"
+    path.write_text(
+        "import time\ndata = bytearray(24 * 1024 * 1024)\ntime.sleep(0.2)\nprint(len(data))\n",
+        encoding="utf-8",
+    )
+    spec = RunSpec(path=path, stdin=None, timeout=30.0, measure_memory=True)
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.timed_out is False
+    assert outcome.returncode == 0, outcome.stderr
+    assert outcome.peak_memory_mb > 0.0, "нулевой пик у живого процесса — это потерянный замер"
+    assert outcome.peak_memory_mb > 20.0, (
+        "24 МБ, занятые решением, обязаны попасть в пик, а не потеряться в округлении"
+    )
+
+
 # ---------------------------------------------------------------------------
 # sample_tree_rss — суммарный RSS процесса + потомков (issue #556)
 # ---------------------------------------------------------------------------

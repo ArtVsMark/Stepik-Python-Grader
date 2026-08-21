@@ -664,6 +664,20 @@ git commit --amend --trailer "Co-Authored-By: Artem Markitanov <86671904+ArtVsMa
 Плюс тип по смыслу (`enhancement`/`bug`/`tech-debt`/`security`/`documentation`).
 Канон и расшифровка меток — [CONTRIBUTING.md § Метки при заведении issue](CONTRIBUTING.md).
 
+**На PR метки тоже обязательны — и это проверяется, а не подразумевается.**
+`area/*`, тип работы и связь с задачей: строка `Closes #N` либо явное
+освобождение `Без issue: <причина>`. Отказывает `check_pr_ready.py`, называя,
+чего именно нет. Метки конвейера (`merge-when-green`, `hold`, `needs-rebase`,
+`blocker`) под правило не подпадают — их ставит автоматика, они про очередь, а
+не про содержание. PR из форка — предупреждение, а не отказ: внешний участник
+не обязан знать наши метки, их проставит мержащий.
+
+Зачем это нужно: PR без `Closes #N` не закрывает задачу при мерже (трекер
+начинает врать), приоритет очереди наследуется по той же связи (§ Гейты), а
+`area/*` показывает зону работы до чтения диффа. Замер, из которого выросло
+правило: из двенадцати открытых PR метки были у четырёх и связь с задачей — у
+четырёх; машина метила PR исправнее человека.
+
 **Комплексный issue (от трёх находок) ведёт чек-лист, а не перечисление скопом.**
 Галочка ставится тем же заходом, что и мерж закрывающего PR, и называет исход —
 номер PR или причину отклонения; отклонённая находка отмечается зачёркнутой,
@@ -792,6 +806,7 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | Режим ответов: полный шаблон 18 ролей, критерий приёмки новой роли | [docs/agent/roles.md](docs/agent/roles.md) |
 | Веб: разделы интерфейса / контракты веб-слоя / HTTP API / замыслы | [docs/use/web-interface.md](docs/use/web-interface.md), [docs/dev/web-contracts.md](docs/dev/web-contracts.md), [docs/dev/api.md](docs/dev/api.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md) |
 | Гейты перед пушем и мержем: что проверяют и из каких инцидентов выросли | [docs/agent/preflight.md](docs/agent/preflight.md) |
+| Диспетчер и ремонтное окно: состояния окна, признаки бесхозной работы, границы ремонта | [docs/agent/dispatcher.md](docs/agent/dispatcher.md) |
 | Очередь работ после крупного аудита (пустая — норма) | [docs/agent/claude-handoff.md](docs/agent/claude-handoff.md) |
 | Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
 | Полный аудит v1.9.0 (архив) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
