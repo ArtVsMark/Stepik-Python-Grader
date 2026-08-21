@@ -787,6 +787,7 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | Режим ответов: полный шаблон 18 ролей, критерий приёмки новой роли | [docs/agent/roles.md](docs/agent/roles.md) |
 | Веб: разделы интерфейса / контракты веб-слоя / HTTP API / замыслы | [docs/use/web-interface.md](docs/use/web-interface.md), [docs/dev/web-contracts.md](docs/dev/web-contracts.md), [docs/dev/api.md](docs/dev/api.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md) |
 | Гейты перед пушем и мержем: что проверяют и из каких инцидентов выросли | [docs/agent/preflight.md](docs/agent/preflight.md) |
+| Диспетчер и ремонтное окно: состояния окна, признаки бесхозной работы, границы ремонта | [docs/agent/dispatcher.md](docs/agent/dispatcher.md) |
 | Очередь работ после крупного аудита (пустая — норма) | [docs/agent/claude-handoff.md](docs/agent/claude-handoff.md) |
 | Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
 | Полный аудит v1.9.0 (архив) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
