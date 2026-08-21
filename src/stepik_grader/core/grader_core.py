@@ -356,7 +356,7 @@ def _prepare_run_spec(
     логика в одном месте, тестируемая без реального subprocess-запуска.
     """
     # issue #641: per-run memory-override (из API limits); None → дефолт CONFIG.
-    mem_cap = CONFIG.max_memory_mb if max_memory_mb is None else max_memory_mb
+    mem_cap = get_config().max_memory_mb if max_memory_mb is None else max_memory_mb
     if case.test_type != "function":
         stdin_data = "\n".join(case.input_lines) + "\n"
         return _RunPlan(

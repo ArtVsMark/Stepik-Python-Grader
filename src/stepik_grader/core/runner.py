@@ -47,7 +47,7 @@ try:
 except ImportError:
     resource = None  # type: ignore[assignment]
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import get_config
 from stepik_grader.core import spawn
 
 __all__ = [
@@ -501,7 +501,12 @@ def _scrub_secret_env(env: dict[str, str]) -> None:
     чистят окружение целиком; здесь — консервативный denylist, чтобы не сломать
     project-import (см. ``supports_project_imports``).
     """
-    ai_key_var = CONFIG.ai_api_key_env
+    # issue #996 (LNCH-3-03): имя переменной читается в момент ВЫЗОВА.
+    # `CONFIG` связан на импорте, а `override_config()` (флаги CLI, `--config`)
+    # создаёт НОВЫЙ объект — прежний остаётся со старым значением. Здесь это
+    # не косметика: по этому имени из окружения решения вычищается ключ AI,
+    # и устаревшее значение означает, что чистится не та переменная.
+    ai_key_var = get_config().ai_api_key_env
     for name in list(env):
         if name == ai_key_var or any(sub in name.upper() for sub in _SECRET_ENV_SUBSTRINGS):
             env.pop(name, None)
