@@ -130,6 +130,10 @@ _ISSUE_TAIL_RE = re.compile(r"#\d+(?:\.\d+)?")
 # docs/agent/ — указатели вроде roadmap-issue. Снижать при чистке, не повышать:
 # рост бюджета означает, что журнал снова пополз в объясняющий текст.
 _DESIGN_TAIL_BUDGET = 22
+#: Первая строка файла, собранного скриптом: номера задач в нём — данные
+#: (след правила), а не рабочий журнал (issue #1342).
+_GENERATED_MARKER = "<!-- СГЕНЕРИРОВАНО"
+
 _AGENT_TAIL_BUDGET = 6
 
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
@@ -515,7 +519,12 @@ def check_issue_tail_policy(errors: list[str]) -> None:
       требования к sandbox, на которые ADR-0008 ссылается поштучно). Лимит
       ``_DESIGN_TAIL_BUDGET`` не даёт этой зоне снова обрасти журналом;
     * ``CLAUDE.md`` и ``docs/agent/`` — агентский контракт; лимит
-      ``_AGENT_TAIL_BUDGET`` оставляет место указателям вроде roadmap-issue.
+      ``_AGENT_TAIL_BUDGET`` оставляет место указателям вроде roadmap-issue;
+    * **сгенерированные файлы** (issue #1342) — там номера не текст, а данные:
+      указатель правил собирается из следов каталога, и след — это и есть
+      ссылка на задачу. Править такой файл руками нельзя, значит и «вынести
+      журнал в CHANGELOG» в нём невозможно: лимит ловил бы генератор, а не
+      автора. Признак — маркер ``СГЕНЕРИРОВАНО`` в первой строке.
 
     Всё остальное (``docs/use/``, ``docs/dev/*.md``, ``README``, ``SECURITY``,
     ``CONTRIBUTING``) должно держать ноль.
@@ -529,11 +538,17 @@ def check_issue_tail_policy(errors: list[str]) -> None:
 
     zone_totals: dict[str, int] = {}
     checked = 0
+    generated = 0
     for md in collect_markdown_files():
         rel = md.relative_to(_ROOT).as_posix()
         if any(rel == z or rel.startswith(z) for z in free_zones):
             continue
-        tails = _ISSUE_TAIL_RE.findall(md.read_text(encoding="utf-8"))
+        text = md.read_text(encoding="utf-8")
+        # issue #1342: файл собран скриптом — номера в нём данные, а не журнал.
+        if text.lstrip().startswith(_GENERATED_MARKER):
+            generated += 1
+            continue
+        tails = _ISSUE_TAIL_RE.findall(text)
         zone = next((z for z in budgeted if rel == z or rel.startswith(z)), None)
         if zone is not None:
             zone_totals[zone] = zone_totals.get(zone, 0) + len(tails)
@@ -558,6 +573,7 @@ def check_issue_tail_policy(errors: list[str]) -> None:
     print(
         f"issue-tail policy: {checked} explanatory file(s) at zero; "
         + ", ".join(f"{z} {zone_totals.get(z, 0)}/{b}" for z, b in budgeted.items())
+        + (f"; {generated} generated file(s) skipped" if generated else "")
     )
 
 
