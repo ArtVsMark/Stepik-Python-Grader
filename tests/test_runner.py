@@ -943,3 +943,44 @@ def test_orphan_of_a_normally_finished_solution_is_killed(tmp_path: pathlib.Path
     assert not psutil.pid_exists(grandchild), (
         "внук пережил прогон — процесс копится на каждом кейсе"
     )
+
+
+# ---------------------------------------------------------------------------
+# INS-2-03 (issue #996) — сломанное окружение не роняет весь грейдер
+# ---------------------------------------------------------------------------
+
+
+def test_solution_runs_without_psutil(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """Без psutil прогон продолжается: теряется замер памяти, а не вердикт.
+
+    psutil объявлен в зависимостях, но окружение у аудитории курса ломается
+    регулярно. Голый импорт наверху модуля означал, что студент видит трейсбек
+    чужой библиотеки вместо своего вердикта — притом что от psutil зависят
+    ровно две вещи, и обе необязательные.
+    """
+    from stepik_grader.core import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "psutil", None)
+    solution = tmp_path / "task.py"
+    solution.write_text("print(int(input()) * 2)\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        outcome = LocalRunner().run(
+            RunSpec(path=solution, stdin=b"21\n", timeout=15.0, measure_memory=True)
+        )
+
+    assert outcome.stdout.strip() == b"42", "вердикт обязан считаться и без psutil"
+    assert outcome.peak_memory_mb == 0.0, "замера нет — это и означает 0.0"
+
+
+def test_missing_psutil_is_not_silent(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """Ноль в отчёте объясняется вслух, иначе он читается как «памяти не тратит»."""
+    from stepik_grader.core import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "psutil", None)
+    solution = tmp_path / "task.py"
+    solution.write_text("print('ок')\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="psutil не установлен"):
+        LocalRunner().run(RunSpec(path=solution, stdin=b"", timeout=15.0, measure_memory=True))

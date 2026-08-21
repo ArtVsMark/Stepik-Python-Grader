@@ -38,7 +38,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
-import psutil
+# issue #996 (INS-2-03): psutil — объявленная runtime-зависимость, но окружение
+# у аудитории курса ломается регулярно (установка без изоляции, конфликт версий,
+# половина колеса). Голый `import` наверху означал, что весь грейдер падает
+# сырым `ModuleNotFoundError` ещё до разбора аргументов: студент видит трейсбек
+# чужой библиотеки вместо своего вердикта. Без psutil теряются ровно две вещи —
+# замер пиковой памяти и сбор дерева процессов, — и обе деградируют штатно, как
+# `rich` и `resource` ниже.
+try:
+    import psutil
+except ImportError:  # pragma: no cover — окружение без объявленной зависимости
+    psutil = None  # type: ignore[assignment]
 
 # resource — POSIX-only (RLIMIT_AS для best-effort memory cap, issue #43 S-01).
 # На Windows модуль отсутствует; лимит памяти там не применяется — тот же
@@ -381,6 +391,16 @@ def _measure_peak_memory(
             stacklevel=2,
         )
 
+    if psutil is None:
+        # Замера не будет: вердикт от этого не зависит, а молчаливый ноль без
+        # объяснения выглядел бы как «решение не тратит памяти».
+        warnings.warn(
+            "psutil не установлен — пиковая память не измеряется (в отчёте 0.0). "
+            "Проверьте окружение: pip install stepik-python-grader",
+            stacklevel=2,
+        )
+        return
+
     # issue #996 (JRN-1-01/JRN-2-01): пик пишется в `result` СРАЗУ, на каждом
     # обновлении, а не одной строкой в конце функции. Прежний порядок был
     # неисполним по построению: `RunOutcome` собирается внутри
@@ -502,10 +522,15 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
     осознанный предел без OS-sandbox.
     """
     # Собираем детей ДО убийства родителя, пока связь parent->child ещё видна.
-    try:
-        children = psutil.Process(proc.pid).children(recursive=True)
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        children = []
+    # Без psutil (issue #996, INS-2-03) остаётся только удар по группе ниже: на
+    # POSIX этого достаточно, на Windows дерево уцелеет — честный предел, а не
+    # повод не запускаться вовсе.
+    children: list[Any] = []
+    if psutil is not None:
+        try:
+            children = psutil.Process(proc.pid).children(recursive=True)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            children = []
 
     if os.name == "posix":
         # os.killpg/getpgid + signal.SIGKILL — POSIX-only, отсутствуют в
@@ -518,7 +543,7 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
         proc.kill()
 
     for child in children:
-        with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+        with contextlib.suppress(Exception):
             child.kill()
 
 
