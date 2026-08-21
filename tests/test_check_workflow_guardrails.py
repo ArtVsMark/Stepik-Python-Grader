@@ -547,3 +547,67 @@ class TestReleaseNotesAreTranslated:
         _MODULE.check_release_notes_are_translated(errors)
 
         assert errors == []
+
+
+class TestPrOpenerUsesItsOwnToken:
+    """Открыватель PR ходит PAT владельца: с GITHUB_TOKEN автором станет бот."""
+
+    _GOOD = (
+        "jobs:\n  open-pulls:\n    steps:\n"
+        "      - name: Открыть PR\n"
+        "        env:\n          GH_TOKEN: ${{ env.MERGE_QUEUE_TOKEN }}\n"
+        "        run: python scripts/open_agent_prs.py\n"
+    )
+
+    def test_dedicated_token_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, self._GOOD)
+
+        assert errors == []
+
+    def test_github_token_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = self._GOOD.replace("env.MERGE_QUEUE_TOKEN", "secrets.GITHUB_TOKEN")
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "бот" in errors[0]
+
+    def test_step_without_token_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = (
+            "jobs:\n  open-pulls:\n    steps:\n"
+            "      - name: Открыть PR\n        run: python scripts/open_agent_prs.py\n"
+        )
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "GH_TOKEN" in errors[0]
+
+    def test_renamed_step_is_loud(self) -> None:
+        """Шага не нашли — это «сторожим пустоту», а не «всё хорошо»."""
+        errors: list[str] = []
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, "jobs:\n  open:\n    steps: []\n")
+
+        assert len(errors) == 1
+        assert "open_agent_prs.py" in errors[0]
+
+    def test_missing_file_is_red(self, monkeypatch) -> None:
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_PR_OPENER", pathlib.Path("нет-такого.yml"))
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors)
+
+        assert len(errors) == 1
+        assert "файла нет" in errors[0]
+
+    def test_real_workflow_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors)
+
+        assert errors == []
