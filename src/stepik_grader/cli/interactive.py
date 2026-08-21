@@ -525,11 +525,13 @@ def _interactive_menu(ctx: CliContext) -> None:
     settings = user_settings.load_settings(settings_path)
     # issue #268/#344: интерактивное меню не проходит через argparse, поэтому
     # --stats/--history и их --no-* недоступны — record_stats читаем из CONFIG.
-    record_stats = CONFIG.record_stats
+    record_stats = config.get_config().record_stats
     # issue #430: тумблер истории из user-state (если задан) переопределяет
     # CONFIG-дефолт; None → пользователь не переопределял, наследуем pyproject.
     record_history = (
-        settings.record_history if settings.record_history is not None else CONFIG.record_history
+        settings.record_history
+        if settings.record_history is not None
+        else config.get_config().record_history
     )
     # issue #430: nudge «Подучить» показываем не чаще раза за сессию меню.
     nudged = False

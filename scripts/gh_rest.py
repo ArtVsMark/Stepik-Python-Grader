@@ -116,11 +116,14 @@ __all__ = [
     "compare",
     "create_issue",
     "create_pull",
+    "disable_auto_merge",
     "enable_auto_merge",
+    "ensure_label",
     "ensure_quota",
     "graphql",
     "issue",
     "issue_comments",
+    "issues_with_label",
     "latest_checks_by_name",
     "list_pulls",
     "main",
@@ -1059,6 +1062,51 @@ def enable_auto_merge(
     return result if isinstance(result, dict) else {}
 
 
+_DISABLE_AUTO_MERGE_MUTATION = """
+mutation($pullRequestId: ID!) {
+  disablePullRequestAutoMerge(input: {pullRequestId: $pullRequestId}) {
+    pullRequest { number autoMergeRequest { enabledAt } }
+  }
+}
+"""
+
+
+def disable_auto_merge(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
+    """Выключить авто-мерж — обратная сторона :func:`enable_auto_merge`.
+
+    Живёт здесь по той же причине, что и включение: REST-эквивалента у
+    ``disablePullRequestAutoMerge`` нет, а короткая мутация стоит единицы
+    points против ~300 за ту же операцию через MCP-инструмент.
+
+    Зачем это нужно (issue #1303): метка ``merge-when-green`` — выраженное
+    согласие на мерж, и оно обязано быть **обратимым**. Снял метку — согласие
+    отозвано; если бы авто-мерж при этом оставался включённым, отозвать решение
+    было бы нечем, и PR уехал бы в ``main`` вопреки автору.
+
+    Raises:
+        GitHubError: у PR нет ``node_id`` — отвечать мутации нечем.
+    """
+    node_id = pull(repo, number, **kwargs).get("node_id")
+    if not node_id:
+        raise GitHubError(f"PR #{number}: GitHub не вернул node_id, выключать авто-мерж нечему")
+    data = graphql(_DISABLE_AUTO_MERGE_MUTATION, {"pullRequestId": str(node_id)}, **kwargs)
+    disabled = data.get("disablePullRequestAutoMerge", {})
+    result = disabled.get("pullRequest", {}) if isinstance(disabled, dict) else {}
+    return result if isinstance(result, dict) else {}
+
+
+def issues_with_label(repo: str, label: str, **kwargs: Any) -> list[dict[str, Any]]:
+    """Открытые issue и PR с указанной меткой (один запрос вместо перебора).
+
+    GitHub отдаёт PR через тот же эндпоинт issue, помечая их полем
+    ``pull_request`` — по нему вызывающая сторона и отличает одно от другого.
+    """
+    query = urllib.parse.urlencode({"labels": label, "state": "open", "per_page": 100})
+    data = _get(f"repos/{repo}/issues?{query}", **kwargs)
+    items = data if isinstance(data, list) else []
+    return [item for item in items if isinstance(item, dict)]
+
+
 def sub_issues(repo: str, number: int, **kwargs: Any) -> list[dict[str, Any]]:
     """Дочерние issue эпика. С 2025 года это REST, а не GraphQL."""
     data = _get(f"repos/{repo}/issues/{number}/sub_issues?per_page=100", **kwargs)
@@ -1167,6 +1215,35 @@ def update_issue(
         raise ValueError("нечего обновлять: задайте title и/или body")
     data = request("PATCH", f"repos/{repo}/issues/{number}", body=payload, **kwargs).data
     return data if isinstance(data, dict) else {}
+
+
+def ensure_label(
+    repo: str,
+    name: str,
+    *,
+    color: str = "ededed",
+    description: str = "",
+    **kwargs: Any,
+) -> bool:
+    """Создать метку, если её ещё нет; ``True`` — создали, ``False`` — была.
+
+    Нужна тем, кто ставит метку автоматически (issue #1313: очередь мержа метит
+    конфликтный PR). ``POST /labels`` на существующее имя отвечает ``422`` —
+    это не ошибка, а «уже есть», и трактовать её как отказ значило бы ронять
+    механизм на второй же метке.
+    """
+    try:
+        request(
+            "POST",
+            f"repos/{repo}/labels",
+            body={"name": name, "color": color, "description": description},
+            **kwargs,
+        )
+    except GitHubError as exc:
+        if "422" in str(exc):
+            return False
+        raise
+    return True
 
 
 def add_labels(repo: str, number: int, labels: list[str], **kwargs: Any) -> list[str]:

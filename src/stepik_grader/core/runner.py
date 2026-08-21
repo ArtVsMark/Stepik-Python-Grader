@@ -47,7 +47,7 @@ try:
 except ImportError:
     resource = None  # type: ignore[assignment]
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import get_config
 from stepik_grader.core import spawn
 
 __all__ = [
@@ -349,29 +349,38 @@ def _measure_peak_memory(
             stacklevel=2,
         )
 
+    # issue #996 (JRN-1-01/JRN-2-01): пик пишется в `result` СРАЗУ, на каждом
+    # обновлении, а не одной строкой в конце функции. Прежний порядок был
+    # неисполним по построению: `RunOutcome` собирается внутри
+    # `_run_with_polling`, а `stop_event.set()` и `join` происходят уже после
+    # его возврата — то есть результат читал `result[0]`, пока поток ещё
+    # крутился и ничего туда не записал. Замер приходил нулевым ВСЕГДА:
+    # проверено прогоном, решение на 24 МБ отдавало `peak_memory_mb=0.0`.
     peak = 0.0
+
+    def remember(rss: float) -> None:
+        """Запомнить пик и сразу отдать его наружу."""
+        nonlocal peak
+        if rss > peak:
+            peak = rss
+            result[0] = peak
+
     try:
         ps_proc = psutil.Process(proc.pid)
         try:
-            rss = sample_tree_rss(ps_proc)
-            if rss > peak:
-                peak = rss
+            remember(sample_tree_rss(ps_proc))
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             _warn_unreliable()
-            result[0] = peak
             return
         while not stop.is_set():
             try:
-                rss = sample_tree_rss(ps_proc)
-                if rss > peak:
-                    peak = rss
+                remember(sample_tree_rss(ps_proc))
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 _warn_unreliable()
                 break
             stop.wait(0.02)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         _warn_unreliable()
-    result[0] = peak
 
 
 def _write_stdin(pipe: Any, data: bytes | None) -> None:
@@ -501,7 +510,12 @@ def _scrub_secret_env(env: dict[str, str]) -> None:
     чистят окружение целиком; здесь — консервативный denylist, чтобы не сломать
     project-import (см. ``supports_project_imports``).
     """
-    ai_key_var = CONFIG.ai_api_key_env
+    # issue #996 (LNCH-3-03): имя переменной читается в момент ВЫЗОВА.
+    # `CONFIG` связан на импорте, а `override_config()` (флаги CLI, `--config`)
+    # создаёт НОВЫЙ объект — прежний остаётся со старым значением. Здесь это
+    # не косметика: по этому имени из окружения решения вычищается ключ AI,
+    # и устаревшее значение означает, что чистится не та переменная.
+    ai_key_var = get_config().ai_api_key_env
     for name in list(env):
         if name == ai_key_var or any(sub in name.upper() for sub in _SECRET_ENV_SUBSTRINGS):
             env.pop(name, None)

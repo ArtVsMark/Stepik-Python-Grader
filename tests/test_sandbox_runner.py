@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+from typing import Any
 
 import pytest
 
@@ -428,6 +429,102 @@ def test_re_outcome_carries_partial_stdout() -> None:
     assert outcome.returncode == 3
     assert outcome.sandbox_violation is None
     assert b"printed-before-crash" in outcome.stdout
+
+
+class _FakePopenForPoller:
+    """Минимальный ``Popen`` для потоков-замерщиков: только pid и kill."""
+
+    pid = 424242
+
+    def kill(self) -> None:  # pragma: no cover — в тестах ниже лимит не превышается
+        pass
+
+
+def _publishing_sampler(
+    peak_result: list[float], stop: threading.Event, values: list[float]
+) -> tuple[Any, list[float]]:
+    """Заглушка замера, которая запоминает, что видел бы вызывающий в этот миг.
+
+    Возвращает саму функцию-замерщик и накопитель «увиденного»: в нём и лежит
+    ответ на вопрос, доходит ли пик наружу ДО остановки потока.
+    """
+    seen: list[float] = []
+    samples = iter(values)
+
+    def _sample(_proc: object) -> float:
+        seen.append(peak_result[0])
+        value = next(samples, None)
+        if value is None:  # замеры кончились — так же обрывается и реальный процесс
+            stop.set()
+            return 0.0
+        return value
+
+    return _sample, seen
+
+
+def test_posix_memory_poller_publishes_peak_before_it_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """issue #996 (JRN-1-01): пик виден вызывающей стороне, пока поток ещё жив.
+
+    Запись одной строкой на выходе из функции — ставка на то, что поток успеет
+    завершиться. Вызывающая сторона ждёт его ``join(timeout=0.5)`` и собирает
+    ``RunOutcome`` дальше в любом случае: не успел — замер терялся целиком, и
+    решение получало ноль вместо занятой памяти. В ``LocalRunner`` тот же
+    порядок делал ноль постоянным (см. ``test_runner.py``).
+    """
+    from stepik_grader.core.sandbox import _posix_common
+
+    peak_result = [0.0]
+    stop = threading.Event()
+    sampler, seen = _publishing_sampler(peak_result, stop, [7.0, 21.0])
+    monkeypatch.setattr(_posix_common, "sample_tree_rss", sampler)
+    monkeypatch.setattr(_posix_common.psutil, "Process", lambda pid: object())
+
+    _posix_common._poll_memory(_FakePopenForPoller(), 1024.0, threading.Event(), stop, peak_result)
+
+    assert seen == [0.0, pytest.approx(7.0), pytest.approx(21.0)], (
+        "каждый новый максимум обязан быть опубликован сразу, а не накоплен до выхода"
+    )
+    assert peak_result[0] == pytest.approx(21.0)
+
+
+def test_windows_resource_poller_publishes_peak_before_it_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """То же для Windows-backend'а: дефект был общий, значит и фикс общий.
+
+    Модуль импортируется на любой ОС (``ctypes.windll`` трогается лениво,
+    внутри вызовов), поэтому поллинг проверяется везде — иначе правка на
+    Windows-пути жила бы без единого прогона.
+    """
+    import types
+
+    from stepik_grader.core.sandbox import _windows
+
+    peak_result = [0.0]
+    stop = threading.Event()
+    sampler, seen = _publishing_sampler(peak_result, stop, [5.0, 13.0])
+
+    class _FakePsProcess:
+        def cpu_times(self) -> Any:
+            return types.SimpleNamespace(user=0.0, system=0.0)
+
+    monkeypatch.setattr(_windows, "sample_tree_rss", sampler)
+    monkeypatch.setattr(_windows.psutil, "Process", lambda pid: _FakePsProcess())
+
+    _windows._poll_resources(
+        _FakePopenForPoller(),
+        1024.0,
+        60.0,
+        threading.Event(),
+        threading.Event(),
+        stop,
+        peak_result,
+    )
+
+    assert seen == [0.0, pytest.approx(5.0), pytest.approx(13.0)]
+    assert peak_result[0] == pytest.approx(13.0)
 
 
 # ---------------------------------------------------------------------------
