@@ -39,6 +39,7 @@ Actions этого ограничения нет: PR, созданный с PAT 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -60,6 +61,9 @@ __all__ = [
 ]
 
 DEFAULT_PREFIX = "agent/"
+
+# issue #1325: та же метка, что у `merge_when_green.py` — согласие по умолчанию.
+_CONSENT_LABEL = "merge-when-green"
 
 # Трейлеры коммита: авторство живёт в самом коммите, в теле PR оно избыточно и
 # ломает читаемость. Совпадение по началу строки, регистр не важен.
@@ -167,6 +171,11 @@ def open_for_branch(
     number = int(created.get("number", 0))
     if not number:
         return f"{branch}: GitHub не вернул номер PR — авто-мерж включать нечему"
+    # issue #1325: согласие по умолчанию ставится сразу при открытии, а не ждёт
+    # обхода по расписанию. Метка здесь не только включатель — она же и след:
+    # по ней видно, что PR отдан автоматике, а `hold` этот след снимает.
+    with contextlib.suppress(gh_rest.GitHubError):
+        gh_rest.add_labels(repo, number, [_CONSENT_LABEL], **kwargs)
     try:
         gh_rest.enable_auto_merge(repo, number, **kwargs)
     except gh_rest.GitHubError as exc:
