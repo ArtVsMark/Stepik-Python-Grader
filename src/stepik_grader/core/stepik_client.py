@@ -41,7 +41,7 @@ from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from urllib3.util.retry import Retry
 
-from stepik_grader.core.diag_log import get_logger, register_secret
+from stepik_grader.core.diag_log import get_logger, redact, register_secret
 from stepik_grader.core.storage import save_secrets
 
 __all__ = [
@@ -980,8 +980,24 @@ def _cached_api_get(
 
     response = _get_with_retry(session, url, params=params)
     data: dict[str, Any] = response.json()
+    # issue #1301 (предусловие безопасности) / #982: кэш — единственное место,
+    # где ответ API ложится на диск ЦЕЛИКОМ, а не отобранными полями. Сегодня
+    # кэшируются только read-only эндпоинты, но «сегодня» — не гарантия:
+    # достаточно закэшировать ответ, где Stepik вернул эхо токена, и файл в
+    # `.stepik_cache/` станет тем самым дампом с секретом, ради которого писан
+    # `docs/dev/logging.md` п. 4.
+    #
+    # Не редактируем, а отказываемся кэшировать: подставить `***redacted***` в
+    # тело ответа значит отдать испорченные данные вызывающей стороне — текст
+    # задачи со словом «password» уехал бы в файлы курса покалеченным. Кэш либо
+    # чист, либо его нет; цена отказа — один лишний сетевой запрос.
+    serialized = _json_mod.dumps(data, ensure_ascii=False)
+    if redact(serialized) != serialized:
+        _log.warning("ответ %s похож на содержащий секрет — не кэшируем", url)
+        prune_cache()
+        return data
     with contextlib.suppress(OSError):
-        cache_file.write_text(_json_mod.dumps(data, ensure_ascii=False), encoding="utf-8")
+        cache_file.write_text(serialized, encoding="utf-8")
     # issue #816: ленивая уборка на записи — отдельного фонового потока в
     # проекте нет ни у одного кэша (тот же best-effort приём, что у реестра
     # job'ов и очереди глоссария).
