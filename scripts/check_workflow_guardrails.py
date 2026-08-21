@@ -37,6 +37,7 @@ __all__ = [
     "GITHUB_RELEASE_JOB",
     "VERIFY_JOB",
     "check_ci_listens_to_ready_for_review",
+    "check_consent_workflow_uses_its_own_token",
     "check_coverage_gate_is_explicit",
     "check_every_job_has_a_timeout",
     "check_pr_opener_uses_its_own_token",
@@ -56,6 +57,7 @@ _CI = _WORKFLOWS / "ci.yml"
 _RELEASE = _WORKFLOWS / "release.yml"
 _QUEUE_MOVER = _WORKFLOWS / "merge-queue.yml"
 _PR_OPENER = _WORKFLOWS / "agent-pr.yml"
+_CONSENT = _WORKFLOWS / "merge-when-green.yml"
 
 # Порог per-OS гейта покрытия (issue #954). Держится синхронно с флагом
 # `--cov-fail-under` в шаге `Run tests`; cross-OS агрегат строже (90) и живёт
@@ -480,6 +482,40 @@ def check_pr_opener_uses_its_own_token(errors: list[str], source: str | None = N
         )
 
 
+def check_consent_workflow_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Авто-мерж по метке включается НЕ штатным ``GITHUB_TOKEN`` (issue #1303).
+
+    ``GITHUB_TOKEN`` не имеет прав включать авто-мерж на чужом PR, и отказ
+    выглядит буднично: шаг зелёный, метка стоит, PR не уезжает. То есть беда
+    снова маскируется под нормальную работу — тот же класс, что у открывателя
+    PR и двигателя очереди.
+    """
+    if source is None:
+        if not _CONSENT.is_file():
+            errors.append(f"{_CONSENT.name}: файла нет — авто-мерж по метке не проверен")
+            return
+        source = _CONSENT.read_text(encoding="utf-8")
+
+    step = _step_calling(source, "merge_when_green.py")
+    if step is None:
+        errors.append(
+            f"{_CONSENT.name}: не найден шаг с 'merge_when_green.py'. Если его "
+            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_CONSENT.name}: авто-мерж включается штатным GITHUB_TOKEN — прав не "
+            "хватит, шаг останется зелёным, а PR не уедет. Нужен отдельный токен"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_CONSENT.name}: шаг не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
 def _step_calling(source: str, needle: str) -> str | None:
     """Текст шага, который зовёт ``needle``; ``None`` — такого шага нет."""
     steps = re.split(r"^      - ", source, flags=re.MULTILINE)
@@ -521,6 +557,7 @@ def main() -> int:
     check_every_job_has_a_timeout(errors)
     check_queue_mover_uses_its_own_token(errors)
     check_pr_opener_uses_its_own_token(errors)
+    check_consent_workflow_uses_its_own_token(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
