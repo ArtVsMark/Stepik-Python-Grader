@@ -2559,7 +2559,9 @@ def test_wa_detail_uses_aligned_inline_diff() -> None:
     """
     src = web_server._STATIC_JS_SOURCES
     assert "function renderInlineDiff(" in src
-    assert "renderInlineDiff(c.expected, c.actual)" in src
+    # issue #968 добавил третий аргумент (граница отрисовки), поэтому сверяется
+    # не сигнатура вызова целиком, а то, что разбор WA идёт именно через дифф.
+    assert "renderInlineDiff(c.expected, c.actual" in src
     # Сырой diff остаётся, но свёрнутым — он больше не основной способ понять WA.
     assert "details class='raw-diff'" in src
 

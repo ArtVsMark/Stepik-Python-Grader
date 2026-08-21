@@ -1,0 +1,78 @@
+name: Merge when green
+
+# issue #1303: конвейер замкнут почти полностью — PR для веток `agent/**`
+# открывает `open_agent_prs.py` и сразу включает им авто-мерж, `merge-queue.yml`
+# держит голову очереди актуальной, GitHub мержит по зелёному. Не закрыт один
+# случай: PR, открытый ВРУЧНУЮ. Авто-мерж ему никто не включает, и он стоит
+# зелёным сколько угодно долго — шестнадцать успешных проверок и ожидание
+# человека.
+#
+# ПОЧЕМУ НЕ ВСЕМ ПОДРЯД. Тогда в `main` уедет и тот PR, который автор ещё хотел
+# посмотреть. Защита ветки проверяет качество, но не намерение, поэтому
+# согласие выражается явно — меткой `merge-when-green`.
+#
+# ПОЧЕМУ ДВА ТРИГГЕРА. Событие может не дойти (доставка вебхуков не
+# гарантирована), и тогда помеченный PR остался бы стоять — ровно та беда, от
+# которой избавляемся. Расписание закрывает дыру; идемпотентность скрипта не
+# даёт включить авто-мерж дважды. Тот же приём, что в `agent-pr.yml`.
+on:
+  pull_request:
+    types: [labeled, unlabeled, ready_for_review]
+  schedule:
+    # Не в 0 и не в 30: минута выбрана так, чтобы не совпадать с пиком, когда
+    # GitHub обслуживает все расписания планеты разом.
+    - cron: "12,42 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  apply-consent:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов.
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    # Секрет кладётся в env, а не проверяется в `if` напрямую: контекст
+    # `secrets` в условиях шага не гарантирован, а `env` — документированный
+    # приём именно для этой проверки. Тот же приём, что в `merge-queue.yml`.
+    env:
+      MERGE_QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # Секрета нет — предупреждаем и выходим, а не падаем: красный прогон здесь
+      # означал бы поломку механизма, а не отсутствие настроенного удобства.
+      - name: Секрет не задан
+        if: env.MERGE_QUEUE_TOKEN == ''
+        run: |
+          echo "::warning::MERGE_QUEUE_TOKEN не задан — авто-мерж по метке" \
+               "merge-when-green не включается. Нужен токен с правами" \
+               "contents:write и pull-requests:write"
+
+      # Метку сняли — согласие отозвано, авто-мерж выключается. Это отдельный
+      # шаг, а не ветка внутри скрипта: событие уже сказало, какой PR и какую
+      # метку тронули, и переспрашивать GitHub незачем.
+      - name: Метку сняли — выключить авто-мерж
+        if: >-
+          env.MERGE_QUEUE_TOKEN != ''
+          && github.event.action == 'unlabeled'
+          && github.event.label.name == 'merge-when-green'
+        env:
+          GH_TOKEN: ${{ env.MERGE_QUEUE_TOKEN }}
+        run: python scripts/merge_when_green.py --disable "${{ github.event.pull_request.number }}"
+
+      - name: Включить авто-мерж помеченным
+        if: env.MERGE_QUEUE_TOKEN != '' && github.event.action != 'unlabeled'
+        env:
+          GH_TOKEN: ${{ env.MERGE_QUEUE_TOKEN }}
+        run: python scripts/merge_when_green.py
