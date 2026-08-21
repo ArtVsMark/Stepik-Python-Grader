@@ -577,20 +577,21 @@ async function grade() {
     return;
   }
   const q = new URLSearchParams({ path, mode: backendMode, lang: state.lang }); // issue #364
+  let outcome = null; // issue #967: исход этого прогона, null — прогон не дал результата
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
     state.lastResult = data;
+    outcome = data;
     render(data);
     updateCheckSidebarBadge(data);
     announceResult(summaryFromResult(data)); // issue #298
-    updateStepikSubmitButton(data); // issue #683
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
     toast(t("common.request_error"), "error");
     announceResult(t("common.request_error")); // issue #298
   } finally {
-    _finishGradeUI();
+    _finishGradeUI(outcome); // issue #683 — кнопка Stepik обновляется отсюда
   }
 }
 
@@ -660,11 +661,20 @@ function clearSaveError() {
   }
 }
 
-function _finishGradeUI() {
+// issue #967 (FE-2-01): `result` — исход ИМЕННО ЭТОГО прогона, а не то, что
+// лежит в `state.lastResult`. Разница видна на упавшем прогоне: `lastResult`
+// хранит прошлый результат, и кнопка «Отправить в Stepik» осталась бы активной
+// после кода, который только что не прошёл. `null` — «результата нет»
+// (ошибка, отмена, сбой старта), то есть отправлять нечего.
+function _finishGradeUI(result = null) {
   updateRunButtonState();
   $("#run").textContent = t("check.run");
   renderDetailPanel();
   renderResultSummaryBadges();
+  // Раньше кнопку обновляли только synchronous-путь и setMode, а режим 1 в вебе
+  // всегда идёт через async-джобу — она эту ветку не звала вовсе, и состояние
+  // кнопки отставало на один прогон. Место одно на все пути завершения.
+  updateStepikSubmitButton(result);
   // issue #298 (a11y): после завершения прогона фокус уходит на панель
   // результатов (tabindex="-1"), чтобы клавиатурный/скринридер-пользователь
   // оказался у сводки, а не остался на кнопке «Запустить».
@@ -834,6 +844,10 @@ async function gradeAsync(path, backendMode, code = null) {
 
   const runId = created.run_id;
   state.activeRunId = runId;
+  // issue #967 (FE-2-01): исход этого прогона. Заполняется только веткой
+  // `done` — отмена и ошибка результата не дают, и кнопка Stepik обязана это
+  // отразить, а не сохранить состояние от прошлого вердикта.
+  let outcome = null;
   const cancelBtn = $("#cancel-run");
   cancelBtn.hidden = false;
   cancelBtn.disabled = false;
@@ -885,6 +899,7 @@ async function gradeAsync(path, backendMode, code = null) {
         $("#bar").innerHTML = "";
         if (data.status === "done") {
           state.lastResult = data.result;
+          outcome = data.result;
           render(data.result);
           updateCheckSidebarBadge(data.result);
           announceResult(summaryFromResult(data.result)); // issue #298
@@ -910,7 +925,7 @@ async function gradeAsync(path, backendMode, code = null) {
     poll();
   });
 
-  _finishGradeUI();
+  _finishGradeUI(outcome);
 }
 
 function updateProgressBar(done, total) {
