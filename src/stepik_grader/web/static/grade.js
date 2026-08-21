@@ -191,6 +191,11 @@ function setMode(m) {
 // клампы те же, что у CLI (5–100 повторов, 100–500 000 вызовов), выбор
 // запоминается между сессиями — как режим (issue #727). --------------------
 
+// issue #968: сколько строк диффа рисуем сразу. Меньше серверного предела на
+// вывод кейса (viewmodels._MAX_CASE_LINES): сервер режет патологию, а это —
+// граница единовременной отрисовки, снимаемая кнопкой «показать всё».
+const DIFF_MAX_ROWS = 500;
+
 const BENCH_PROFILE_KEY = "grader_repeats";
 const MICRO_PROFILE_KEY = "grader_micro_profile";
 
@@ -1090,6 +1095,7 @@ function selectCase(rowIndex, caseIndex) {
   state.selectedRow = rowIndex;
   state.selectedCase = caseIndex;
   state.explainOpen = false;
+  state.diffShowAll = false; // issue #968: согласие даётся на конкретный кейс
   highlightSelectedCaseRow();
   renderDetailPanel();
   setResultTab("detail");
@@ -1192,12 +1198,19 @@ function diffRow(kind, lineNo, html, title) {
  * отдельно. Полноценный LCS тут избыточен: он усложнил бы код ради редкого
  * случая сдвига, который и так виден по маркерам.
  */
-function renderInlineDiff(expected, actual) {
+function renderInlineDiff(expected, actual, { full = false } = {}) {
   const exp = String(expected ?? "").split("\n");
   const act = String(actual ?? "").split("\n");
   const rows = [];
+  const total = Math.max(exp.length, act.length);
+  // issue #968: на каждую строку приходится div и три span, а на различающуюся
+  // — две таких строки. Без границы забытый выход из цикла (десятки тысяч
+  // строк) складывался в сотни тысяч узлов, вставляемых одним innerHTML:
+  // вкладка замирала, и посмотреть результат прогона было уже нельзя. Предел
+  // снимается кнопкой — решает человек, а не мы за него.
+  const limit = full ? total : Math.min(total, DIFF_MAX_ROWS);
 
-  for (let i = 0; i < Math.max(exp.length, act.length); i++) {
+  for (let i = 0; i < limit; i++) {
     const e = exp[i];
     const a = act[i];
 
@@ -1223,9 +1236,19 @@ function renderInlineDiff(expected, actual) {
     rows.push(diffRow("actual", i + 1, wrap(bMid)));
   }
 
+  const more =
+    limit < total
+      ? '<div class="hint diff-truncated">' +
+        esc(t("grade.diff_truncated", { shown: limit, total })) +
+        ' <button type="button" class="btn btn-secondary btn-sm" id="diff-show-all">' +
+        esc(t("grade.diff_show_all")) +
+        "</button></div>"
+      : "";
+
   return (
     '<div class="field-label">' + esc(t("grade.diff_title")) + "</div>" +
     '<div class="inline-diff">' + rows.join("") + "</div>" +
+    more +
     '<div class="hint">' + esc(t("grade.diff_legend")) + "</div>"
   );
 }
@@ -1261,7 +1284,12 @@ function renderDetailPanel() {
   // issue #368 (2.е): ядро разбора — сравнение «Ожидалось / Получено». Для WA —
   // двухколоночно (на узкой панели колонки стекаются), плюс diff.
   if (c.verdict === "WA") {
-    h += renderInlineDiff(c.expected, c.actual);
+    h += renderInlineDiff(c.expected, c.actual, { full: state.diffShowAll });
+    // issue #968: сервер отдал только начало вывода — говорим об этом, иначе
+    // человек ищет расхождение в конце, которого на экране нет.
+    if (c.output_truncated) {
+      h += '<div class="hint">' + esc(t("grade.output_truncated")) + "</div>";
+    }
     // Сырой unified diff остаётся, но свёрнутым: выровненный разбор выше
     // отвечает на «чем именно отличается», а этот — для привычных к difflib.
     if (c.diff) {
@@ -1301,6 +1329,16 @@ function renderDetailPanel() {
   }
   h += '<div id="detail-actions" class="action-cards"></div>';
   content.innerHTML = h;
+  // issue #968: «показать всё» — осознанное решение человека рисовать длинный
+  // дифф целиком. Флаг живёт до смены кейса: снимается в selectCase, иначе
+  // следующий кейс с огромным выводом отрисовался бы без границы молча.
+  const showAll = $("#diff-show-all");
+  if (showAll) {
+    showAll.addEventListener("click", () => {
+      state.diffShowAll = true;
+      renderDetailPanel();
+    });
+  }
   const aiBtn = $("#ai-explain-btn");
   if (aiBtn) {
     aiBtn.addEventListener("click", () =>
