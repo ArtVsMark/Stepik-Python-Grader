@@ -14,6 +14,7 @@ import pathlib
 
 import pytest
 
+from stepik_grader import config
 from stepik_grader.config import CONFIG
 from stepik_grader.core.runner import LocalRunner, RunSpec, _scrub_secret_env
 
@@ -114,6 +115,35 @@ def test_child_process_still_sees_path(
     printed = outcome.stdout.decode("utf-8", errors="replace")
 
     assert "<<absent>>" not in printed
+
+
+# ---------------------------------------------------------------------------
+# LNCH-3-03 (issue #996) — имя ключа берётся из АКТУАЛЬНОГО конфига
+#
+# `CONFIG` связывается с объектом при импорте модуля, а `override_config()`
+# (флаги CLI, `--config`) создаёт НОВЫЙ объект — прежний остаётся со старым
+# значением. Для этой функции это не косметика: по имени из конфига ключ AI и
+# вычищается из окружения решения, поэтому устаревшее значение означает, что
+# чистится не та переменная, а настоящий ключ уезжает недоверенному коду.
+# ---------------------------------------------------------------------------
+
+
+def test_scrub_reads_the_key_name_at_call_time() -> None:
+    """Переопределение `ai_api_key_env` в рантайме действует на чистку.
+
+    Имя выбрано без типовых секрет-подстрок (`SECRET`/`TOKEN`/`API_KEY`…):
+    иначе оно вычистилось бы denylist'ом, и тест прошёл бы даже с дефектом.
+    """
+    config.override_config(ai_api_key_env="MY_AI_VAR")
+    try:
+        env = {"MY_AI_VAR": "sk-should-not-leak", "PATH": "/usr/bin"}
+
+        _scrub_secret_env(env)
+
+        assert "MY_AI_VAR" not in env, "ключ AI уехал бы в окружение решения"
+        assert env["PATH"] == "/usr/bin"
+    finally:
+        config.reset_config_cache()
 
 
 # ---------------------------------------------------------------------------

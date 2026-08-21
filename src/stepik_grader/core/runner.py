@@ -34,6 +34,7 @@ import tempfile
 import threading
 import time
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -47,7 +48,7 @@ try:
 except ImportError:
     resource = None  # type: ignore[assignment]
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import get_config
 from stepik_grader.core import spawn
 
 __all__ = [
@@ -278,7 +279,7 @@ def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
         resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
 
 
-def sample_tree_rss(proc: psutil.Process) -> float:
+def sample_tree_rss(proc: psutil.Process, *, children: list[Any] | None = None) -> float:
     """Суммарный RSS (МБ) процесса ``proc`` и всех его потомков — единый замер
     памяти для ``LocalRunner`` и ``SandboxRunner`` (issue #556).
 
@@ -295,12 +296,23 @@ def sample_tree_rss(proc: psutil.Process) -> float:
     нет доступа) НЕ глотаем — это сигнал вызывающей стороне (быстрый выход →
     warn в ``_measure_peak_memory``, обрыв поллинга в песочнице). Потомки —
     best-effort: исчезнувший в момент обхода узел пропускаем, не обнуляя итог.
+
+    issue #996 (MTX-6-04): ``children`` — уже собранный список потомков.
+    ``children(recursive=True)`` обходит таблицу процессов целиком и стоит на
+    порядок дороже одного ``memory_info()``, а измеритель пика опрашивает
+    процесс каждые 20 мс — на короткой задаче обход съедает заметную долю того
+    самого времени, которое грейдер и показывает пользователю. Кому нужна
+    скорость, а не мгновенная реакция на новорождённый процесс, обновляет
+    список реже и передаёт его сюда. **Песочница список не кэширует**: там
+    этот же замер — активное enforcement лимита памяти, и появившийся потомок
+    обязан попасть под лимит сразу, а не через полсекунды.
     """
     total = float(proc.memory_info().rss) / 1024 / 1024
-    try:
-        children = proc.children(recursive=True)
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        return total
+    if children is None:
+        try:
+            children = proc.children(recursive=True)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return total
     for child in children:
         try:
             total += float(child.memory_info().rss) / 1024 / 1024
@@ -309,8 +321,21 @@ def sample_tree_rss(proc: psutil.Process) -> float:
     return total
 
 
+# issue #996 (MTX-6-04): как часто измеритель перечитывает список потомков и
+# как часто вообще опрашивает память. Обход дерева процессов дорог, а
+# новорождённый потомок для ЗАМЕРА (в отличие от enforcement в песочнице)
+# терпит полсекунды: пик, который держится меньше, всё равно не поймать
+# опросом с любым разумным периодом.
+_CHILDREN_REFRESH_SEC = 0.5
+_POLL_INTERVAL_SEC = 0.02
+
+
 def _measure_peak_memory(
-    proc: subprocess.Popen[bytes], result: list[float], stop: threading.Event
+    proc: subprocess.Popen[bytes],
+    result: list[float],
+    stop: threading.Event,
+    *,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> None:
     """Поток: замерять RSS дерева дочернего процесса (proc + потомки, issue
     #556) до его завершения.
@@ -322,6 +347,13 @@ def _measure_peak_memory(
     Записывает пик памяти (МБ) в result[0]. Замер идёт через общий
     ``sample_tree_rss`` — тот же helper, что и в песочнице, поэтому память
     решения, породившего внуков (multiprocessing/subprocess), не теряется.
+
+    ``monotonic`` — источник времени для срока жизни кэша потомков; в бою это
+    ``time.monotonic``. Параметр существует ради проверяемости: тест на кэш,
+    завязанный на настоящие часы, красный не тогда, когда кэш сломан, а
+    тогда, когда раннер занят — на macOS шесть итераций по 20 мс вышли за
+    полсекунды, кэш протух законно, и проверка «обход ровно один» упала на
+    зелёном коде.
     """
 
     # issue #48 R-05: proc.pid is read after Popen but before communicate() --
@@ -349,29 +381,65 @@ def _measure_peak_memory(
             stacklevel=2,
         )
 
+    # issue #996 (JRN-1-01/JRN-2-01): пик пишется в `result` СРАЗУ, на каждом
+    # обновлении, а не одной строкой в конце функции. Прежний порядок был
+    # неисполним по построению: `RunOutcome` собирается внутри
+    # `_run_with_polling`, а `stop_event.set()` и `join` происходят уже после
+    # его возврата — то есть результат читал `result[0]`, пока поток ещё
+    # крутился и ничего туда не записал. Замер приходил нулевым ВСЕГДА:
+    # проверено прогоном, решение на 24 МБ отдавало `peak_memory_mb=0.0`.
     peak = 0.0
+
+    def remember(rss: float) -> None:
+        """Запомнить пик и сразу отдать его наружу."""
+        nonlocal peak
+        if rss > peak:
+            peak = rss
+            result[0] = peak
+
+    # issue #996 (MTX-6-04): список потомков перечитывается раз в
+    # _CHILDREN_REFRESH_SEC, а не на каждой из пятидесяти итераций в секунду.
+    # Обход дерева процессов — самая дорогая часть замера, и платить за неё
+    # приходится тем самым временем, которое грейдер измеряет.
+    children: list[Any] = []
+    next_refresh = 0.0
+
+    def sample(ps_proc: psutil.Process) -> float:
+        """Замер поддерева со списком потомков из кэша.
+
+        Кэш обновляется ПОСЛЕ замера, а не до: ошибка чтения собственной
+        памяти — сигнал «процесс исчез», и она обязана дойти до вызывающей
+        стороны первой, как и было до кэша. Первый замер идёт с пустым
+        списком — потомков в этот момент ещё нет, а появившиеся попадут в
+        следующий: пик считается максимумом, поэтому ничего не теряется.
+        """
+        nonlocal children, next_refresh
+        rss = sample_tree_rss(ps_proc, children=children)
+        now = monotonic()
+        if now >= next_refresh:
+            try:
+                children = ps_proc.children(recursive=True)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                children = []
+            next_refresh = now + _CHILDREN_REFRESH_SEC
+        return rss
+
     try:
         ps_proc = psutil.Process(proc.pid)
         try:
-            rss = sample_tree_rss(ps_proc)
-            if rss > peak:
-                peak = rss
+            remember(sample(ps_proc))
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             _warn_unreliable()
-            result[0] = peak
             return
         while not stop.is_set():
             try:
-                rss = sample_tree_rss(ps_proc)
-                if rss > peak:
-                    peak = rss
+                remember(sample(ps_proc))
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 _warn_unreliable()
                 break
-            stop.wait(0.02)
+            stop.wait(_POLL_INTERVAL_SEC)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         _warn_unreliable()
-    result[0] = peak
 
 
 def _write_stdin(pipe: Any, data: bytes | None) -> None:
@@ -391,6 +459,34 @@ def _write_stdin(pipe: Any, data: bytes | None) -> None:
     finally:
         with contextlib.suppress(OSError):
             pipe.close()
+
+
+def _kill_orphaned_group(pid: int) -> None:
+    """Добить потомков, переживших ШТАТНЫЙ выход решения (issue #996).
+
+    ``LNG-3-01``/``LNG-3-02``: дерево процессов убивалось только при TLE и
+    отмене. Решение, завершившееся само, но оставившее живого внука
+    (``subprocess.Popen`` без ``wait``, ``multiprocessing`` без ``join``),
+    оставляло его работать: каждый прогон копил осиротевший процесс, а внук,
+    унаследовавший stdout, держал ещё и pipe с потоком-читателем. На сервере
+    это утечка по два дескриптора и два потока на кейс.
+
+    Бьём по группе процессов: ``start_new_session=True`` при spawn делает
+    решение её лидером, поэтому идентификатор группы равен его pid. Сигнал 0
+    сначала спрашивает, существует ли группа вообще, — в штатном случае её уже
+    нет, и SIGKILL не отправляется.
+
+    Предел честный: на Windows групп процессов нет, и без Job Object добить
+    внука нечем — там находка остаётся открытой. Полностью демонизированный
+    (double-fork + setsid) внук уходит и на POSIX: это тот же осознанный предел
+    исполнения без OS-sandbox, что и у :func:`_kill_process_tree`.
+    """
+    if os.name != "posix":
+        return
+    with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+        # Сигнал 0 не доставляется никому — это проверка существования.
+        os.killpg(pid, 0)  # type: ignore[attr-defined]
+        os.killpg(pid, signal.SIGKILL)  # type: ignore[attr-defined]
 
 
 def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
@@ -458,7 +554,15 @@ class _OutputBudget:
                 return chunk
             self._used = self._limit
             self.truncated = True
-            return chunk[:room]
+            # issue #996 (MTX-9-01): режем по границе строки, а не посреди неё.
+            # `chunk[:room]` обрывает строку на произвольном байте, и в sink
+            # попадает огрызок, неотличимый от настоящей строки: сравнение
+            # видит не «вывод обрезан», а другое содержимое, и пользователь
+            # получает WA по строке, которой решение не печатало. Целого
+            # перевода строки в куске нет — отдаём как есть: половина строки
+            # всё же лучше, чем пустой вывод.
+            kept, newline, _tail = chunk[:room].rpartition(b"\n")
+            return kept + newline if newline else chunk[:room]
 
 
 # issue #935: маркер выделен в константу, потому что по нему теперь опознают
@@ -522,7 +626,12 @@ def _scrub_secret_env(env: dict[str, str]) -> None:
     чистят окружение целиком; здесь — консервативный denylist, чтобы не сломать
     project-import (см. ``supports_project_imports``).
     """
-    ai_key_var = CONFIG.ai_api_key_env
+    # issue #996 (LNCH-3-03): имя переменной читается в момент ВЫЗОВА.
+    # `CONFIG` связан на импорте, а `override_config()` (флаги CLI, `--config`)
+    # создаёт НОВЫЙ объект — прежний остаётся со старым значением. Здесь это
+    # не косметика: по этому имени из окружения решения вычищается ключ AI,
+    # и устаревшее значение означает, что чистится не та переменная.
+    ai_key_var = get_config().ai_api_key_env
     for name in list(env):
         upper = name.upper()
         if (
@@ -770,6 +879,12 @@ class LocalRunner:
 
         for reader in readers:
             reader.join(timeout=1.0)
+        # issue #996 (LNG-3-01/LNG-3-02): порядок важен — сначала дочитать, потом
+        # добивать. Внук, держащий stdout, отдаёт байты именно читателям выше
+        # (issue #952), и убийство до `join` вернуло бы пустой вывод верному
+        # решению. После `join` брать больше нечего, а живой потомок — только
+        # утечка: процесс, поток-читатель и пара дескрипторов на каждый кейс.
+        _kill_orphaned_group(proc.pid)
 
         elapsed = time.perf_counter() - start
         # issue #421: reader'ы уже слили частичный вывод в память — вернуть его

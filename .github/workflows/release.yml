@@ -73,7 +73,18 @@ jobs:
         run: python scripts/check_docs_guardrails.py
 
       - name: Release notes for this tag exist (issue #834)
-        run: python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --out /dev/null
+        run: python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --out release-notes.md
+
+      # issue #1290: английский вклад принимается как есть, а русские артефакты
+      # создаёт мержащий — значит, появился способ ошибиться: запись `changelog.d`
+      # уезжает в CHANGELOG непереведённой, потому что при мерже про перевод
+      # забыли. Здесь проверяется РОВНО тот текст, который увидит внешняя
+      # аудитория: тот же файл уходит в тело GitHub Release. На PR та же
+      # проверка предупреждает (состояние работы), здесь — роняет: версия в PyPI
+      # неперезаписываема, и замеченное после публикации правится только
+      # следующим релизом.
+      - name: Release notes are translated (issue #1290)
+        run: python scripts/check_changelog_translated.py --strict release-notes.md
 
       # issue #294: тот же per-OS coverage-конфиг, что и в матрице CI — иначе
       # sandbox-backend'ы двух других ОС считаются непокрытыми и гейт покрытия

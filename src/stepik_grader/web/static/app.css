@@ -212,7 +212,19 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 ::selection { background: oklch(from var(--color-primary) l c h / 0.22); color: var(--color-text); }
 :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: var(--radius-sm); }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  /* issue #970 (DES-1-02): без `animation-iteration-count` короткая
+     длительность бесконечную анимацию не останавливает, а ПЕРЕЗАПУСКАЕТ каждый
+     кадр — .skeleton и .progress-indeterminate объявлены с `infinite`, и
+     0.01ms × infinite давало строб. То есть настройка, включённая по
+     медицинским причинам, выдавала ровно то, от чего человек защищается.
+     `scroll-behavior` сбрасывается здесь же: плавная прокрутка — тоже движение. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  html { scroll-behavior: auto; }
 }
 a, button, [role="button"] {
   transition: color var(--transition-interactive), background var(--transition-interactive),
@@ -695,12 +707,23 @@ select.form-input { cursor: pointer; }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
+  /* issue #970 (DES-1-01): на узком экране прокручивается ДОКУМЕНТ, а не
+     внутренняя область. Десктопная раскладка держит единственный скролл в
+     .panel-body, и это работает, пока у ряда grid есть определённая высота.
+     При `height: auto` ряд `1fr` резолвится по max-content, `flex: 1` внутри
+     теряет опору — а `body { overflow: hidden }` сверху блокирует и прокрутку
+     документа. Итог: на телефоне контент под сгибом недоступен вовсе, и
+     расширить окно человеку нечем. Поэтому здесь скролл отдаётся документу, а
+     `overflow: hidden` снимается со всей цепочки, а не только с оболочки. */
+  body { overflow: auto; }
   .app-shell {
     grid-template-columns: 1fr;
-    grid-template-rows: var(--topbar-h) auto 1fr;
+    grid-template-rows: var(--topbar-h) auto auto;
     grid-template-areas: "topbar" "sidebar" "main";
-    height: auto; overflow: auto;
+    height: auto; min-height: 100dvh; overflow: visible;
   }
+  .main, .main-view { overflow: visible; }
+  .panel-body { overflow-y: visible; }
   .sidebar { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--color-border); max-height: 52px; }
   .sidebar-section { display: flex; flex-direction: row; align-items: center; gap: var(--space-1); padding: var(--space-2); }
   .sidebar-label, .sidebar-badge { display: none; }
