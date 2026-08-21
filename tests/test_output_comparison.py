@@ -26,7 +26,7 @@ from collections.abc import Iterator
 import pytest
 
 from stepik_grader import config
-from stepik_grader.core.grader_core import run_tests
+from stepik_grader.core.grader_core import resolve_test_dir, run_tests
 from stepik_grader.core.result import CaseResult
 
 # Прогонные кейсы тривиальны по времени; потолок нужен только чтобы зависший
@@ -554,7 +554,50 @@ def test_dropped_format3_blocks_reach_the_result(tmp_path: pathlib.Path) -> None
 
     assert result["passed"] == 1
     assert result["warnings"], "предупреждение о неполном наборе не дошло до результата"
-    assert "block" in result["warnings"][0]
+    assert "блок" in result["warnings"][0]
+
+
+def test_borrowed_test_dir_reaches_the_result(tmp_path: pathlib.Path) -> None:
+    """Набор из родительской папки назван вслух, а не подставлен молча.
+
+    issue #917 (RUN-2-08/PY-1-06): решение в подпапке без собственных тестов
+    грейдится набором уровнем выше. Если наверху тесты другой задачи, студент
+    видит сплошной WA и правит верное решение — причина не была названа нигде.
+    """
+    course_dir = tmp_path / "lesson1"
+    (course_dir / "step2").mkdir(parents=True)
+    (course_dir / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (course_dir / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+    solution = course_dir / "step2" / "task.py"
+    solution.write_text("print(int(input()) * 2)\n", encoding="utf-8")
+
+    test_dir = resolve_test_dir(solution)
+    assert test_dir == course_dir, "предусловие находки: набор берётся у родителя"
+
+    with pytest.warns(UserWarning, match="рядом с решением тест-кейсов нет"):
+        result = run_tests(solution, test_dir, timeout=_TIMEOUT)
+
+    assert result["warnings"], "предупреждение о чужом наборе не дошло до результата"
+    assert str(course_dir.resolve()) in result["warnings"][-1]
+
+
+def test_own_tests_subdir_is_not_reported_as_borrowed(tmp_path: pathlib.Path) -> None:
+    """Штатный ``tests/`` рядом с решением предупреждения не порождает.
+
+    Guard к issue #917: предупреждение обязано отличать «набор одолжен» от
+    «набор на своём месте», иначе оно превращается в шум на каждом прогоне.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text("print(int(input()) * 2)\n", encoding="utf-8")
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    result = run_tests(
+        task_dir / "task.py", resolve_test_dir(task_dir / "task.py"), timeout=_TIMEOUT
+    )
+
+    assert result["warnings"] == []
 
 
 class TestStrictCompareMode:

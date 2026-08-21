@@ -375,7 +375,7 @@ def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Pa
     (tmp_path / "1").write_text("9\n", encoding="utf-8")
     (tmp_path / "1.clue").write_text("99\n", encoding="utf-8")
 
-    with pytest.warns(UserWarning, match="Format 3 takes priority"):
+    with pytest.warns(UserWarning, match="приоритет у формата 3"):
         cases = grader.load_test_cases(tmp_path)
 
     assert len(cases) == 1
@@ -404,7 +404,7 @@ def test_load_test_cases_warns_on_input_output_block_count_mismatch(
     )
     (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
 
-    with pytest.warns(UserWarning, match=r"input\.txt has 3.*output\.txt has 2"):
+    with pytest.warns(UserWarning, match=r"в input\.txt 3 блок.*output\.txt — 2"):
         cases = grader.load_test_cases(tmp_path)
 
     # zip(strict=False) still truncates to the shorter side -- warning doesn't
