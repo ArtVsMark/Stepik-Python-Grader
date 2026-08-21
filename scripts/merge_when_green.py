@@ -49,16 +49,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gh_rest
 
 __all__ = [
+    "CONFLICT_LABEL",
+    "HOLD_LABEL",
     "LABEL",
     "Outcome",
+    "apply_default_consent",
     "disable_for",
     "enable_for_labelled",
+    "labels_of",
     "main",
     "pulls_awaiting_auto_merge",
 ]
 
 #: Метка, означающая «как позеленеет, мержи без меня».
 LABEL = "merge-when-green"
+
+#: Стоп-метка: «этот PR автоматике не отдавать» (issue #1325).
+HOLD_LABEL = "hold"
+_HOLD_COLOR = "b60205"
+_HOLD_DESCRIPTION = "Не отдавать автоматике: не ставить merge-when-green и не мержить"
+
+#: Метка конфликта из очереди мержа: такому PR согласие не выдаётся — сперва
+#: слияние вручную (issue #1313).
+CONFLICT_LABEL = "needs-rebase"
+
+_CONSENT_COLOR = "0e8a16"
+_CONSENT_DESCRIPTION = "Согласие смержить без автора: авто-мерж включится, как позеленеет"
 
 
 class Outcome:
@@ -97,6 +113,86 @@ def pulls_awaiting_auto_merge(items: list[dict[str, Any]]) -> list[int]:
 def _auto_merge_enabled(data: dict[str, Any]) -> bool:
     """Включён ли авто-мерж у этого PR (REST отдаёт объект или ``null``)."""
     return bool(data.get("auto_merge"))
+
+
+def labels_of(item: dict[str, Any]) -> set[str]:
+    """Имена меток PR из ответа REST — чистая функция, без сети."""
+    raw = item.get("labels") or []
+    return {
+        str(label.get("name", "")) for label in raw if isinstance(label, dict) and label.get("name")
+    }
+
+
+def apply_default_consent(
+    repo: str = gh_rest.DEFAULT_REPO,
+    *,
+    dry_run: bool = False,
+    **kwargs: Any,
+) -> Outcome:
+    """Проставить согласие по умолчанию: метка на каждом PR, кроме исключённых.
+
+    issue #1325 переворачивает умолчание #1303: раньше молчание означало «не
+    мержить», теперь — «мержить по зелёному». Размен назван прямо: цена ошибки
+    больше не «PR простоял зря», а «PR уехал раньше, чем на него посмотрели».
+    Смягчает его защита ветки — уедет только PR со всеми зелёными проверками на
+    актуальном состоянии, то есть автоматика ускоряет готовое, а не пропускает
+    недоделанное.
+
+    Исключения: черновик (работа не предъявлена), PR из форка (ведёт внешний
+    автор), :data:`CONFLICT_LABEL` (сначала слияние вручную) и стоп-метка
+    :data:`HOLD_LABEL`.
+
+    **Стоп-метка сильнее и переживает обход.** Отличить «метку ещё не ставили»
+    от «поставили и сняли» по состоянию PR нельзя — оно одинаковое, — поэтому
+    снятое человеком согласие вернулось бы следующим же проходом. `hold`
+    выражает решение явно: увидев её, механизм не ставит согласие, а уже
+    стоящее — снимает.
+    """
+    outcome = Outcome()
+    pulls = gh_rest.request("GET", f"repos/{repo}/pulls?state=open&per_page=100", **kwargs).data
+    items = [item for item in (pulls if isinstance(pulls, list) else []) if isinstance(item, dict)]
+    if not items:
+        outcome.say("открытых PR нет — размечать нечего")
+        return outcome
+
+    if not dry_run:
+        gh_rest.ensure_label(
+            repo, LABEL, color=_CONSENT_COLOR, description=_CONSENT_DESCRIPTION, **kwargs
+        )
+        gh_rest.ensure_label(
+            repo, HOLD_LABEL, color=_HOLD_COLOR, description=_HOLD_DESCRIPTION, **kwargs
+        )
+
+    for item in items:
+        number = int(item.get("number", 0))
+        if not number:
+            continue
+        labels = labels_of(item)
+        if HOLD_LABEL in labels:
+            if LABEL in labels:
+                if not dry_run:
+                    gh_rest.remove_label(repo, number, LABEL, **kwargs)
+                outcome.touched.append(number)
+                outcome.say(f"PR #{number}: стоит «{HOLD_LABEL}» — согласие снято")
+            else:
+                outcome.say(f"PR #{number}: стоит «{HOLD_LABEL}» — автоматике не отдаём")
+            continue
+        if item.get("draft"):
+            outcome.say(f"PR #{number}: черновик — работа ещё не предъявлена")
+            continue
+        if (item.get("head") or {}).get("repo", {}).get("fork"):
+            outcome.say(f"PR #{number}: из форка — метки ставит мейнтейнер при разборе")
+            continue
+        if CONFLICT_LABEL in labels:
+            outcome.say(f"PR #{number}: стоит «{CONFLICT_LABEL}» — сначала слияние вручную")
+            continue
+        if LABEL in labels:
+            continue
+        if not dry_run:
+            gh_rest.add_labels(repo, number, [LABEL], **kwargs)
+        outcome.touched.append(number)
+        outcome.say(f"PR #{number}: согласие проставлено по умолчанию")
+    return outcome
 
 
 def enable_for_labelled(
@@ -189,6 +285,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PR",
         help="выключить авто-мерж у PR (метку сняли)",
     )
+    parser.add_argument(
+        "--no-default-consent",
+        action="store_true",
+        help="не проставлять метку по умолчанию — только включить авто-мерж помеченным",
+    )
     parser.add_argument("--dry-run", action="store_true", help="показать, ничего не меняя")
     args = parser.parse_args(argv)
 
@@ -196,7 +297,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.disable:
             outcome = disable_for(args.repo, args.disable, dry_run=args.dry_run)
         else:
-            outcome = enable_for_labelled(args.repo, label=args.label, dry_run=args.dry_run)
+            # issue #1325: сперва проставить согласие по умолчанию, затем
+            # включить авто-мерж помеченным. Порядок именно такой: иначе PR,
+            # получивший метку на этом же проходе, ждал бы следующего.
+            outcome = Outcome()
+            if not args.no_default_consent:
+                marked = apply_default_consent(args.repo, dry_run=args.dry_run)
+                outcome.touched.extend(marked.touched)
+                outcome.lines.extend(marked.lines)
+            enabled = enable_for_labelled(args.repo, label=args.label, dry_run=args.dry_run)
+            outcome.touched.extend(enabled.touched)
+            outcome.lines.extend(enabled.lines)
     except gh_rest.RateLimited as exc:
         print(f"квота GitHub исчерпана: {exc}")
         return gh_rest.EXIT_WAIT

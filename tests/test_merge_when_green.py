@@ -199,7 +199,9 @@ def test_nothing_labelled_is_not_an_error(
 
     assert outcome.touched == []
     assert any("включать нечего" in line for line in outcome.lines)
-    assert consent.main(["--repo", "owner/repo"]) == 0
+    # `--no-default-consent`: здесь проверяется только включение авто-мержа,
+    # расстановка меток по умолчанию (issue #1325) — предмет отдельных тестов.
+    assert consent.main(["--repo", "owner/repo", "--no-default-consent"]) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +265,7 @@ def test_exhausted_quota_means_wait(consent: ModuleType, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(gh, "issues_with_label", _raise)
 
-    assert consent.main(["--repo", "owner/repo"]) == gh.EXIT_WAIT
+    assert consent.main(["--repo", "owner/repo", "--no-default-consent"]) == gh.EXIT_WAIT
 
 
 def test_unreadable_list_is_a_failure(consent: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -275,4 +277,141 @@ def test_unreadable_list_is_a_failure(consent: ModuleType, monkeypatch: pytest.M
 
     monkeypatch.setattr(gh, "issues_with_label", _raise)
 
-    assert consent.main(["--repo", "owner/repo"]) == gh.EXIT_FAIL
+    assert consent.main(["--repo", "owner/repo", "--no-default-consent"]) == gh.EXIT_FAIL
+
+
+# ---------------------------------------------------------------------------
+# issue #1325 — согласие по умолчанию и стоп-метка
+#
+# Умолчание перевёрнуто: молчание означает «мержить по зелёному», а человек
+# ВЫРАЖАЕТ несогласие. Ловушка, ради которой заведена стоп-метка: механизм
+# идемпотентен и ходит по расписанию, поэтому снятая руками метка вернулась бы
+# следующим проходом — отличить «ещё не ставили» от «сняли» по состоянию PR
+# нельзя.
+# ---------------------------------------------------------------------------
+
+
+class _FakeRepo:
+    """Подделка списка PR и операций с метками."""
+
+    def __init__(self, pulls: list[dict[str, Any]]) -> None:
+        self.pulls = pulls
+        self.added: list[tuple[int, str]] = []
+        self.removed: list[tuple[int, str]] = []
+        self.ensured: list[str] = []
+
+    def request(self, _method: str, _path: str, **_kwargs: Any) -> Any:
+        class _Response:
+            data = self.pulls
+
+        return _Response()
+
+    def ensure_label(self, _repo: str, name: str, **_kwargs: Any) -> bool:
+        self.ensured.append(name)
+        return True
+
+    def add_labels(self, _repo: str, number: int, labels: list[str], **_kwargs: Any) -> list[str]:
+        self.added.extend((number, label) for label in labels)
+        return labels
+
+    def remove_label(self, _repo: str, number: int, label: str, **_kwargs: Any) -> bool:
+        self.removed.append((number, label))
+        return True
+
+
+def _open_pr(number: int, *, labels: tuple[str, ...] = (), **fields: Any) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "number": number,
+        "draft": False,
+        "head": {"repo": {"fork": False}},
+        "labels": [{"name": name} for name in labels],
+    }
+    data.update(fields)
+    return data
+
+
+def _wire_repo(consent: ModuleType, monkeypatch: pytest.MonkeyPatch, repo: _FakeRepo) -> _FakeRepo:
+    gh = consent.gh_rest
+    monkeypatch.setattr(gh, "request", repo.request)
+    monkeypatch.setattr(gh, "ensure_label", repo.ensure_label)
+    monkeypatch.setattr(gh, "add_labels", repo.add_labels)
+    monkeypatch.setattr(gh, "remove_label", repo.remove_label)
+    return repo
+
+
+def test_every_open_pr_gets_consent_by_default(
+    consent: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Молчание означает «мержить»: метка ставится сама."""
+    repo = _wire_repo(consent, monkeypatch, _FakeRepo([_open_pr(1), _open_pr(2)]))
+
+    outcome = consent.apply_default_consent("owner/repo")
+
+    assert repo.added == [(1, consent.LABEL), (2, consent.LABEL)]
+    assert outcome.touched == [1, 2]
+
+
+def test_hold_label_blocks_consent(consent: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Стоп-метка сильнее умолчания — согласие не выдаётся."""
+    repo = _wire_repo(consent, monkeypatch, _FakeRepo([_open_pr(3, labels=(consent.HOLD_LABEL,))]))
+
+    consent.apply_default_consent("owner/repo")
+
+    assert repo.added == []
+
+
+def test_hold_label_revokes_existing_consent(
+    consent: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`hold` поверх уже стоящего согласия его снимает — решение обратимо."""
+    repo = _wire_repo(
+        consent,
+        monkeypatch,
+        _FakeRepo([_open_pr(4, labels=(consent.HOLD_LABEL, consent.LABEL))]),
+    )
+
+    outcome = consent.apply_default_consent("owner/repo")
+
+    assert repo.removed == [(4, consent.LABEL)]
+    assert outcome.touched == [4]
+
+
+def test_draft_fork_and_conflict_are_left_alone(
+    consent: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Черновик, форк и конфликтный PR согласия по умолчанию не получают."""
+    repo = _wire_repo(
+        consent,
+        monkeypatch,
+        _FakeRepo(
+            [
+                _open_pr(5, draft=True),
+                _open_pr(6, head={"repo": {"fork": True}}),
+                _open_pr(7, labels=(consent.CONFLICT_LABEL,)),
+            ]
+        ),
+    )
+
+    consent.apply_default_consent("owner/repo")
+
+    assert repo.added == []
+
+
+def test_consent_is_not_duplicated(consent: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Метка уже стоит — повторный обход её не переставляет."""
+    repo = _wire_repo(consent, monkeypatch, _FakeRepo([_open_pr(8, labels=(consent.LABEL,))]))
+
+    outcome = consent.apply_default_consent("owner/repo")
+
+    assert repo.added == []
+    assert outcome.touched == []
+
+
+def test_dry_run_marks_nothing(consent: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--dry-run` не трогает ни меток, ни их создание."""
+    repo = _wire_repo(consent, monkeypatch, _FakeRepo([_open_pr(9)]))
+
+    outcome = consent.apply_default_consent("owner/repo", dry_run=True)
+
+    assert repo.added == [] and repo.ensured == []
+    assert outcome.touched == [9]
