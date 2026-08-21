@@ -36,15 +36,81 @@ def module() -> ModuleType:
 
 
 def _pull(**overrides: Any) -> dict[str, Any]:
-    """Открытый PR без конфликтов, если не сказано иначе."""
+    """Открытый PR без конфликтов и с полной разметкой, если не сказано иначе.
+
+    Метки и `Closes #N` входят в «нормальный PR» с issue #1329: без них гейт
+    отказывает, и каждый тест про что-то другое иначе падал бы по разметке.
+    """
     return {
         "state": "open",
         "draft": False,
         "mergeable": True,
         "mergeable_state": "clean",
         "head": {"sha": "deadbeef"},
+        "labels": [{"name": "area/core"}, {"name": "bug"}],
+        "body": "Closes #1",
         **overrides,
     }
+
+
+class TestMetadataBlockers:
+    """issue #1329: метки и связь с задачей обязательны — гейт вместо договорённости."""
+
+    def test_full_metadata_passes(self, module: ModuleType) -> None:
+        assert module.metadata_blockers(_pull()) == []
+
+    def test_missing_area_label_is_named(self, module: ModuleType) -> None:
+        blockers = module.metadata_blockers(_pull(labels=[{"name": "bug"}]))
+
+        assert any("area/*" in reason for reason in blockers)
+
+    def test_missing_type_label_is_named(self, module: ModuleType) -> None:
+        blockers = module.metadata_blockers(_pull(labels=[{"name": "area/cli"}]))
+
+        assert any("типа работы" in reason for reason in blockers)
+
+    def test_pipeline_labels_do_not_count_as_metadata(self, module: ModuleType) -> None:
+        """Метки конвейера ставит автоматика — они не про содержание работы."""
+        blockers = module.metadata_blockers(
+            _pull(labels=[{"name": "merge-when-green"}, {"name": "hold"}, {"name": "blocker"}])
+        )
+
+        assert len(blockers) == 2, blockers
+
+    def test_missing_issue_link_is_named(self, module: ModuleType) -> None:
+        blockers = module.metadata_blockers(_pull(body="Просто описание"))
+
+        assert any("Closes #N" in reason for reason in blockers)
+
+    def test_explicit_release_from_issue_is_accepted(self, module: ModuleType) -> None:
+        """«Без issue: <причина>» — освобождение, которое видно, в отличие от забытого."""
+        body = "Без issue: правка опечатки в комментарии"
+
+        assert module.metadata_blockers(_pull(body=body)) == []
+
+    def test_release_without_a_reason_does_not_count(self, module: ModuleType) -> None:
+        """Пустое «Без issue:» — это забывчивость с двоеточием, а не решение."""
+        blockers = module.metadata_blockers(_pull(body="Без issue:"))
+
+        assert any("Closes #N" in reason for reason in blockers)
+
+    def test_fork_is_only_warned_not_blocked(self, module: ModuleType) -> None:
+        """Внешний контрибьютор не обязан знать про наши метки — их проставит мейнтейнер."""
+        fork = _pull(labels=[], body="", head={"sha": "deadbeef", "repo": {"fork": True}})
+
+        assert module.metadata_blockers(fork) == []
+
+    def test_gate_refuses_a_pull_without_metadata(self, module: ModuleType) -> None:
+        """Отказ приходит из общей оценки, а не только из отдельной функции."""
+        verdict = module.evaluate(
+            _pull(labels=[], body=""),
+            {"workflow_runs": []},
+            {"check_runs": []},
+            _EXPECTED,
+        )
+
+        assert not verdict.ready
+        assert any("area/*" in reason for reason in verdict.reasons)
 
 
 def _runs(*statuses: tuple[str, str | None]) -> dict[str, Any]:
