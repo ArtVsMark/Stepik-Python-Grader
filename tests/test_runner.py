@@ -12,6 +12,7 @@ Two halves:
 from __future__ import annotations
 
 import contextlib
+import os
 import pathlib
 import sys
 import tempfile
@@ -20,6 +21,7 @@ import time
 import warnings
 from typing import Any
 
+import psutil
 import pytest
 
 from stepik_grader.core.runner import LocalRunner, RunSpec, spec_source_bytes
@@ -742,3 +744,40 @@ def test_local_runner_sets_python_colors_off_in_child_env(tmp_path: pathlib.Path
     outcome = LocalRunner().run(spec)
 
     assert outcome.stdout.decode("utf-8").strip() == "0 1"
+
+
+# ---------------------------------------------------------------------------
+# LNG-3-01 / LNG-3-02 (issue #996) — внук не переживает штатный выход решения
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(os.name != "posix", reason="групп процессов нет на Windows")
+def test_orphan_of_a_normally_finished_solution_is_killed(tmp_path: pathlib.Path) -> None:
+    """Решение завершилось само, но оставило живого внука — внук не остаётся.
+
+    Дерево убивалось только при TLE и отмене, поэтому каждый штатный прогон
+    копил осиротевший процесс, а внук, унаследовавший stdout, держал ещё и
+    поток-читатель с парой дескрипторов. На сервере это утечка на каждый кейс.
+    """
+    marker = tmp_path / "внук.pid"
+    solution = tmp_path / "task.py"
+    solution.write_text(
+        "import subprocess, sys, pathlib\n"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        f"pathlib.Path({str(marker)!r}).write_text(str(child.pid))\n"
+        "print('готово')\n",
+        encoding="utf-8",
+    )
+
+    outcome = LocalRunner().run(RunSpec(path=solution, stdin=b"", timeout=15.0))
+
+    assert outcome.stdout.strip() == "готово".encode(), "вывод решения обязан дойти целиком"
+    grandchild = int(marker.read_text(encoding="utf-8"))
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        if not psutil.pid_exists(grandchild):
+            break
+        time.sleep(0.1)
+    assert not psutil.pid_exists(grandchild), (
+        "внук пережил прогон — процесс копится на каждом кейсе"
+    )
