@@ -426,6 +426,12 @@ a.btn { text-decoration: none; }
 .data-table tbody tr:hover { background: var(--color-surface-offset); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table .mono { font-family: var(--font-mono); }
+/* issue #1212: ключ шага под названием задачи. Он нужен — иначе одноимённые
+   папки из разных курсов неразличимы, — но за внимание с именем не спорит.
+   Размер относительный, а не токеном: таблица сама уже на `--text-xs`, и токен
+   здесь ничего не изменил бы (проверено в браузере), а отдельная ступень
+   «мельче xs» ради одной подписи в системе не нужна. */
+.data-table .task-key { font-family: var(--font-mono); font-size: 0.9em; color: var(--color-text-muted); }
 .data-table .file-cell { cursor: pointer; }
 .data-table .file-cell:hover { text-decoration: underline; }
 .verdict-similar { color: var(--color-success); font-weight: 600; }
