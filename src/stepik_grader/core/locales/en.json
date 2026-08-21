@@ -196,6 +196,7 @@
   "history_purge_preview": "⚠️ Will be deleted permanently — runs: {runs}.\n   Tasks: {tasks}\n   Solutions: {solutions}",
   "history_purge_shared_key": "   Warning: key “{task}” covers more than one task — the key is currently the folder name, so same-named folders from different courses share history.",
   "history_purged": "🗑 History purged — runs: {runs}, stats entries: {stats}.",
+  "history_purge_next_db": "ℹ A different history database is active now: {path} — tasks: {tasks}, runs: {runs}. It is shared across folders and was not touched by the purge above; run the command again to remove it too.",
   "history_purged_task": "🗑 History for task {task} purged — runs: {runs}.",
   "history_save_failed": "⚠️ Could not save the setting to the settings file ({error}). The change applies to this session only.",
   "history_toggled_off": "⏹ Run history disabled. Saved to the settings file.",

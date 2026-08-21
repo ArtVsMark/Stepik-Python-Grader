@@ -262,6 +262,96 @@ def test_local_runner_reports_peak_memory_of_a_hungry_solution(
     )
 
 
+def test_measure_peak_memory_does_not_walk_the_tree_every_tick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """issue #996 (MTX-6-04): дерево процессов обходится редко, память — часто.
+
+    ``children(recursive=True)`` перебирает таблицу процессов целиком и стоит
+    на порядок дороже одного ``memory_info()``. На опросе каждые 20 мс обход
+    съедал заметную долю времени решения — а показывает это время грейдер как
+    время решения. Список потомков поэтому живёт полсекунды; сама память
+    по-прежнему читается на каждой итерации, иначе пик стал бы грубее.
+    """
+    import types
+
+    from stepik_grader.core import runner
+
+    walks = 0
+    reads = 0
+    stop = threading.Event()
+
+    class _Counting:
+        def memory_info(self) -> Any:
+            nonlocal reads
+            reads += 1
+            if reads >= 6:  # шесть опросов памяти — и хватит
+                stop.set()
+            return types.SimpleNamespace(rss=1024 * 1024)
+
+        def children(self, recursive: bool = False) -> list[Any]:
+            nonlocal walks
+            walks += 1
+            return []
+
+    monkeypatch.setattr(runner.psutil, "Process", lambda pid: _Counting())
+
+    # Часы подменены намеренно: на настоящих тест краснел не когда кэш сломан,
+    # а когда раннер занят — на macOS шесть итераций по 20 мс вышли за срок
+    # жизни кэша, тот честно обновился второй раз, и проверка упала на зелёном
+    # коде. Здесь время стоит, поэтому обход обязан быть ровно один.
+    runner._measure_peak_memory(_FakeProc(), [0.0], stop, monotonic=lambda: 0.0)
+
+    assert reads >= 6, "память обязана читаться на каждой итерации"
+    assert walks == 1, f"дерево обошли {walks} раз(а) на {reads} замеров — кэш потомков не работает"
+
+
+def test_measure_peak_memory_refreshes_children_when_the_cache_expires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Кэш живёт полсекунды, а не вечно: иначе новый потомок не нашёлся бы никогда.
+
+    Парный к тесту выше. Без него «кэш работает» доказывалось бы и намертво
+    замороженным списком — решение, породившее процесс после старта, потеряло
+    бы его память навсегда.
+    """
+    import types
+
+    from stepik_grader.core import runner
+
+    walks = 0
+    reads = 0
+    stop = threading.Event()
+    clock = 0.0
+
+    def _tick() -> float:
+        nonlocal clock
+        clock += runner._CHILDREN_REFRESH_SEC  # каждый замер — новый срок кэша
+        return clock
+
+    class _Counting:
+        def memory_info(self) -> Any:
+            nonlocal reads
+            reads += 1
+            if reads >= 4:
+                stop.set()
+            return types.SimpleNamespace(rss=1024 * 1024)
+
+        def children(self, recursive: bool = False) -> list[Any]:
+            nonlocal walks
+            walks += 1
+            return []
+
+    monkeypatch.setattr(runner.psutil, "Process", lambda pid: _Counting())
+
+    runner._measure_peak_memory(_FakeProc(), [0.0], stop, monotonic=_tick)
+
+    assert walks == reads, (
+        f"срок кэша истёк {reads} раз(а), а дерево обошли {walks} — "
+        "просроченный кэш обязан перечитываться"
+    )
+
+
 # ---------------------------------------------------------------------------
 # sample_tree_rss — суммарный RSS процесса + потомков (issue #556)
 # ---------------------------------------------------------------------------
@@ -853,3 +943,44 @@ def test_orphan_of_a_normally_finished_solution_is_killed(tmp_path: pathlib.Path
     assert not psutil.pid_exists(grandchild), (
         "внук пережил прогон — процесс копится на каждом кейсе"
     )
+
+
+# ---------------------------------------------------------------------------
+# INS-2-03 (issue #996) — сломанное окружение не роняет весь грейдер
+# ---------------------------------------------------------------------------
+
+
+def test_solution_runs_without_psutil(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """Без psutil прогон продолжается: теряется замер памяти, а не вердикт.
+
+    psutil объявлен в зависимостях, но окружение у аудитории курса ломается
+    регулярно. Голый импорт наверху модуля означал, что студент видит трейсбек
+    чужой библиотеки вместо своего вердикта — притом что от psutil зависят
+    ровно две вещи, и обе необязательные.
+    """
+    from stepik_grader.core import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "psutil", None)
+    solution = tmp_path / "task.py"
+    solution.write_text("print(int(input()) * 2)\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        outcome = LocalRunner().run(
+            RunSpec(path=solution, stdin=b"21\n", timeout=15.0, measure_memory=True)
+        )
+
+    assert outcome.stdout.strip() == b"42", "вердикт обязан считаться и без psutil"
+    assert outcome.peak_memory_mb == 0.0, "замера нет — это и означает 0.0"
+
+
+def test_missing_psutil_is_not_silent(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """Ноль в отчёте объясняется вслух, иначе он читается как «памяти не тратит»."""
+    from stepik_grader.core import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "psutil", None)
+    solution = tmp_path / "task.py"
+    solution.write_text("print('ок')\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="psutil не установлен"):
+        LocalRunner().run(RunSpec(path=solution, stdin=b"", timeout=15.0, measure_memory=True))
