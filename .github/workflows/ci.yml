@@ -127,6 +127,12 @@ jobs:
       # чужие изменения. Отказ стоит там, где ошибка необратима, — в release.yml.
       - name: CHANGELOG entries are translated (issue #1290)
         run: python scripts/check_changelog_translated.py
+      # issue #1301 (предусловие безопасности) / #982: ответ API, попавший на
+      # диск без редакции, — утечка токена, которая проявится только на
+      # настоящем токене, то есть уже у пользователя. Реестр точек дампа не
+      # даёт новой такой точке появиться без разбора. Тоже чистый stdlib (ast).
+      - name: Secret dump registry (issue #1301)
+        run: python scripts/check_secret_dumps.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают

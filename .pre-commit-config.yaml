@@ -105,6 +105,13 @@ repos:
         pass_filenames: false
         files: '^tests/.*\.py$'
 
+      - id: check-secret-dumps
+        name: точки дампа перечислены и редактируют секреты
+        entry: python scripts/check_secret_dumps.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/.*\.py$'
+
       - id: check-ruff-pin
         name: версия ruff — один источник
         entry: python scripts/check_ruff_pin.py
