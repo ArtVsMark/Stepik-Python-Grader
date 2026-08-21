@@ -91,12 +91,26 @@ repos:
         pass_filenames: false
         files: '^\.github/workflows/.*\.ya?ml$'
 
+      - id: check-changelog-translated
+        name: записи CHANGELOG не остались английскими
+        entry: python scripts/check_changelog_translated.py
+        language: system
+        pass_filenames: false
+        files: '^(changelog\.d/.*\.md|CHANGELOG\.md)$'
+
       - id: check-test-isolation
         name: тесты не пишут в домашний каталог
         entry: python scripts/check_test_isolation.py
         language: system
         pass_filenames: false
         files: '^tests/.*\.py$'
+
+      - id: check-secret-dumps
+        name: точки дампа перечислены и редактируют секреты
+        entry: python scripts/check_secret_dumps.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/.*\.py$'
 
       - id: check-ruff-pin
         name: версия ruff — один источник

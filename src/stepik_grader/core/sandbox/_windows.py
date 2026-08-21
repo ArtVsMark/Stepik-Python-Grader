@@ -195,6 +195,10 @@ def _poll_resources(
     stop: threading.Event,
     peak_result: list[float],
 ) -> None:
+    # issue #996 (JRN-1-01): пик публикуется СРАЗУ, а не одной строкой на
+    # выходе из функции. Выход наступает после `stop`, а `join` вызывающей
+    # стороны ограничен по времени: не успел поток — замер терялся целиком.
+    # В `LocalRunner` тот же порядок делал пик нулевым ВСЕГДА (см. runner.py).
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
@@ -205,6 +209,7 @@ def _poll_resources(
                 rss = sample_tree_rss(ps_proc)
                 if rss > peak:
                     peak = rss
+                    peak_result[0] = peak
                 if rss > max_memory_mb:
                     mem_exceeded.set()
                     proc.kill()
@@ -219,7 +224,6 @@ def _poll_resources(
             stop.wait(0.02)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
-    peak_result[0] = peak
 
 
 class WindowsSandboxRunner:

@@ -111,3 +111,69 @@ class TestBrokenMetaJsonFallsBackQuietly:
         solution = self._task(tmp_path, b'{"function_name": "solve"}')
 
         assert mode_detector._read_meta_function_name(solution) == "solve"
+
+
+class TestTypeFilesAreCaseLevel:
+    """issue #996 (``MTX-5-02``): ``N.type`` — сигнал кейса N, а не всего набора.
+
+    Детектор принимал любой ``.type`` с маркером за файловый режим: одного
+    ``1.type`` хватало, чтобы весь набор уехал в function-режим, — и верное
+    stdin-решение получало ``RE`` на каждом кейсе. Файл при этом мог просто
+    пережить прошлую задачу в той же папке.
+    """
+
+    @staticmethod
+    def _stdin_solution(tmp_path: pathlib.Path) -> pathlib.Path:
+        """Обычное stdin-решение: по AST в function-режим не попадёт."""
+        solution = tmp_path / "task.py"
+        solution.write_text("print(int(input()) * 2)\n", encoding="utf-8")
+        return solution
+
+    @staticmethod
+    def _case(test_dir: pathlib.Path, index: int, *, typed: bool = False) -> None:
+        """Кейс формата 1: ``N`` + ``N.clue``, при ``typed`` — ещё и ``N.type``."""
+        (test_dir / str(index)).write_text(f"{index}\n", encoding="utf-8")
+        (test_dir / f"{index}.clue").write_text(f"{index * 2}\n", encoding="utf-8")
+        if typed:
+            (test_dir / f"{index}.type").write_text("function\n", encoding="utf-8")
+
+    def test_partial_marker_does_not_switch_the_whole_set(self, tmp_path: pathlib.Path) -> None:
+        """Помечен один кейс из двух — набор остаётся stdin."""
+        solution = self._stdin_solution(tmp_path)
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        self._case(test_dir, 1, typed=True)
+        self._case(test_dir, 2)
+
+        assert mode_detector._detect_run_mode(solution, test_dir) == "stdin"
+
+    def test_every_case_marked_still_switches(self, tmp_path: pathlib.Path) -> None:
+        """Помечены все кейсы — прежний вывод сохраняется."""
+        solution = self._stdin_solution(tmp_path)
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        self._case(test_dir, 1, typed=True)
+        self._case(test_dir, 2, typed=True)
+
+        assert mode_detector._detect_run_mode(solution, test_dir) == "function"
+
+    def test_marker_without_format1_cases_still_switches(self, tmp_path: pathlib.Path) -> None:
+        """Форматы 2 и 3 ``.type`` не читают — там файл относится к набору целиком."""
+        solution = self._stdin_solution(tmp_path)
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "input_1.txt").write_text("5\n", encoding="utf-8")
+        (test_dir / "expected_1.txt").write_text("10\n", encoding="utf-8")
+        (test_dir / "1.type").write_text("function\n", encoding="utf-8")
+
+        assert mode_detector._detect_run_mode(solution, test_dir) == "function"
+
+    def test_stray_marker_without_its_case_is_not_a_signal(self, tmp_path: pathlib.Path) -> None:
+        """``3.type`` без кейса 3 не переводит в function чужие кейсы."""
+        solution = self._stdin_solution(tmp_path)
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        self._case(test_dir, 1)
+        (test_dir / "3.type").write_text("function\n", encoding="utf-8")
+
+        assert mode_detector._detect_run_mode(solution, test_dir) == "stdin"

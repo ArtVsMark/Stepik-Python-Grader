@@ -42,6 +42,21 @@ python -m pipx ensurepath      # один раз добавляет pipx в PATH
 pipx install stepik-python-grader
 ```
 
+> **Linux: первая команда может отказать — это не поломка.** На Debian/Ubuntu
+> 24.04, Fedora и других системах с Python 3.12+ системный интерпретатор помечен
+> «externally managed» (PEP 668), и `pip` отказывается ставить в него что-либо:
+> `error: externally-managed-environment`. Пакет `pipx` там ставится
+> **менеджером системы**, а не pip'ом:
+>
+> ```bash
+> sudo apt install pipx      # Debian/Ubuntu
+> sudo dnf install pipx      # Fedora
+> ```
+>
+> Дальше — те же `pipx ensurepath` и `pipx install stepik-python-grader`.
+> Обходить запрет (`--break-system-packages`) не нужно: он ставит пакет в
+> системный Python, то есть ровно туда, куда его не пускает дистрибутив.
+
 Проверь, что всё встало:
 
 ```bash

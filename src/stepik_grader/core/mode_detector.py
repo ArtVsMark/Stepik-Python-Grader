@@ -17,13 +17,17 @@ import ast
 import pathlib
 from collections.abc import Iterable
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core.storage import load_json_file
 
 __all__ = [
     "is_function_only_solution",
 ]
 
+# issue #996 (PY-1-07, LNCH-3-03): снимок на момент импорта — ради фасада и
+# внешних ссылок на имя. Внутри модуля кодировка читается `get_config()` в
+# момент ВЫЗОВА: связанная на импорте, она игнорирует и `--config`, и
+# `override_config()`, то есть настройка молча не действует.
 ENCODING: str = CONFIG.encoding
 
 
@@ -230,7 +234,7 @@ def _ast_function_names(solution_path: pathlib.Path) -> list[str]:
     теста быть не могут.
     """
     try:
-        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return []
@@ -248,7 +252,7 @@ def _ast_class_names(solution_path: pathlib.Path) -> list[str]:
     нельзя.
     """
     try:
-        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return []
@@ -273,7 +277,7 @@ def _ast_function_name(solution_path: pathlib.Path) -> str | None:
         # лишь имя функции: подставной символ в комментарии на AST не влияет,
         # а если исходник действительно не разбирается — вернём None, как и
         # для любого синтаксически неверного файла.
-        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return None
@@ -294,12 +298,61 @@ def _ast_function_name(solution_path: pathlib.Path) -> str | None:
     return None
 
 
+def _reads_function_marker(type_file: pathlib.Path) -> bool:
+    """``.type``-файл говорит «function»? Терпимо к кодировке и BOM.
+
+    issue #792 (``PY-03``): не-UTF8 в ``.type`` не должен ронять детекцию.
+
+    issue #987 (``REV-1-02``): BOM срезается отдельно — ``strip()`` его не
+    трогает (U+FEFF не пробельный), и ``﻿function`` не совпадал с маркером.
+    Позвать здесь ``read_test_text`` нельзя: он живёт в ``test_loader``,
+    который импортирует этот модуль, — общий хелпер замкнул бы DAG.
+    """
+    try:
+        raw = type_file.read_bytes().decode(get_config().encoding, errors="replace")
+    except OSError:
+        return False
+    return raw.lstrip("﻿").strip() == "function"
+
+
+def _type_files_cover_every_case(test_dir: pathlib.Path) -> bool:
+    """Помечают ли ``.type``-файлы весь набор как function-режим.
+
+    issue #996 (``MTX-5-02``): ``N.type`` относится к **кейсу N** — так его и
+    читает загрузчик набора. Детектор же принимал любой такой файл за сигнал
+    файлового уровня: одного ``1.type`` хватало, чтобы ВСЕ кейсы уехали в
+    function-режим. Набор из двух кейсов, где помечен только первый, превращал
+    верное stdin-решение в ``0/2 RE`` — при том что оставшийся ``.type`` мог
+    просто пережить прошлую задачу в той же папке.
+
+    Поэтому глобальный вывод делается, только когда сигнал не противоречит
+    по-кейсовому: либо кейсов формата 1 в каталоге нет вовсе (форматы 2 и 3
+    ``.type`` не читают, и файл может относиться только к набору целиком),
+    либо ``.type`` с маркером есть у **каждого** кейса. Смешанный набор
+    остаётся stdin на уровне файла, а помеченные кейсы получают ``function``
+    там, где это и решается, — в ``load_test_cases``.
+    """
+    marked = {
+        type_file.name.removesuffix(".type")
+        for type_file in test_dir.glob("*.type")
+        if _reads_function_marker(type_file)
+    }
+    if not marked:
+        return False
+    legacy_cases = {
+        entry.name
+        for entry in test_dir.iterdir()
+        if entry.name.isdigit() and (test_dir / f"{entry.name}.clue").exists()
+    }
+    return not legacy_cases or legacy_cases <= marked
+
+
 def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str:
     """Единая точка детекции режима запуска: "stdin" или "function".
 
     Стратегия определения (первый сработавший выигрывает):
       1. meta.json рядом с файлом: если function_name != None → "function"
-      2. .type-файлы в test_dir: если хоть один содержит "function" → "function"
+      2. .type-файлы в test_dir, помечающие ВСЕ кейсы формата 1 → "function"
       3. AST-анализ файла решения через is_function_only_solution → "function"
       4. Иначе → "stdin"
 
@@ -311,23 +364,13 @@ def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str
         return "function"
 
     # 2. .type-файлы
-    if test_dir.is_dir():
-        for type_file in test_dir.glob("*.type"):
-            # issue #792 (PY-03): не-UTF8 в .type не должен ронять детекцию.
-            #
-            # issue #987 (REV-1-02): BOM срезается отдельно — `strip()` его не
-            # трогает (U+FEFF не пробельный), и `﻿function` не совпадал
-            # с маркером. Здесь нельзя позвать `read_test_text`: он живёт в
-            # `test_loader`, который импортирует этот модуль, — общий хелпер
-            # замкнул бы DAG.
-            raw = type_file.read_bytes().decode(ENCODING, errors="replace").lstrip("﻿").strip()
-            if raw == "function":
-                return "function"
+    if test_dir.is_dir() and _type_files_cover_every_case(test_dir):
+        return "function"
 
     # 3. AST-анализ файла решения
     try:
         # issue #792 (PY-03): то же декодирование с заменой — см. выше.
-        file_content = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        file_content = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         if is_function_only_solution(file_content):
             return "function"
     except OSError:
