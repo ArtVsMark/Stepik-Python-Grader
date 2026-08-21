@@ -262,6 +262,96 @@ def test_local_runner_reports_peak_memory_of_a_hungry_solution(
     )
 
 
+def test_measure_peak_memory_does_not_walk_the_tree_every_tick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """issue #996 (MTX-6-04): дерево процессов обходится редко, память — часто.
+
+    ``children(recursive=True)`` перебирает таблицу процессов целиком и стоит
+    на порядок дороже одного ``memory_info()``. На опросе каждые 20 мс обход
+    съедал заметную долю времени решения — а показывает это время грейдер как
+    время решения. Список потомков поэтому живёт полсекунды; сама память
+    по-прежнему читается на каждой итерации, иначе пик стал бы грубее.
+    """
+    import types
+
+    from stepik_grader.core import runner
+
+    walks = 0
+    reads = 0
+    stop = threading.Event()
+
+    class _Counting:
+        def memory_info(self) -> Any:
+            nonlocal reads
+            reads += 1
+            if reads >= 6:  # шесть опросов памяти — и хватит
+                stop.set()
+            return types.SimpleNamespace(rss=1024 * 1024)
+
+        def children(self, recursive: bool = False) -> list[Any]:
+            nonlocal walks
+            walks += 1
+            return []
+
+    monkeypatch.setattr(runner.psutil, "Process", lambda pid: _Counting())
+
+    # Часы подменены намеренно: на настоящих тест краснел не когда кэш сломан,
+    # а когда раннер занят — на macOS шесть итераций по 20 мс вышли за срок
+    # жизни кэша, тот честно обновился второй раз, и проверка упала на зелёном
+    # коде. Здесь время стоит, поэтому обход обязан быть ровно один.
+    runner._measure_peak_memory(_FakeProc(), [0.0], stop, monotonic=lambda: 0.0)
+
+    assert reads >= 6, "память обязана читаться на каждой итерации"
+    assert walks == 1, f"дерево обошли {walks} раз(а) на {reads} замеров — кэш потомков не работает"
+
+
+def test_measure_peak_memory_refreshes_children_when_the_cache_expires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Кэш живёт полсекунды, а не вечно: иначе новый потомок не нашёлся бы никогда.
+
+    Парный к тесту выше. Без него «кэш работает» доказывалось бы и намертво
+    замороженным списком — решение, породившее процесс после старта, потеряло
+    бы его память навсегда.
+    """
+    import types
+
+    from stepik_grader.core import runner
+
+    walks = 0
+    reads = 0
+    stop = threading.Event()
+    clock = 0.0
+
+    def _tick() -> float:
+        nonlocal clock
+        clock += runner._CHILDREN_REFRESH_SEC  # каждый замер — новый срок кэша
+        return clock
+
+    class _Counting:
+        def memory_info(self) -> Any:
+            nonlocal reads
+            reads += 1
+            if reads >= 4:
+                stop.set()
+            return types.SimpleNamespace(rss=1024 * 1024)
+
+        def children(self, recursive: bool = False) -> list[Any]:
+            nonlocal walks
+            walks += 1
+            return []
+
+    monkeypatch.setattr(runner.psutil, "Process", lambda pid: _Counting())
+
+    runner._measure_peak_memory(_FakeProc(), [0.0], stop, monotonic=_tick)
+
+    assert walks == reads, (
+        f"срок кэша истёк {reads} раз(а), а дерево обошли {walks} — "
+        "просроченный кэш обязан перечитываться"
+    )
+
+
 # ---------------------------------------------------------------------------
 # sample_tree_rss — суммарный RSS процесса + потомков (issue #556)
 # ---------------------------------------------------------------------------
