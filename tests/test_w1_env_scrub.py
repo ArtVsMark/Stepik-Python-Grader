@@ -114,3 +114,43 @@ def test_child_process_still_sees_path(
     printed = outcome.stdout.decode("utf-8", errors="replace")
 
     assert "<<absent>>" not in printed
+
+
+# ---------------------------------------------------------------------------
+# SEC-2-06 (issue #996) — доступ без секрета в значении
+#
+# Denylist ловил слова «секрет», «токен», «пароль» — и пропускал то, что
+# секрета в себе не содержит, а доступ даёт: `SSH_AUTH_SOCK` (сокет агента:
+# решение подпишет что угодно ключами пользователя, не увидев самого ключа),
+# `XAUTHORITY` (доступ к дисплею), `GNUPGHOME`, `KUBECONFIG`.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name,why",
+    [
+        ("SSH_AUTH_SOCK", "сокет ssh-агента: подпись чем угодно без раскрытия ключа"),
+        ("XAUTHORITY", "cookie X-сервера: доступ к дисплею пользователя"),
+        ("GNUPGHOME", "связка ключей GPG"),
+        ("KUBECONFIG", "доступ к кластеру"),
+        ("SSH_AGENT_PID", "адрес того же агента"),
+        ("GPG_AGENT_INFO", "то же для GPG"),
+    ],
+)
+def test_scrub_removes_access_without_a_secret_in_the_value(name: str, why: str) -> None:
+    """Переменная-дескриптор доступа не достаётся решению."""
+    env = {name: "/tmp/доступ", "PATH": "/usr/bin"}
+
+    _scrub_secret_env(env)
+
+    assert name not in env, why
+    assert env["PATH"] == "/usr/bin", "безобидные переменные остаются на месте"
+
+
+def test_scrub_keeps_project_import_variables() -> None:
+    """PYTHONPATH и VIRTUAL_ENV не трогаются — на них держится project-import."""
+    env = {"PYTHONPATH": "/проект", "VIRTUAL_ENV": "/проект/.venv", "PATH": "/usr/bin"}
+
+    _scrub_secret_env(env)
+
+    assert env == {"PYTHONPATH": "/проект", "VIRTUAL_ENV": "/проект/.venv", "PATH": "/usr/bin"}
