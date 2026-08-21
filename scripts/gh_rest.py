@@ -118,6 +118,7 @@ __all__ = [
     "create_pull",
     "disable_auto_merge",
     "enable_auto_merge",
+    "ensure_label",
     "ensure_quota",
     "graphql",
     "issue",
@@ -1214,6 +1215,35 @@ def update_issue(
         raise ValueError("нечего обновлять: задайте title и/или body")
     data = request("PATCH", f"repos/{repo}/issues/{number}", body=payload, **kwargs).data
     return data if isinstance(data, dict) else {}
+
+
+def ensure_label(
+    repo: str,
+    name: str,
+    *,
+    color: str = "ededed",
+    description: str = "",
+    **kwargs: Any,
+) -> bool:
+    """Создать метку, если её ещё нет; ``True`` — создали, ``False`` — была.
+
+    Нужна тем, кто ставит метку автоматически (issue #1313: очередь мержа метит
+    конфликтный PR). ``POST /labels`` на существующее имя отвечает ``422`` —
+    это не ошибка, а «уже есть», и трактовать её как отказ значило бы ронять
+    механизм на второй же метке.
+    """
+    try:
+        request(
+            "POST",
+            f"repos/{repo}/labels",
+            body={"name": name, "color": color, "description": description},
+            **kwargs,
+        )
+    except GitHubError as exc:
+        if "422" in str(exc):
+            return False
+        raise
+    return True
 
 
 def add_labels(repo: str, number: int, labels: list[str], **kwargs: Any) -> list[str]:

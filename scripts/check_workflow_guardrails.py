@@ -393,8 +393,9 @@ def check_queue_mover_uses_its_own_token(errors: list[str], source: str | None =
     step = _update_step(source)
     if step is None:
         errors.append(
-            f"{_QUEUE_MOVER.name}: не найден шаг с 'update-branch'. Если его "
-            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+            f"{_QUEUE_MOVER.name}: не найден шаг, двигающий очередь "
+            "(move_merge_queue.py или update-branch). Если его переименовали — "
+            "обновите эту проверку, иначе она сторожит пустоту"
         )
         return
 
@@ -490,10 +491,20 @@ def _step_calling(source: str, needle: str) -> str | None:
 
 
 def _update_step(source: str) -> str | None:
-    """Текст шага, который зовёт ``update-branch``; ``None`` — такого шага нет."""
+    """Текст шага, который двигает очередь; ``None`` — такого шага нет.
+
+    issue #1313: обновление переехало из YAML в ``move_merge_queue.py`` — он
+    обходит конфликтный PR вместо того, чтобы ронять прогон. Ищем оба вызова:
+    имя скрипта и прямой ``update-branch``, если он однажды вернётся. Строка
+    ``run:`` обязательна — иначе шагом-обновлением считался бы соседний, у
+    которого имя механизма всего лишь упомянуто в комментарии.
+    """
     steps = re.split(r"^      - ", source, flags=re.MULTILINE)
     for step in steps[1:]:
-        if "update-branch" in step:
+        commands = "\n".join(
+            line for line in step.splitlines() if not line.lstrip().startswith("#")
+        )
+        if "move_merge_queue.py" in commands or "update-branch" in commands:
             return step
     return None
 
