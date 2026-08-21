@@ -2559,7 +2559,9 @@ def test_wa_detail_uses_aligned_inline_diff() -> None:
     """
     src = web_server._STATIC_JS_SOURCES
     assert "function renderInlineDiff(" in src
-    assert "renderInlineDiff(c.expected, c.actual)" in src
+    # issue #968 добавил третий аргумент (граница отрисовки), поэтому сверяется
+    # не сигнатура вызова целиком, а то, что разбор WA идёт именно через дифф.
+    assert "renderInlineDiff(c.expected, c.actual" in src
     # Сырой diff остаётся, но свёрнутым — он больше не основной способ понять WA.
     assert "details class='raw-diff'" in src
 
@@ -3038,7 +3040,9 @@ class TestAuthApi:
 
         captured: dict[str, object] = {}
 
-        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+            # **kwargs: подмена не должна падать от новых необязательных
+            # параметров настоящей функции (issue #971 добавил cancel_event).
             captured["args"] = (client_id, client_secret, redirect_uri)
             return {"access_token": "t"}
 
@@ -3103,7 +3107,9 @@ class TestAuthApi:
 
         captured: dict[str, object] = {}
 
-        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+            # **kwargs: подмена не должна падать от новых необязательных
+            # параметров настоящей функции (issue #971 добавил cancel_event).
             captured["args"] = (client_id, client_secret, redirect_uri)
             return {"access_token": "t"}
 

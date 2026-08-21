@@ -1092,6 +1092,58 @@ class TestQueueOrder:
     def test_empty_queue_is_not_an_error(self, module: ModuleType) -> None:
         assert module.queue_order([]) == []
 
+    def test_priority_outranks_overlap_and_number(self, module: ModuleType) -> None:
+        """issue #1326: приоритет — первый ключ, иначе срочное стоит наравне с косметикой."""
+        entries = [
+            module.QueueEntry(10, "пересекается", True, files=("a.py",)),
+            module.QueueEntry(11, "тоже", True, files=("a.py",)),
+            module.QueueEntry(12, "срочный", True, files=("b.py",), priority=0),
+        ]
+
+        order = [entry.number for entry in module.queue_order(entries)]
+
+        assert order == [12, 10, 11], "PR с приоритетом идёт первым, даже без пересечений"
+
+    def test_priority_scale_order(self, module: ModuleType) -> None:
+        """Шкала исполняется целиком, а не только на крайних значениях."""
+        entries = [
+            module.QueueEntry(number, "x", True, priority=module.priority_rank([label])[0])
+            for number, label in enumerate(module.PRIORITY_LABELS, start=1)
+        ]
+
+        assert [entry.number for entry in module.queue_order(entries)] == list(
+            range(1, len(module.PRIORITY_LABELS) + 1)
+        )
+
+
+class TestPriorityLabels:
+    """Приоритет читается с меток и наследуется от задачи (issue #1326)."""
+
+    def test_blocker_is_the_highest(self, module: ModuleType) -> None:
+        rank, why = module.priority_rank(["blocker", "P3"])
+
+        assert rank == 0
+        assert "blocker" in why
+
+    def test_unlabelled_goes_by_readiness(self, module: ModuleType) -> None:
+        rank, why = module.priority_rank(["area/cli", "bug"])
+
+        assert rank == len(module.PRIORITY_LABELS)
+        assert why == "по готовности"
+
+    def test_case_does_not_matter(self, module: ModuleType) -> None:
+        """`p0` и `P0` — одна и та же метка: регистр не должен решать порядок."""
+        assert module.priority_rank(["p0"])[0] == module.priority_rank(["P0"])[0]
+
+    def test_closes_is_parsed_in_every_form(self, module: ModuleType) -> None:
+        """GitHub понимает несколько глаголов — приоритет наследуется по тем же."""
+        body = "Closes #12\nfixes #34, resolved #56\nсм. также #78"
+
+        assert module.closes_issues(body) == [12, 34, 56]
+
+    def test_body_without_closes_yields_nothing(self, module: ModuleType) -> None:
+        assert module.closes_issues("Просто описание без связи") == []
+
 
 class TestQueueReport:
     """Отчёт отвечает на три вопроса: кто голова, кто где стоит, кто перед кем."""
