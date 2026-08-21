@@ -12,6 +12,7 @@ Two halves:
 from __future__ import annotations
 
 import contextlib
+import os
 import pathlib
 import sys
 import tempfile
@@ -20,6 +21,7 @@ import time
 import warnings
 from typing import Any
 
+import psutil
 import pytest
 
 from stepik_grader.core.runner import LocalRunner, RunSpec, spec_source_bytes
@@ -186,6 +188,78 @@ def test_measure_peak_memory_unreliable_warning_deduped_across_calls(
 
     unreliable = [w for w in caught if "unreliable" in str(w.message)]
     assert len(unreliable) == 1, unreliable
+
+
+def test_measure_peak_memory_is_published_before_the_thread_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Пик виден вызывающей стороне ПОКА поток ещё работает (issue #996).
+
+    Замер копился в локальной переменной и попадал в ``result`` одной строкой
+    на выходе из функции — а выход наступает только после ``stop.set()``,
+    который ``LocalRunner`` ставит уже ПОСЛЕ сборки ``RunOutcome``. Вердикт
+    поэтому читал ноль всегда, при любой памяти решения. Заглушка запоминает,
+    что видел бы вызывающий в момент каждого замера: со второго он обязан
+    видеть пик, а не ноль.
+    """
+    import types
+
+    from stepik_grader.core import runner
+
+    result: list[float] = [0.0]
+    stop = threading.Event()
+    seen_by_caller: list[float] = []
+    samples = iter([12.0, 48.0])
+
+    class _Sampled:
+        def memory_info(self) -> Any:
+            seen_by_caller.append(result[0])
+            rss_mb = next(samples, None)
+            if rss_mb is None:  # замеры кончились — так же обрывается и реальный процесс
+                stop.set()
+                rss_mb = 0.0
+            return types.SimpleNamespace(rss=int(rss_mb * 1024 * 1024))
+
+        def children(self, recursive: bool = False) -> list[Any]:
+            return []
+
+    monkeypatch.setattr(runner.psutil, "Process", lambda pid: _Sampled())
+
+    runner._measure_peak_memory(_FakeProc(), result, stop)
+
+    assert seen_by_caller[0] == 0.0, "до первого замера показывать нечего"
+    assert seen_by_caller[1] == pytest.approx(12.0), (
+        "первый замер обязан быть опубликован сразу: RunOutcome читает result[0] "
+        "до того, как поток остановлен"
+    )
+    assert result[0] == pytest.approx(48.0), "в result остаётся максимум, а не последний замер"
+
+
+def test_local_runner_reports_peak_memory_of_a_hungry_solution(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Сквозной путь: память, занятая решением, доходит до ``RunOutcome``.
+
+    Модульного теста мало — дефект был в стыке потока и сборки результата, а
+    не в самом замере: ``_run_with_polling`` читает ``result[0]`` раньше, чем
+    поток успевал что-либо туда записать. Прогон целиком отдавал 0.0 на
+    решении, занявшем 24 МБ.
+    """
+    path = tmp_path / "hungry.py"
+    path.write_text(
+        "import time\ndata = bytearray(24 * 1024 * 1024)\ntime.sleep(0.2)\nprint(len(data))\n",
+        encoding="utf-8",
+    )
+    spec = RunSpec(path=path, stdin=None, timeout=30.0, measure_memory=True)
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.timed_out is False
+    assert outcome.returncode == 0, outcome.stderr
+    assert outcome.peak_memory_mb > 0.0, "нулевой пик у живого процесса — это потерянный замер"
+    assert outcome.peak_memory_mb > 20.0, (
+        "24 МБ, занятые решением, обязаны попасть в пик, а не потеряться в округлении"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -742,3 +816,40 @@ def test_local_runner_sets_python_colors_off_in_child_env(tmp_path: pathlib.Path
     outcome = LocalRunner().run(spec)
 
     assert outcome.stdout.decode("utf-8").strip() == "0 1"
+
+
+# ---------------------------------------------------------------------------
+# LNG-3-01 / LNG-3-02 (issue #996) — внук не переживает штатный выход решения
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(os.name != "posix", reason="групп процессов нет на Windows")
+def test_orphan_of_a_normally_finished_solution_is_killed(tmp_path: pathlib.Path) -> None:
+    """Решение завершилось само, но оставило живого внука — внук не остаётся.
+
+    Дерево убивалось только при TLE и отмене, поэтому каждый штатный прогон
+    копил осиротевший процесс, а внук, унаследовавший stdout, держал ещё и
+    поток-читатель с парой дескрипторов. На сервере это утечка на каждый кейс.
+    """
+    marker = tmp_path / "внук.pid"
+    solution = tmp_path / "task.py"
+    solution.write_text(
+        "import subprocess, sys, pathlib\n"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        f"pathlib.Path({str(marker)!r}).write_text(str(child.pid))\n"
+        "print('готово')\n",
+        encoding="utf-8",
+    )
+
+    outcome = LocalRunner().run(RunSpec(path=solution, stdin=b"", timeout=15.0))
+
+    assert outcome.stdout.strip() == "готово".encode(), "вывод решения обязан дойти целиком"
+    grandchild = int(marker.read_text(encoding="utf-8"))
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        if not psutil.pid_exists(grandchild):
+            break
+        time.sleep(0.1)
+    assert not psutil.pid_exists(grandchild), (
+        "внук пережил прогон — процесс копится на каждом кейсе"
+    )
