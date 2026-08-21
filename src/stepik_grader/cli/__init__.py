@@ -777,6 +777,23 @@ def main(argv: list[str] | None = None) -> ExitCode:
         if task_key is None:
             stats_removed = stats_mod.purge_stats()
             print(_t("history_purged", runs=runs_removed, stats=stats_removed))
+            # issue #996 (LNG-5-01): удалённая база освобождает место следующей
+            # по списку резолва — обычно общей ~/.stepik-grader/history.db.
+            # Пользователь этого не выбирал: он сказал «удали историю», а
+            # `--insights` следом печатал десяток чужих задач, и выглядело это
+            # как невыполненная команда. Удалять чужую базу заодно нельзя (в ней
+            # история других папок), поэтому продукт называет её вслух.
+            remaining = default_history_db_path()
+            if remaining != db_path and remaining.is_file():
+                left = preview_purge(remaining)
+                print(
+                    _t(
+                        "history_purge_next_db",
+                        path=remaining,
+                        tasks=len(left["tasks"]),
+                        runs=left["runs"],
+                    )
+                )
         else:
             print(_t("history_purged_task", task=task_key, runs=runs_removed))
         return ExitCode.OK
