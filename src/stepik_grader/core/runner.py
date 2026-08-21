@@ -278,7 +278,7 @@ def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
         resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
 
 
-def sample_tree_rss(proc: psutil.Process) -> float:
+def sample_tree_rss(proc: psutil.Process, *, children: list[Any] | None = None) -> float:
     """Суммарный RSS (МБ) процесса ``proc`` и всех его потомков — единый замер
     памяти для ``LocalRunner`` и ``SandboxRunner`` (issue #556).
 
@@ -295,18 +295,38 @@ def sample_tree_rss(proc: psutil.Process) -> float:
     нет доступа) НЕ глотаем — это сигнал вызывающей стороне (быстрый выход →
     warn в ``_measure_peak_memory``, обрыв поллинга в песочнице). Потомки —
     best-effort: исчезнувший в момент обхода узел пропускаем, не обнуляя итог.
+
+    issue #996 (MTX-6-04): ``children`` — уже собранный список потомков.
+    ``children(recursive=True)`` обходит таблицу процессов целиком и стоит на
+    порядок дороже одного ``memory_info()``, а измеритель пика опрашивает
+    процесс каждые 20 мс — на короткой задаче обход съедает заметную долю того
+    самого времени, которое грейдер и показывает пользователю. Кому нужна
+    скорость, а не мгновенная реакция на новорождённый процесс, обновляет
+    список реже и передаёт его сюда. **Песочница список не кэширует**: там
+    этот же замер — активное enforcement лимита памяти, и появившийся потомок
+    обязан попасть под лимит сразу, а не через полсекунды.
     """
     total = float(proc.memory_info().rss) / 1024 / 1024
-    try:
-        children = proc.children(recursive=True)
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        return total
+    if children is None:
+        try:
+            children = proc.children(recursive=True)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return total
     for child in children:
         try:
             total += float(child.memory_info().rss) / 1024 / 1024
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
     return total
+
+
+# issue #996 (MTX-6-04): как часто измеритель перечитывает список потомков и
+# как часто вообще опрашивает память. Обход дерева процессов дорог, а
+# новорождённый потомок для ЗАМЕРА (в отличие от enforcement в песочнице)
+# терпит полсекунды: пик, который держится меньше, всё равно не поймать
+# опросом с любым разумным периодом.
+_CHILDREN_REFRESH_SEC = 0.5
+_POLL_INTERVAL_SEC = 0.02
 
 
 def _measure_peak_memory(
@@ -365,20 +385,47 @@ def _measure_peak_memory(
             peak = rss
             result[0] = peak
 
+    # issue #996 (MTX-6-04): список потомков перечитывается раз в
+    # _CHILDREN_REFRESH_SEC, а не на каждой из пятидесяти итераций в секунду.
+    # Обход дерева процессов — самая дорогая часть замера, и платить за неё
+    # приходится тем самым временем, которое грейдер измеряет.
+    children: list[Any] = []
+    next_refresh = 0.0
+
+    def sample(ps_proc: psutil.Process) -> float:
+        """Замер поддерева со списком потомков из кэша.
+
+        Кэш обновляется ПОСЛЕ замера, а не до: ошибка чтения собственной
+        памяти — сигнал «процесс исчез», и она обязана дойти до вызывающей
+        стороны первой, как и было до кэша. Первый замер идёт с пустым
+        списком — потомков в этот момент ещё нет, а появившиеся попадут в
+        следующий: пик считается максимумом, поэтому ничего не теряется.
+        """
+        nonlocal children, next_refresh
+        rss = sample_tree_rss(ps_proc, children=children)
+        now = time.monotonic()
+        if now >= next_refresh:
+            try:
+                children = ps_proc.children(recursive=True)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                children = []
+            next_refresh = now + _CHILDREN_REFRESH_SEC
+        return rss
+
     try:
         ps_proc = psutil.Process(proc.pid)
         try:
-            remember(sample_tree_rss(ps_proc))
+            remember(sample(ps_proc))
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             _warn_unreliable()
             return
         while not stop.is_set():
             try:
-                remember(sample_tree_rss(ps_proc))
+                remember(sample(ps_proc))
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 _warn_unreliable()
                 break
-            stop.wait(0.02)
+            stop.wait(_POLL_INTERVAL_SEC)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         _warn_unreliable()
 
