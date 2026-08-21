@@ -34,6 +34,7 @@ import tempfile
 import threading
 import time
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -330,7 +331,11 @@ _POLL_INTERVAL_SEC = 0.02
 
 
 def _measure_peak_memory(
-    proc: subprocess.Popen[bytes], result: list[float], stop: threading.Event
+    proc: subprocess.Popen[bytes],
+    result: list[float],
+    stop: threading.Event,
+    *,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> None:
     """Поток: замерять RSS дерева дочернего процесса (proc + потомки, issue
     #556) до его завершения.
@@ -342,6 +347,13 @@ def _measure_peak_memory(
     Записывает пик памяти (МБ) в result[0]. Замер идёт через общий
     ``sample_tree_rss`` — тот же helper, что и в песочнице, поэтому память
     решения, породившего внуков (multiprocessing/subprocess), не теряется.
+
+    ``monotonic`` — источник времени для срока жизни кэша потомков; в бою это
+    ``time.monotonic``. Параметр существует ради проверяемости: тест на кэш,
+    завязанный на настоящие часы, красный не тогда, когда кэш сломан, а
+    тогда, когда раннер занят — на macOS шесть итераций по 20 мс вышли за
+    полсекунды, кэш протух законно, и проверка «обход ровно один» упала на
+    зелёном коде.
     """
 
     # issue #48 R-05: proc.pid is read after Popen but before communicate() --
@@ -403,7 +415,7 @@ def _measure_peak_memory(
         """
         nonlocal children, next_refresh
         rss = sample_tree_rss(ps_proc, children=children)
-        now = time.monotonic()
+        now = monotonic()
         if now >= next_refresh:
             try:
                 children = ps_proc.children(recursive=True)
