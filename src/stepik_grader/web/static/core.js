@@ -48,6 +48,10 @@ const state = {
   selectedRow: null,
   selectedCase: null,
   explainOpen: false,
+  // issue #968: человек попросил нарисовать длинный дифф целиком. Живёт до
+  // смены кейса — иначе согласие на один огромный вывод молча распространилось
+  // бы на все следующие.
+  diffShowAll: false,
   commands: [], // fetched once from /api/commands
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
   // issue #685: group — выбранное семейство разделов ("modules"/"types"/…/""),
