@@ -402,6 +402,34 @@ def _write_stdin(pipe: Any, data: bytes | None) -> None:
             pipe.close()
 
 
+def _kill_orphaned_group(pid: int) -> None:
+    """Добить потомков, переживших ШТАТНЫЙ выход решения (issue #996).
+
+    ``LNG-3-01``/``LNG-3-02``: дерево процессов убивалось только при TLE и
+    отмене. Решение, завершившееся само, но оставившее живого внука
+    (``subprocess.Popen`` без ``wait``, ``multiprocessing`` без ``join``),
+    оставляло его работать: каждый прогон копил осиротевший процесс, а внук,
+    унаследовавший stdout, держал ещё и pipe с потоком-читателем. На сервере
+    это утечка по два дескриптора и два потока на кейс.
+
+    Бьём по группе процессов: ``start_new_session=True`` при spawn делает
+    решение её лидером, поэтому идентификатор группы равен его pid. Сигнал 0
+    сначала спрашивает, существует ли группа вообще, — в штатном случае её уже
+    нет, и SIGKILL не отправляется.
+
+    Предел честный: на Windows групп процессов нет, и без Job Object добить
+    внука нечем — там находка остаётся открытой. Полностью демонизированный
+    (double-fork + setsid) внук уходит и на POSIX: это тот же осознанный предел
+    исполнения без OS-sandbox, что и у :func:`_kill_process_tree`.
+    """
+    if os.name != "posix":
+        return
+    with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+        # Сигнал 0 не доставляется никому — это проверка существования.
+        os.killpg(pid, 0)  # type: ignore[attr-defined]
+        os.killpg(pid, signal.SIGKILL)  # type: ignore[attr-defined]
+
+
 def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
     """Убить всё дерево процессов решения, а не только прямого ребёнка (issue #418).
 
@@ -758,6 +786,12 @@ class LocalRunner:
 
         for reader in readers:
             reader.join(timeout=1.0)
+        # issue #996 (LNG-3-01/LNG-3-02): порядок важен — сначала дочитать, потом
+        # добивать. Внук, держащий stdout, отдаёт байты именно читателям выше
+        # (issue #952), и убийство до `join` вернуло бы пустой вывод верному
+        # решению. После `join` брать больше нечего, а живой потомок — только
+        # утечка: процесс, поток-читатель и пара дескрипторов на каждый кейс.
+        _kill_orphaned_group(proc.pid)
 
         elapsed = time.perf_counter() - start
         # issue #421: reader'ы уже слили частичный вывод в память — вернуть его
