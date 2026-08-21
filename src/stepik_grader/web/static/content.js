@@ -384,8 +384,25 @@ function selectGlossaryCard(id, opts = {}) {
     .then(r => (r.ok ? r.json() : null))
     .then(c => {
       if (c) renderGlossaryDetail(c);
+      else showCardMissing("glossary");
     })
-    .catch(() => {});
+    .catch(() => showCardMissing("glossary"));
+}
+
+// issue #969: карточки по этому адресу нет (404) или запрос не дошёл. Молчать
+// здесь нельзя: на экране остаётся ПРЕДЫДУЩАЯ карточка, и студент, пришедший из
+// ошибки за объяснением, читает чужое объяснение как ответ на свой вопрос. Это
+// хуже пустого экрана — оно учит неверному.
+function showCardMissing(prefix) {
+  const detail = $("#" + prefix + "-detail-content");
+  if (detail) {
+    detail.hidden = true;
+    detail.innerHTML = "";
+  }
+  const empty = $("#" + prefix + "-empty");
+  if (empty) empty.hidden = true;
+  const missing = $("#" + prefix + "-not-found");
+  if (missing) missing.hidden = false;
 }
 
 // issue #329: маршрутизация по URL-хэшу #/glossary/<id> — прямые ссылки на карточку.
@@ -396,6 +413,7 @@ function parseGlossaryHash() {
 
 function renderGlossaryDetail(card) {
   $("#glossary-empty").hidden = true;
+  $("#glossary-not-found").hidden = true; // issue #969 — прошлый отказ снимаем
   const el = $("#glossary-detail-content");
   el.hidden = false;
   // issue #685: раздел в мете — локализованная подпись сервера (section_label),
@@ -569,12 +587,16 @@ function selectRuleCard(code, opts = {}) {
   }
   fetch("/api/rules/" + encodeURIComponent(code))
     .then(r => (r.ok ? r.json() : null))
-    .then(c => { if (c) renderRuleDetail(c); })
-    .catch(() => {});
+    .then(c => {
+      if (c) renderRuleDetail(c);
+      else showCardMissing("rules"); // issue #969 — тот же тихий отказ, что в глоссарии
+    })
+    .catch(() => showCardMissing("rules"));
 }
 
 function renderRuleDetail(card) {
   $("#rules-empty").hidden = true;
+  $("#rules-not-found").hidden = true; // issue #969 — прошлый отказ снимаем
   const el = $("#rules-detail-content");
   el.hidden = false;
   const sev = card.severity ? ' <span class="badge badge-neutral">' + esc(card.severity) + "</span>" : "";
