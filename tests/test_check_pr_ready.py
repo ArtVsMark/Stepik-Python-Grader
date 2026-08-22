@@ -679,3 +679,110 @@ class TestAttributionBlockers:
 
         assert verdict.ready is False
         assert any("согласованного списка" in reason for reason in verdict.reasons)
+
+
+# --- полнота связей с задачами (issue #1350) ----------------------------------
+
+
+def _fragment(name: str, body: str, status: str = "added") -> dict[str, object]:
+    """Файл PR так, как его отдаёт REST: путь, статус и патч."""
+    return {
+        "filename": f"changelog.d/{name}",
+        "status": status,
+        "patch": "@@ -0,0 +1 @@\n+" + body,
+    }
+
+
+def test_unannounced_issues_are_named_on_both_sides(module: ModuleType) -> None:
+    """Приёмка #1350: сборный PR слышит, каких связей не хватает.
+
+    Воспроизводит PR #1345: шесть фрагментов назвали пять задач, в теле стояла
+    одна. Красный до правки — полноту не проверял никто.
+    """
+    pull = {"body": "Работа по указателю правил.\n\nCloses #1342\n"}
+    files = [
+        _fragment("rules-index.added.md", "указатель генерируется (#1342)"),
+        _fragment("window-name.internal.md", "имя окна с меткой окружения (#1338)"),
+        _fragment("rules-playbook.internal.md", "правило уходит в каталог (#1340)"),
+        _fragment("attribution.added.md", "гейт атрибуции (#1343)"),
+    ]
+
+    warnings = module.link_completeness_warnings(pull, files, number=1345)
+
+    assert len(warnings) == 1, warnings
+    text = warnings[0]
+    for missing in ("#1338", "#1340", "#1343"):
+        assert missing in text, text
+    assert "#1342" in text, "объявленная сторона тоже называется — иначе неясно, что сверялось"
+
+
+def test_fully_announced_pr_is_silent(module: ModuleType) -> None:
+    """Вторая ошибка проверяющего: шум там, где всё объявлено."""
+    pull = {"body": "Closes #1338\nCloses #1340\n"}
+    files = [
+        _fragment("a.internal.md", "первое (#1338)"),
+        _fragment("b.internal.md", "второе (#1340)"),
+    ]
+
+    assert module.link_completeness_warnings(pull, files, number=1400) == []
+
+
+def test_partial_work_is_excused_by_an_explicit_line(module: ModuleType) -> None:
+    """«Часть #N — что именно» снимает предупреждение: закрывать нельзя.
+
+    Прецедент — #1341: PR закрывал пять пунктов чек-листа из пятнадцати, и
+    `Closes` там был бы враньём, а молчание гейта — единственной альтернативой.
+    """
+    pull = {"body": "Closes #1342\nЧасть #1341 — пять пластов из пятнадцати пунктов\n"}
+    files = [
+        _fragment("rules-index.added.md", "указатель (#1342)"),
+        _fragment("roles.internal.md", "пять пластов (#1341)"),
+    ]
+
+    assert module.link_completeness_warnings(pull, files, number=1345) == []
+
+
+def test_own_number_in_a_fragment_is_not_an_issue(module: ModuleType) -> None:
+    """Формат фрагмента допускает номер самого PR — он ничего не объявляет."""
+    pull = {"body": "Без issue: правка опечатки\n"}
+    files = [_fragment("typo.fixed.md", "опечатка в справке (#1400)")]
+
+    assert module.link_completeness_warnings(pull, files, number=1400) == []
+
+
+def test_removed_fragments_are_ignored(module: ModuleType) -> None:
+    """Сборка при релизе удаляет фрагменты — их номера не про эту работу."""
+    pull = {"body": "Без issue: сборка релиза\n"}
+    files = [_fragment("old.added.md", "что-то давнее (#900)", status="removed")]
+
+    assert module.link_completeness_warnings(pull, files, number=1400) == []
+
+
+def test_files_outside_changelog_are_ignored(module: ModuleType) -> None:
+    """Номер в диффе кода — не объявление задачи, иначе гейт зашумит насмерть."""
+    pull = {"body": "Без issue: рефакторинг\n"}
+    files = [
+        {
+            "filename": "src/stepik_grader/core/runner.py",
+            "status": "modified",
+            "patch": "@@ -1 +1 @@\n+# issue (#999): пояснение",
+        }
+    ]
+
+    assert module.link_completeness_warnings(pull, files, number=1400) == []
+
+
+def test_warning_does_not_block_the_merge(module: ModuleType) -> None:
+    """Предупреждение — не блокер: чинить может быть нечего, а конвейер стоит."""
+    verdict = module.Verdict(
+        ready=True, reasons=[], total_checks=1, completed=1, missing=[], warnings=["что-то"]
+    )
+
+    assert verdict.ready, "предупреждение не должно превращаться в отказ"
+
+
+def test_verdict_warnings_default_to_empty(module: ModuleType) -> None:
+    """Старые вызовы Verdict без warnings продолжают работать."""
+    verdict = module.Verdict(ready=True, reasons=[], total_checks=0, completed=0, missing=[])
+
+    assert verdict.warnings == []
