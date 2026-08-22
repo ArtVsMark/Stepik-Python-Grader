@@ -872,6 +872,27 @@ class TestCiRuns:
         url = opener.captured[0].full_url
         assert "branch=main" in url and "event=push" in url
 
+    def test_main_health_is_not_limited_to_push(self, module: ModuleType) -> None:
+        """Приёмка #1347: здоровье `main` доказывается прогоном ЛЮБОГО события.
+
+        Красный до правки: запрос нёс `event=push`, то есть зелёным `main`
+        считалась только после мержа. Заморозка очереди по красной базе
+        снималась ровно тем действием, которое сама блокировала: push бывает
+        только от мержа, ночной `schedule` и ручной `workflow_dispatch` шли на
+        том же состоянии и под фильтр не попадали, а повтор упавшего прогона
+        требует `actions:write`, которого у облачной сессии нет.
+        """
+        opener = _opener(_FakeResponse({"workflow_runs": []}))
+
+        module.main_run("x/y", opener=opener, use_cache=False)
+
+        url = opener.captured[0].full_url
+        assert "branch=main" in url, url
+        assert "event=" not in url, (
+            "фильтр по событию закрывает выход из заморозки: "
+            f"зелёный schedule/dispatch перестаёт считаться доказательством ({url})"
+        )
+
     def test_run_jobs_are_listed(self, module: ModuleType) -> None:
         opener = _opener(
             _FakeResponse({"jobs": [{"id": 5, "name": "test", "conclusion": "failure"}]})
