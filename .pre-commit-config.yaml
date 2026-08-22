@@ -6,7 +6,8 @@ repos:
   # 0.16, а хук продолжал править код правилами 0.15, из-за чего локальное
   # «всё чисто» перестало что-либо гарантировать. Теперь источник версии один
   # — `[dev]` в pyproject.toml (там же верхняя граница), а
-  # `scripts/check_ruff_pin.py` следит, чтобы второй пин не завёлся снова.
+  # `scripts/check_ruff_pin.py` следит, чтобы второй пин не завёлся снова —
+  # и заодно за верхней границей mypy, где расхождение того же рода (#1349).
   #
   # --unsafe-fixes не используется: он добавлялся ровно ради UP038
   # (isinstance-кортежи → PEP 604), а ruff удалил это правило как вредное
@@ -120,7 +121,7 @@ repos:
         files: '^\.claude/settings\.json$'
 
       - id: check-ruff-pin
-        name: версия ruff — один источник
+        name: пины инструментов вердикта (ruff, mypy)
         entry: python scripts/check_ruff_pin.py
         language: system
         pass_filenames: false
