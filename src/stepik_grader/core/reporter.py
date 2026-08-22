@@ -27,6 +27,7 @@ __all__ = [
     "fmt_time",
     "format_benchmark_row",
     "format_correctness_row",
+    "invisible_difference",
     "print_benchmark_header",
     "print_benchmark_results",
     "print_case_verbose",
@@ -582,6 +583,61 @@ def escape_control_chars(value: str) -> str:
     )
 
 
+# issue #996 (STR-5-03): символы, которые на экране неотличимы от обычного
+# пробела или не видны вовсе. Различие только в них — самый тупиковый WA:
+# Expected и Actual напечатаны одинаково, и студенту нечего исправлять.
+_INVISIBLE_NAMES: dict[str, str] = {
+    "\u00a0": "неразрывный пробел (U+00A0)",
+    "\u2007": "цифровой пробел (U+2007)",
+    "\u202f": "узкий неразрывный пробел (U+202F)",
+    "\u200b": "пробел нулевой ширины (U+200B)",
+    "\u200e": "маркер направления письма (U+200E)",
+    "\ufeff": "BOM (U+FEFF)",
+}
+
+
+def _as_seen(text: str) -> str:
+    """Как строка выглядит на экране: без того, что глаз не различает.
+
+    Нулевая ширина исчезает, пробелы-двойники приводятся к обычному пробелу,
+    хвостовые пробелы отбрасываются — терминал их не показывает. Управляющие
+    символы, наоборот, ОСТАЮТСЯ различимыми: их печатает ``\x0d``-форма, то есть
+    такое расхождение пользователь видит и подсказка ему не нужна.
+    """
+    for char in ("\u200b", "\u200e", "\ufeff"):
+        text = text.replace(char, "")
+    for char in _INVISIBLE_NAMES:
+        if char not in ("\u200b", "\u200e", "\ufeff"):
+            text = text.replace(char, " ")
+    return escape_control_chars(text).rstrip()
+
+
+def invisible_difference(expected: str, actual: str) -> str:
+    """Подсказка о различии, которого не видно на экране; пусто — видно и так.
+
+    issue #996 (``STR-5-03``): строки различаются, а напечатаны одинаково —
+    хвостовой пробел, неразрывный пробел вместо обычного, нулевая ширина. Для
+    студента это тупик: вердикт `WA`, две одинаковые строки и нечего править.
+    Сообщение появляется только в этом случае, иначе оно превратилось бы в шум
+    на каждом обычном расхождении.
+    """
+    if expected == actual or _as_seen(expected) != _as_seen(actual):
+        return ""
+    found = sorted(
+        {
+            name
+            for text in (expected, actual)
+            for char, name in _INVISIBLE_NAMES.items()
+            if char in text
+        }
+    )
+    if expected.rstrip() == actual.rstrip() and expected != actual:
+        found.insert(0, "пробелы в конце строки")
+    if not found:
+        return "различие не видно на экране: символы совпадают по виду, но не по коду"
+    return "различие не видно на экране: " + ", ".join(found)
+
+
 def _clip_value(value: str) -> str:
     """Обрезать однострочное значение до ``_VERBOSE_MAX_VALUE_CHARS`` (issue #824).
 
@@ -684,6 +740,9 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     actual = " | ".join(result.output) or "(empty)"
     _cprint(f"    Expected: {_clip_value(expected)}")
     _cprint(f"    Actual:   {_clip_value(actual)}")
+    hint = invisible_difference(expected, actual)
+    if hint:
+        _cprint(f"    ⚠ {hint}", style="yellow")
     if result.diff:
         _cprint("    Diff:")
         lines, dropped = _clip_diff_lines(result.diff)

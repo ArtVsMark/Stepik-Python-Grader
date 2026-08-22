@@ -57,6 +57,16 @@ if TYPE_CHECKING:
 # «Модель error cards»).
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
+# issue #968: границы вывода кейса, уезжающего в браузер. Забытый выход из
+# цикла — типичная студенческая ошибка, и решение печатает десятки тысяч строк;
+# до 10 МБ такого вывода превращались в сотни тысяч DOM-узлов диффа. Порог
+# щедрый: он отсекает патологию, а не рабочие случаи (самый длинный вывод в
+# корпусе задач — десятки строк).
+_MAX_CASE_LINES = 2000
+# Отдельно от числа строк: одна строка на мегабайт вешает браузер не хуже
+# тысячи коротких, а `visibleWhitespace` ещё и раздувает её разметкой.
+_MAX_CASE_LINE_CHARS = 4000
+
 __all__ = [
     "estimate_run_count",
     "grade_benchmark",
@@ -245,6 +255,26 @@ def _queue_missing_concept(
         pass
 
 
+def _clip_output(lines: list[str] | None) -> tuple[str, bool]:
+    """Склеить вывод кейса для UI, обрезав патологию (issue #968).
+
+    Возвращает текст и признак усечения. Обрезаются оба измерения: число строк
+    и длина каждой строки — вешает браузер и то, и другое.
+
+    Усечение объявляется флагом, а не молчит: человек должен видеть, что смотрит
+    начало вывода, иначе будет искать несуществующее расхождение в конце.
+    """
+    rows = lines or []
+    clipped = [
+        line if len(line) <= _MAX_CASE_LINE_CHARS else line[:_MAX_CASE_LINE_CHARS]
+        for line in rows[:_MAX_CASE_LINES]
+    ]
+    truncated = len(rows) > _MAX_CASE_LINES or any(
+        len(line) > _MAX_CASE_LINE_CHARS for line in rows[:_MAX_CASE_LINES]
+    )
+    return "\n".join(clipped), truncated
+
+
 def _case_view(
     index: int,
     case: CaseResult,
@@ -258,7 +288,7 @@ def _case_view(
     error = case.get("error", "")
     verdict = case.get("verdict") or ("RE" if error else "?")
     passed = bool(case.get("passed"))
-    actual = "\n".join(case.get("output") or [])
+    actual, actual_truncated = _clip_output(case.get("output"))
 
     # issue #72/#356: карточка ошибки — тип исключения, пояснение и якорь
     # карточки СВОЕГО глоссария (issue #684 — наружу не ссылаемся); из общей
@@ -277,6 +307,9 @@ def _case_view(
         "diff": "" if passed else case.get("diff", ""),
         "stdin": stdin,
         "actual": actual,
+        # issue #968: поле появляется только когда усечение случилось —
+        # молчаливое отсутствие означает «вывод целиком», как и раньше.
+        **({"output_truncated": True} if actual_truncated else {}),
         "actions": _error_card_actions(
             verdict=verdict, stdin=stdin, actual=actual, glossary_ids=glossary_ids
         ),
@@ -310,7 +343,10 @@ def _case_view(
         view["suggestions"] = suggestions
 
     if verdict == "WA":
-        view["expected"] = "\n".join(case.get("expected") or [])
+        expected_text, expected_truncated = _clip_output(case.get("expected"))
+        view["expected"] = expected_text
+        if expected_truncated:
+            view["output_truncated"] = True
     if verdict in ("RE", "TLE"):
         view["stderr"] = error
         view["exit_code"] = case.get("exit_code")

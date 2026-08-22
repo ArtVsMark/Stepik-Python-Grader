@@ -303,3 +303,20 @@ def test_unreadable_queue_is_a_real_failure(
     monkeypatch.setattr(gh, "merge_queue", _raise)
 
     assert mover.main(["--repo", "owner/repo"]) == gh.EXIT_FAIL
+
+
+def test_red_main_says_the_queue_is_frozen(
+    mover: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #1326: при красной базе «двигать нечего» звучало бы как «всё спокойно»."""
+
+    class _RedMain(_FakeApi):
+        def queue(self, gh: ModuleType) -> Any:
+            return gh.QueueReport(ready=(), waiting=(), main_busy=False, main_red=True)
+
+    _wire(mover, monkeypatch, _RedMain(ready=[], states={}))
+
+    outcome = mover.move_queue("owner/repo")
+
+    assert outcome.updated is None
+    assert any("заморожена" in line for line in outcome.lines)

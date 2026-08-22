@@ -19,6 +19,7 @@ import pytest
 
 from stepik_grader import cli, config
 from stepik_grader.cli import options
+from stepik_grader.core import history_recording as cli_history_recording
 from stepik_grader.core import user_settings
 
 # Ссылка на настоящую функцию диалога ДО того, как autouse-фикстура её
@@ -1591,6 +1592,56 @@ class TestPurgeHistoryFlag:
         out = capsys.readouterr().out
         assert "Will be deleted permanently" in out
         assert "alpha" in out and "beta" in out  # обе задачи названы
+
+    def test_purge_names_the_database_that_becomes_active(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
+        """issue #996 (LNG-5-01): после удаления сказано, какая база теперь активна.
+
+        Резолв пути идёт по списку: локальная `.grader_history.db` рядом →
+        общая `~/.stepik-grader/history.db`. Удаление локальной освобождает
+        место следующей, и `--insights` следом печатал десяток чужих задач —
+        для пользователя это выглядело как невыполненная команда. Удалить чужую
+        базу заодно нельзя: в ней история других папок, — поэтому продукт
+        называет её вслух.
+        """
+        from stepik_grader.core.history import record_run
+
+        shared = tmp_path / "общая" / "history.db"
+        shared.parent.mkdir(parents=True)
+        record_run(2, [], db_path=shared, task_key="чужая-задача", solution_name="s.py")
+
+        work = tmp_path / "работа"
+        work.mkdir()
+        monkeypatch.chdir(work)
+        local = work / ".grader_history.db"
+        record_run(2, [], db_path=local, task_key="своя-задача", solution_name="s.py")
+
+        # Резолв: пока локальная база есть — берётся она; исчезла — общая.
+        monkeypatch.setattr(
+            cli_history_recording,
+            "default_history_db_path",
+            lambda: local if local.is_file() else shared,
+        )
+
+        cli.main(["--purge-history"])
+
+        out = capsys.readouterr().out
+        assert not local.exists(), "локальная база обязана исчезнуть"
+        assert shared.is_file(), "чужую историю удаление не трогает"
+        assert str(shared) in out, "база, ставшая активной, названа вслух"
+        assert "чужая-задача" not in out, "перечислять чужие задачи незачем — только их число"
+
+    def test_purge_stays_quiet_when_no_other_database_appears(
+        self, tmp_path, monkeypatch, capsys
+    ) -> None:
+        """Другой базы нет — лишней строки тоже: сообщение не должно быть шумом."""
+        monkeypatch.chdir(tmp_path)
+        self._seed(tmp_path)
+
+        cli.main(["--purge-history"])
+
+        assert "Теперь активна другая база" not in capsys.readouterr().out
 
     def test_purge_of_shared_key_warns_about_collision(self, tmp_path, monkeypatch, capsys) -> None:
         """Ключ задачи — имя папки, и одноимённые папки делят историю.
