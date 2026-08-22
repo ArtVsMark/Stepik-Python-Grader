@@ -776,7 +776,9 @@ git commit --amend --trailer "Co-Authored-By: Artem Markitanov <86671904+ArtVsMa
 один устаревший. Больше тридцати находок — чек-лист по группам (файл, зона);
 у эпика с дочерними issue прогресс считает GitHub, галочки не нужны. Канон и
 прецедент — [CONTRIBUTING.md § Комплексный issue ведёт чек-лист находок](CONTRIBUTING.md),
-проверяет `python scripts/check_issue_checklists.py` (предупреждение, не отказ).
+проверяет `python scripts/check_issue_checklists.py` — ночным прогоном
+`tracker-guardrails.yml` (и вручную через «Run workflow»), итог в summary
+прогона. Предупреждение, не отказ: чинить в трекере может быть нечего.
 
 **`good first issue` и `help wanted` — тело на ДВУХ языках, всегда.** Русская
 версия, затем разделитель и `## In English` с переводом. Это те метки, на которые
@@ -788,8 +790,9 @@ git commit --amend --trailer "Co-Authored-By: Artem Markitanov <86671904+ArtVsMa
 снятие метки: вешаете любую из них на уже открытый русскоязычный issue — сначала
 дописываете перевод. Формат и обоснование —
 [CONTRIBUTING.md § Метки при заведении issue](CONTRIBUTING.md); проверяет
-`python scripts/check_good_first_issues_bilingual.py` (предупреждение, не отказ:
-это состояние трекера, а не дефект кода).
+`python scripts/check_good_first_issues_bilingual.py` — тем же ночным прогоном
+`tracker-guardrails.yml` (предупреждение, не отказ: это состояние трекера, а
+не дефект кода).
 
 ---
 

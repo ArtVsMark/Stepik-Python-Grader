@@ -1,0 +1,79 @@
+name: Tracker guardrails
+
+# issue #1348: две проверки состояния трекера были написаны, покрыты тестами —
+# и не запускались НИЧЕМ: ни `ci.yml`, ни `preflight.py`, ни pre-commit, ни
+# расписанием. Свод при этом обещал, что они «проверяют», то есть правило
+# исполнялось ровно тогда, когда кто-то вспомнит команду. За месяц не вспомнил
+# никто.
+#
+# ПОЧЕМУ НЕ В `ci.yml`. Обе ходят в GitHub API, а квота общая на аккаунт и
+# расходуется прогонами всех PR разом. Предмет у них — состояние ТРЕКЕРА, а не
+# кода: от коммита к коммиту оно не меняется, поэтому проверять его на каждый
+# push бессмысленно вдвойне — и дорого, и не о том.
+#
+# ПОЧЕМУ ПРЕДУПРЕЖДЕНИЕ, А НЕ ОТКАЗ. Обе проверки судят о вероятном: чек-лист
+# мог отсутствовать намеренно, `good first issue` мог быть только что заведён и
+# ещё ждать перевода. Красный прогон здесь означал бы «почини трекер», а чинить
+# может быть нечего — поэтому итог уходит в summary прогона, а не в код
+# возврата.
+on:
+  schedule:
+    # Раз в сутки. Минута не круглая: в 0 и 30 GitHub обслуживает расписания
+    # всей планеты, и запуск сдвигается непредсказуемо.
+    - cron: "37 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  # Обе проверки только читают трекер.
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: tracker-guardrails
+  cancel-in-progress: false
+
+jobs:
+  tracker-state:
+    runs-on: ubuntu-latest
+    # issue #1271: без этого действует умолчание GitHub в 6 часов — зависший
+    # шаг держал бы исполнителя, которым пользуются прогоны PR.
+    timeout-minutes: 10
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # Обе проверки — чистый stdlib поверх `scripts/gh_rest.py` (REST, 1 запрос
+      # из 5000 вместо ~300 points за GraphQL-операцию), ставить нечего.
+      #
+      # `|| true` и запись в summary вместо `continue-on-error`: последний
+      # красит шаг в жёлтое и прячет причину под кат, а нам нужно, чтобы итог
+      # читался с первого экрана прогона — иначе предупреждение снова окажется
+      # тем, о чём никто не вспомнит.
+      - name: Комплексные issue ведут чек-лист находок
+        run: |
+          {
+            echo "## Чек-листы комплексных issue"
+            echo '```'
+            python scripts/check_issue_checklists.py 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: good first issue и help wanted — на двух языках
+        run: |
+          {
+            echo "## Двуязычие меток онрампа"
+            echo '```'
+            python scripts/check_good_first_issues_bilingual.py 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
