@@ -84,7 +84,9 @@ def test_perform_browser_auth_preserves_refresh_token(tmp_path: Path, monkeypatc
     path.write_text(json.dumps({"client_id": "old", "refresh_token": "keep-me"}), encoding="utf-8")
     seen: dict[str, object] = {}
 
-    def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+    def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+        # **kwargs: подмена не должна падать от новых необязательных
+        # параметров настоящей функции (issue #971 добавил cancel_event).
         seen["file_at_flow"] = json.loads(Path(secrets_path).read_text(encoding="utf-8"))
         return {}
 
@@ -100,7 +102,9 @@ def test_perform_browser_auth_writes_creds_then_authorizes(tmp_path: Path, monke
     path = tmp_path / "secrets.json"
     seen: dict[str, object] = {}
 
-    def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+    def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+        # **kwargs: подмена не должна падать от новых необязательных
+        # параметров настоящей функции (issue #971 добавил cancel_event).
         # На момент browser-flow креды уже должны быть в файле (порядок важен).
         seen["file_at_flow"] = json.loads(Path(secrets_path).read_text(encoding="utf-8"))
         seen["args"] = (client_id, client_secret, redirect_uri)
