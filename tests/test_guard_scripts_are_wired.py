@@ -50,6 +50,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "предмет — состояние трекера: расписание, а не прогон на каждый PR (квота)",
     ),
     "check_locale_guardrails.py": (".github/workflows/ci.yml", "полнота локалей"),
+    "check_mcp_permissions.py": (
+        ".github/workflows/ci.yml",
+        "форма запрета MCP: именная запись отключается молча при переименовании",
+    ),
     "check_pip_audit_report.py": (
         ".github/workflows/ci.yml",
         "разбор отчёта pip-audit в цепочке поставок",
