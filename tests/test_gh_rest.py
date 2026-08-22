@@ -1409,6 +1409,23 @@ class TestRerunFailedJobs:
 
         assert module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False) is False
 
+    def test_missing_write_rights_are_not_nothing_to_rerun(self, module: ModuleType) -> None:
+        """403 «прав нет» ≠ 403 «нечего»: иначе команда врёт о состоянии.
+
+        Воспроизведено на живом прогоне: у облачной сессии закрыта запись в
+        Actions, GitHub ответил «Resource not accessible by integration», а
+        команда напечатала «упавших джобов нет» — на прогоне, где джоб только
+        что упал. Окно ушло бы чинить не то.
+        """
+        opener = _opener(*[_http_error(403, message="Resource not accessible by integration")] * 6)
+
+        with pytest.raises(module.GitHubError) as exc:
+            module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False)
+
+        text = str(exc.value)
+        assert "прав" in text, text
+        assert "кнопкой" in text, "сообщение обязано называть выход, а не только отказ"
+
     def test_other_errors_still_raise(self, module: ModuleType) -> None:
         """Молчать о настоящем отказе нельзя — иначе «перезапустил» будет ложью."""
         opener = _opener(*[_http_error(500, message="boom")] * 6)

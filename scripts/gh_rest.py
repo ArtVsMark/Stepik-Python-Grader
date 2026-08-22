@@ -1467,6 +1467,14 @@ FLAKE_LOG = pathlib.Path(__file__).resolve().parent.parent / "docs" / "agent" / 
 #: Больше двух попыток означает не мигание, а дефект — и разбирать надо его.
 MAX_ATTEMPTS = 2
 
+#: 403 «прав нет»: у облачной сессии закрыта запись в Actions. Отличается от
+#: 403 «перезапускать нечего» только текстом, и спутать их — значит утверждать
+#: «упавших джобов нет» на прогоне, где джоб упал.
+_NO_WRITE_RE = re.compile(r"not accessible by integration|must have admin|forbidden", re.I)
+
+#: 403, которым GitHub отвечает на прогон, где перезапускать действительно нечего.
+_NOTHING_TO_RERUN_RE = re.compile(r"no failed jobs|not in a failed state|already", re.I)
+
 
 def rerun_failed_jobs(repo: str, run_id: int, **kwargs: Any) -> bool:
     """Перезапустить ТОЛЬКО упавшие джобы прогона (issue #1344).
@@ -1476,8 +1484,15 @@ def rerun_failed_jobs(repo: str, run_id: int, **kwargs: Any) -> bool:
     умеет: ``POST /actions/runs/{id}/rerun-failed-jobs`` сохраняет результаты
     прошедших.
 
-    Возвращает ``False``, если перезапускать нечего (GitHub отвечает ``403``
-    на прогон без упавших джобов) — это не сбой, а «нечего».
+    Возвращает ``False``, только если перезапускать действительно **нечего**:
+    прогон без упавших джобов либо уже перезапускаемый.
+
+    **403 бывает двух разных смыслов, и путать их нельзя.** У облачной сессии
+    нет ``actions:write`` — прокси закрывает запись, и GitHub отвечает
+    ``Resource not accessible by integration``. Прежняя редакция считала любой
+    ``403`` за «нечего» и печатала «упавших джобов нет» на прогоне, где джоб
+    только что упал: команда врала о состоянии, а окно уходило чинить не то.
+    Отказ по правам поднимается ошибкой и называет причину вслух.
 
     **Перезапуск не чинит, он меняет исход, не меняя причины.** Поэтому вызов
     из CLI обязан сопровождаться записью в :data:`FLAKE_LOG`; см.
@@ -1486,7 +1501,14 @@ def rerun_failed_jobs(repo: str, run_id: int, **kwargs: Any) -> bool:
     try:
         request("POST", f"repos/{repo}/actions/runs/{run_id}/rerun-failed-jobs", **kwargs)
     except GitHubError as exc:
-        if "403" in str(exc) or "409" in str(exc):
+        message = str(exc)
+        if _NO_WRITE_RE.search(message):
+            raise GitHubError(
+                "перезапуск недоступен: у сессии нет прав на запись в Actions "
+                f"({message}). Из облака это штатно — прокси закрывает запись; "
+                "запустите повтор кнопкой в интерфейсе или из локального окна"
+            ) from exc
+        if "409" in message or _NOTHING_TO_RERUN_RE.search(message):
             return False
         raise
     return True
