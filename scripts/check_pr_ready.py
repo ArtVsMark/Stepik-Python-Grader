@@ -113,6 +113,11 @@ class Verdict:
     total_checks: int
     completed: int
     missing: list[str]
+    #: То, о чём стоит знать, но что мержу не мешает (issue #1350). Отдельное
+    #: поле, а не строка в `reasons`: предупреждение, попавшее в блокеры,
+    #: останавливает конвейер там, где чинить может быть нечего, — и его
+    #: начинают обходить вместе с настоящими причинами.
+    warnings: list[str] = dataclasses.field(default_factory=list)
 
 
 def default_fetch(path: str) -> Any:
@@ -275,6 +280,24 @@ _TYPE_LABELS = frozenset(
 _NO_ISSUE_RE = re.compile(r"^\s*Без issue:\s*\S", re.IGNORECASE | re.MULTILINE)
 _CLOSES_RE = re.compile(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#\d+", re.IGNORECASE)
 
+#: Номер задачи из объявленной связи — та же формулировка, что у `_CLOSES_RE`,
+#: но с захватом самого номера.
+_CLOSES_NUMBER_RE = re.compile(
+    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)", re.IGNORECASE
+)
+
+#: Явное освобождение для частичной работы: «Часть #1341 — пять пластов из
+#: пятнадцати». Снимает предупреждение по этому номеру, потому что закрывать
+#: задачу целиком нельзя, а связь при этом объявлена честно.
+_PARTIAL_RE = re.compile(r"^\s*Часть\s+#(\d+)\s*[—–-]\s*\S", re.MULTILINE)
+
+#: Номер в тексте фрагмента `changelog.d`: формат требует его в скобках —
+#: «что изменилось (#1234)».
+_FRAGMENT_NUMBER_RE = re.compile(r"\(#(\d+)\)")
+
+#: Каталог фрагментов: только его файлы участвуют в сверке.
+_CHANGELOG_DIR = "changelog.d/"
+
 
 def pull_labels(pull: dict[str, Any]) -> set[str]:
     """Имена меток PR из ответа REST."""
@@ -322,6 +345,66 @@ def metadata_blockers(pull: dict[str, Any]) -> list[str]:
             "без связи задача не закроется при мерже, а приоритет очереди брать неоткуда"
         )
     return reasons
+
+
+def link_completeness_warnings(
+    pull: dict[str, Any],
+    files: list[dict[str, Any]],
+    *,
+    number: int | None = None,
+) -> list[str]:
+    """Задачи, сделанные этим PR, но не объявленные в его теле (issue #1350).
+
+    Наличие связи гейт требовал и раньше (issue #1329), а **полноту** — никто.
+    Сборный PR проходил, объявив одну задачу из пяти: остальные оставались
+    открытыми, хотя сделаны, и узнать об этом можно было только чтением диффа.
+    Живой прецедент — PR #1345: шесть фрагментов ``changelog.d`` называли пять
+    задач, в теле стояла одна.
+
+    Сверять есть что без единого лишнего запроса и без эвристик: номер задачи
+    уже лежит в тексте фрагмента, потому что формат требует его в скобках. Это
+    разность двух множеств — номера из добавленных фрагментов минус номера из
+    ``Closes``/``Fixes``/``Resolves``.
+
+    **Предупреждение, а не отказ** (правило 051): частичное закрытие бывает
+    законным, и номер во фрагменте может оказаться номером самого PR. Первое
+    снимается строкой ``Часть #N — <что именно>``, второе — отбрасыванием
+    собственного номера.
+    """
+    declared = {int(match) for match in _CLOSES_NUMBER_RE.findall(str(pull.get("body") or ""))}
+    excused = {int(match) for match in _PARTIAL_RE.findall(str(pull.get("body") or ""))}
+
+    mentioned: set[int] = set()
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        filename = str(item.get("filename") or "")
+        if not filename.startswith(_CHANGELOG_DIR):
+            continue
+        if item.get("status") == "removed":
+            # Сборка при релизе удаляет фрагменты — их номера ничего не
+            # объявляют об этой работе.
+            continue
+        patch = str(item.get("patch") or "")
+        added = "\n".join(line[1:] for line in patch.splitlines() if line.startswith("+"))
+        mentioned.update(int(match) for match in _FRAGMENT_NUMBER_RE.findall(added))
+
+    if number is not None:
+        # Формат фрагмента допускает номер самого PR — он не про задачу.
+        mentioned.discard(number)
+
+    unannounced = sorted(mentioned - declared - excused)
+    if not unannounced:
+        return []
+
+    listed = ", ".join(f"#{item}" for item in unannounced)
+    in_body = ", ".join(f"#{item}" for item in sorted(declared)) if declared else "ничего"
+    return [
+        f"во фрагментах changelog.d названы {listed} — в теле объявлено {in_body}. "
+        "При мерже эти задачи не закроются, и трекер разойдётся с фактом. "
+        "Добавьте «Closes #N» либо «Часть #N — <что именно сделано>», "
+        "если задача закрыта не целиком"
+    ]
 
 
 def attribution_blockers(commits: list[dict[str, Any]]) -> list[str]:
@@ -374,6 +457,8 @@ def evaluate(
     *,
     main_blockers: list[str] | None = None,
     commits: list[dict[str, Any]] | None = None,
+    files: list[dict[str, Any]] | None = None,
+    number: int | None = None,
 ) -> Verdict:
     """Собрать вердикт из состояния PR, прогонов Actions и check-runs.
 
@@ -389,6 +474,7 @@ def evaluate(
     reasons.extend(bot_author_blockers(pull))
     reasons.extend(metadata_blockers(pull))
     reasons.extend(attribution_blockers(commits or []))
+    warnings = link_completeness_warnings(pull, files or [], number=number)
     mergeable_state = pull.get("mergeable_state")
     if mergeable_state not in {"clean", "unstable", "has_hooks"}:
         reasons.append(f"ветка не готова к мержу (mergeable_state={mergeable_state})")
@@ -440,6 +526,7 @@ def evaluate(
         total_checks=len(listed),
         completed=completed,
         missing=missing,
+        warnings=warnings,
     )
 
 
@@ -565,6 +652,10 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         # issue #1343: кем подпишется итоговый коммит. Отдельный дешёвый REST-
         # запрос: авторы коммитов ветки — это и есть будущие трейлеры squash.
         commits = call(f"repos/{args.repo}/pulls/{args.pull}/commits?per_page=100")
+        # issue #1350: файлы PR нужны ради номеров задач в добавленных
+        # фрагментах changelog.d. Отдельный REST-запрос (1 из 5000), тогда как
+        # тот же вопрос через GraphQL стоил бы ~300 points.
+        files = call(f"repos/{args.repo}/pulls/{args.pull}/files?per_page=100")
     except RuntimeError as exc:
         print(f"Не удалось опросить GitHub: {exc}", file=sys.stderr)
         return 1
@@ -577,6 +668,8 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         expected,
         main_blockers=main_branch_blockers(main_runs) + branch_is_stale(comparison),
         commits=commits if isinstance(commits, list) else [],
+        files=files if isinstance(files, list) else [],
+        number=args.pull,
     )
 
     # issue #1282: очередь спрашивается ТОЛЬКО у PR, готового по своим
@@ -601,6 +694,10 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         return 0 if verdict.ready else 1
 
     print(f"PR #{args.pull}: проверок {verdict.completed}/{verdict.total_checks} завершено")
+    # Предупреждения печатаются и у готового PR: они не мешают мержу, но узнать
+    # о них надо ДО него — после слияния задача уже не закроется сама.
+    for warning in verdict.warnings:
+        print(f"  ⚠ {warning}")
     if verdict.ready:
         print("Готов к мержу: все проверки созданы, завершены и зелёные.")
         return 0

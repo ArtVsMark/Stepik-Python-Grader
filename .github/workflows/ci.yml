@@ -133,6 +133,13 @@ jobs:
       # даёт новой такой точке появиться без разбора. Тоже чистый stdlib (ast).
       - name: Secret dump registry (issue #1301)
         run: python scripts/check_secret_dumps.py
+      # issue #1346: запрет GitHub-инструментов MCP держался списком ИМЁН, а
+      # сервер их консолидировал — ни одно из двадцати девяти не существовало,
+      # и запрет молча перестал действовать. Теперь запрещён сервер целиком, а
+      # гард стережёт форму: именная запись возвращает ту же хрупкость и потому
+      # отклоняется. Чистый stdlib (json).
+      - name: MCP denial holds by shape, not by names (issue #1346)
+        run: python scripts/check_mcp_permissions.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
