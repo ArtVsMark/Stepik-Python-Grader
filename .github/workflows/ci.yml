@@ -133,15 +133,6 @@ jobs:
       # даёт новой такой точке появиться без разбора. Тоже чистый stdlib (ast).
       - name: Secret dump registry (issue #1301)
         run: python scripts/check_secret_dumps.py
-<<<<<<< HEAD
-      # issue #1351: ответ проекта каталогу правил. Здесь только офлайн-часть —
-      # схема, поля по статусу и существование путей в `where`: она не требует
-      # ни сети, ни клона каталога. Полнота ответа (есть ли запись по каждому
-      # правилу) проверяется по расписанию в tracker-guardrails.yml, потому что
-      # для неё нужен экспорт каталога.
-      - name: Rule bindings answer the catalogue (issue #1351)
-        run: python scripts/check_rule_bindings.py
-=======
       # issue #1346: запрет GitHub-инструментов MCP держался списком ИМЁН, а
       # сервер их консолидировал — ни одно из двадцати девяти не существовало,
       # и запрет молча перестал действовать. Теперь запрещён сервер целиком, а
@@ -149,7 +140,13 @@ jobs:
       # отклоняется. Чистый stdlib (json).
       - name: MCP denial holds by shape, not by names (issue #1346)
         run: python scripts/check_mcp_permissions.py
->>>>>>> origin/main
+      # issue #1351: ответ проекта каталогу правил. Здесь только офлайн-часть —
+      # схема, поля по статусу и существование путей в `where`: она не требует
+      # ни сети, ни клона каталога. Полнота ответа (есть ли запись по каждому
+      # правилу) проверяется по расписанию в tracker-guardrails.yml, потому что
+      # для неё нужен экспорт каталога.
+      - name: Rule bindings answer the catalogue (issue #1351)
+        run: python scripts/check_rule_bindings.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
