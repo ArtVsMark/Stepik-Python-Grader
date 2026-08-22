@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -123,23 +124,60 @@ def test_missing_catalogue_names_the_clone_command(generator: ModuleType, tmp_pa
 # ---------------------------------------------------------------------------
 
 
-def test_mechanism_comes_from_its_own_section(generator: ModuleType, tmp_path: Path) -> None:
+def _bindings(root: Path, rules: dict[str, dict[str, str]]) -> None:
+    """Ответ проекта каталогу — источник поля «чем держится» (issue #1351)."""
+    target = root / ".rules" / "bindings.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"schema": "1.0", "project": "x/y", "catalogue": "https://e", "rules": rules}
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def test_mechanism_comes_from_the_project_answer(generator: ModuleType, tmp_path: Path) -> None:
+    """Уровень берётся из `.rules/bindings.json`, а не из раздела каталога.
+
+    Поле принадлежит потребителю: одно правило в проекте с полным конвейером
+    держится гейтом, в витрине — шагом сборки, в статическом сайте ничем.
+    Пока источником был каталог, у 88 правил из 89 читалось «не объявлено» —
+    поле пустовало не потому, что гейтов нет, а потому что заведено не в том
+    репозитории.
+    """
     catalogue = _catalogue(
-        tmp_path,
+        tmp_path / "cat",
         {
-            "020-гейт.md": _rule(
-                "ArtVsMark/Stepik-Python-Grader#1", mechanism="Проверяет гейт preflight.py."
-            ),
-            "021-шаг.md": _rule(
-                "ArtVsMark/Stepik-Python-Grader#2", mechanism="Строка в чек-лист перед PR."
-            ),
+            "020-гейт.md": _rule("ArtVsMark/Stepik-Python-Grader#1"),
+            "021-шаг.md": _rule("ArtVsMark/Stepik-Python-Grader#2"),
+        },
+    )
+    root = tmp_path / "repo"
+    root.mkdir()
+    _bindings(
+        root,
+        {
+            "020": {"status": "active", "mechanism": "gate", "where": "scripts/x.py"},
+            "021": {"status": "active", "mechanism": "process-step", "where": "чек-лист"},
         },
     )
 
-    rules = {rule.slug: rule.mechanism for rule in generator.collect_rules(catalogue)}
+    rules = {r.slug: r.mechanism for r in generator.collect_rules(catalogue, repo_root=root)}
 
     assert rules["020-гейт"] == "гейт"
     assert rules["021-шаг"] == "шаг процесса"
+
+
+def test_without_an_answer_everything_is_undeclared(generator: ModuleType, tmp_path: Path) -> None:
+    """Нет ответа — «не объявлено»: приятная ошибка здесь хуже отсутствия метрики."""
+    catalogue = _catalogue(
+        tmp_path / "cat",
+        {"020-гейт.md": _rule("ArtVsMark/Stepik-Python-Grader#1", mechanism="Гейт в CI.")},
+    )
+    root = tmp_path / "repo"
+    root.mkdir()
+
+    rules = {r.slug: r.mechanism for r in generator.collect_rules(catalogue, repo_root=root)}
+
+    assert rules["020-гейт"] == "не объявлено", (
+        "раздел «Механизм» каталога больше не источник: он говорит о чужом проекте"
+    )
 
 
 def test_gate_word_in_the_incident_does_not_count(generator: ModuleType, tmp_path: Path) -> None:
@@ -163,7 +201,7 @@ def test_gate_word_in_the_incident_does_not_count(generator: ModuleType, tmp_pat
 
 def test_index_shows_the_unmechanised_count(generator: ModuleType, tmp_path: Path) -> None:
     catalogue = _catalogue(
-        tmp_path,
+        tmp_path / "cat",
         {
             "030-раз.md": _rule("ArtVsMark/Stepik-Python-Grader#1"),
             "031-два.md": _rule("ArtVsMark/Stepik-Python-Grader#2"),
@@ -171,7 +209,11 @@ def test_index_shows_the_unmechanised_count(generator: ModuleType, tmp_path: Pat
         },
     )
 
-    text = generator.render_index(generator.collect_rules(catalogue))
+    root = tmp_path / "repo"
+    root.mkdir()
+    _bindings(root, {"032": {"status": "active", "mechanism": "gate", "where": "scripts/x.py"}})
+
+    text = generator.render_index(generator.collect_rules(catalogue, repo_root=root))
 
     assert "**Не объявлено: 2.**" in text
     assert "Всего правил, действующих здесь: **3**." in text

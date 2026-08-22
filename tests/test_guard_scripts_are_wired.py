@@ -54,6 +54,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "форма запрета MCP: именная запись отключается молча при переименовании",
     ),
+    "check_rule_bindings.py": (
+        ".github/workflows/ci.yml",
+        "формат ответа каталогу — на каждый PR; полнота против каталога — "
+        "по расписанию в tracker-guardrails.yml, ей нужен клон каталога",
+    ),
     "check_pip_audit_report.py": (
         ".github/workflows/ci.yml",
         "разбор отчёта pip-audit в цепочке поставок",

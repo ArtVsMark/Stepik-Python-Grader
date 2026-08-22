@@ -119,6 +119,12 @@ repos:
         language: system
         pass_filenames: false
         files: '^\.claude/settings\.json$'
+      - id: check-rule-bindings
+        name: ответ каталогу правил сходится с фактом
+        entry: python scripts/check_rule_bindings.py
+        language: system
+        pass_filenames: false
+        files: '^(\.rules/bindings\.json|scripts/.*\.py)$'
 
       - id: check-ruff-pin
         name: пины инструментов вердикта (ruff, mypy)
