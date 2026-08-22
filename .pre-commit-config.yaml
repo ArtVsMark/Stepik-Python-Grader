@@ -113,12 +113,21 @@ repos:
         pass_filenames: false
         files: '^src/stepik_grader/.*\.py$'
 
+<<<<<<< HEAD
       - id: check-rule-bindings
         name: ответ каталогу правил сходится с фактом
         entry: python scripts/check_rule_bindings.py
         language: system
         pass_filenames: false
         files: '^(\.rules/bindings\.json|scripts/.*\.py)$'
+=======
+      - id: check-mcp-permissions
+        name: запрет MCP держится формой, а не именами
+        entry: python scripts/check_mcp_permissions.py
+        language: system
+        pass_filenames: false
+        files: '^\.claude/settings\.json$'
+>>>>>>> origin/main
 
       - id: check-ruff-pin
         name: пины инструментов вердикта (ruff, mypy)
