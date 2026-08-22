@@ -603,3 +603,79 @@ class TestQueuePosition:
 
     def test_empty_queue_blocks_nobody(self, module: ModuleType) -> None:
         assert module.queue_blockers(self._report(module, []), 10) == []
+
+
+class TestAttributionBlockers:
+    """Кем подпишется итоговый коммит после squash (issue #1343).
+
+    Дефект необратим с момента слияния: `main` защищена, force-push запрещён.
+    Значит проверять надо до мержа — и не тело PR (трейлеры туда платформа
+    допишет сама), а авторов коммитов ветки: именно они станут трейлерами.
+    """
+
+    @staticmethod
+    def _commit(name: str, email: str, message: str = "fix: что-то") -> dict[str, Any]:
+        return {"commit": {"author": {"name": name, "email": email}, "message": message}}
+
+    def test_container_identity_is_caught_before_the_merge(self, module: ModuleType) -> None:
+        """Тот самый случай: почта согласована, имя — идентичность контейнера."""
+        reasons = module.attribution_blockers([self._commit("Claude", "noreply@anthropic.com")])
+
+        assert len(reasons) == 1
+        assert "Claude <noreply@anthropic.com>" in reasons[0]
+        assert "check_attribution.py" in reasons[0], "гейт обязан называть команду проверки"
+
+    def test_agreed_identity_passes(self, module: ModuleType) -> None:
+        reasons = module.attribution_blockers(
+            [self._commit("Claude Opus 5", "noreply@anthropic.com")]
+        )
+
+        assert reasons == []
+
+    def test_owner_passes(self, module: ModuleType) -> None:
+        """Владелец согласован всегда — он берётся из pyproject, а не из списка."""
+        reasons = module.attribution_blockers(
+            [self._commit("Artem Markitanov", "86671904+ArtVsMark@users.noreply.github.com")]
+        )
+
+        assert reasons == []
+
+    def test_external_contributor_does_not_block(self, module: ModuleType) -> None:
+        """PR из форка не отказывается по авторству: чужая строка законна."""
+        reasons = module.attribution_blockers(
+            [self._commit("mercael91", "mercael91@users.noreply.github.com")]
+        )
+
+        assert reasons == []
+
+    def test_trailer_inside_the_message_counts_too(self, module: ModuleType) -> None:
+        """Не только автор коммита: трейлер в теле уедет в squash так же."""
+        reasons = module.attribution_blockers(
+            [
+                self._commit(
+                    "Artem Markitanov",
+                    "86671904+ArtVsMark@users.noreply.github.com",
+                    "fix: что-то\n\nCo-authored-by: Claude <noreply@anthropic.com>\n",
+                )
+            ]
+        )
+
+        assert len(reasons) == 1
+        assert "Claude <noreply@anthropic.com>" in reasons[0]
+
+    def test_no_commits_is_not_a_reason(self, module: ModuleType) -> None:
+        """Список коммитов не пришёл — гейт молчит, а не выдумывает отказ."""
+        assert module.attribution_blockers([]) == []
+
+    def test_verdict_carries_the_reason(self, module: ModuleType) -> None:
+        """Причина доезжает до вердикта, а не остаётся внутри функции."""
+        verdict = module.evaluate(
+            _pull(),
+            {"workflow_runs": []},
+            {"check_runs": []},
+            set(),
+            commits=[self._commit("Claude", "noreply@anthropic.com")],
+        )
+
+        assert verdict.ready is False
+        assert any("согласованного списка" in reason for reason in verdict.reasons)

@@ -68,10 +68,12 @@ from typing import Any
 # подстраховать явно.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+import check_attribution
 import gh_rest
 
 __all__ = [
     "Verdict",
+    "attribution_blockers",
     "bot_author_blockers",
     "branch_is_stale",
     "check_names",
@@ -322,6 +324,48 @@ def metadata_blockers(pull: dict[str, Any]) -> list[str]:
     return reasons
 
 
+def attribution_blockers(commits: list[dict[str, Any]]) -> list[str]:
+    """Кем подпишется итоговый коммит после squash (issue #1343).
+
+    Squash не переносит коммит, а составляет новый: автором становится автор
+    pull request, а прежних авторов коммитов ветки платформа дописывает
+    трейлерами ``Co-authored-by``. Берёт она их из git-идентичности окна, в
+    котором работали, — и у облачного контейнера это ``Claude``, а не
+    согласованное ``Claude Opus 5``. Так один соавтор и оказался в истории под
+    двумя именами.
+
+    Значит проверять надо не тело PR (трейлеры там платформа допишет сама), а
+    авторов коммитов ветки: они известны ДО слияния, а после слияния уже
+    необратимы — ``main`` защищена, force-push запрещён.
+
+    Внешние соавторы под правило не подпадают (:func:`check_attribution.is_agent`):
+    их строки законны, как и английский язык в их PR.
+    """
+    identities: set[check_attribution.Identity] = set()
+    for item in commits:
+        if not isinstance(item, dict):
+            continue
+        raw_commit = item.get("commit")
+        commit: dict[str, Any] = raw_commit if isinstance(raw_commit, dict) else {}
+        raw_author = commit.get("author")
+        author: dict[str, Any] = raw_author if isinstance(raw_author, dict) else {}
+        name = str(author.get("name", "")).strip()
+        email = str(author.get("email", "")).strip()
+        if name and email:
+            identities.add(check_attribution.Identity(name, email))
+        identities.update(check_attribution.trailer_identities(str(commit.get("message", ""))))
+
+    wrong = check_attribution.mismatched(identities, agents_only=True)
+    if not wrong:
+        return []
+    listed = ", ".join(str(identity) for identity in wrong)
+    return [
+        f"подпись не из согласованного списка: {listed} — после squash платформа "
+        "впишет её в main трейлером, и переписать это будет нечем "
+        "(python scripts/check_attribution.py --check-branch)"
+    ]
+
+
 def evaluate(
     pull: dict[str, Any],
     workflow_runs: dict[str, Any],
@@ -329,6 +373,7 @@ def evaluate(
     expected: set[str],
     *,
     main_blockers: list[str] | None = None,
+    commits: list[dict[str, Any]] | None = None,
 ) -> Verdict:
     """Собрать вердикт из состояния PR, прогонов Actions и check-runs.
 
@@ -343,6 +388,7 @@ def evaluate(
         reasons.append("PR — черновик")
     reasons.extend(bot_author_blockers(pull))
     reasons.extend(metadata_blockers(pull))
+    reasons.extend(attribution_blockers(commits or []))
     mergeable_state = pull.get("mergeable_state")
     if mergeable_state not in {"clean", "unstable", "has_hooks"}:
         reasons.append(f"ветка не готова к мержу (mergeable_state={mergeable_state})")
@@ -516,6 +562,9 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         # date»; спрашиваем напрямую, чтобы гейт говорил это и до её включения.
         base = str(pull.get("base", {}).get("ref", "main"))
         comparison = call(f"repos/{args.repo}/compare/{base}...{sha}")
+        # issue #1343: кем подпишется итоговый коммит. Отдельный дешёвый REST-
+        # запрос: авторы коммитов ветки — это и есть будущие трейлеры squash.
+        commits = call(f"repos/{args.repo}/pulls/{args.pull}/commits?per_page=100")
     except RuntimeError as exc:
         print(f"Не удалось опросить GitHub: {exc}", file=sys.stderr)
         return 1
@@ -527,6 +576,7 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         check_runs,
         expected,
         main_blockers=main_branch_blockers(main_runs) + branch_is_stale(comparison),
+        commits=commits if isinstance(commits, list) else [],
     )
 
     # issue #1282: очередь спрашивается ТОЛЬКО у PR, готового по своим
