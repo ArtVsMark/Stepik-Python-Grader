@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
-"""scripts/check_ruff_pin.py — версия ruff задана ровно в одном месте (issue #791).
+"""scripts/check_ruff_pin.py — версии инструментов вердикта пришпилены (#791, #1349).
+
+**Инструмент вердикта** — тот, чей выход о НЕИЗМЕННОМ коде меняется вместе с его
+версией: ``ruff`` (новое правило) и ``mypy`` (новая диагностика). Такой
+инструмент без верхней границы означает ложное красное у того, кто пересоздал
+окружение в день релиза, — и разбирают его руками, не понимая причины.
+Прогонные инструменты (``pytest`` и соседи) сюда не входят: почему — записано
+рядом со списком в ``pyproject.toml``.
+
+**Имя файла оставлено прежним намеренно.** Указатель правил
+``docs/agent/rules/README.md`` генерируется из следов каталога
+claude-code-playbook, и след правила 073 указывает на этот путь. Переименование
+уронило бы генератор, а починить след можно только в каталоге — то есть в чужом
+репозитории (``CLAUDE.md`` § Связанный проект). Неточное имя дешевле сломанного
+механизма.
 
 Раньше её задавали двое: `rev:` хука в `.pre-commit-config.yaml` и спецификатор
 `ruff>=...` в `pyproject.toml`. Синхронизация была ручной — и разъехалась ровно
@@ -12,11 +26,11 @@
 1. Хуки ruff в `.pre-commit-config.yaml` — `language: system`, то есть берут
    ruff из окружения. Возврат к репозиторию `ruff-pre-commit` заводит второй
    источник версии, и всё повторится.
-2. Спецификатор в `[project.optional-dependencies] dev` имеет **верхнюю
-   границу**. Без неё CI ставит свежайший ruff в день его выхода, а у
-   контрибьютора остаётся вчерашний — то же расхождение, только растянутое во
-   времени.
-3. Установленный ruff (если он есть в окружении) этому спецификатору
+2. Спецификатор **каждого** инструмента вердикта в
+   `[project.optional-dependencies] dev` имеет **верхнюю границу**. Без неё CI
+   ставит свежайший в день его выхода, а у контрибьютора остаётся вчерашний —
+   то же расхождение, только растянутое во времени.
+3. Установленная версия (если инструмент есть в окружении) этому спецификатору
    удовлетворяет. Это ловит устаревшую dev-установку до того, как она даст
    ложное «всё чисто».
 
@@ -36,18 +50,51 @@ import re
 import subprocess
 import sys
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 from packaging.requirements import Requirement
 from packaging.version import Version
 
 __all__ = [
+    "VERDICT_TOOLS",
+    "VerdictTool",
     "installed_ruff_version",
+    "installed_version",
     "main",
     "precommit_violations",
     "ruff_requirement",
     "specifier_violations",
+    "tool_requirement",
 ]
+
+
+@dataclass(frozen=True)
+class VerdictTool:
+    """Инструмент, чей вердикт о неизменном коде зависит от его версии."""
+
+    name: str
+    """Имя зависимости в ``[project.optional-dependencies] dev``."""
+
+    module: str
+    """Модуль для ``python -m <module> --version``."""
+
+    version_pattern: str
+    """Регулярное выражение с одной группой — версией в выводе ``--version``."""
+
+    @property
+    def version_re(self) -> re.Pattern[str]:
+        """Скомпилированный шаблон версии."""
+        return re.compile(self.version_pattern, re.MULTILINE)
+
+
+#: Список пришпиливаемого. Расширяется, когда появляется ещё один инструмент,
+#: меняющий вердикт вместе с версией; прогонным инструментам здесь не место.
+VERDICT_TOOLS: tuple[VerdictTool, ...] = (
+    VerdictTool("ruff", "ruff", r"^ruff (\d+\.\d+\.\d+)"),
+    # mypy печатает «mypy 2.3.1 (compiled: yes)»; патч-часть бывает опущена.
+    VerdictTool("mypy", "mypy", r"^mypy (\d+\.\d+(?:\.\d+)?)"),
+)
 
 _ROOT = Path(__file__).resolve().parent.parent
 _PRECOMMIT = _ROOT / ".pre-commit-config.yaml"
@@ -55,7 +102,6 @@ _PYPROJECT = _ROOT / "pyproject.toml"
 
 # Репозиторий, чей `rev:` и был вторым источником версии.
 _RUFF_HOOK_REPO = "ruff-pre-commit"
-_VERSION_RE = re.compile(r"^ruff (\d+\.\d+\.\d+)", re.MULTILINE)
 
 
 def precommit_violations(text: str) -> list[str]:
@@ -75,21 +121,21 @@ def precommit_violations(text: str) -> list[str]:
     return problems
 
 
-def ruff_requirement() -> Requirement:
-    """Спецификатор ``ruff`` из ``[project.optional-dependencies] dev``."""
+def tool_requirement(tool: VerdictTool) -> Requirement:
+    """Спецификатор инструмента из ``[project.optional-dependencies] dev``."""
     data = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     for raw in data["project"]["optional-dependencies"]["dev"]:
         req = Requirement(raw)
-        if req.name == "ruff":
+        if req.name == tool.name:
             return req
-    raise SystemExit("pyproject.toml: в extra [dev] нет зависимости ruff")
+    raise SystemExit(f"pyproject.toml: в extra [dev] нет зависимости {tool.name}")
 
 
-def installed_ruff_version() -> Version | None:
-    """Версия ruff в текущем окружении; ``None`` — не установлен."""
+def installed_version(tool: VerdictTool) -> Version | None:
+    """Версия инструмента в текущем окружении; ``None`` — не установлен."""
     try:
         out = subprocess.run(
-            [sys.executable, "-m", "ruff", "--version"],
+            [sys.executable, "-m", tool.module, "--version"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -98,22 +144,32 @@ def installed_ruff_version() -> Version | None:
         ).stdout
     except OSError:
         return None
-    match = _VERSION_RE.search(out)
+    match = tool.version_re.search(out)
     return Version(match.group(1)) if match else None
 
 
+def ruff_requirement() -> Requirement:
+    """Спецификатор ``ruff`` — обёртка над :func:`tool_requirement`."""
+    return tool_requirement(VERDICT_TOOLS[0])
+
+
+def installed_ruff_version() -> Version | None:
+    """Версия ruff в окружении — обёртка над :func:`installed_version`."""
+    return installed_version(VERDICT_TOOLS[0])
+
+
 def specifier_violations(req: Requirement, installed: Version | None) -> list[str]:
-    """Нарушения спецификатора: нет верхней границы / установлен не тот ruff."""
+    """Нарушения: нет верхней границы / установлено не то, что объявлено."""
     problems = []
     if not any(spec.operator in ("<", "<=", "==", "~=") for spec in req.specifier):
         problems.append(
             f"pyproject.toml: спецификатор `{req}` без верхней границы — CI поставит "
-            "свежайший ruff в день релиза, а у контрибьютора останется прежний "
-            "(issue #791)."
+            f"свежайший {req.name} в день релиза, а у контрибьютора останется прежний "
+            "(issue #791, #1349)."
         )
     if installed is not None and installed not in req.specifier:
         problems.append(
-            f"установлен ruff {installed}, что не удовлетворяет `{req}` — "
+            f"установлен {req.name} {installed}, что не удовлетворяет `{req}` — "
             'обновите окружение: pip install -e ".[dev]"'
         )
     return problems
@@ -131,18 +187,23 @@ def main() -> int:
             reconfigure(encoding="utf-8")
 
     problems = precommit_violations(_PRECOMMIT.read_text(encoding="utf-8"))
-    req = ruff_requirement()
-    installed = installed_ruff_version()
-    problems += specifier_violations(req, installed)
+    reports = []
+    for tool in VERDICT_TOOLS:
+        req = tool_requirement(tool)
+        installed = installed_version(tool)
+        problems += specifier_violations(req, installed)
+        where = f"установлен {installed}" if installed else "в окружении не найден"
+        reports.append(f"  {tool.name}: `{req}` ({where})")
 
     if problems:
-        print("FAIL: пин ruff разъехался:")
+        print("FAIL: пин инструментов вердикта разъехался:")
         for problem in problems:
             print(f"  - {problem}")
         return 1
 
-    where = f"установлен {installed}" if installed else "в окружении не найден"
-    print(f"ruff pin: единственный источник — pyproject.toml `{req}` ({where}).")
+    print("Пины инструментов вердикта — единственный источник pyproject.toml:")
+    for line in reports:
+        print(line)
     return 0
 
 
