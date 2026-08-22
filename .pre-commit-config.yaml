@@ -112,6 +112,13 @@ repos:
         pass_filenames: false
         files: '^src/stepik_grader/.*\.py$'
 
+      - id: check-mcp-permissions
+        name: запрет MCP держится формой, а не именами
+        entry: python scripts/check_mcp_permissions.py
+        language: system
+        pass_filenames: false
+        files: '^\.claude/settings\.json$'
+
       - id: check-ruff-pin
         name: версия ruff — один источник
         entry: python scripts/check_ruff_pin.py
