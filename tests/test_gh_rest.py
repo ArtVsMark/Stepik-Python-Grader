@@ -1388,3 +1388,125 @@ class TestForkInTheQueue:
         report = module.merge_queue("owner/repo", opener=opener)
 
         assert report.ready[0].fork is False
+
+
+class TestRerunFailedJobs:
+    """Перезапуск только упавших — и обязательный след (issue #1344)."""
+
+    def test_only_failed_jobs_are_rerun(self, module: ModuleType) -> None:
+        """Полный перезапуск ради одной ячейки стоит десятков минут очереди."""
+        opener = _opener(_FakeResponse({}))
+
+        assert module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False) is True
+
+        request = opener.captured[0]
+        assert request.full_url.endswith("/actions/runs/42/rerun-failed-jobs"), request.full_url
+        assert request.get_method() == "POST"
+
+    def test_nothing_to_rerun_is_not_a_failure(self, module: ModuleType) -> None:
+        """Прогон без упавших джобов — «нечего», а не сбой транспорта."""
+        opener = _opener(_http_error(403, message="no failed jobs"))
+
+        assert module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False) is False
+
+    def test_missing_write_rights_are_not_nothing_to_rerun(self, module: ModuleType) -> None:
+        """403 «прав нет» ≠ 403 «нечего»: иначе команда врёт о состоянии.
+
+        Воспроизведено на живом прогоне: у облачной сессии закрыта запись в
+        Actions, GitHub ответил «Resource not accessible by integration», а
+        команда напечатала «упавших джобов нет» — на прогоне, где джоб только
+        что упал. Окно ушло бы чинить не то.
+        """
+        opener = _opener(*[_http_error(403, message="Resource not accessible by integration")] * 6)
+
+        with pytest.raises(module.GitHubError) as exc:
+            module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False)
+
+        text = str(exc.value)
+        assert "прав" in text, text
+        assert "кнопкой" in text, "сообщение обязано называть выход, а не только отказ"
+
+    def test_other_errors_still_raise(self, module: ModuleType) -> None:
+        """Молчать о настоящем отказе нельзя — иначе «перезапустил» будет ложью."""
+        opener = _opener(*[_http_error(500, message="boom")] * 6)
+
+        with pytest.raises(module.GitHubError):
+            module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False)
+
+    def test_flake_note_creates_the_log_with_its_header(
+        self, module: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Журнал заводится сам: пустой файл никто не создаст вручную вовремя."""
+        log = tmp_path / "docs" / "agent" / "flaky-runs.md"
+
+        module.append_flake_note(77, "SQLite lock на windows", log=log)
+
+        written = log.read_text(encoding="utf-8")
+        assert "Журнал нестабильности" in written
+        assert "| 77 | SQLite lock на windows |" in written
+
+    def test_flake_notes_accumulate(self, module: ModuleType, tmp_path: pathlib.Path) -> None:
+        """Повторяющийся сюжет виден только на нескольких записях."""
+        log = tmp_path / "flaky.md"
+
+        module.append_flake_note(1, "первое", log=log)
+        module.append_flake_note(2, "второе", log=log)
+
+        written = log.read_text(encoding="utf-8")
+        assert "| 1 | первое |" in written and "| 2 | второе |" in written
+        assert written.count("Журнал нестабильности") == 1, "шапка пишется один раз"
+
+
+class TestRerunCliRequiresATrace:
+    """Без записи о нестабильности перезапуск не выполняется (issue #1344)."""
+
+    def test_why_is_required(self, module: ModuleType) -> None:
+        """Приёмка: «удобная кнопка» без учёта невозможна по построению.
+
+        Перезапуск не чинит — он меняет исход, не меняя причины. Через полгода
+        без этого «перезапусти, оно иногда падает» стало бы нормальным ответом.
+        """
+        with pytest.raises(SystemExit) as exc:
+            module.main(["rerun-failed", "42"])
+
+        assert exc.value.code != 0, "перезапуск без --why обязан отклоняться"
+
+    def test_third_attempt_is_refused(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Третья попытка означает дефект, а не мигание — и API не трогается."""
+        called: list[int] = []
+        monkeypatch.setattr(module, "rerun_failed_jobs", lambda *a, **k: called.append(1) or True)
+
+        code = module.main(["rerun-failed", "42", "--why", "снова", "--attempt", "3"])
+
+        assert code != 0
+        assert not called, "на третьей попытке запрос отправлять не за чем"
+        assert "дефект" in capsys.readouterr().err
+
+    def test_successful_rerun_writes_the_note(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Запись — часть операции, а не отдельная дисциплина."""
+        log = tmp_path / "flaky.md"
+        monkeypatch.setattr(module, "rerun_failed_jobs", lambda *a, **k: True)
+        monkeypatch.setattr(module, "FLAKE_LOG", log)
+
+        code = module.main(["rerun-failed", "42", "--why", "дедлайн запуска процесса"])
+
+        assert code == 0
+        assert "| 42 | дедлайн запуска процесса |" in log.read_text(encoding="utf-8")
+
+    def test_nothing_to_rerun_writes_nothing(
+        self, module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Не мигало — не записываем: журнал должен оставаться правдой."""
+        log = tmp_path / "flaky.md"
+        monkeypatch.setattr(module, "rerun_failed_jobs", lambda *a, **k: False)
+        monkeypatch.setattr(module, "FLAKE_LOG", log)
+
+        assert module.main(["rerun-failed", "42", "--why", "показалось"]) == 0
+        assert not log.exists(), "запись о перезапуске, которого не было, врала бы о системе"

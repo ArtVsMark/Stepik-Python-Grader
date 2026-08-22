@@ -98,6 +98,8 @@ __all__ = [
     "EXIT_FAIL",
     "EXIT_OK",
     "EXIT_WAIT",
+    "FLAKE_LOG",
+    "MAX_ATTEMPTS",
     "Divergence",
     "GitHubError",
     "MissingToken",
@@ -110,6 +112,7 @@ __all__ = [
     "TlsVerificationError",
     "add_labels",
     "add_sub_issue",
+    "append_flake_note",
     "branch_runs",
     "cancel_run",
     "close_issue",
@@ -139,6 +142,7 @@ __all__ = [
     "relaxed_ca_enabled",
     "remove_label",
     "request",
+    "rerun_failed_jobs",
     "resolve_token",
     "run_jobs",
     "sub_issues",
@@ -1457,6 +1461,97 @@ def cancel_run(repo: str, run_id: int, **kwargs: Any) -> bool:
     return True
 
 
+#: Журнал нестабильности: сюда пишется каждый частичный перезапуск.
+FLAKE_LOG = pathlib.Path(__file__).resolve().parent.parent / "docs" / "agent" / "flaky-runs.md"
+
+#: Больше двух попыток означает не мигание, а дефект — и разбирать надо его.
+MAX_ATTEMPTS = 2
+
+#: 403 «прав нет»: у облачной сессии закрыта запись в Actions. Отличается от
+#: 403 «перезапускать нечего» только текстом, и спутать их — значит утверждать
+#: «упавших джобов нет» на прогоне, где джоб упал.
+_NO_WRITE_RE = re.compile(r"not accessible by integration|must have admin|forbidden", re.I)
+
+#: 403, которым GitHub отвечает на прогон, где перезапускать действительно нечего.
+_NOTHING_TO_RERUN_RE = re.compile(r"no failed jobs|not in a failed state|already", re.I)
+
+
+def rerun_failed_jobs(repo: str, run_id: int, **kwargs: Any) -> bool:
+    """Перезапустить ТОЛЬКО упавшие джобы прогона (issue #1344).
+
+    Упала одна ячейка матрицы — полный перезапуск стоит десятков минут и
+    занимает исполнителей, которыми пользуются все остальные PR. REST это
+    умеет: ``POST /actions/runs/{id}/rerun-failed-jobs`` сохраняет результаты
+    прошедших.
+
+    Возвращает ``False``, только если перезапускать действительно **нечего**:
+    прогон без упавших джобов либо уже перезапускаемый.
+
+    **403 бывает двух разных смыслов, и путать их нельзя.** У облачной сессии
+    нет ``actions:write`` — прокси закрывает запись, и GitHub отвечает
+    ``Resource not accessible by integration``. Прежняя редакция считала любой
+    ``403`` за «нечего» и печатала «упавших джобов нет» на прогоне, где джоб
+    только что упал: команда врала о состоянии, а окно уходило чинить не то.
+    Отказ по правам поднимается ошибкой и называет причину вслух.
+
+    **Перезапуск не чинит, он меняет исход, не меняя причины.** Поэтому вызов
+    из CLI обязан сопровождаться записью в :data:`FLAKE_LOG`; см.
+    :func:`append_flake_note`.
+    """
+    try:
+        request("POST", f"repos/{repo}/actions/runs/{run_id}/rerun-failed-jobs", **kwargs)
+    except GitHubError as exc:
+        message = str(exc)
+        if _NO_WRITE_RE.search(message):
+            raise GitHubError(
+                "перезапуск недоступен: у сессии нет прав на запись в Actions "
+                f"({message}). Из облака это штатно — прокси закрывает запись; "
+                "запустите повтор кнопкой в интерфейсе или из локального окна"
+            ) from exc
+        if "409" in message or _NOTHING_TO_RERUN_RE.search(message):
+            return False
+        raise
+    return True
+
+
+def append_flake_note(run_id: int, why: str, *, log: pathlib.Path | None = None) -> None:
+    """Дописать строку в журнал нестабильности.
+
+    Зелёное со второго раза — факт о системе, а не о коде: проверка зависит не
+    только от него. Без записи экономия оборачивается потерей доверия к набору,
+    и через полгода «перезапусти, оно иногда падает» становится нормальным
+    ответом.
+
+    Журнал ведётся не памятью, а этой функцией: CLI не даёт перезапустить, не
+    записав.
+    """
+    target = log if log is not None else FLAKE_LOG
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not target.exists():
+        target.write_text(_FLAKE_LOG_HEADER, encoding="utf-8")
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(f"| {run_id} | {why.strip()} |\n")
+
+
+_FLAKE_LOG_HEADER = """# Журнал нестабильности прогонов
+
+> Пишется механизмом, а не памятью: `python scripts/gh_rest.py rerun-failed
+> <run-id> --why "<что мигнуло>"` дописывает строку сам и без `--why` не
+> работает.
+
+**Зачем.** Перезапуск не чинит — он меняет исход, не меняя причины. Прошло со
+второго раза значит, что проверка зависит не только от кода, и это факт о
+системе, который иначе теряется. Доля прогонов, потребовавших перезапуска, —
+измеримая величина, и она не должна расти.
+
+**Как читать.** Строка — один частичный перезапуск. Повторяющийся сюжет здесь
+и есть кандидат в задачу: чинить надо причину, а не исход.
+
+| Прогон | Что мигнуло |
+|---|---|
+"""
+
+
 def rate_limit(**kwargs: Any) -> dict[str, Quota]:
     """Остаток квоты по ресурсам. Сам запрос лимит не расходует.
 
@@ -1900,6 +1995,34 @@ def _cmd_cancel_run(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_rerun_failed(args: argparse.Namespace) -> int:
+    """Перезапустить упавшие джобы — и записать, что именно мигнуло.
+
+    Запись не «заодно», а условие: без неё команда превращается в удобную
+    кнопку, и «перезапусти, оно иногда падает» становится нормальным ответом.
+    Поэтому ``--why`` обязателен, а третья попытка отклоняется — она означает
+    не мигание, а дефект.
+    """
+    attempt = int(getattr(args, "attempt", 1) or 1)
+    if attempt > MAX_ATTEMPTS:
+        print(
+            f"попытка {attempt} — это уже не мигание, а дефект: "
+            f"перезапуск больше {MAX_ATTEMPTS} раз ничего не доказывает, "
+            "разбирайте причину падения",
+            file=sys.stderr,
+        )
+        return EXIT_FAIL
+
+    if not rerun_failed_jobs(args.repo, args.run):
+        print(f"прогон {args.run}: упавших джобов нет — перезапускать нечего.")
+        return EXIT_OK
+
+    append_flake_note(args.run, args.why)
+    print(f"прогон {args.run}: упавшие джобы перезапущены, прошедшие сохранены.")
+    print(f"записано в журнал нестабильности ({FLAKE_LOG.name}): {args.why}")
+    return EXIT_OK
+
+
 def _cmd_rate(args: argparse.Namespace) -> int:
     """Показать остаток квоты — сам запрос её не расходует.
 
@@ -2029,6 +2152,24 @@ def _build_parser() -> argparse.ArgumentParser:
     cancel = sub.add_parser("cancel-run", help="отменить зависший прогон")
     cancel.add_argument("run", type=int)
     cancel.set_defaults(handler=_cmd_cancel_run)
+
+    rerun = sub.add_parser(
+        "rerun-failed",
+        help="перезапустить ТОЛЬКО упавшие джобы прогона (с записью в журнал)",
+    )
+    rerun.add_argument("run", type=int)
+    rerun.add_argument(
+        "--why",
+        required=True,
+        help="что именно мигнуло: строка уходит в журнал нестабильности",
+    )
+    rerun.add_argument(
+        "--attempt",
+        type=int,
+        default=1,
+        help=f"номер попытки; больше {MAX_ATTEMPTS} — это дефект, а не мигание",
+    )
+    rerun.set_defaults(handler=_cmd_rerun_failed)
 
     queue = sub.add_parser("queue", help="очередь мержа: кого обновлять, кто ждёт")
     queue.set_defaults(handler=_cmd_queue)
