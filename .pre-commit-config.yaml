@@ -113,6 +113,13 @@ repos:
         pass_filenames: false
         files: '^src/stepik_grader/.*\.py$'
 
+      - id: check-rule-bindings
+        name: ответ каталогу правил сходится с фактом
+        entry: python scripts/check_rule_bindings.py
+        language: system
+        pass_filenames: false
+        files: '^(\.rules/bindings\.json|scripts/.*\.py)$'
+
       - id: check-ruff-pin
         name: пины инструментов вердикта (ruff, mypy)
         entry: python scripts/check_ruff_pin.py

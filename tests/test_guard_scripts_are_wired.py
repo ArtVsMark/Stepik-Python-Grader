@@ -50,6 +50,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "предмет — состояние трекера: расписание, а не прогон на каждый PR (квота)",
     ),
     "check_locale_guardrails.py": (".github/workflows/ci.yml", "полнота локалей"),
+    "check_rule_bindings.py": (
+        ".github/workflows/ci.yml",
+        "формат ответа каталогу — на каждый PR; полнота против каталога — "
+        "по расписанию в tracker-guardrails.yml, ей нужен клон каталога",
+    ),
     "check_pip_audit_report.py": (
         ".github/workflows/ci.yml",
         "разбор отчёта pip-audit в цепочке поставок",

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
 import pathlib
 import re
 import sys
@@ -93,6 +94,11 @@ class Rule:
     mechanism: str
 
     @property
+    def number(self) -> str:
+        """Номер правила: первый сегмент слага (`001-transport-…` → `001`)."""
+        return self.slug.split("-", 1)[0]
+
+    @property
     def applies_here(self) -> bool:
         """Действует ли правило в этом проекте — то есть есть ли след сюда."""
         return bool(self.issues or self.paths)
@@ -109,23 +115,38 @@ def _section(text: str, name: str) -> str:
     return ""
 
 
-def _mechanism_of(text: str) -> str:
-    """Чем держится правило: явный раздел «Механизм», иначе — «не объявлено».
+#: Как статус из `.rules/bindings.json` читается в указателе.
+_MECHANISM_LABELS = {"gate": "гейт", "process-step": "шаг процесса", "none": "не объявлено"}
 
-    Догадываться по тексту нельзя: правило, где слово «гейт» встретилось в
-    описании инцидента, не становится от этого обеспеченным. Метрика существует
-    ровно затем, чтобы показывать необеспеченные, — и приятная ошибка здесь
-    хуже отсутствия метрики.
+
+def _bindings_mechanisms(path: pathlib.Path | None = None) -> dict[str, str]:
+    """Чем держится каждое правило — по ответу ЭТОГО проекта каталогу.
+
+    Источник поля сменился намеренно (issue #1351). Раньше уровень брался из
+    раздела «Механизм» самого правила, то есть из **каталога**, — а это поле
+    потребителя: одно и то же правило в проекте с полным конвейером держится
+    гейтом, в витрине — шагом сборки, в статическом сайте ничем. Отсюда и
+    прежние «88 не объявлено» из 89: поле пустовало не потому, что у нас нет
+    гейтов, а потому что заведено не в том репозитории.
+
+    Ключ — номер правила, значение — метка уровня. Нет ответа по правилу —
+    оно и не попадает в словарь: вызывающая сторона покажет «не объявлено».
     """
-    declared = _section(text, "Механизм")
-    if not declared:
-        return "не объявлено"
-    lowered = declared.lower()
-    if any(word in lowered for word in _GATE_WORDS):
-        return "гейт"
-    if any(word in lowered for word in _PROCESS_WORDS):
-        return "шаг процесса"
-    return "не объявлено"
+    target = path if path is not None else _ROOT / ".rules" / "bindings.json"
+    if not target.exists():
+        return {}
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        # Битый ответ — не повод молча зазеленить метрику: пусть всё будет
+        # «не объявлено», это честнее приятной ошибки.
+        return {}
+    result: dict[str, str] = {}
+    for rule_id, raw in (data.get("rules") or {}).items():
+        if not isinstance(raw, dict) or raw.get("status") != "active":
+            continue
+        result[str(rule_id)] = _MECHANISM_LABELS.get(str(raw.get("mechanism")), "не объявлено")
+    return result
 
 
 def rule_from_text(slug: str, text: str) -> Rule:
@@ -153,7 +174,9 @@ def rule_from_text(slug: str, text: str) -> Rule:
         title=title,
         issues=tuple(sorted(set(issues))),
         paths=paths,
-        mechanism=_mechanism_of(text),
+        # Уровень проставляется в `collect_rules` из ответа проекта: раздел
+        # «Механизм» каталога описывает чужие механизмы, а не наши.
+        mechanism="не объявлено",
     )
 
 
@@ -175,6 +198,9 @@ def collect_rules(catalogue: pathlib.Path, *, repo_root: pathlib.Path | None = N
         )
 
     root = repo_root if repo_root is not None else _ROOT
+    # Уровень «чем держится» — поле ПОТРЕБИТЕЛЯ (issue #1351): его знает этот
+    # проект, а не каталог. Ответа нет — остаётся «не объявлено», как и было.
+    held = _bindings_mechanisms(root / ".rules" / "bindings.json")
     collected: list[Rule] = []
     broken: list[str] = []
     for path in files:
@@ -184,6 +210,9 @@ def collect_rules(catalogue: pathlib.Path, *, repo_root: pathlib.Path | None = N
         for named in rule.paths:
             if not (root / named).exists():
                 broken.append(f"{rule.slug}: след ведёт в никуда — {named}")
+        declared = held.get(rule.number)
+        if declared is not None:
+            rule = dataclasses.replace(rule, mechanism=declared)
         collected.append(rule)
 
     if broken:

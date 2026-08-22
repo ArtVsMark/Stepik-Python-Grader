@@ -17,15 +17,15 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **83**.
+Всего правил, действующих здесь: **89**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 0 |
-| **шаг процесса** | проверяется человеком в названный момент | 1 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 82 |
+| **гейт** | падает в CI или в `preflight.py` | 9 |
+| **шаг процесса** | проверяется человеком в названный момент | 0 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 80 |
 
-**Не объявлено: 82.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 80.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -58,13 +58,13 @@
 | [Зона одного исполнителя должна быть маленькой](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/034-small-zone-per-executor.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Дорогое окружение входит в аудит дважды и коротко](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/036-expensive-window-enters-twice-and-briefly.md) | `docs/agent/environments.md` | не объявлено |
 | [Находка, полученная не на той поверхности, — гипотеза](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/037-finding-status-depends-on-window.md) | `docs/agent/environments.md` | не объявлено |
-| [Имя окна начинается с окружения, а не с задачи](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/038-window-name-declares-its-environment.md) | `docs/agent/environments.md` | шаг процесса |
+| [Имя окна начинается с окружения, а не с задачи](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/038-window-name-declares-its-environment.md) | `docs/agent/environments.md` | не объявлено |
 | [У проверки три исхода, а не два](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/039-three-outcomes-not-two.md) | `docs/dev/supply-chain.md` | не объявлено |
-| [Пропуск без причины неотличим от забытого теста](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/040-skip-without-reason-is-a-forgotten-test.md) | `scripts/skip_inventory.py`, `tests/test_skip_inventory.py` | не объявлено |
+| [Пропуск без причины неотличим от забытого теста](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/040-skip-without-reason-is-a-forgotten-test.md) | `scripts/skip_inventory.py`, `tests/test_skip_inventory.py` | гейт |
 | [Решение записывается вместе с отвергнутыми вариантами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/042-decision-records-its-alternatives.md) | `docs/dev/adr/README.md` | не объявлено |
 | [Решение не правится задним числом — его отменяет новое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/043-decisions-are-superseded-not-edited.md) | `docs/dev/adr/README.md` | не объявлено |
 | [Смена правил работы — повод перезапустить окна, а не рассылка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/047-rule-change-restarts-the-windows.md) | #1283 | не объявлено |
-| [Предупреждают о вероятном, запрещают достоверное](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/051-warn-on-likely-block-on-certain.md) | `scripts/check_work_overlap.py` | не объявлено |
+| [Предупреждают о вероятном, запрещают достоверное](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/051-warn-on-likely-block-on-certain.md) | `scripts/check_work_overlap.py` | гейт |
 | [Порядок очереди задаётся правилом, а не готовностью](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/053-queue-order-is-a-rule-not-arrival.md) | #1325, #1326, #1329 | не объявлено |
 | [Сбор и разбор — разные проходы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/054-collect-and-analyse-are-separate-passes.md) | `docs/agent/course-walkthrough.md` | не объявлено |
 | [Собственный эталон — тоже гипотеза](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/055-your-own-expectations-are-a-hypothesis.md) | `docs/agent/course-walkthrough.md` | не объявлено |
@@ -77,16 +77,16 @@
 | [Автоматическое вмешательство включается по всем условиям сразу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/063-automatic-intervention-needs-all-conditions.md) | `docs/agent/dispatcher.md` | не объявлено |
 | [Блокировку берут на спутника, а не на файл, который заменяется целиком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/066-lock-the-companion-not-the-target.md) | `src/stepik_grader/atomic_io.py` | не объявлено |
 | [Уборка после сбоя не превращает сбой в успех](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/067-cleanup-must-not-swallow-the-failure.md) | `src/stepik_grader/atomic_io.py` | не объявлено |
-| [Список разрешённого, а не список запрещённого](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/068-allowlist-not-denylist.md) | `src/stepik_grader/web/statement_adapter.py` | не объявлено |
+| [Список разрешённого, а не список запрещённого](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/068-allowlist-not-denylist.md) | #1280, #1346, `src/stepik_grader/web/statement_adapter.py` | не объявлено |
 | [Пишем поле, а не снимок, если писателей несколько](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/069-write-the-field-not-the-snapshot.md) | `src/stepik_grader/web/settings_adapter.py` | не объявлено |
 | [Эвристическая защита ослабляется осознанно — с записью остаточного риска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/070-a-heuristic-guard-fails-open-with-a-written-risk.md) | `src/stepik_grader/web/http_guards.py` | не объявлено |
 | [Намеренный дубль подписывается](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/071-deliberate-duplication-is-signed.md) | `src/stepik_grader/web/auth_adapter.py`, `src/stepik_grader/launcher.py` | не объявлено |
-| [Причину ловит гейт, факт — фикстура: нужны обе](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/072-guard-the-cause-and-the-effect.md) | `scripts/check_test_isolation.py`, `tests/conftest.py` | не объявлено |
-| [Версия инструмента — из одного источника и с верхней границей](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/073-tool-version-from-one-source-with-an-upper-bound.md) | `scripts/check_ruff_pin.py` | не объявлено |
-| [Необратимый шаг проверяется инвариантами заранее](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/074-one-shot-irreversible-steps-get-their-own-guard.md) | `scripts/check_workflow_guardrails.py` | не объявлено |
-| [Гейт, не нашедший предмета проверки, обязан упасть](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/075-a-guard-that-finds-nothing-must-fail.md) | `scripts/check_workflow_guardrails.py` | не объявлено |
-| [Сообщение ссылается на то, что есть у получателя](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/076-messages-point-at-what-the-user-actually-has.md) | `scripts/check_locale_guardrails.py` | не объявлено |
-| [Совпадение ключей — ещё не перевод](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/077-key-parity-is-not-translation.md) | `scripts/check_locale_guardrails.py` | не объявлено |
+| [Причину ловит гейт, факт — фикстура: нужны обе](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/072-guard-the-cause-and-the-effect.md) | `scripts/check_test_isolation.py`, `tests/conftest.py` | гейт |
+| [Версия инструмента — из одного источника и с верхней границей](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/073-tool-version-from-one-source-with-an-upper-bound.md) | `scripts/check_ruff_pin.py` | гейт |
+| [Необратимый шаг проверяется инвариантами заранее](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/074-one-shot-irreversible-steps-get-their-own-guard.md) | `scripts/check_workflow_guardrails.py` | гейт |
+| [Гейт, не нашедший предмета проверки, обязан упасть](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/075-a-guard-that-finds-nothing-must-fail.md) | `scripts/check_workflow_guardrails.py` | гейт |
+| [Сообщение ссылается на то, что есть у получателя](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/076-messages-point-at-what-the-user-actually-has.md) | `scripts/check_locale_guardrails.py` | гейт |
+| [Совпадение ключей — ещё не перевод](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/077-key-parity-is-not-translation.md) | `scripts/check_locale_guardrails.py` | гейт |
 | [Отмена — отдельный исход, а не разновидность ошибки](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/078-cancelled-is-not-an-error.md) | `src/stepik_grader/web/runs.py` | не объявлено |
 | [Срок хранения отсчитывается от завершения, а не от постановки](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/079-ttl-counts-from-completion.md) | `src/stepik_grader/web/runs.py` | не объявлено |
 | [Чужой код запускают из приватного каталога, а не из общего временного](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/081-untrusted-code-runs-in-a-private-directory.md) | `src/stepik_grader/web/playground.py` | не объявлено |
@@ -103,7 +103,7 @@
 | [Повторяют только те отказы, которые могут пройти сами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/101-retry-only-what-can-heal-itself.md) | `docs/use/installation.md` | не объявлено |
 | [Снисхождение перечисляется таблицей и отключается режимом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/102-leniency-is-enumerated-and-switchable.md) | `docs/use/configuration.md` | не объявлено |
 | [Сторож побочных эффектов обвиняет не виновника — и исключения задаются формой](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/103-a-side-effect-guard-blames-the-wrong-suspect.md) | `tests/conftest.py` | не объявлено |
-| [У событийной автоматики должна быть ручная кнопка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/104-event-driven-automation-needs-a-manual-button.md) | `.github/workflows/ci.yml` | не объявлено |
+| [У событийной автоматики должна быть ручная кнопка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/104-event-driven-automation-needs-a-manual-button.md) | `.github/workflows/ci.yml` | гейт |
 | [Огласка умножает и хорошее, и плохое — сначала настоящий прогон](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/106-publicity-multiplies-both-sides.md) | `docs/dev/corpus.md` | не объявлено |
 | [Каждый выход из переходного состояния обязан быть терминальным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/109-every-exit-from-a-transient-state-must-be-terminal.md) | `src/stepik_grader/launcher.py` | не объявлено |
 | [Если инструмент может сделать сам — он делает, а не советует](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/111-do-it-instead-of-advising-it.md) | `src/stepik_grader/launcher.py` | не объявлено |
@@ -117,3 +117,9 @@
 | [Закрытие контейнера — не доказательство закрытия работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/121-closing-the-container-is-not-closing-the-work.md) | `docs/agent/claude-handoff.md` | не объявлено |
 | [Рядом с отформатированным значением отдают сырое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/122-ship-the-raw-value-next-to-the-formatted-one.md) | `docs/dev/api.md` | не объявлено |
 | [Перезапускать минимум, но зелёное со второго раза — находка, а не починка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/124-rerun-the-minimum-and-record-the-flake.md) | #924, #1171, #1344 | не объявлено |
+| [У заморозки должен быть выход, не проходящий через замороженное действие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/126-a-freeze-needs-a-thaw-path.md) | #1326, #1344, #1347 | не объявлено |
+| [Обязательное поле проверяется на полноту, а не на непустоту](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/128-a-required-field-is-checked-for-completeness.md) | #1329, #1345, #1350 | не объявлено |
+| [У каталога есть контракт потребления, а не только правила ведения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/129-a-catalogue-needs-a-consumption-contract.md) | #15, #1351 | не объявлено |
+| [Из облачного окна не пишут: на записи учётные данные подменяются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/131-no-writes-from-a-cloud-session.md) | #1302 | не объявлено |
+| [Изменение везут одной темой: сборное честно, но неразбираемо](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/132-one-change-carries-one-topic.md) | #20, #21, #1350 | не объявлено |
+| [Границу изменения задаёт пересечение файлов, а не число задач](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/133-file-overlap-sets-the-boundary.md) | #1345, #1350 | не объявлено |

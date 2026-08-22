@@ -1,0 +1,572 @@
+{
+  "schema": "1.0",
+  "project": "ArtVsMark/Stepik-Python-Grader",
+  "catalogue": "https://github.com/ArtVsMark/claude-code-playbook",
+  "rules": {
+    "001": {
+      "status": "unreviewed"
+    },
+    "002": {
+      "status": "unreviewed"
+    },
+    "003": {
+      "status": "unreviewed"
+    },
+    "004": {
+      "status": "unreviewed"
+    },
+    "005": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "006": {
+      "status": "unreviewed"
+    },
+    "007": {
+      "status": "unreviewed"
+    },
+    "008": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "009": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "010": {
+      "status": "unreviewed"
+    },
+    "011": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "012": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "013": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "014": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "015": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "016": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "017": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "018": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/environments.md"
+    },
+    "019": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "020": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "021": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "022": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "023": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "024": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "025": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "026": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "027": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/claude-handoff.md"
+    },
+    "028": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "029": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "030": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "031": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "032": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/roles.md"
+    },
+    "033": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "034": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "035": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "036": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/environments.md"
+    },
+    "037": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/environments.md"
+    },
+    "038": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/environments.md"
+    },
+    "039": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/supply-chain.md"
+    },
+    "040": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/skip_inventory.py"
+    },
+    "041": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "042": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/adr/README.md"
+    },
+    "043": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/adr/README.md"
+    },
+    "044": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "045": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "046": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "047": {
+      "status": "unreviewed"
+    },
+    "048": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "049": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "050": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "051": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_work_overlap.py"
+    },
+    "052": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "053": {
+      "status": "unreviewed"
+    },
+    "054": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/course-walkthrough.md"
+    },
+    "055": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/course-walkthrough.md"
+    },
+    "056": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "057": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "058": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "059": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/preflight.md"
+    },
+    "060": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "061": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "062": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/roles.md"
+    },
+    "063": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/dispatcher.md"
+    },
+    "064": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "065": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "066": {
+      "status": "unreviewed"
+    },
+    "067": {
+      "status": "unreviewed"
+    },
+    "068": {
+      "status": "unreviewed"
+    },
+    "069": {
+      "status": "unreviewed"
+    },
+    "070": {
+      "status": "unreviewed"
+    },
+    "071": {
+      "status": "unreviewed"
+    },
+    "072": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_test_isolation.py"
+    },
+    "073": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_ruff_pin.py"
+    },
+    "074": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_workflow_guardrails.py"
+    },
+    "075": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_workflow_guardrails.py"
+    },
+    "076": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_locale_guardrails.py"
+    },
+    "077": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_locale_guardrails.py"
+    },
+    "078": {
+      "status": "unreviewed"
+    },
+    "079": {
+      "status": "unreviewed"
+    },
+    "080": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "081": {
+      "status": "unreviewed"
+    },
+    "082": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/roles.md"
+    },
+    "083": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "084": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "085": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "086": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "087": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "088": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/multiagent.md"
+    },
+    "089": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/glossary.md"
+    },
+    "090": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "091": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "092": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/claude-handoff.md"
+    },
+    "093": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "094": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "095": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "096": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "097": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/corpus.md"
+    },
+    "098": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/glossary.md"
+    },
+    "099": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/glossary.md"
+    },
+    "100": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/use/configuration.md"
+    },
+    "101": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/use/installation.md"
+    },
+    "102": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/use/configuration.md"
+    },
+    "103": {
+      "status": "unreviewed"
+    },
+    "104": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": ".github/workflows/ci.yml"
+    },
+    "105": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "106": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/corpus.md"
+    },
+    "107": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "108": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "109": {
+      "status": "unreviewed"
+    },
+    "110": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "111": {
+      "status": "unreviewed"
+    },
+    "112": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "113": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/result-contract.md"
+    },
+    "114": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "115": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/use/configuration.md"
+    },
+    "116": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/archive/audit-2026-07-30-full-roles.md"
+    },
+    "117": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/archive/audit-2026-07-30-full-roles.md"
+    },
+    "118": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/use/grader-workflow.md"
+    },
+    "119": {
+      "status": "unreviewed"
+    },
+    "120": {
+      "status": "unreviewed"
+    },
+    "121": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/agent/claude-handoff.md"
+    },
+    "122": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "docs/dev/api.md"
+    },
+    "123": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "124": {
+      "status": "unreviewed"
+    },
+    "125": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "126": {
+      "status": "unreviewed"
+    },
+    "127": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "128": {
+      "status": "unreviewed"
+    },
+    "129": {
+      "status": "unreviewed"
+    },
+    "130": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "131": {
+      "status": "unreviewed"
+    },
+    "132": {
+      "status": "unreviewed"
+    },
+    "133": {
+      "status": "unreviewed"
+    },
+    "134": {
+      "status": "not-applicable",
+      "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    }
+  }
+}
