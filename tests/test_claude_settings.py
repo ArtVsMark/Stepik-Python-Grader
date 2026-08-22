@@ -47,37 +47,51 @@ class TestFileIsTracked:
 
 
 class TestTransportIsEnforced:
-    """Запрет GraphQL-инструментов и страховка на весь сервер."""
+    """Запрет GitHub-сервера MCP держится формой, а не именами (issue #1346)."""
 
-    def test_routine_github_tools_are_denied(self, settings: dict[str, object]) -> None:
-        """Операции, покрытые `gh_rest.py`, запрещены поимённо."""
-        deny = settings["permissions"]["deny"]  # type: ignore[index]
+    def test_whole_github_server_is_denied(self, settings: dict[str, object]) -> None:
+        """Запрещён сервер целиком — единственная форма, переживающая чужие имена.
 
-        assert "mcp__github__list_pull_requests" in deny
-        assert "mcp__github__get_issue" in deny
-        assert "mcp__github__merge_pull_request" in deny
+        Прежний вариант перечислял двадцать девять имён инструментов и отказал
+        молча: сервер их консолидировал, и ни одно записанное имя не осталось
+        существующим. Проверка теперь про форму, а не про содержимое списка.
+        """
+        assert "mcp__github" in settings["permissions"]["deny"]  # type: ignore[index]
 
-    def test_whole_server_is_at_least_asked(self, settings: dict[str, object]) -> None:
-        """Инструмент с неучтённым именем не проходит молча, а спрашивает."""
-        assert "mcp__github" in settings["permissions"]["ask"]  # type: ignore[index]
+    def test_no_tool_names_anywhere(self, settings: dict[str, object]) -> None:
+        """Именных записей нет ни в одном списке — они хрупки по построению.
 
-    def test_creating_a_pull_request_is_not_denied(self, settings: dict[str, object]) -> None:
-        """Создание PR остаётся доступным — им держится авторство в `main`.
+        В `allow` такая запись вдобавок бесполезна: `deny` сильнее, и точечное
+        разрешение поверх запрета сервера не сработает, создавая ложное
+        впечатление доступности.
+        """
+        permissions: dict[str, object] = settings["permissions"]  # type: ignore[assignment]
+        for name in ("deny", "allow", "ask"):
+            for rule in permissions.get(name) or []:  # type: ignore[union-attr]
+                assert not rule.startswith("mcp__github__"), (name, rule)
 
-        Squash-мерж атрибутирует коммит автору pull request, поэтому PR обязан
-        открывать инструмент, работающий от имени человека. Запретить его —
-        значит либо остановить конвейер, либо получить в истории бота.
+    def test_authorship_no_longer_depends_on_mcp(self, settings: dict[str, object]) -> None:
+        """Авторство PR держит префикс ветки, а не разрешённый инструмент.
+
+        Squash-мерж атрибутирует коммит автору pull request, и раньше ради
+        этого приходилось держать `create_pull_request` доступным. Теперь PR
+        открывает `agent-pr.yml` от имени владельца по PAT, поэтому запрет
+        сервера целиком авторство не ломает — и исключений в списке не нужно.
         """
         deny = settings["permissions"]["deny"]  # type: ignore[index]
 
-        assert "mcp__github__create_pull_request" not in deny
+        assert deny == ["mcp__github"], "исключений быть не должно: их держит agent-pr.yml"
 
     def test_session_server_is_untouched(self, settings: dict[str, object]) -> None:
         """Сессионный MCP-сервер не GitHub API: запрет отрезал бы репозиторий."""
-        rules = list(settings["permissions"]["deny"]) + list(  # type: ignore[index]
-            settings["permissions"]["ask"]  # type: ignore[index]
-        )
+        permissions: dict[str, object] = settings["permissions"]  # type: ignore[assignment]
+        rules = [
+            rule
+            for name in ("deny", "allow", "ask")
+            for rule in permissions.get(name) or []  # type: ignore[union-attr]
+        ]
 
+        assert rules, "пустые списки означают, что запрета нет вовсе"
         assert all(rule.startswith("mcp__github") for rule in rules)
 
 
