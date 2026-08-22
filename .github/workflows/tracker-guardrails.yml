@@ -77,3 +77,19 @@ jobs:
             python scripts/check_good_first_issues_bilingual.py 2>&1 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # issue #1351: полнота ответа каталогу правил и метрика нерассмотренных.
+      # Каталог публичный, клонируется мелко и без токена — контракт прямо это
+      # и предполагает: подключиться может кто угодно.
+      - name: Клонировать каталог правил
+        run: git clone --depth 1 https://github.com/ArtVsMark/claude-code-playbook /tmp/playbook
+
+      - name: Ответ каталогу правил полон, метрика нерассмотренных
+        run: |
+          {
+            echo "## Ответ каталогу правил"
+            echo '```'
+            python scripts/check_rule_bindings.py --catalogue /tmp/playbook 2>&1 || true
+            echo '```'
+            echo "Метрика «не обеспечено ничем» обязана уменьшаться."
+          } >> "$GITHUB_STEP_SUMMARY"

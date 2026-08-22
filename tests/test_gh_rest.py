@@ -872,6 +872,27 @@ class TestCiRuns:
         url = opener.captured[0].full_url
         assert "branch=main" in url and "event=push" in url
 
+    def test_main_health_is_not_limited_to_push(self, module: ModuleType) -> None:
+        """Приёмка #1347: здоровье `main` доказывается прогоном ЛЮБОГО события.
+
+        Красный до правки: запрос нёс `event=push`, то есть зелёным `main`
+        считалась только после мержа. Заморозка очереди по красной базе
+        снималась ровно тем действием, которое сама блокировала: push бывает
+        только от мержа, ночной `schedule` и ручной `workflow_dispatch` шли на
+        том же состоянии и под фильтр не попадали, а повтор упавшего прогона
+        требует `actions:write`, которого у облачной сессии нет.
+        """
+        opener = _opener(_FakeResponse({"workflow_runs": []}))
+
+        module.main_run("x/y", opener=opener, use_cache=False)
+
+        url = opener.captured[0].full_url
+        assert "branch=main" in url, url
+        assert "event=" not in url, (
+            "фильтр по событию закрывает выход из заморозки: "
+            f"зелёный schedule/dispatch перестаёт считаться доказательством ({url})"
+        )
+
     def test_run_jobs_are_listed(self, module: ModuleType) -> None:
         opener = _opener(
             _FakeResponse({"jobs": [{"id": 5, "name": "test", "conclusion": "failure"}]})
@@ -1408,6 +1429,23 @@ class TestRerunFailedJobs:
         opener = _opener(_http_error(403, message="no failed jobs"))
 
         assert module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False) is False
+
+    def test_missing_write_rights_are_not_nothing_to_rerun(self, module: ModuleType) -> None:
+        """403 «прав нет» ≠ 403 «нечего»: иначе команда врёт о состоянии.
+
+        Воспроизведено на живом прогоне: у облачной сессии закрыта запись в
+        Actions, GitHub ответил «Resource not accessible by integration», а
+        команда напечатала «упавших джобов нет» — на прогоне, где джоб только
+        что упал. Окно ушло бы чинить не то.
+        """
+        opener = _opener(*[_http_error(403, message="Resource not accessible by integration")] * 6)
+
+        with pytest.raises(module.GitHubError) as exc:
+            module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False)
+
+        text = str(exc.value)
+        assert "прав" in text, text
+        assert "кнопкой" in text, "сообщение обязано называть выход, а не только отказ"
 
     def test_other_errors_still_raise(self, module: ModuleType) -> None:
         """Молчать о настоящем отказе нельзя — иначе «перезапустил» будет ложью."""
