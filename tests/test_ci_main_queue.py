@@ -301,3 +301,39 @@ class TestDocumentationTellsTheTruth:
 
         assert "обновляется каждым мержем" in text
         assert "Ночной прогон сохранён" in text
+
+
+class TestQueueMoverCanBeStartedByHand:
+    """Выход из заморозки: у событийной автоматики есть кнопка (issue #1347)."""
+
+    @property
+    def _source(self) -> str:
+        path = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "merge-queue.yml"
+        return path.read_text(encoding="utf-8")
+
+    def test_manual_trigger_exists(self) -> None:
+        """Событие `workflow_run` приходит только по завершении прогона `main`.
+
+        А прогон `main` бывает только от мержа — то есть при остановленной
+        очереди мувер не запускается вовсе, и вывести её изнутри нечем.
+        """
+        assert "workflow_dispatch:" in self._source
+
+    def test_safety_schedule_exists(self) -> None:
+        """Страховка на потерянное событие: раз в час мувер смотрит сам."""
+        assert "schedule:" in self._source
+
+    def test_condition_does_not_silently_skip_manual_runs(self) -> None:
+        """Ловушка: у ручного запуска контекста `workflow_run` нет вовсе.
+
+        Прежнее условие `github.event.workflow_run.conclusion == 'success'` при
+        `workflow_dispatch` ложно — кнопка выглядела бы нажатой и не делала
+        ничего. Условие обязано пропускать события, отличные от `workflow_run`.
+        """
+        source = self._source
+        assert "github.event_name != 'workflow_run'" in source, (
+            "без этого кнопка и расписание молча отменяют джоб"
+        )
+        assert "github.event.workflow_run.conclusion == 'success'" in source, (
+            "красный main в ветку по-прежнему не затаскиваем"
+        )
