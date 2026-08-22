@@ -211,9 +211,13 @@ def load_text_lines(file_path: pathlib.Path) -> list[str]:
 def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
     """Загрузить тест-кейсы из директории.
 
-    Поддерживаются три формата:
+    Поддерживаются три формата. Они **складываются**, а не вытесняют друг
+    друга: формат 3 идёт первым и получает номера 1..N, кейсы форматов 1/2
+    встают следом с продолжением нумерации, а о смешении пользователь узнаёт
+    предупреждением (issue #996, MTX-4-01 — прежде формат 3 выигрывал целиком,
+    и решение получало «OK 1/1» на наборе, урезанном до одного кейса).
 
-    Формат 3 — python-generation/Professional (высший приоритет):
+    Формат 3 — python-generation/Professional (идёт первым):
         tests/input.txt   — ВСЕ входные блоки с маркерами `# TEST_N:`
         tests/output.txt  — ВСЕ ожидаемые блоки с маркерами `# TEST_N:`
         Тип блока определяется автоматически: если блок — валидный Python-код
@@ -233,6 +237,28 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
     """
     cases: list[TestCase] = []
     dir_path = test_dir
+
+    used: set[int] = set()
+    unpaired: list[str] = []
+    reindexed: list[str] = []
+
+    def _claim(idx: int, source: str) -> int:
+        """Занять индекс кейса; при коллизии — ближайший свободный.
+
+        Кейс с занятым индексом раньше просто ложился рядом, и в отчёте
+        оказывалось два «Теста 1» с разными ожиданиями (issue #932). Терять
+        кейс нельзя — это ровно тот класс дефекта, от которого мы уходим,
+        поэтому он получает свободный индекс, а пользователь — предупреждение.
+        """
+        if idx not in used:
+            used.add(idx)
+            return idx
+        new_idx = idx
+        while new_idx in used:
+            new_idx += 1
+        used.add(new_idx)
+        reindexed.append(f"{source} → тест {new_idx} (индекс {idx} уже занят)")
+        return new_idx
 
     # Формат 3: python-generation (input.txt + output.txt с блоками # TEST_N:)
     input_file = dir_path / "input.txt"
@@ -260,13 +286,20 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
             )
         if input_blocks and output_blocks:
             # issue #48 R-03: файлы форматов 1/2 рядом с input.txt/output.txt
-            # молча игнорируются ниже (формат 3 выигрывает и выходит первым) —
-            # предупреждаем, чтобы автор ручного формата 1, которому downloader.py
-            # позже положил input.txt, не гадал, почему его .clue не действуют.
+            # нельзя молча игнорировать — автор ручного формата 1, которому
+            # downloader.py позже положил input.txt, гадал бы, почему его .clue
+            # не действуют.
             #
-            # issue #917 (RUN-2-05): текст переведён на русский — предупреждение
-            # обязано доходить до пользователя, а не только существовать в коде,
-            # и англоязычная строка посреди русского вывода этому мешает.
+            # issue #917 (RUN-2-05): текст по-русски — предупреждение обязано
+            # доходить до пользователя, а не только существовать в коде.
+            #
+            # issue #996 (MTX-4-01): и не «предупредить и всё равно выбросить».
+            # Формат 3 выигрывал целиком: кейсы форматов 1/2 исчезали, а
+            # решение получало «OK 1/1» с кодом возврата 0 — то есть зелёный
+            # вердикт на наборе, урезанном до одного кейса. Теперь формат 3
+            # идёт ПЕРВЫМ (приоритет сохранён — за ним номера 1..N), а
+            # остальные кейсы догружаются следом. Ровно так уже сосуществуют
+            # форматы 1 и 2 между собой, см. предупреждение в конце функции.
             if any(
                 f.suffix == ".clue" or re.match(r"^input_\d+\.txt$", f.name)
                 for f in dir_path.iterdir()
@@ -274,8 +307,9 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
             ):
                 warnings.warn(
                     f"{test_dir}: рядом с input.txt/output.txt лежат файлы форматов "
-                    "1 (N/N.clue) и/или 2 (input_N.txt) — приоритет у формата 3, "
-                    "остальные файлы не загружены.",
+                    "1 (N/N.clue) и/или 2 (input_N.txt) — сначала идут кейсы "
+                    "формата 3, остальные загружены следом, поэтому номера тестов "
+                    "в отчёте могут не совпадать с именами файлов.",
                     stacklevel=2,
                 )
             # issue #246 (F-07): zip(..., strict=False) ниже молча обрезает набор
@@ -298,13 +332,17 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
                 test_type = "function" if _is_python_code_block(inp.strip()) else "stdin"
                 cases.append(
                     TestCase(
-                        index=i,
+                        # issue #996 (MTX-4-01): индекс берётся у общего
+                        # нумератора, а не ставится напрямую. Формат 3 идёт
+                        # первым и получает 1..N; кейсы форматов 1/2 встанут
+                        # следом, а не поверх — иначе в отчёте было бы два
+                        # «Теста 1» с разными ожиданиями.
+                        index=_claim(i, f"блок # TEST_{i}:"),
                         input_lines=split_output_lines(inp),
                         expected_lines=split_output_lines(out),
                         test_type=test_type,
                     )
                 )
-            return cases
 
     _INPUT_RE = re.compile(r"^input_(\d+)\.txt$")
     _NUM_RE = re.compile(r"^\d+$")
@@ -324,28 +362,6 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
         ((f, f.name) for f in dir_path.iterdir() if _NUM_RE.match(f.name)),
         key=lambda pair: _order(pair[0].name, pair[1]),
     )
-
-    used: set[int] = set()
-    unpaired: list[str] = []
-    reindexed: list[str] = []
-
-    def _claim(idx: int, source: str) -> int:
-        """Занять индекс кейса; при коллизии — ближайший свободный.
-
-        Кейс с занятым индексом раньше просто ложился рядом, и в отчёте
-        оказывалось два «Теста 1» с разными ожиданиями (issue #932). Терять
-        кейс нельзя — это ровно тот класс дефекта, от которого мы уходим,
-        поэтому он получает свободный индекс, а пользователь — предупреждение.
-        """
-        if idx not in used:
-            used.add(idx)
-            return idx
-        new_idx = idx
-        while new_idx in used:
-            new_idx += 1
-        used.add(new_idx)
-        reindexed.append(f"{source} → тест {new_idx} (индекс {idx} уже занят)")
-        return new_idx
 
     for inp_file, digits in fmt2_files:
         # Пара ищется по той же буквальной записи номера: `input_02.txt` ↔

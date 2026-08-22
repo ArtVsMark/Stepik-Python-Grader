@@ -365,21 +365,75 @@ def test_load_test_cases_no_warning_on_clean_set(tmp_path: pathlib.Path) -> None
     assert [c.index for c in cases] == [1]
 
 
-def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Path) -> None:
-    """Format 3 + leftover Format 1 (.clue) files -- warn, still use Format 3.
+def test_format3_no_longer_swallows_format1_cases(tmp_path: pathlib.Path) -> None:
+    """issue #996 (MTX-4-01): кейсы формата 1 рядом с формат-3 файлами загружаются.
 
-    Issue #48 R-03: previously the ignored .clue files were silent.
+    Прежде формат 3 выигрывал целиком и выходил из загрузчика: `.clue`-кейсы
+    исчезали, а решение получало «OK 1/1» и код возврата 0 — зелёный вердикт
+    на наборе, урезанном до одного кейса. Приоритет формата 3 сохранён (его
+    номера идут первыми), но остальное больше не пропадает.
     """
     (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
     (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
     (tmp_path / "1").write_text("9\n", encoding="utf-8")
     (tmp_path / "1.clue").write_text("99\n", encoding="utf-8")
 
-    with pytest.warns(UserWarning, match="приоритет у формата 3"):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         cases = grader.load_test_cases(tmp_path)
 
-    assert len(cases) == 1
-    assert cases[0].input_lines == ["2", "3"]
+    assert len(cases) == 2, "кейс формата 1 обязан остаться в наборе"
+    assert any("загружены следом" in str(w.message) for w in caught), (
+        "пользователю обязаны сказать, что кейсы смешаны и нумерация продолжена"
+    )
+    assert cases[0].input_lines == ["2", "3"], "формат 3 идёт первым — приоритет сохранён"
+    assert cases[1].input_lines == ["9"]
+    assert cases[1].expected_lines == ["99"]
+    assert [c.index for c in cases] == [1, 2], "номера не пересекаются"
+
+
+def test_format3_no_longer_swallows_format2_cases(tmp_path: pathlib.Path) -> None:
+    """То же для формата 2 — именно на нём находка и была найдена."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("10\n20\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("30\n", encoding="utf-8")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2, "кейс формата 2 обязан остаться в наборе"
+    assert [c.input_lines for c in cases] == [["2", "3"], ["10", "20"]]
+    assert any("загружены следом" in str(w.message) for w in caught)
+
+
+def test_wrong_solution_no_longer_passes_on_a_swallowed_set(tmp_path: pathlib.Path) -> None:
+    """Тот самый ложный зелёный: решение верно лишь на кейсе формата 3.
+
+    Проверяется вердикт, а не внутренности загрузчика: неверное решение
+    обязано провалиться, а не получить «OK 1/1» на наборе, из которого
+    молча выбросили половину.
+    """
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "input.txt").write_text("# TEST_1:\n2\n", encoding="utf-8")
+    (tests_dir / "output.txt").write_text("# TEST_1:\n2\n", encoding="utf-8")
+    (tests_dir / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tests_dir / "expected_1.txt").write_text("25\n", encoding="utf-8")
+
+    solution = tmp_path / "task1.py"
+    # Печатает вход как есть: верно для кейса формата 3 (2 → 2) и неверно для
+    # кейса формата 2 (5 → 25).
+    solution.write_text("print(input())\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        result = grader.run_tests(solution, tests_dir, timeout=30.0)
+
+    assert result["total"] == 2, "в наборе обязаны быть оба кейса"
+    assert result["passed"] == 1
+    assert result["failed"] == 1, "неверное решение обязано провалиться, а не получить OK 1/1"
 
 
 def test_load_test_cases_no_warning_for_format3_alone(tmp_path: pathlib.Path) -> None:
