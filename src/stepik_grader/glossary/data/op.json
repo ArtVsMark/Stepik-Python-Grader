@@ -2058,7 +2058,7 @@
       "print(home)  # → /home/user или unknown",
       "# os.walk — рекурсивный обход",
       "for root, dirs, files in os.walk('test_os'):",
-      "    print(root, dirs, files)"
+      "print(root, dirs, files)"
     ],
     "related": [
       "pathlib.path",

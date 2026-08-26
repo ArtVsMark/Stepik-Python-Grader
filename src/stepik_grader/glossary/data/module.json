@@ -246,11 +246,11 @@
       "from pathlib import Path",
       "p = Path('/tmp')",
       "for item in p.iterdir():",
-      "    print(item.name, item.is_dir())",
-      "    # Фильтрация:",
-      "    files = [x for x in p.iterdir() if x.is_file()]",
-      "    dirs = [x for x in p.iterdir() if x.is_dir()]",
-      "    len(list(p.iterdir())) >= 0 # → True"
+      "print(item.name, item.is_dir())",
+      "# Фильтрация:",
+      "files = [x for x in p.iterdir() if x.is_file()]",
+      "dirs = [x for x in p.iterdir() if x.is_dir()]",
+      "len(list(p.iterdir())) >= 0 # → True"
     ],
     "related": [
       "path.glob",
