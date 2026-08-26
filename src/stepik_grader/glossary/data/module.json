@@ -776,9 +776,9 @@
     "examples": [
       "from concurrent.futures import ThreadPoolExecutor",
       "with ThreadPoolExecutor() as ex:",
-      "f = ex.submit(sum, range(1000))",
-      "print(f.done())     # False или True",
-      "print(f.result())   # 499500 — блокирует"
+      "    f = ex.submit(sum, range(1000))",
+      "    print(f.done())     # False или True",
+      "    print(f.result())   # 499500 — блокирует"
     ],
     "related": [
       "executor-submit",
@@ -818,12 +818,12 @@
       "# GIL мешает CPU-задачам:",
       "import threading, time",
       "def cpu_task():",
-      "sum(range(10**7))",
-      "# 2 потока не быстрее 1 для CPU",
+      "    sum(range(10**7))",
+      "    # 2 потока не быстрее 1 для CPU",
       "# Для CPU-параллелизма используй ProcessPoolExecutor",
       "from concurrent.futures import ProcessPoolExecutor",
       "with ProcessPoolExecutor() as ex:",
-      "list(ex.map(cpu_task, range(4)))"
+      "    list(ex.map(cpu_task, range(4)))"
     ],
     "related": [
       "threading-thread",
@@ -904,11 +904,11 @@
     "examples": [
       "from concurrent.futures import ProcessPoolExecutor",
       "def heavy(n):",
-      "return sum(range(n))",
+      "    return sum(range(n))",
       "if __name__ == '__main__':",
-      "with ProcessPoolExecutor() as ex:",
-      "results = list(ex.map(heavy, [10**6] * 4))",
-      "print(results)"
+      "    with ProcessPoolExecutor() as ex:",
+      "        results = list(ex.map(heavy, [10**6] * 4))",
+      "        print(results)"
     ],
     "related": [
       "ThreadPoolExecutor",
@@ -948,10 +948,10 @@
       "import urllib.request",
       "urls = ['https://python.org', 'https://pypi.org']",
       "def fetch(url):",
-      "return len(urllib.request.urlopen(url).read())",
+      "    return len(urllib.request.urlopen(url).read())",
       "with ThreadPoolExecutor(max_workers=4) as ex:",
-      "sizes = list(ex.map(fetch, urls))",
-      "print(sizes)"
+      "    sizes = list(ex.map(fetch, urls))",
+      "    print(sizes)"
     ],
     "related": [
       "ProcessPoolExecutor",
@@ -993,11 +993,11 @@
     "examples": [
       "import copy",
       "class MyObj:",
-      "def __init__(self, v): self.v = v",
-      "def __copy__(self):",
-      "return MyObj(self.v)",
-      "def __deepcopy__(self, memo):",
-      "return MyObj(copy.deepcopy(self.v, memo))",
+      "    def __init__(self, v): self.v = v",
+      "    def __copy__(self):",
+      "        return MyObj(self.v)",
+      "    def __deepcopy__(self, memo):",
+      "        return MyObj(copy.deepcopy(self.v, memo))",
       "obj = MyObj([1,2])",
       "c = copy.copy(obj)",
       "c.v is obj.v # → True  (shallow)",
@@ -1089,10 +1089,10 @@
     "examples": [
       "from enum import Enum",
       "class Color(Enum):",
-      "RED = 1; GREEN = 2",
-      "@classmethod",
-      "def _missing_(cls, value):",
-      "return cls.RED  # значение по умолчанию",
+      "    RED = 1; GREEN = 2",
+      "    @classmethod",
+      "    def _missing_(cls, value):",
+      "        return cls.RED  # значение по умолчанию",
       "Color(99) # → <Color.RED: 1>",
       "Color(0) # → <Color.RED: 1>",
       "Color(1) # → <Color.RED: 1>"
@@ -1138,12 +1138,12 @@
       "from concurrent.futures import ThreadPoolExecutor, as_completed",
       "import time, random",
       "def task(n):",
-      "time.sleep(random.random())",
-      "return n * 2",
+      "    time.sleep(random.random())",
+      "    return n * 2",
       "with ThreadPoolExecutor() as ex:",
-      "futures = [ex.submit(task, i) for i in range(5)]",
-      "for f in as_completed(futures):",
-      "print(f.result())  # выводит по мере готовности"
+      "    futures = [ex.submit(task, i) for i in range(5)]",
+      "    for f in as_completed(futures):",
+      "        print(f.result())  # выводит по мере готовности"
     ],
     "related": [
       "Future-cf",
@@ -1579,24 +1579,24 @@
       "# maxlen — скользящее окно",
       "last3 = deque(maxlen=3)",
       "for x in range(6):",
-      "last3.append(x)",
-      "print(list(last3))",
-      "# → [0] [0,1] [0,1,2] [1,2,3] [2,3,4] [3,4,5]",
-      "# Очередь (FIFO)",
-      "queue = deque()",
-      "queue.append('a'); queue.append('b'); queue.append('c')",
-      "print(queue.popleft())  # → a",
-      "print(queue.popleft())  # → b",
-      "# Стек (LIFO)",
-      "stack = deque()",
-      "stack.append(1); stack.append(2); stack.append(3)",
-      "print(stack.pop())  # → 3",
-      "print(stack.pop())  # → 2",
-      "# extend / extendleft",
-      "d3 = deque([1,2,3])",
-      "d3.extend([4,5])",
-      "d3.extendleft([0,-1])",
-      "print(d3)  # → deque([-1,0,1,2,3,4,5])"
+      "    last3.append(x)",
+      "    print(list(last3))",
+      "    # → [0] [0,1] [0,1,2] [1,2,3] [2,3,4] [3,4,5]",
+      "    # Очередь (FIFO)",
+      "    queue = deque()",
+      "    queue.append('a'); queue.append('b'); queue.append('c')",
+      "    print(queue.popleft())  # → a",
+      "    print(queue.popleft())  # → b",
+      "    # Стек (LIFO)",
+      "    stack = deque()",
+      "    stack.append(1); stack.append(2); stack.append(3)",
+      "    print(stack.pop())  # → 3",
+      "    print(stack.pop())  # → 2",
+      "    # extend / extendleft",
+      "    d3 = deque([1,2,3])",
+      "    d3.extend([4,5])",
+      "    d3.extendleft([0,-1])",
+      "    print(d3)  # → deque([-1,0,1,2,3,4,5])"
     ],
     "related": [
       "очередь-queue",
@@ -1764,16 +1764,16 @@
       "from contextlib import contextmanager",
       "@contextmanager",
       "def greet(name):",
-      "print('enter')",
-      "yield f'hi {name}'",
-      "print('exit')",
-      "with greet('Bob') as msg:",
-      "print(msg) # → hi Bob",
-      "# enter/exit печатаются автоматически",
+      "    print('enter')",
+      "    yield f'hi {name}'",
+      "    print('exit')",
+      "    with greet('Bob') as msg:",
+      "        print(msg) # → hi Bob",
+      "        # enter/exit печатаются автоматически",
       "@contextmanager",
       "def tmp_dir(path):",
-      "import os; os.makedirs(path, exist_ok=True)",
-      "yield path  # cleanup можно в finally"
+      "    import os; os.makedirs(path, exist_ok=True)",
+      "    yield path  # cleanup можно в finally"
     ],
     "related": [
       "__enter__-__exit__",
@@ -1813,11 +1813,11 @@
       "from contextlib import ExitStack",
       "files = ['a.txt', 'b.txt']",
       "with ExitStack() as stack:",
-      "fds = [stack.enter_context(open(f, 'w')) for f in files]",
-      "# все файлы закроются при выходе",
-      "stack2 = ExitStack()",
-      "stack2.callback(print, 'done')",
-      "stack2.close() # → done"
+      "    fds = [stack.enter_context(open(f, 'w')) for f in files]",
+      "    # все файлы закроются при выходе",
+      "    stack2 = ExitStack()",
+      "    stack2.callback(print, 'done')",
+      "    stack2.close() # → done"
     ],
     "related": [
       "contextlib.AsyncExitStack",
@@ -1856,10 +1856,10 @@
     "examples": [
       "from contextlib import nullcontext",
       "with nullcontext('value') as v:",
-      "print(v) # → 'value'",
+      "    print(v) # → 'value'",
       "def process(cm=None):",
-      "with cm or nullcontext():",
-      "return 42",
+      "    with cm or nullcontext():",
+      "        return 42",
       "process() # → 42",
       "process(nullcontext()) # → 42"
     ],
@@ -1899,21 +1899,21 @@
     "examples": [
       "from contextlib import suppress",
       "with suppress(FileNotFoundError):",
-      "import os",
-      "os.remove('/nonexistent_file')  # → тихо игнорируется",
-      "print('Continued normally')  # → Continued normally",
-      "with suppress(KeyError):",
-      "d = {'a': 1}",
-      "print(d['missing'])  # → подавлено",
-      "print('ok')  # → ok",
-      "with suppress(ZeroDivisionError, ValueError):",
-      "x = 1/0  # → подавлено",
+      "    import os",
+      "    os.remove('/nonexistent_file')  # → тихо игнорируется",
+      "    print('Continued normally')  # → Continued normally",
+      "    with suppress(KeyError):",
+      "        d = {'a': 1}",
+      "        print(d['missing'])  # → подавлено",
+      "        print('ok')  # → ok",
+      "    with suppress(ZeroDivisionError, ValueError):",
+      "        x = 1/0  # → подавлено",
       "# Сравни с try/except pass",
       "import os",
       "try:",
-      "os.remove('no_file')",
+      "    os.remove('no_file')",
       "except FileNotFoundError:",
-      "pass  # эквивалент suppress"
+      "    pass  # эквивалент suppress"
     ],
     "related": [
       "try-except",
@@ -2143,13 +2143,13 @@
       "from dataclasses import dataclass",
       "@dataclass(frozen=True)",
       "class Pt:",
-      "x: int; y: int",
-      "p = Pt(1, 2)",
-      "p.x # → 1",
-      "hash(p) # → работает (объект хэшируем)",
-      "# p.x = 5  # → FrozenInstanceError",
-      "d = {p: 'origin'}",
-      "d[Pt(1, 2)] # → 'origin'"
+      "    x: int; y: int",
+      "    p = Pt(1, 2)",
+      "    p.x # → 1",
+      "    hash(p) # → работает (объект хэшируем)",
+      "    # p.x = 5  # → FrozenInstanceError",
+      "    d = {p: 'origin'}",
+      "    d[Pt(1, 2)] # → 'origin'"
     ],
     "related": [
       "dataclass",
@@ -2989,7 +2989,7 @@
       "print(d.strftime('%A')) # Monday",
       "# фильтр рабочих дней",
       "if d.weekday() < 5:",
-      "print('будний день')"
+      "    print('будний день')"
     ],
     "related": [
       "dt-isoweekday",
@@ -3075,12 +3075,12 @@
     "examples": [
       "from concurrent.futures import ThreadPoolExecutor",
       "def greet(name):",
-      "return f'Привет, {name}!'",
+      "    return f'Привет, {name}!'",
       "with ThreadPoolExecutor() as ex:",
-      "f1 = ex.submit(greet, 'Артём')",
-      "f2 = ex.submit(greet, 'Python')",
-      "print(f1.result())  # Привет, Артём!",
-      "print(f2.result())"
+      "    f1 = ex.submit(greet, 'Артём')",
+      "    f2 = ex.submit(greet, 'Python')",
+      "    print(f1.result())  # Привет, Артём!",
+      "    print(f2.result())"
     ],
     "related": [
       "Future-cf",
@@ -3209,10 +3209,10 @@
     "examples": [
       "# игнорировать некорректные байты",
       "with open('broken.txt', encoding='utf-8', errors='ignore') as f:",
-      "text = f.read()",
+      "    text = f.read()",
       "# заменить на ?",
       "with open('mixed.txt', encoding='utf-8', errors='replace') as f:",
-      "text = f.read()"
+      "    text = f.read()"
     ],
     "related": [
       "open",
@@ -3258,8 +3258,8 @@
       "sys.stdout.write('статус')",
       "sys.stdout.flush()",
       "with open('log.txt', 'w') as f:",
-      "f.write('событие')",
-      "f.flush()  # сразу на диск"
+      "    f.write('событие')",
+      "    f.flush()  # сразу на диск"
     ],
     "related": [
       "file-buffering",
@@ -3299,12 +3299,12 @@
     ],
     "examples": [
       "with open('data.txt', 'rb') as f:",
-      "f.read(5)",
-      "pos = f.tell()      # 5",
-      "f.read(3)",
-      "print(f.tell())     # 8",
-      "f.seek(0)           # вернуться в начало",
-      "print(f.tell())     # 0"
+      "    f.read(5)",
+      "    pos = f.tell()      # 5",
+      "    f.read(3)",
+      "    print(f.tell())     # 8",
+      "    f.seek(0)           # вернуться в начало",
+      "    print(f.tell())     # 0"
     ],
     "related": [
       "file-truncate",
@@ -3345,10 +3345,10 @@
     "examples": [
       "# очистить файл",
       "with open('data.txt', 'r+') as f:",
-      "f.truncate(0)",
+      "    f.truncate(0)",
       "# обрезать до 100 байт",
       "with open('big.bin', 'r+b') as f:",
-      "f.truncate(100)"
+      "    f.truncate(100)"
     ],
     "related": [
       "file-tell",
@@ -3436,10 +3436,10 @@
     "examples": [
       "from functools import cached_property",
       "class Circle:",
-      "def __init__(self, r): self.r = r",
-      "@cached_property",
-      "def area(self):",
-      "return 3.14159 * self.r ** 2",
+      "    def __init__(self, r): self.r = r",
+      "    @cached_property",
+      "    def area(self):",
+      "        return 3.14159 * self.r ** 2",
       "c = Circle(5)",
       "print(c.area)  # → 78.53975",
       "print(c.area)  # → 78.53975  (без вычисления)",
@@ -3484,7 +3484,7 @@
     "examples": [
       "from functools import partial",
       "def power(base, exp):",
-      "return base ** exp",
+      "    return base ** exp",
       "square = partial(power, exp=2)",
       "print(square(4))  # → 16",
       "cube = partial(power, exp=3)",
@@ -3579,7 +3579,7 @@
       "from functools import singledispatch",
       "@singledispatch",
       "def process(arg):",
-      "return f'unknown: {arg}'",
+      "    return f'unknown: {arg}'",
       "@process.register(int)",
       "def _(arg): return f'int: {arg * 2}'",
       "@process.register(str)",
@@ -3774,7 +3774,7 @@
       "print(h.hexdigest())  # 5eb63bbbe01eeed093cb22bb8f5acdc3",
       "# хеш файла",
       "with open('file.txt', 'rb') as f:",
-      "digest = hashlib.md5(f.read()).hexdigest()"
+      "    digest = hashlib.md5(f.read()).hexdigest()"
     ],
     "related": [
       "hashlib-sha256",
@@ -3822,9 +3822,9 @@
       "# постепенная загрузка больших файлов",
       "h = hashlib.sha256()",
       "with open('bigfile.bin', 'rb') as f:",
-      "for chunk in iter(lambda: f.read(65536), b''):",
-      "h.update(chunk)",
-      "print(h.hexdigest())"
+      "    for chunk in iter(lambda: f.read(65536), b''):",
+      "        h.update(chunk)",
+      "        print(h.hexdigest())"
     ],
     "related": [
       "hashlib-md5",
@@ -4623,9 +4623,9 @@
     "examples": [
       "import logging",
       "try:",
-      "result = 1 / 0",
+      "    result = 1 / 0",
       "except ZeroDivisionError:",
-      "logging.error('Деление на ноль', exc_info=True)  # + traceback"
+      "    logging.error('Деление на ноль', exc_info=True)  # + traceback"
     ],
     "related": [
       "logging-warning",
@@ -6324,7 +6324,7 @@
       "db_host = os.getenv('DB_HOST', 'localhost')",
       "api_key  = os.getenv('API_KEY')  # None если не задана",
       "if api_key is None:",
-      "raise EnvironmentError('API_KEY не задана')"
+      "    raise EnvironmentError('API_KEY не задана')"
     ],
     "related": [
       "os.environ",
@@ -7331,10 +7331,10 @@
       "print(srng.choice(['a','b','c']))  # → безопасный выбор",
       "# Нельзя установить seed для SystemRandom",
       "try:",
-      "srng.seed(42)  # → NotImplementedError или ничего",
+      "    srng.seed(42)  # → NotImplementedError или ничего",
       "except NotImplementedError:",
-      "print('seed not supported')",
-      "import os; print(len(os.urandom(16)))  # → 16 байт"
+      "    print('seed not supported')",
+      "    import os; print(len(os.urandom(16)))  # → 16 байт"
     ],
     "related": [
       "os.urandom",
@@ -8411,9 +8411,9 @@
       "out = subprocess.check_output(['python3', '--version'], text=True)",
       "print(out)  # Python 3.x.y",
       "try:",
-      "subprocess.check_output(['false'])  # команда, возвращающая 1",
+      "    subprocess.check_output(['false'])  # команда, возвращающая 1",
       "except subprocess.CalledProcessError as e:",
-      "print('код возврата:', e.returncode)"
+      "    print('код возврата:', e.returncode)"
     ],
     "related": [
       "subprocess-run",
@@ -8505,10 +8505,10 @@
       "print(sys.argv)  # → ['script.py', 'arg1', 'arg2']",
       "script_name = sys.argv[0]  # → 'script.py'",
       "if len(sys.argv) > 1:",
-      "first_arg = sys.argv[1]  # → первый аргумент",
-      "for arg in sys.argv[1:]:",
-      "print(arg)  # → вывод всех аргументов",
-      "print(len(sys.argv))  # → кол-во аргументов включая имя скрипта"
+      "    first_arg = sys.argv[1]  # → первый аргумент",
+      "    for arg in sys.argv[1:]:",
+      "        print(arg)  # → вывод всех аргументов",
+      "        print(len(sys.argv))  # → кол-во аргументов включая имя скрипта"
     ],
     "related": [
       "input",
@@ -8547,18 +8547,18 @@
     "examples": [
       "import sys",
       "try:",
-      "sys.exit(0)",
+      "    sys.exit(0)",
       "except SystemExit as e:",
-      "print(e.code)  # → 0",
-      "try:",
-      "sys.exit(1)",
-      "except SystemExit as e:",
-      "print(e.code)  # → 1",
-      "try:",
-      "sys.exit('Error!')",
-      "except SystemExit as e:",
-      "print(e.code)  # → Error!",
-      "print(isinstance(SystemExit(), BaseException))  # → True"
+      "    print(e.code)  # → 0",
+      "    try:",
+      "        sys.exit(1)",
+      "    except SystemExit as e:",
+      "        print(e.code)  # → 1",
+      "    try:",
+      "        sys.exit('Error!')",
+      "    except SystemExit as e:",
+      "        print(e.code)  # → Error!",
+      "        print(isinstance(SystemExit(), BaseException))  # → True"
     ],
     "related": [
       "systemexit",
@@ -8948,15 +8948,15 @@
       "import threading",
       "ready = threading.Event()",
       "def producer():",
-      "print('данные готовы')",
-      "ready.set()",
+      "    print('данные готовы')",
+      "    ready.set()",
       "def consumer():",
-      "ready.wait()        # блокируется до set()",
-      "print('получил данные')",
-      "t1 = threading.Thread(target=producer)",
-      "t2 = threading.Thread(target=consumer)",
-      "t2.start(); t1.start()",
-      "t1.join(); t2.join()"
+      "    ready.wait()        # блокируется до set()",
+      "    print('получил данные')",
+      "    t1 = threading.Thread(target=producer)",
+      "    t2 = threading.Thread(target=consumer)",
+      "    t2.start(); t1.start()",
+      "    t1.join(); t2.join()"
     ],
     "related": [
       "threading-lock",
@@ -9086,12 +9086,12 @@
       "import threading",
       "sem = threading.Semaphore(3)  # не более 3 одновременно",
       "def task(i):",
-      "with sem:",
-      "print(f'выполняю {i}')",
-      "import time; time.sleep(1)",
-      "threads = [threading.Thread(target=task, args=(i,)) for i in range(10)]",
-      "for t in threads: t.start()",
-      "for t in threads: t.join()"
+      "    with sem:",
+      "        print(f'выполняю {i}')",
+      "        import time; time.sleep(1)",
+      "        threads = [threading.Thread(target=task, args=(i,)) for i in range(10)]",
+      "        for t in threads: t.start()",
+      "        for t in threads: t.join()"
     ],
     "related": [
       "threading-lock",
@@ -9130,12 +9130,12 @@
     "examples": [
       "import threading",
       "def worker(n):",
-      "print(f'поток {n}')",
-      "threads = [threading.Thread(target=worker, args=(i,)) for i in range(3)]",
-      "for t in threads:",
-      "t.start()",
-      "for t in threads:",
-      "t.join()  # ждать завершения"
+      "    print(f'поток {n}')",
+      "    threads = [threading.Thread(target=worker, args=(i,)) for i in range(3)]",
+      "    for t in threads:",
+      "        t.start()",
+      "    for t in threads:",
+      "        t.join()  # ждать завершения"
     ],
     "related": [
       "GIL",
@@ -9359,12 +9359,12 @@
     "examples": [
       "import unittest",
       "class MathTests(unittest.TestCase):",
-      "def test_sum(self):",
-      "self.assertEqual(1 + 1, 2)",
-      "def test_type(self):",
-      "self.assertIsInstance(42, int)",
-      "if __name__ == '__main__':",
-      "unittest.main()"
+      "    def test_sum(self):",
+      "        self.assertEqual(1 + 1, 2)",
+      "    def test_type(self):",
+      "        self.assertIsInstance(42, int)",
+      "    if __name__ == '__main__':",
+      "        unittest.main()"
     ],
     "related": [
       "unittest.assertEqual",
@@ -9497,10 +9497,10 @@
       "from unittest.mock import patch",
       "import unittest",
       "class Tests(unittest.TestCase):",
-      "@patch('builtins.input', return_value='42')",
-      "def test_input(self, mock_input):",
-      "self.assertEqual(input(), '42')",
-      "mock_input.assert_called_once()"
+      "    @patch('builtins.input', return_value='42')",
+      "    def test_input(self, mock_input):",
+      "        self.assertEqual(input(), '42')",
+      "        mock_input.assert_called_once()"
     ],
     "related": [
       "MagicMock",
@@ -9626,8 +9626,8 @@
     "examples": [
       "import bisect",
       "def search(a, x):",
-      "i = bisect.bisect_left(a, x)",
-      "return i if i < len(a) and a[i] == x else -1",
+      "    i = bisect.bisect_left(a, x)",
+      "    return i if i < len(a) and a[i] == x else -1",
       "a = [1, 3, 5, 7, 9]",
       "search(a, 5) # → 2",
       "search(a, 4) # → -1",
@@ -9940,7 +9940,7 @@
       "import copy",
       "# Mutable default — антипаттерн:",
       "def bad(lst=[]):",
-      "lst.append(1); return lst",
+      "    lst.append(1); return lst",
       "bad(); bad() # → [1, 1]  один объект!",
       "# Циклическая ссылка:",
       "a = []",
