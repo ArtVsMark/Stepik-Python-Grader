@@ -23,7 +23,7 @@ from __future__ import annotations
 import pathlib
 from typing import Any, NamedTuple
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core.glossary import all_entries
 from stepik_grader.core.history import record_glossary_hit as record_hit
 from stepik_grader.glossary.detector import MissingConceptDetector, scan_code_concepts
@@ -56,6 +56,7 @@ __all__ = [
     "glossary_get",
     "glossary_missing",
     "glossary_search",
+    "missing_queue_path",
     "queue_code_gaps",
     "record_glossary_hit",
 ]
@@ -355,6 +356,31 @@ def code_terms(
             )
     terms.sort(key=lambda t: (not t["has_card"], t["title"].lower()))
     return terms
+
+
+def missing_queue_path(workspace: pathlib.Path | None = None) -> pathlib.Path:
+    """Путь к очереди пополнения относительно рабочей директории сервера.
+
+    Дефолт ``CONFIG.glossary_missing_queue`` относительный
+    (``.grader_glossary_missing.db``), а `pathlib.Path` резолвит такой путь от
+    **cwd процесса**. Для веб-слоя это не то же самое, что ``--root``: сервер
+    запускают из любой папки, и очередь оказывалась то там, то тут — то есть
+    «Недостающее» показывало пустоту, а пополнение уходило мимо (issue #966,
+    ADD-1-03; тот же класс, что #723 для secrets.json).
+
+    Args:
+        workspace: рабочая директория сервера; ``None`` — поведение как раньше.
+
+    Returns:
+        Абсолютный путь, если задан workspace и настройка относительна.
+    """
+    # Конфиг читается В МОМЕНТ ВЫЗОВА (`get_config()`), а не через связанный при
+    # импорте `CONFIG`: иначе значение вмораживается и `override_config` — то
+    # есть флаги CLI и настройки лаунчера — до этой функции не доходят.
+    configured = pathlib.Path(get_config().glossary_missing_queue)
+    if workspace is None or configured.is_absolute():
+        return configured
+    return workspace / configured
 
 
 def queue_code_gaps(
