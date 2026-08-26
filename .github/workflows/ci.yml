@@ -98,6 +98,14 @@ jobs:
       # без pip install — держим в том же быстром job, что и docs-guardrails.
       - name: Locale message catalog guardrails (issue #264)
         run: python scripts/check_locale_guardrails.py
+      # issue #955: пример карточки, который не собирается в валидный Python,
+      # пользователь копирует в «Песочницу» и получает IndentationError — на
+      # учебной поверхности это учит неверному. Храповик исполнения такой
+      # пример помечал `unverifiable` и проходил мимо: чем сильнее сломан
+      # пример, тем меньше к нему вопросов. Здесь встречная проверка с
+      # бюджетом, который обязан уменьшаться.
+      - name: Примеры карточек глоссария компилируются (issue #955)
+        run: python scripts/check_glossary_examples.py
       # issue #547: локализация web-UI оболочки (ui.json + data-i18n #545 +
       # t()/tp() #546) — паритет ru/en, покрытие ключей, нет голой кириллицы вне
       # каталога. Тоже чистый stdlib (html.parser/json), без pip install.

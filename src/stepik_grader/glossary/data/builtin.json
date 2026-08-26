@@ -623,9 +623,9 @@
       "print(g['y'])  # → 42",
       "exec('for i in range(3): print(i)')  # → 0 1 2",
       "def make_func(name):",
-      "exec(f'def {name}(): return \"{name}\"', globals())",
-      "make_func('hello')",
-      "print(hello())  # → hello"
+      "    exec(f'def {name}(): return \"{name}\"', globals())",
+      "    make_func('hello')",
+      "    print(hello())  # → hello"
     ],
     "related": [
       "eval",
@@ -1154,8 +1154,8 @@
       "from io import StringIO",
       "f = StringIO('a\\nb\\nc')",
       "for line in iter(f.readline, ''):",
-      "print(line.strip())",
-      "print(list(iter(range(5))))  # → [0,1,2,3,4]"
+      "    print(line.strip())",
+      "    print(list(iter(range(5))))  # → [0,1,2,3,4]"
     ],
     "related": [
       "next",
@@ -1586,9 +1586,9 @@
       "print(f\"{name} — {age} лет\")  # → Анна — 25 лет",
       "print(f\"{3.14159:.2f}\")  # → 3.14",
       "with open(\"_test.txt\", \"w\") as f:",
-      "print(\"в файл\", file=f)  # записывает строку в файл",
-      "import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !",
-      "import sys; print(\"ошибка\", file=sys.stderr)  # → в поток ошибок"
+      "    print(\"в файл\", file=f)  # записывает строку в файл",
+      "    import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !",
+      "    import sys; print(\"ошибка\", file=sys.stderr)  # → в поток ошибок"
     ],
     "related": [
       "input",
@@ -1630,10 +1630,10 @@
       "print(\"ошибка!\", file=sys.stderr)  # → выводит в stderr",
       "print(\".\", end=\"\", flush=True)  # → без буфера, без переноса строки",
       "with open(\"_gloss_test.txt\", \"w\") as f:",
-      "print(\"запись\", file=f)  # → пишет строку в файл",
-      "import io; buf = io.StringIO()",
-      "print(\"в буфер\", file=buf); print(buf.getvalue())  # → в буфер",
-      "print(1, 2, 3, sep=\"-\", file=sys.stdout, flush=True)  # → 1-2-3"
+      "    print(\"запись\", file=f)  # → пишет строку в файл",
+      "    import io; buf = io.StringIO()",
+      "    print(\"в буфер\", file=buf); print(buf.getvalue())  # → в буфер",
+      "    print(1, 2, 3, sep=\"-\", file=sys.stdout, flush=True)  # → 1-2-3"
     ],
     "related": [
       "print",
@@ -1760,8 +1760,8 @@
       "print(list(reversed('hello')))  # → ['o','l','l','e','h']",
       "print(list(reversed(range(5))))  # → [4,3,2,1,0]",
       "for x in reversed([1,2,3]):",
-      "print(x, end=' ')  # → 3 2 1",
-      "print(''.join(reversed('hello')))  # → olleh"
+      "    print(x, end=' ')  # → 3 2 1",
+      "    print(''.join(reversed('hello')))  # → olleh"
     ],
     "related": [
       "zip",
