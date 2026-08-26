@@ -32,6 +32,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "scripts/check_pr_ready.py",
         "импортируется гейтом мержа: подпись сверяется до слияния, после — поздно",
     ),
+    "check_audit_registry.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "предмет — документ аудита против истории мержей: обращение к API, "
+        "поэтому расписание, а не прогон на каждый PR",
+    ),
     "check_changelog_translated.py": (
         ".github/workflows/ci.yml",
         "запись уезжает в CHANGELOG и на PyPI — проверяется на каждый PR",
