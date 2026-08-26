@@ -121,10 +121,19 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=["stats"],
+        choices=["stats", "usage"],
         help=t["cli_help_command_stats"],
     )
     parser.add_argument("--version", action="store_true", help=t["cli_help_version"])
+    # issue #1365: единственный новый флаг команды `usage`. Без него экспорт
+    # идёт в стандартный вывод — перенаправить его умеет любая оболочка, а файл
+    # нужен там, где команду зовут из планировщика.
+    parser.add_argument(
+        "--usage-out",
+        type=pathlib.Path,
+        metavar="FILE",
+        help=t["cli_help_usage_out"],
+    )
     # issue #1185: ярлык создаётся ТОЛЬКО явным действием — этим флагом или
     # кнопкой в лаунчере. Непрошеный ярлык на рабочем столе воспринимается как
     # навязчивость, поэтому при установке он не появляется никогда.
