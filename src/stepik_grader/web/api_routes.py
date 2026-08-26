@@ -31,6 +31,7 @@ from stepik_grader.web.glossary_adapter import (
     glossary_get,
     glossary_missing,
     glossary_search,
+    missing_queue_path,
     queue_code_gaps,
     record_glossary_hit,
 )
@@ -275,7 +276,12 @@ class _ApiRoutesMixin(_GuardMixin):
         self._send(200, "application/json; charset=utf-8", _json(cards))
 
     def _get_glossary_missing(self, parsed: Any, lang: str) -> None:
-        self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
+        # issue #966: очередь ищется относительно рабочей директории сервера, а
+        # не cwd процесса — иначе раздел пуст, хотя пополнение шло.
+        queue = missing_queue_path(self.server.workspace)
+        self._send(
+            200, "application/json; charset=utf-8", _json(glossary_missing(queue_path=queue))
+        )
 
     def _get_glossary_card(self, parsed: Any, lang: str) -> None:
         # issue #969: путь берётся из запроса ЗАКОДИРОВАННЫМ. У карточек есть
@@ -651,7 +657,11 @@ class _ApiRoutesMixin(_GuardMixin):
                 # issue #423: не-UTF8 файл не должен ронять /api/code-terms —
                 # best-effort детект пробелов на пустом коде.
                 terms_code = ""
-            queue_code_gaps(terms_code, source=confined.name)
+            queue_code_gaps(
+                terms_code,
+                source=confined.name,
+                queue_path=missing_queue_path(self.server.workspace),
+            )
         else:
             raw_code = body.get("code")
             terms_code = raw_code if isinstance(raw_code, str) else ""
