@@ -37,6 +37,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "предмет — документ аудита против истории мержей: обращение к API, "
         "поэтому расписание, а не прогон на каждый PR",
     ),
+    "check_branch_protection.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "предмет — настройки репозитория: они не меняются от коммита к коммиту, "
+        "а расхождение означает, что публично заявленная гарантия отменена",
+    ),
     "check_changelog_translated.py": (
         ".github/workflows/ci.yml",
         "запись уезжает в CHANGELOG и на PyPI — проверяется на каждый PR",
