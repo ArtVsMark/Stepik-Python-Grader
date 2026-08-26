@@ -623,10 +623,10 @@
     ],
     "examples": [
       "try:",
-      "    with open('/etc/shadow') as f:",
-      "        pass",
+      "with open('/etc/shadow') as f:",
+      "pass",
       "except PermissionError:",
-      "    print('нет прав на чтение')"
+      "print('нет прав на чтение')"
     ],
     "related": [
       "oserror",
