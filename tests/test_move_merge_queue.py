@@ -246,6 +246,49 @@ def test_successful_update_clears_the_conflict_mark(
     assert api.unlabelled == [50]
 
 
+def test_already_current_branch_is_not_a_conflict(
+    mover: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """422 «нет новых коммитов» — готовность к мержу, а не отказ.
+
+    GitHub отвечает одним и тем же кодом и на реальную невозможность обновить
+    ветку, и на «ветка уже содержит всё, что есть в базе». Без различения
+    здоровая голова очереди получает метку конфликта — и снять её некому:
+    метка снимается только после успешного обновления, которого уже не будет.
+    """
+
+    class _AlreadyCurrent(_FakeApi):
+        def update_branch(self, _repo: str, number: int, **_kwargs: Any) -> dict[str, Any]:
+            raise self.error(
+                "GitHub ответил 422 на .../update-branch: "
+                "There are no new commits on the base branch."
+            )
+
+    api = _wire(mover, monkeypatch, _AlreadyCurrent(ready=[(70, False)], states={70: "clean"}))
+
+    outcome = mover.move_queue("owner/repo", sleep=api.sleeps.append)
+
+    assert outcome.updated == 70, "актуальная ветка — это голова очереди, а не пропущенный PR"
+    assert api.labelled == [], "метка конфликта на здоровом PR — ложь механизма"
+    assert api.unlabelled == [70], "прежняя метка снимается: причины больше нет"
+
+
+def test_real_update_failure_is_still_a_conflict(
+    mover: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Обратная сторона: настоящий отказ 422 по-прежнему метит и обходит."""
+    api = _wire(
+        mover,
+        monkeypatch,
+        _FakeApi(ready=[(80, False), (81, False)], states={80: "clean", 81: "clean"}, failing={80}),
+    )
+
+    outcome = mover.move_queue("owner/repo", sleep=api.sleeps.append)
+
+    assert api.labelled == [80]
+    assert outcome.updated == 81
+
+
 def test_empty_queue_is_not_an_error(mover: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     """Пустая очередь — «двигать нечего», а не отказ."""
     _wire(mover, monkeypatch, _FakeApi(ready=[], states={}))
