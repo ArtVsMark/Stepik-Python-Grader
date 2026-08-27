@@ -139,6 +139,18 @@ jobs:
             echo "## Обратная ссылка в задачу-источник"
             echo '```'
             python scripts/link_rules_to_issues.py --catalogue /tmp/playbook --apply 2>&1 || true
+
+      # issue #1351: зазор между появлением правила и решением по нему не был
+      # виден нигде — `.rules/bindings.json` честно пишет `unreviewed`, но по
+      # расписанию файл никто не открывает. Issue ОДИН и постоянный: находится по
+      # скрытому маркеру в теле, а не по номеру (номер пришлось бы хранить, а
+      # хранимое состояние протухает) и не по заголовку (он меняется с числом).
+      - name: Входящие каталога правил
+        run: |
+          {
+            echo "## Входящие каталога правил"
+            echo '```'
+            python scripts/rules_inbox.py --catalogue /tmp/playbook --apply 2>&1 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

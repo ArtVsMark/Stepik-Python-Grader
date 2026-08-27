@@ -64,6 +64,13 @@ repos:
         pass_filenames: false
         files: '\.md$'
 
+      - id: check-glossary-examples
+        name: примеры карточек глоссария компилируются
+        entry: python scripts/check_glossary_examples.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/glossary/data/.*\.json$'
+
       - id: check-locale-guardrails
         name: полнота локалей ru/en
         entry: python scripts/check_locale_guardrails.py
