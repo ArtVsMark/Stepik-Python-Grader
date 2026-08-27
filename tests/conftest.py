@@ -362,7 +362,9 @@ def _system_temp_inside_basetemp(tmp_path_factory: pytest.TempPathFactory) -> It
     догонит), а подпроцесс — наоборот, видит только окружение
     (грейдер в тестах запускается через ``subprocess``).
     """
-    root = tmp_path_factory.getbasetemp() / "system-temp"
+    # Имя короткое намеренно: путь уезжает во все временные файлы прогона, а на
+    # Windows действует MAX_PATH — на CI до порога и так остаётся десяток знаков.
+    root = tmp_path_factory.getbasetemp() / "tmp"
     root.mkdir(exist_ok=True)
     previous = tempfile.tempdir
     tempfile.tempdir = str(root)
