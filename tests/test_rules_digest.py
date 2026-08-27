@@ -129,6 +129,41 @@ class TestGuard:
         assert any("SessionStart" in error for error in errors)
         assert any("PreToolUse" in error for error in errors)
 
+    def test_declared_hook_must_exist_in_the_repository(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Объявить хук и не положить файл — то же, что не объявить.
+
+        Ровно это и случилось: `.gitignore` игнорировал `.claude/*` целиком,
+        хук жил только в рабочей копии, и в чистом клоне механизма не было —
+        настройки при этом честно его объявляли.
+        """
+        monkeypatch.setattr(guard, "_ROOT", tmp_path)
+        errors: list[str] = []
+
+        guard.check_hook_is_registered(errors, self._SETTINGS)
+
+        assert len(errors) == len(guard._REQUIRED_HOOKS)
+        assert all("нет в репозитории" in error for error in errors)
+
+    def test_hook_file_is_tracked_by_git(self) -> None:
+        """Живой предмет: файл хука виден git, а не только файловой системе."""
+        import subprocess
+
+        tracked = subprocess.run(
+            ["git", "ls-files", ".claude/hooks"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=_ROOT,
+        ).stdout
+
+        for script in guard._REQUIRED_HOOKS.values():
+            assert script in tracked, (
+                f"хук {script} не отслеживается git: в чистом клоне его не будет, "
+                "а настройки продолжат его объявлять"
+            )
+
     def test_registered_hook_passes(self) -> None:
         errors: list[str] = []
 
