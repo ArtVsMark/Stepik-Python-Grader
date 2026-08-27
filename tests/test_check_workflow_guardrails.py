@@ -611,3 +611,70 @@ class TestPrOpenerUsesItsOwnToken:
         _MODULE.check_pr_opener_uses_its_own_token(errors)
 
         assert errors == []
+
+
+class TestRunBlocksAreValidShell:
+    """Шаг `run:` обязан разбираться как shell (issue #1384).
+
+    Прецедент: шаг открывал группировку `{` и не закрывал её. YAML при этом
+    валиден, ревью не спотыкается, линтер молчит — падает прогон, где шага
+    никто не ждёт.
+    """
+
+    _BROKEN = (
+        "jobs:\n  x:\n    steps:\n      - name: сломанный\n"
+        "        run: |\n          {\n            echo «привет»\n"
+    )
+    _WHOLE = (
+        "jobs:\n  x:\n    steps:\n      - name: целый\n"
+        '        run: |\n          {\n            echo "готово"\n'
+        '          } >> "$GITHUB_STEP_SUMMARY"\n'
+    )
+
+    def test_unclosed_group_is_red(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors, {"злой.yml": self._BROKEN})
+
+        assert len(errors) == 1
+        assert "сломанный" in errors[0]
+
+    def test_whole_script_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors, {"добрый.yml": self._WHOLE})
+
+        assert errors == []
+
+    def test_platform_expression_is_not_a_syntax_error(self) -> None:
+        """`${{ ... }}` для bash не синтаксис — до разбора оно заменяется."""
+        source = (
+            "jobs:\n  x:\n    steps:\n      - name: с выражением\n"
+            '        run: |\n          echo "${{ github.event.number }}"\n'
+        )
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors, {"выражение.yml": source})
+
+        assert errors == []
+
+    def test_block_body_ends_with_the_indent(self) -> None:
+        """Тело блока — до первой строки с отступом не глубже `run:`."""
+        source = (
+            "jobs:\n  x:\n    steps:\n      - name: первый\n"
+            "        run: |\n          echo один\n"
+            "      - name: второй\n        run: |\n          echo два\n"
+        )
+
+        found = _MODULE.run_scripts(source)
+
+        assert [name for name, _ in found] == ["первый", "второй"]
+        assert found[0][1].strip() == "echo один"
+
+    def test_repo_workflows_are_whole(self) -> None:
+        """Живые файлы: гейт, который не гоняли по настоящему предмету, — обещание."""
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors)
+
+        assert errors == []
