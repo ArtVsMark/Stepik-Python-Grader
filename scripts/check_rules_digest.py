@@ -132,6 +132,16 @@ def check_hook_is_registered(errors: list[str], settings: str | None = None) -> 
         errors.append(
             f"хук SessionStart не зовёт {_HOOK} — дайджест существует, но окно его не читает"
         )
+        return
+    # Настройки могут ссылаться на файл, которого в репозитории нет. Так и
+    # вышло: `.gitignore` игнорировал `.claude/*` целиком, хук жил только в
+    # рабочей копии — в чистом клоне и в CI механизма не существовало, а
+    # настройки при этом честно его объявляли.
+    if not (_ROOT / ".claude" / "hooks" / _HOOK).exists():
+        errors.append(
+            f"хук SessionStart объявлен, но .claude/hooks/{_HOOK} нет в репозитории — "
+            "в чистом клоне механизма не существует"
+        )
 
 
 def main() -> int:
