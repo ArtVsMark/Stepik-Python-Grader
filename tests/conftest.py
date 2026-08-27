@@ -334,3 +334,42 @@ def _never_open_a_real_browser(monkeypatch: pytest.MonkeyPatch) -> None:
     патч ставится позже и перекрывает эту заглушку.
     """
     monkeypatch.setattr("webbrowser.open", lambda *_a, **_k: False)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _system_temp_inside_basetemp(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Системный temp на время прогона уводится ВНУТРЬ basetemp (issue #1171).
+
+    Guard выше следит за верхним уровнем опасных мест и называет виновником
+    того, в чьём teardown заметил изменение. Но в общий системный temp пишет не
+    только тест: ``web/playground.py`` создаёт там приватный каталог
+    ``stepik-playground-*`` (осознанное решение #799 — чужой ``json.py`` из
+    общего temp не должен подменять stdlib коду «Песочницы»), живёт он доли
+    секунды, и попасть в снимок может у ЛЮБОГО теста — в том числе у того, кто
+    к нему отношения не имеет. Прецедент: CI PR #1168 обвинил
+    ``test_folder_path_with_code_grades_single_temp_file``, который пишет
+    исключительно внутрь папки задачи; перезапуск того же коммита прошёл.
+
+    Лечится класс, а не имя: набор не добавляет ``stepik-playground-`` в список
+    терпимых (тогда переставший удаляться каталог остался бы незамеченным), а
+    делает так, что «общего temp» на время прогона попросту нет — любой код,
+    зовущий ``mkdtemp``/``NamedTemporaryFile`` без ``dir=``, пишет внутрь
+    pytest-basetemp. Продукт при этом не меняется: в проде temp остаётся
+    системным, приватность каталога даёт сам ``mkdtemp`` (0700).
+
+    Переменные окружения ставятся ВМЕСТЕ с ``tempfile.tempdir``, а не вместо:
+    ``tempfile`` кэширует каталог в модульной переменной (её env уже не
+    догонит), а подпроцесс — наоборот, видит только окружение
+    (грейдер в тестах запускается через ``subprocess``).
+    """
+    root = tmp_path_factory.getbasetemp() / "system-temp"
+    root.mkdir(exist_ok=True)
+    previous = tempfile.tempdir
+    tempfile.tempdir = str(root)
+    with pytest.MonkeyPatch.context() as mp:
+        for variable in ("TMPDIR", "TEMP", "TMP"):
+            mp.setenv(variable, str(root))
+        try:
+            yield
+        finally:
+            tempfile.tempdir = previous
