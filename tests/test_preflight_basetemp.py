@@ -60,16 +60,22 @@ class TestChoice:
         """Пустая переменная — не «каталог в корне», а «не задано»."""
         assert gate.basetemp_dir(env={"PREFLIGHT_BASETEMP": ""}).name == "grader-preflight"
 
-    def test_default_choice_fits_its_own_limit(self, gate: ModuleType) -> None:
-        """Выбор по умолчанию обязан проходить собственную проверку длины.
+    def test_default_choice_passes_its_own_check(self, gate: ModuleType) -> None:
+        """Выбор по умолчанию обязан проходить собственную проверку пригодности.
 
         Иначе гейт отказывался бы работать на машине, где системный временный
         каталог сам по себе глубокий, — и отказ выглядел бы придиркой к
         каталогу, который выбрал он же.
+
+        Спрашиваем именно `basetemp_problem`, а не длину напрямую: порог длины
+        действует только на Windows (MAX_PATH), и голое сравнение делало тест
+        строже самого гейта. Он краснел там, где отказа не будет: на macOS
+        системный temp — `/private/var/folders/<хеш>/T/`, и одного этого хватает,
+        чтобы перевалить за сотню знаков вместе с `pytest-of-<user>/pytest-N`.
         """
         chosen = gate.basetemp_dir(env={})
 
-        assert len(str(chosen)) <= gate._MAX_BASETEMP_LEN
+        assert gate.basetemp_problem(chosen) is None
 
 
 class TestFitness:
