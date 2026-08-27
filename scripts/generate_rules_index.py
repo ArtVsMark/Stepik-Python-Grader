@@ -149,6 +149,34 @@ def _bindings_mechanisms(path: pathlib.Path | None = None) -> dict[str, str]:
     return result
 
 
+#: Любой репозиторий владельца в тексте следа. Нужен, чтобы отличить «наш путь»
+#: от «пути соседа»: правило может родиться в каталоге и там же держаться.
+_ANY_REPO_RE = re.compile(r"ArtVsMark/[A-Za-z0-9._-]+")
+
+
+def _our_paths(trace: str) -> list[str]:
+    """Файловые следы, ведущие в ЭТОТ репозиторий, а не в соседний.
+
+    Контекст берётся абзацем — от пустой строки до пустой строки, — а не
+    предложением: в технической прозе точка стоит внутри имён (`ci.yml`,
+    `check_gates.py`), и резать по ней значит отрезать половину смысла
+    (правило 144). Владельца абзаца задаёт первый названный в нём репозиторий;
+    не названо ни одного — абзац считается нашим, потому что правило уже
+    отобрано как действующее здесь.
+
+    Прецедент: правила 049, 140 и 142 родились в самом каталоге и держатся его
+    файлами. Указатель считал их пути своими и падал с «след ведёт в никуда» —
+    то есть отказывался пересобираться из-за чужого механизма.
+    """
+    found: list[str] = []
+    for paragraph in trace.split("\n\n"):
+        owner = _ANY_REPO_RE.search(paragraph)
+        if owner is not None and owner.group(0) != PROJECT:
+            continue
+        found.extend(match.group("path") for match in _PATH_RE.finditer(paragraph))
+    return found
+
+
 def rule_from_text(slug: str, text: str) -> Rule:
     """Разобрать файл правила: заголовок, след, объявленный механизм."""
     title_match = _TITLE_RE.search(text)
@@ -168,7 +196,7 @@ def rule_from_text(slug: str, text: str) -> Rule:
             if number not in issues:
                 issues.append(number)
 
-    paths = tuple(dict.fromkeys(match.group("path") for match in _PATH_RE.finditer(trace)))
+    paths = tuple(dict.fromkeys(_our_paths(trace)))
     return Rule(
         slug=slug,
         title=title,
@@ -242,6 +270,10 @@ def render_index(rules: list[Rule], *, catalogue_url: str = "") -> str:
         ">",
         "> **Признак принятия — наличие следа.** Правило без ссылки на этот проект",
         "> сюда не попадает: здесь оно не действует.",
+        ">",
+        "> **Второй рубеж — [дайджест](DIGEST.md).** Там утверждение каждого правила",
+        "> одной строкой, и его читает окно на старте: указатель отвечает «какие",
+        "> правила есть и чем держатся», дайджест — «что именно они требуют».",
         ">",
         "> **Указатель — для ревизии, а не для работы.** В работе правило действует,",
         "> только если попало в `CLAUDE.md`, в стартовое сообщение окна или в",

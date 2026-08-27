@@ -4,26 +4,38 @@
   "catalogue": "https://github.com/ArtVsMark/claude-code-playbook",
   "rules": {
     "001": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": ".claude/settings.json запрещает GitHub-сервер MCP целиком, форму запрета стережёт scripts/check_mcp_permissions.py (шаг CI и pre-commit); весь транспорт идёт подкомандами scripts/gh_rest.py по REST"
     },
     "002": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_rule_bindings.py — формат ответа на каждый PR, полнота против каталога и метрика «не обеспечено ничем» ночным прогоном; сам этот файл и есть ответ"
     },
     "003": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Рабочая ветка: префикс agent/ — переключатель, а не стиль (его подхватывает .github/workflows/agent-pr.yml и открывает PR от имени владельца); проверяется при создании ветки, гейта на имя нет"
     },
     "004": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/move_merge_queue.py помечает конфликтный PR меткой needs-rebase и идёт дальше, оставляя прогон зелёным; закреплено tests/test_move_merge_queue.py"
     },
     "005": {
       "status": "not-applicable",
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "006": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "none",
+      "where": "CLAUDE.md § Два окна называет срок 3–5 дней и признаки досрочного перезапуска, но возраст окна ничем не измеряется и никому не сообщается"
     },
     "007": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "process-step",
+      "where": "docs/agent/dispatcher.md — окно, ждущее разрешения, узнаётся по pending_action в реестре сессий; порог получаса, решение принимает диспетчер"
     },
     "008": {
       "status": "not-applicable",
@@ -34,7 +46,9 @@
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "010": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_pr_ready.py: пустой или неполный список проверок трактуется как «CI не стартовал», а не «зелено», и мерж отклоняется"
     },
     "011": {
       "status": "active",
@@ -203,7 +217,9 @@
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "047": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "none",
+      "where": "CLAUDE.md § Гейты говорит, что смена правил транспорта требует перезапуска окон, но узнать возраст правил в работающем окне нечем"
     },
     "048": {
       "status": "not-applicable",
@@ -227,7 +243,9 @@
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "053": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/gh_rest.py queue вычисляет очередь из состояния API и печатает обоснование (приоритет метки, общий файл, готовность), а не берёт из хранимого реестра"
     },
     "054": {
       "status": "active",
@@ -287,22 +305,34 @@
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "066": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "src/stepik_grader/atomic_io.py — блокировка берётся на файл-спутник (LOCK_SUFFIX), потому что сам файл заменяется целиком через tmp+replace; закреплено тестами atomic_io"
     },
     "067": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "src/stepik_grader/core/runner.py и src/stepik_grader/web/playground.py убирают приватный каталог в finally, но исход прогона возвращают неизменным; tests/test_runner.py проверяет и уборку, и то, что вердикт не подменён"
     },
     "068": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "закрытые списки разрешённого: _FIELDS в src/stepik_grader/core/usage_export.py (что покидает журнал) и AUTO_RERUN в scripts/rerun_flaky_checks.py (что вообще можно перезапускать); оба закреплены тестами"
     },
     "069": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "src/stepik_grader/core/user_settings.py save_fields пишет названные поля, а не снимок всего файла: настройки правятся из нескольких поверхностей (CLI, web, GUI)"
     },
     "070": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_glossary_examples.py — храповик с числом (BUDGET), опускается починкой, а не правкой числа; tests/test_check_glossary_examples.py не даёт бюджету молча вырасти"
     },
     "071": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "process-step",
+      "where": "дубликат находки в документе аудита помечается явно и закрывается тем же PR, что и оригинал (RUN-5-03 — дубликат RUN-4-03); сверяет ревизия реестра, гейта нет"
     },
     "072": {
       "status": "active",
@@ -335,17 +365,22 @@
       "where": "scripts/check_locale_guardrails.py"
     },
     "078": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "отмена — отдельный статус во всех слоях: CANCELLED в src/stepik_grader/web/playground.py и src/stepik_grader/web/runs.py, cancelled в реестре job'ов; закреплено tests/test_web_playground.py и tests/test_runs.py"
     },
     "079": {
-      "status": "unreviewed"
+      "status": "not-applicable",
+      "why": "сроков, отсчитываемых от постановки, здесь нет: история вытесняется по ЧИСЛУ прогонов (src/stepik_grader/core/history.py, retention #642), а артефакты CI живут по retention-days площадки, то есть от завершения прогона"
     },
     "080": {
       "status": "not-applicable",
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "081": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "src/stepik_grader/core/runner.py и src/stepik_grader/web/playground.py материализуют чужой код в приватном каталоге 0700 (issue #799), а не в общем temp; tests/test_runner.py проверяет это прогоном — решение печатает свой sys.path[0]"
     },
     "082": {
       "status": "active",
@@ -444,7 +479,9 @@
       "where": "docs/use/configuration.md"
     },
     "103": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "tests/conftest.py — сторож _no_writes_outside_tmp с исключениями по ПРЕФИКСУ (_RUN_ARTEFACT_PREFIXES, _FOREIGN_TOOL_PREFIXES); закреплено tests/test_write_guard.py вложенной pytest-сессией"
     },
     "104": {
       "status": "active",
@@ -469,14 +506,18 @@
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "109": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "src/stepik_grader/web/runs.py — _STATUSES перечисляет два переходных состояния (queued, running) и три терминальных (done, error, cancelled); выход из переходного всегда в терминальное, закреплено tests/test_runs.py"
     },
     "110": {
       "status": "not-applicable",
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "111": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "none",
+      "where": "часть механизмов делает работу сама (merge-when-green, agent-pr, rerun-flaky-checks), но гейты по-прежнему печатают команду вместо того, чтобы выполнить её; требования «умеешь — сделай» ничто не держит"
     },
     "112": {
       "status": "not-applicable",
@@ -512,10 +553,14 @@
       "where": "docs/use/grader-workflow.md"
     },
     "119": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "src/stepik_grader/core/test_loader.py — маска входа принимает только task*.py, поэтому свои артефакты (.grader_cache/, .grader_stats.jsonl, StepikTasks/) под неё не попадают; закреплено tests/test_test_loader.py"
     },
     "120": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "указатель правил и дайджест генерируются (scripts/generate_rules_index.py, scripts/generate_rules_digest.py), а scripts/check_rules_digest.py не даёт им разойтись с ответом проекта"
     },
     "121": {
       "status": "active",
@@ -532,41 +577,120 @@
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "124": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/rerun_flaky_checks.py: список разрешённых к автоперезапуску закрыт, попытка ровно одна, а зелёное со второго раза записывается находкой в docs/agent/flaky-runs.md"
     },
     "125": {
       "status": "not-applicable",
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "126": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "красная main замораживает очередь мержа, и выход из заморозки — метка blocker на чинящем PR, то есть путь мимо замороженного действия; вычисляет scripts/gh_rest.py queue"
     },
     "127": {
       "status": "not-applicable",
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "128": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_pr_ready.py проверяет связь с задачей на ПОЛНОТУ: сверяет номера в фрагментах changelog.d с телом PR и предупреждает о половинчатой связи, а не только о её отсутствии"
     },
     "129": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": ".rules/bindings.json и .rules/proposals.json — обе стороны контракта потребления; держат scripts/check_rule_bindings.py и scripts/check_rules_digest.py, канал подключён .github/workflows/rules-inbox.yml"
     },
     "130": {
       "status": "not-applicable",
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
     },
     "131": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_pr_ready.py отказывает мержить PR, открытый ботом: из облачного окна учётные данные на записи подменяются на claude[bot], и squash записал бы его автором в main"
     },
     "132": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_work_overlap.py показывает, кто ещё трогает те же файлы, а check_pr_ready.py требует объявить все задачи сборного изменения (Closes #N либо «Часть #N»)"
     },
     "133": {
-      "status": "unreviewed"
+      "status": "active",
+      "mechanism": "gate",
+      "where": "граница PR проверяется пересечением файлов: scripts/check_work_overlap.py считает его по git diff --name-only, а не по числу задач"
     },
     "134": {
       "status": "not-applicable",
       "why": "след правила не ведёт в этот проект: предмета здесь нет"
+    },
+    "135": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_pr_ready.py отказывает мержить PR, открытый ботом (squash записал бы его автором в main), а scripts/check_attribution.py --check-branch сверяет подпись коммитов ветки до слияния — обе проверки узнают личность окна записью, а не опросом"
+    },
+    "136": {
+      "status": "active",
+      "mechanism": "process-step",
+      "where": "ответ по внешнему правилу пишется в .rules/bindings.json одним заходом: сначала перечисляются все свои предметы правила, потом вердикт; сверяется на ревью PR — гейта на полноту перечисления нет"
+    },
+    "137": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "сторожа на сыром значении нет: бейджи и метрики (покрытие, глоссарий, версия) считаются из сырых чисел, но проверка «источник ответил» на них не поставлена"
+    },
+    "138": {
+      "status": "active",
+      "mechanism": "process-step",
+      "where": "docs/agent/environments.md — решение оседает задачей или комментарием сразу, эстафета передаётся ссылками; шаблон стартового сообщения окна там же"
+    },
+    "139": {
+      "status": "active",
+      "mechanism": "process-step",
+      "where": "CONTRIBUTING.md § Когда дефект считается исправленным и чек-лист CLAUDE.md: дефект закрыт прогоном той поверхности, где найден, — браузер браузером, CLI командой"
+    },
+    "140": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "у части гардов двусторонние тесты есть (test_check_workflow_guardrails.py, test_check_audit_registry.py), но требования прогонять отвергаемый предмет по каждому scripts/check_*.py ничто не держит"
+    },
+    "141": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "маркеры комментариев и префикс ветки agent/ сверяются в коде по-разному; единого требования сверять целой строкой нет"
+    },
+    "142": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "ночной прогон tracker-guardrails.yml печатает находки в summary прогона — адресата у них нет, и красное на вкладке прогонов им не является"
+    },
+    "144": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_audit_registry.py — mention_verdict берёт окно контекста абзацем, а заголовок раздела перевешивает форму строки; закреплено тестами test_check_audit_registry.py"
+    },
+    "145": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "у workflow объявлено по нескольку исходов (agent-pr.yml, merge-queue.yml, rerun-flaky-checks.yml), прогонялись не все ветки; требования прогнать каждый объявленный исход ничто не держит"
+    },
+    "146": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "гейты проекта проверяются своими тестами, но истинность утверждения, ради которого гейт построен, отдельным замером не подтверждается"
+    },
+    "147": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "условия if в workflow отменяют джобы молча (merge-queue.yml, report-failures в ci.yml): «не совпало» и «совпало, но делать нечего» дают один наблюдаемый исход"
+    },
+    "148": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_pr_ready.py читает проверки по sha головы PR, а не по полю записи, и отдельно смотрит прогон main: пустой список проверок трактуется как «CI не стартовал», а не «зелено»"
     }
   }
 }

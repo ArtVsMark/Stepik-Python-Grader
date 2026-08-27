@@ -133,6 +133,13 @@ repos:
         pass_filenames: false
         files: '^(\.rules/bindings\.json|scripts/.*\.py)$'
 
+      - id: check-rules-digest
+        name: второй рубеж — дайджест правил сходится с ответом проекта
+        entry: python scripts/check_rules_digest.py
+        language: system
+        pass_filenames: false
+        files: '^(\.rules/bindings\.json|docs/agent/rules/DIGEST\.md|\.claude/settings\.json)$'
+
       - id: check-ruff-pin
         name: пины инструментов вердикта (ruff, mypy)
         entry: python scripts/check_ruff_pin.py
