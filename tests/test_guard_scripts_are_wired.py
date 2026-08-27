@@ -51,6 +51,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",
     ),
     "check_docs_guardrails.py": (".github/workflows/ci.yml", "бюджеты и ссылки документации"),
+    "check_glossary_examples.py": (
+        ".github/workflows/ci.yml",
+        "предмет — файлы базы глоссария: проверяется на каждый PR, как и прочие "
+        "гарды содержимого репозитория",
+    ),
     "check_good_first_issues_bilingual.py": (
         ".github/workflows/tracker-guardrails.yml",
         "предмет — состояние трекера: расписание, а не прогон на каждый PR (квота)",

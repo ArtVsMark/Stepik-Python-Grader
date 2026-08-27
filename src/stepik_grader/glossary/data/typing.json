@@ -73,13 +73,13 @@
     "examples": [
       "from typing import Callable",
       "def apply(f: Callable[[int], int], x: int) -> int:",
-      "return f(x)",
+      "    return f(x)",
       "print(apply(lambda x: x * 2, 5))  # → 10",
       "def run(cb: Callable[[], None]) -> None:",
-      "cb()",
-      "run(lambda: print('called'))  # → called",
+      "    cb()",
+      "    run(lambda: print('called'))  # → called",
       "def transform(data: list, fn: Callable[[int], int]) -> list:",
-      "return [fn(x) for x in data]",
+      "    return [fn(x) for x in data]",
       "print(transform([1, 2, 3], lambda x: x ** 2))  # → [1, 4, 9]",
       "print(callable(print))  # → True"
     ],
@@ -262,10 +262,10 @@
     ],
     "examples": [
       "def greet(name: str) -> str:",
-      "return f'Hello, {name}'",
+      "    return f'Hello, {name}'",
       "print(greet('Alice'))  # → Hello, Alice!",
       "def total(nums: list[int]) -> int:",
-      "return sum(nums)",
+      "    return sum(nums)",
       "print(total([1, 2, 3]))  # → 6",
       "coords: tuple[float, float] = (1.0, 2.0)  # → аннотация кортежа",
       "matrix: list[list[int]] = [[1, 2], [3, 4]]  # → вложенные типы"
@@ -398,12 +398,12 @@
     "examples": [
       "from typing import Optional",
       "def find(name: str) -> Optional[str]:",
-      "return name if name else None",
+      "    return name if name else None",
       "print(find('Alice'))  # → Alice",
       "print(find(''))  # → None",
       "result: Optional[int] = None  # → допустимо",
       "def greet(name: str | None = None) -> str:",
-      "return f'Hi, {name or \"stranger\"}'",
+      "    return f'Hi, {name or \"stranger\"}'",
       "print(greet())  # → Hi, stranger"
     ],
     "related": [
@@ -444,17 +444,17 @@
     "examples": [
       "from typing import Protocol",
       "class Drawable(Protocol):",
-      "def draw(self) -> None: ...",
+      "    def draw(self) -> None: ...",
       "class Circle:",
-      "def draw(self) -> None: print('O')",
+      "    def draw(self) -> None: print('O')",
       "class Square:",
-      "def draw(self) -> None: print('[]')",
-      "def render(shape: Drawable) -> None:",
-      "shape.draw()",
-      "render(Circle())  # → O",
-      "render(Square())  # → []",
-      "print(isinstance(Circle(), object))  # → True",
-      "print(hasattr(Circle(), 'draw'))  # → True"
+      "    def draw(self) -> None: print('[]')",
+      "    def render(shape: Drawable) -> None:",
+      "        shape.draw()",
+      "        render(Circle())  # → O",
+      "        render(Square())  # → []",
+      "        print(isinstance(Circle(), object))  # → True",
+      "        print(hasattr(Circle(), 'draw'))  # → True"
     ],
     "related": [
       "abc.ABC",
@@ -493,11 +493,11 @@
       "from typing import TYPE_CHECKING",
       "print(TYPE_CHECKING)  # → False  (в рантайме)",
       "if TYPE_CHECKING:",
-      "from collections import OrderedDict",
+      "    from collections import OrderedDict",
       "def process(path: 'str') -> None:",
-      "print(path)  # → строковая аннотация",
-      "process('test')  # → test",
-      "print(bool(TYPE_CHECKING))  # → False"
+      "    print(path)  # → строковая аннотация",
+      "    process('test')  # → test",
+      "    print(bool(TYPE_CHECKING))  # → False"
     ],
     "related": [
       "аннотации-типов-type-hints",
@@ -583,12 +583,12 @@
       "from typing import TypeVar",
       "T = TypeVar('T')",
       "def first(lst: list[T]) -> T:",
-      "return lst[0]",
+      "    return lst[0]",
       "print(first([1, 2, 3]))  # → 1",
       "print(first(['a', 'b']))  # → 'a'",
       "N = TypeVar('N', int, float)",
       "def double(x: N) -> N:",
-      "return x * 2",
+      "    return x * 2",
       "print(double(3))  # → 6",
       "print(double(1.5))  # → 3.0"
     ],
@@ -630,11 +630,11 @@
     "examples": [
       "from typing import Union",
       "def double(x: Union[int, float]) -> Union[int, float]:",
-      "return x * 2",
+      "    return x * 2",
       "print(double(3))  # → 6",
       "print(double(1.5))  # → 3.0",
       "def parse(val: int | str) -> str:",
-      "return str(val)",
+      "    return str(val)",
       "print(parse(42))  # → '42'",
       "print(parse('hi'))  # → 'hi'"
     ],
