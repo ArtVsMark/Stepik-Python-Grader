@@ -330,7 +330,28 @@ jobs:
         # ложно-красным зелёный прогон одного файла. Здесь прогон заведомо
         # полный, поэтому гейт осмыслен. Guard на присутствие флага —
         # scripts/check_workflow_guardrails.py.
-        run: pytest -q --cov-config=.coveragerc.ci --cov-fail-under=85
+        # issue #1375: `--junitxml` пишет отчёт ВСЕГДА, в том числе когда прогон
+        # красный. До этого упавший джоб матрицы не оставлял следа вовсе:
+        # артефакты выгружались только при успехе, логи Actions облачной
+        # сессии недоступны (403), и красный `test (windows-latest, 3.12)` на
+        # `main` невозможно было даже назвать по имени теста.
+        run: >-
+          pytest -q --cov-config=.coveragerc.ci --cov-fail-under=85
+          --junitxml=test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+
+      # issue #1375: отчёт о прогоне уезжает артефактом ВНЕ ЗАВИСИМОСТИ от
+      # исхода (`if: always()`) — ради красного случая он и нужен. Зелёный
+      # прогон и так ничего не спрашивает; вопрос «какой тест упал на
+      # windows» до этого оставался без ответа, потому что единственный
+      # носитель ответа не сохранялся.
+      - name: Upload test results (issue #1375)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          path: test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+          if-no-files-found: ignore
+          retention-days: 14
 
       # issue #283: each OS job only ever exercises its OWN core/sandbox/
       # backend (_linux.py/_macos.py/_windows.py) — the other two always read
