@@ -112,6 +112,31 @@ class TestForeignBranchPush:
         assert hook.foreign_branch_push("git log --oneline -3", current="своя") is None
 
 
+def test_refusal_reaches_the_window_in_a_narrow_console() -> None:
+    """Отказ без причины хуже отказа: окно не поймёт, что чинить.
+
+    Кодировка `cp1252` воспроизводит Windows-раннер, где кириллицы в кодовой
+    странице нет: без принудительного UTF-8 хук падал бы на самой печати
+    причины — вызов заблокирован, а почему, не сказано.
+    """
+    import os
+
+    result = subprocess.run(
+        [sys.executable, str(_HOOK)],
+        input=json.dumps(
+            {"tool_name": "Bash", "tool_input": {"command": 'cat > x.py <<PY\nprint("a\\nb")\nPY'}}
+        ),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+    )
+
+    assert result.returncode == 2
+    assert "013" in result.stderr, "причина отказа не дошла до окна"
+
+
 def test_other_tools_are_not_touched() -> None:
     """Матчер стоит на Bash: остальные инструменты хук не смотрит."""
     assert _run('cat > x.py <<PY\nprint("a\\nb")\nPY', tool="Write").returncode == 0
