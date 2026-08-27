@@ -113,8 +113,23 @@ def foreign_branch_push(command: str, current: str | None = None) -> str | None:
     )
 
 
+def _force_utf8_stdio() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли (issue #1108).
+
+    Причина отказа русская, а на Windows кодовая страница бывает
+    западноевропейской — кириллицы в ней нет. Без этого хук падал бы на самой
+    печати: вызов оказался бы заблокирован, но БЕЗ объяснения, то есть окно
+    получило бы отказ без причины. No-op на потоках без ``reconfigure``.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> int:
     """0 — вызов разрешён; 2 — отказ с причиной в stderr."""
+    _force_utf8_stdio()
     try:
         payload = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:
