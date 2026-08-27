@@ -31,7 +31,10 @@ from __future__ import annotations
 
 import pathlib
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 
 __all__ = [
     "GITHUB_RELEASE_JOB",
@@ -46,9 +49,11 @@ __all__ = [
     "check_release_notes_are_translated",
     "check_release_pipeline",
     "check_release_publishes_verified_assets",
+    "check_run_blocks_are_valid_shell",
     "extract_job",
     "jobs_without_timeout",
     "main",
+    "run_scripts",
 ]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -544,6 +549,89 @@ def _update_step(source: str) -> str | None:
     return None
 
 
+# Выражения площадки (`${{ ... }}`) для bash — не синтаксис: `${` открывает
+# подстановку, которую нечем закрыть. Перед разбором они заменяются словом,
+# иначе проверка ругалась бы на каждый шаг с переменной.
+_EXPRESSION_RE = re.compile(r"\$\{\{[^}]*\}\}")
+
+
+def run_scripts(source: str) -> list[tuple[str, str]]:
+    """Тела всех блоков ``run: |`` файла — как (имя шага, скрипт).
+
+    Разбор построчный, в стиле остального файла: блок начинается строкой
+    ``run: |`` (или ``run: |-``) и продолжается, пока отступ больше, чем у неё.
+    """
+    lines = source.split("\n")
+    found: list[tuple[str, str]] = []
+    step = "?"
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if (match := re.match(r"^\s*- name:\s*(.+?)\s*$", line)) is not None:
+            step = match.group(1)
+        if (match := re.match(r"^(\s*)run:\s*\|-?\s*$", line)) is not None:
+            indent = len(match.group(1))
+            body: list[str] = []
+            index += 1
+            while index < len(lines):
+                current = lines[index]
+                if current.strip() and len(current) - len(current.lstrip()) <= indent:
+                    break
+                body.append(current)
+                index += 1
+            found.append((step, "\n".join(body)))
+            continue
+        index += 1
+    return found
+
+
+def check_run_blocks_are_valid_shell(
+    errors: list[str], sources: dict[str, str] | None = None
+) -> None:
+    """Каждый ``run:`` — синтаксически целый скрипт (issue #1384).
+
+    Незакрытая фигурная скобка, кавычка или ``if`` без ``fi`` не видны ни
+    линтеру, ни ревью: YAML остаётся валидным, а падает шаг — на прогоне, где
+    его никто не ждёт. Прецедент: шаг «Задача знает, что породила правило»
+    открывал группировку ``{`` и не закрывал её; ошибка приехала в `main` и
+    жила там, пока файл не понадобилось править по другому поводу.
+
+    Проверяет ``bash -n`` — то есть тот же разбор, что и на площадке, а не
+    самодельный подсчёт скобок. Нет ``bash`` (Windows-машина без него) —
+    проверка не отработала, и об этом говорится вслух: молчаливый пропуск
+    выглядел бы как «всё чисто».
+    """
+    if sources is None:
+        sources = {
+            path.name: path.read_text(encoding="utf-8") for path in sorted(_WORKFLOWS.glob("*.yml"))
+        }
+    bash = shutil.which("bash")
+    if bash is None:
+        print("· пропущено: bash недоступен — синтаксис шагов не проверен", file=sys.stderr)
+        return
+    for name, source in sources.items():
+        for step, script in run_scripts(source):
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".sh", encoding="utf-8", delete=False
+            ) as handle:
+                handle.write(_EXPRESSION_RE.sub("EXPR", script))
+                path = handle.name
+            try:
+                result = subprocess.run(
+                    [bash, "-n", path],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            finally:
+                pathlib.Path(path).unlink(missing_ok=True)
+            if result.returncode != 0:
+                detail = (result.stderr or "").strip().splitlines()
+                reason = detail[-1] if detail else f"код {result.returncode}"
+                errors.append(f"{name}: шаг «{step}» — не разбирается как shell: {reason}")
+
+
 def main() -> int:
     """Вернуть 0, если инварианты workflow держатся; 1 — если нарушены."""
     errors: list[str] = []
@@ -558,6 +646,7 @@ def main() -> int:
     check_queue_mover_uses_its_own_token(errors)
     check_pr_opener_uses_its_own_token(errors)
     check_consent_workflow_uses_its_own_token(errors)
+    check_run_blocks_are_valid_shell(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
