@@ -74,6 +74,14 @@ CONFLICT_STATES = frozenset({"dirty"})
 # Состояния, при которых GitHub ещё не досчитал mergeable_state.
 _PENDING_STATES = frozenset({"unknown", ""})
 
+# Отказ `update-branch`, который отказом не является: ветка уже содержит всё,
+# что есть в базе. GitHub отвечает на это 422 — тем же кодом, что и на реальную
+# невозможность обновления, — поэтому различаем по тексту. Без различения
+# здоровая голова очереди получает метку конфликта и обходится, а снять метку
+# некому: она снимается только после успешного обновления, которого уже не
+# будет.
+_ALREADY_CURRENT = "no new commits on the base branch"
+
 
 class Outcome:
     """Что мувер сделал с очередью — для отчёта и для тестов."""
@@ -200,6 +208,14 @@ def move_queue(
         try:
             gh_rest.update_branch(repo, number, **kwargs)
         except gh_rest.GitHubError as exc:
+            if _ALREADY_CURRENT in str(exc).lower():
+                # Обновлять нечего — ветка и так актуальна. Это готовность к
+                # мержу, а не сбой: помечать такой PR конфликтным значило бы
+                # врать про здоровую голову очереди.
+                clear_conflict_mark(repo, number, dry_run=dry_run, **kwargs)
+                outcome.updated = number
+                outcome.say(f"PR #{number}: ветка уже актуальна — обновлять нечего")
+                return outcome
             mark_conflicted(repo, number, dry_run=dry_run, **kwargs)
             outcome.say(
                 f"PR #{number}: обновление ветки не прошло ({exc}) — "
