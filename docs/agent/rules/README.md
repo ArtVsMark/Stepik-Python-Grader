@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 33 |
+| **гейт** | падает в CI или в `preflight.py` | 37 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 54 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 50 |
 
-**Не объявлено: 54.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 50.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -46,8 +46,8 @@
 | [Окно, зависшее на разрешении, снаружи неотличимо от работающего](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/007-blocked-window-looks-alive.md) | #1321, #1323 | шаг процесса |
 | [Пустой список проверок означает «не стартовало», а не «всё хорошо»](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/010-empty-checklist-is-not-green.md) | #1232 | гейт |
 | [Наблюдение: событие вместо опроса, а если опрос — то условный](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/011-events-not-polling.md) | `docs/agent/preflight.md` | не объявлено |
-| [В чужую ветку не пушить](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/012-do-not-push-to-someone-elses-branch.md) | `docs/agent/preflight.md` | не объявлено |
-| [Код с экранированием писать файлом, а не heredoc'ом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/013-write-escapes-to-file-not-heredoc.md) | `docs/agent/preflight.md` | не объявлено |
+| [В чужую ветку не пушить](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/012-do-not-push-to-someone-elses-branch.md) | `docs/agent/preflight.md` | гейт |
+| [Код с экранированием писать файлом, а не heredoc'ом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/013-write-escapes-to-file-not-heredoc.md) | `docs/agent/preflight.md` | гейт |
 | [«Тест краснеет до фикса» доказывается полу-откатом, а не откатом всего](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/014-red-before-fix-needs-partial-revert.md) | `docs/agent/preflight.md` | не объявлено |
 | [Агенты возвращают данные — файлы правит хост](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/015-agents-return-data-host-writes-files.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Обрезать вывод молча нельзя — только с маркером обрыва](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/016-no-silent-truncation.md) | `docs/agent/multiagent.md` | не объявлено |
@@ -98,7 +98,7 @@
 | [Тяжесть находки ставит не тот, кто её нашёл — но опровергателю нужна шкала](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/086-the-finder-does-not-grade-the-finding.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Повторный проход получает на вход прошлые находки и запрет их переоткрывать](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/087-a-second-pass-needs-a-novelty-rule.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Критик проверяет метод фазы, а не предмет работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/088-the-critic-checks-the-method-not-the-subject.md) | `docs/agent/multiagent.md` | не объявлено |
-| [Из оригинала в его копию не ссылаются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/089-never-link-from-the-original-to-its-copy.md) | `docs/dev/glossary.md` | не объявлено |
+| [Из оригинала в его копию не ссылаются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/089-never-link-from-the-original-to-its-copy.md) | `docs/dev/glossary.md` | гейт |
 | [Находки и порядок разбора — разные документы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/092-findings-and-ordering-live-in-different-documents.md) | `docs/agent/claude-handoff.md` | не объявлено |
 | [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | не объявлено |
 | [Единица дробления определяется употреблением, а не формальным признаком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/098-the-unit-of-splitting-follows-usage.md) | `docs/dev/glossary.md` | не объявлено |
@@ -115,7 +115,7 @@
 | [У настроек один якорь и ограниченная зона поиска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/115-config-has-one-anchor-and-a-bounded-search.md) | `docs/use/configuration.md` | не объявлено |
 | [Сборщик результатов — тоже источник потерь, и у него своя сверка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/116-the-collector-script-is-a-source-of-loss.md) | `docs/archive/audit-2026-07-30-full-roles.md` | не объявлено |
 | [У задания исполнителя есть числовые границы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/117-numeric-limits-belong-in-the-task-spec.md) | `docs/archive/audit-2026-07-30-full-roles.md`, `docs/agent/multiagent.md` | не объявлено |
-| [Исходник хранится рядом с производным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/118-keep-the-source-next-to-the-derived.md) | `docs/use/grader-workflow.md` | не объявлено |
+| [Исходник хранится рядом с производным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/118-keep-the-source-next-to-the-derived.md) | `docs/use/grader-workflow.md` | гейт |
 | [Свои артефакты держат вне маски входа](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/119-tool-artefacts-stay-outside-the-input-mask.md) | `tests/conftest.py` | гейт |
 | [Каталог правил ведётся по своим правилам, а указатель к нему генерируется](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/120-how-to-run-a-rule-catalogue.md) | #1342 | гейт |
 | [Закрытие контейнера — не доказательство закрытия работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/121-closing-the-container-is-not-closing-the-work.md) | `docs/agent/claude-handoff.md` | не объявлено |

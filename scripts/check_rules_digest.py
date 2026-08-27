@@ -16,8 +16,9 @@
 
 * каждое правило со статусом `active`/`unreviewed` названо в дайджесте;
 * названо в ТОЙ группе, которая следует из его ответа;
-* хук `SessionStart` зарегистрирован — без него файл существует, но окном не
-  читается, а это ровно то, ради чего он заведён.
+* требуемые хуки зарегистрированы — `SessionStart` (без него дайджест
+  существует, но окном не читается) и `PreToolUse` (без него правила 012 и 013
+  снова держатся только памятью).
 
 Запуск::
 
@@ -44,7 +45,15 @@ _ROOT = pathlib.Path(__file__).parent.parent
 _DIGEST = _ROOT / "docs" / "agent" / "rules" / "DIGEST.md"
 _BINDINGS = _ROOT / ".rules" / "bindings.json"
 _SETTINGS = _ROOT / ".claude" / "settings.json"
-_HOOK = "session_start.py"
+
+#: Хуки, без которых правила осиротеют молча: событие → файл, который его
+#: обслуживает. `SessionStart` кладёт дайджест в стартовый контекст (второй
+#: рубеж), `PreToolUse` отвергает действия, которые CI поймать не может, —
+#: heredoc с экранированием (правило 013) и пуш в чужую ветку (правило 012).
+_REQUIRED_HOOKS: dict[str, str] = {
+    "SessionStart": "session_start.py",
+    "PreToolUse": "pre_tool_use.py",
+}
 
 #: Заголовок раздела → ключ группы. Сверяется по НАЧАЛУ заголовка, потому что
 #: в конце стоит число, а оно меняется с каждым правилом.
@@ -113,25 +122,27 @@ def check_digest(errors: list[str]) -> None:
 
 
 def check_hook_is_registered(errors: list[str], settings: str | None = None) -> None:
-    """Хук `SessionStart` объявлен: файл без хука окном не читается."""
+    """Все требуемые хуки объявлены: снятый хук осиротит правило молча."""
     raw = _SETTINGS.read_text(encoding="utf-8") if settings is None else settings
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         errors.append(f".claude/settings.json не разбирается: {exc}")
         return
-    entries = data.get("hooks", {}).get("SessionStart", [])
-    commands = [
-        hook.get("command", "")
-        for entry in entries
-        if isinstance(entry, dict)
-        for hook in entry.get("hooks", [])
-        if isinstance(hook, dict)
-    ]
-    if not any(_HOOK in command for command in commands):
-        errors.append(
-            f"хук SessionStart не зовёт {_HOOK} — дайджест существует, но окно его не читает"
-        )
+    hooks = data.get("hooks", {})
+    for event, script in _REQUIRED_HOOKS.items():
+        commands = [
+            hook.get("command", "")
+            for entry in hooks.get(event, [])
+            if isinstance(entry, dict)
+            for hook in entry.get("hooks", [])
+            if isinstance(hook, dict)
+        ]
+        if not any(script in command for command in commands):
+            errors.append(
+                f"хук {event} не зовёт {script} — файл на месте, но механизма нет: "
+                "правило снова держится только памятью окна"
+            )
 
 
 def main() -> int:
@@ -152,7 +163,8 @@ def main() -> int:
         return 1
 
     counted = len(expected_groups())
-    print(f"второй рубеж на месте: правил в дайджесте {counted}, хук SessionStart объявлен")
+    events = ", ".join(_REQUIRED_HOOKS)
+    print(f"второй рубеж на месте: правил в дайджесте {counted}, хуки объявлены — {events}")
     return 0
 
 

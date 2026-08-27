@@ -88,7 +88,8 @@ class TestGuard:
     _SETTINGS = json.dumps(
         {
             "hooks": {
-                "SessionStart": [{"hooks": [{"command": "python .claude/hooks/session_start.py"}]}]
+                "SessionStart": [{"hooks": [{"command": "python .claude/hooks/session_start.py"}]}],
+                "PreToolUse": [{"hooks": [{"command": "python .claude/hooks/pre_tool_use.py"}]}],
             }
         }
     )
@@ -114,14 +115,19 @@ class TestGuard:
         assert len(errors) == 1
         assert "не названо в дайджесте" in errors[0]
 
-    def test_unregistered_hook_is_red(self) -> None:
-        """Дайджест без хука — документ, который никто не открывает."""
+    def test_unregistered_hooks_are_red(self) -> None:
+        """Дайджест без хука — документ, который никто не открывает.
+
+        Проверяются оба требуемых события: снятый `PreToolUse` осиротит правила
+        012 и 013 так же молча, как снятый `SessionStart` — весь второй рубеж.
+        """
         errors: list[str] = []
 
         guard.check_hook_is_registered(errors, json.dumps({"hooks": {}}))
 
-        assert len(errors) == 1
-        assert "SessionStart" in errors[0]
+        assert len(errors) == len(guard._REQUIRED_HOOKS)
+        assert any("SessionStart" in error for error in errors)
+        assert any("PreToolUse" in error for error in errors)
 
     def test_registered_hook_passes(self) -> None:
         errors: list[str] = []
