@@ -330,7 +330,7 @@ jobs:
         # ложно-красным зелёный прогон одного файла. Здесь прогон заведомо
         # полный, поэтому гейт осмыслен. Guard на присутствие флага —
         # scripts/check_workflow_guardrails.py.
-        # issue #1375: `--junitxml` пишет отчёт ВСЕГДА, в том числе когда прогон
+        # PR #1378: `--junitxml` пишет отчёт ВСЕГДА, в том числе когда прогон
         # красный. До этого упавший джоб матрицы не оставлял следа вовсе:
         # артефакты выгружались только при успехе, логи Actions облачной
         # сессии недоступны (403), и красный `test (windows-latest, 3.12)` на
@@ -339,12 +339,12 @@ jobs:
           pytest -q --cov-config=.coveragerc.ci --cov-fail-under=85
           --junitxml=test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
 
-      # issue #1375: отчёт о прогоне уезжает артефактом ВНЕ ЗАВИСИМОСТИ от
+      # PR #1378: отчёт о прогоне уезжает артефактом ВНЕ ЗАВИСИМОСТИ от
       # исхода (`if: always()`) — ради красного случая он и нужен. Зелёный
       # прогон и так ничего не спрашивает; вопрос «какой тест упал на
       # windows» до этого оставался без ответа, потому что единственный
       # носитель ответа не сохранялся.
-      - name: Upload test results (issue #1375)
+      - name: Upload test results (#1378)
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -646,6 +646,53 @@ jobs:
         env:
           STEPIK_REQUIRE_E2E_TESTS: "1"
         run: pytest tests/e2e/ -v --no-cov
+  # issue #1382: облачная сессия не читает ни логи джоба, ни артефакты прогона —
+  # оба живут в скоупе `actions`, на который прокси отвечает 403. То есть
+  # junit-отчёт (#1378) отвечает «какой тест упал» только владельцу, у которого
+  # есть веб-интерфейс. Открытый канал ровно один — комментарий PR, и этот job
+  # его использует: разбирает отчёты матрицы и держит в PR ОДНУ сводку.
+  #
+  # Отдельным job'ом, а не шагом внутри матрицы: девять джобов, пишущих в один
+  # комментарий, гонялись бы за ним наперегонки. Здесь же они уже закончились, и
+  # сводка собирается со всех сразу.
+  report-failures:
+    needs: [test]
+    # Только на PR и только при падении: зелёный прогон вопросов не вызывает, а
+    # на `push` в main комментировать нечего.
+    if: ${{ always() && github.event_name == 'pull_request' && needs.test.result == 'failure' }}
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Download test reports from all matrix jobs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: test-results-*
+          path: test-reports
+          merge-multiple: true
+        # Отчётов может не быть вовсе — джоб умер до тестов. Это законный
+        # случай, и сводка про него говорит отдельной строкой.
+        continue-on-error: true
+
+      - name: Name the failed tests in the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/report_failed_tests.py --dir test-reports
+          --pr ${{ github.event.number }}
+          --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --apply
+
+
 
   # issue #420: Linux SandboxRunner (bwrap) реально гоняется в CI под ПОЛНОЙ
   # изоляцией, включая сетевую. Раннеры GitHub Actions запрещают

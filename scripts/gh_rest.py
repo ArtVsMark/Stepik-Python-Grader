@@ -147,6 +147,7 @@ __all__ = [
     "run_jobs",
     "sub_issues",
     "update_branch",
+    "update_comment",
     "update_issue",
 ]
 
@@ -1323,6 +1324,19 @@ def comment_issue(repo: str, number: int, text: str, **kwargs: Any) -> dict[str,
     """Оставить комментарий к issue или PR — в REST это один и тот же ресурс."""
     data = request(
         "POST", f"repos/{repo}/issues/{number}/comments", body={"body": text}, **kwargs
+    ).data
+    return data if isinstance(data, dict) else {}
+
+
+def update_comment(repo: str, comment_id: int, text: str, **kwargs: Any) -> dict[str, Any]:
+    """Переписать существующий комментарий (issue и PR — один ресурс).
+
+    Нужна тем механизмам, которые ведут ОДИН комментарий и обновляют его:
+    новый на каждый прогон превращает тред в ленту (``rules_inbox``,
+    ``report_failed_tests``).
+    """
+    data = request(
+        "PATCH", f"repos/{repo}/issues/comments/{comment_id}", body={"body": text}, **kwargs
     ).data
     return data if isinstance(data, dict) else {}
 
