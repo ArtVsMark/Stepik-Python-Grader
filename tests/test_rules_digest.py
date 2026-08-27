@@ -201,6 +201,31 @@ class TestHook:
         assert "Правила проекта" in result.stdout
         assert "Не держится ничем" in result.stdout
 
+    def test_hook_survives_a_narrow_console(self) -> None:
+        """Дайджест русский, а консоль бывает cp1251 — падение съело бы старт.
+
+        Кодировка здесь `cp1252`, а не `cp1251`: в русской консоли кириллица
+        как раз кодируется, а падало на Windows-раннере, где кодовая страница
+        западноевропейская и кириллицы в ней нет вовсе. Поймано прогоном — на
+        всех трёх Windows-комбинациях матрицы хук возвращал код 1, то есть
+        ронял бы старт сессии из-за кодировки вывода.
+        """
+        import os
+        import subprocess
+
+        result = subprocess.run(
+            [sys.executable, str(_ROOT / ".claude" / "hooks" / "session_start.py")],
+            input="{}",
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Правила проекта" in result.stdout
+
     def test_missing_digest_is_not_a_failure(self, tmp_path: pathlib.Path) -> None:
         """Старт сессии не роняется из-за документа."""
         import subprocess
