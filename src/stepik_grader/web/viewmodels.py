@@ -283,6 +283,7 @@ def _case_view(
     source: str = "",
     missing_queue_path: pathlib.Path | None = None,
     lang: str = DEFAULT_LANG,
+    timeout_s: float | None = None,
 ) -> dict[str, Any]:
     """Представление одного тест-кейса для UI — ErrorCard для WA/RE/TLE (issue #125)."""
     error = case.get("error", "")
@@ -351,7 +352,13 @@ def _case_view(
         view["stderr"] = error
         view["exit_code"] = case.get("exit_code")
     if verdict == "TLE":
-        view["timeout_s"] = CONFIG.timeout_seconds
+        # issue #962 (TW-1-01): контракт обещает «лимит, который был превышен», а
+        # здесь стояла константа конфига. Веб принимает `timeout_s` в запросе и
+        # честно грейдит с ним — то есть карточка TLE называла пользователю
+        # чужое число ровно там, где оно и нужно. Фактический лимит приходит
+        # параметром; без него читаем конфиг В МОМЕНТ ВЫЗОВА, а не связанный на
+        # импорте `CONFIG`, иначе флаги CLI сюда снова не дойдут.
+        view["timeout_s"] = get_config().timeout_seconds if timeout_s is None else timeout_s
     if verdict == "RE":
         view["glossary_ids"] = glossary_ids
         if not glossary_ids:
@@ -813,6 +820,11 @@ def grade_path(
         shown = _rel(display_path, base)
         return display_path.name if shown == "." else shown
 
+    # Фактический лимит прогона считается ОДИН раз: с ним грейдится решение, он
+    # же уезжает в карточку TLE. Раньше эти два места расходились — прогон шёл с
+    # запрошенным таймаутом, а карточка называла конфигурационный (issue #962).
+    effective_timeout = get_config().timeout_seconds if timeout is None else timeout
+
     rows: list[dict[str, Any]] = []
     graded: list[tuple[pathlib.Path, SolutionResult]] = []  # issue #395: для истории
     for sol in solutions:
@@ -825,7 +837,7 @@ def grade_path(
         res = run_tests(
             sol,
             test_dir,
-            timeout=CONFIG.timeout_seconds if timeout is None else timeout,
+            timeout=effective_timeout,
             max_memory_mb=max_memory_mb,
             progress_callback=progress_callback,
             cancel_event=cancel_event,
@@ -861,6 +873,7 @@ def grade_path(
                         source=_shown(sol),
                         missing_queue_path=missing_queue_path,
                         lang=lang,
+                        timeout_s=effective_timeout,
                     )
                     for i, c in enumerate(res["cases"], 1)
                 ],
