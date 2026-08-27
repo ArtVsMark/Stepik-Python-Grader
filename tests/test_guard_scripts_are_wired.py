@@ -148,7 +148,20 @@ def test_declared_runner_actually_calls_the_guard(script: str) -> None:
 
     text = path.read_text(encoding="utf-8")
     needle = script.removesuffix(".py")
-    assert needle in text, f"{script}: {runner} на него не ссылается (заявлено: {why})"
+    if needle in text:
+        return
+
+    # Ссылка может быть через один переход: ночной обход зовёт свои проверки
+    # списком внутри `nightly_checks.py` — шаги workflow не тестируются, а этот
+    # список тестируется (issue #1384). Дальше одного перехода не идём: цепочка
+    # длиннее делает реестр нечитаемым, а его смысл — быстрый ответ «чем».
+    for hop in ("nightly_checks",):
+        if hop not in text:
+            continue
+        if needle in (_ROOT / "scripts" / f"{hop}.py").read_text(encoding="utf-8"):
+            return
+
+    raise AssertionError(f"{script}: {runner} на него не ссылается (заявлено: {why})")
 
 
 def test_tracker_guards_run_on_a_schedule() -> None:
@@ -163,8 +176,13 @@ def test_tracker_guards_run_on_a_schedule() -> None:
     text = workflow.read_text(encoding="utf-8")
     assert "schedule:" in text, "без расписания проверка снова ждёт, что кто-то вспомнит"
     assert "workflow_dispatch:" in text, "нужен ручной запуск: проверить, не дожидаясь суток"
-    assert "check_issue_checklists" in text
-    assert "check_good_first_issues_bilingual" in text
+    assert "nightly_checks" in text, "обход должен запускаться, а не только существовать"
+
+    # Сами проверки перечислены в скрипте — шаги workflow не тестируются, а его
+    # список тестируется (issue #1384, tests/test_nightly_checks.py).
+    listed = (_ROOT / "scripts" / "nightly_checks.py").read_text(encoding="utf-8")
+    assert "check_issue_checklists" in listed
+    assert "check_good_first_issues_bilingual" in listed
 
 
 def test_tracker_guards_warn_without_failing_the_run() -> None:

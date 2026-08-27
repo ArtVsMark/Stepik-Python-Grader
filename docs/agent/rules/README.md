@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 37 |
+| **гейт** | падает в CI или в `preflight.py` | 38 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 50 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 49 |
 
-**Не объявлено: 50.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 49.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -55,7 +55,7 @@
 | [Одно окружение проверяет узлы, другое — цепочку](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/018-cloud-checks-nodes-local-checks-chain.md) | `docs/agent/environments.md` | не объявлено |
 | [Аудит планируется от поверхностей продукта, а не от файлов](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/019-audit-from-surfaces-not-files.md) | `docs/agent/multiagent.md` | не объявлено |
 | [После сбоя перезапускать дельту, а не всю волну](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/020-restart-only-the-delta.md) | `docs/agent/multiagent.md` | не объявлено |
-| [Пустое состояние надо объявлять явно](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/027-empty-state-is-a-state.md) | `docs/agent/claude-handoff.md` | не объявлено |
+| [Пустое состояние надо объявлять явно](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/027-empty-state-is-a-state.md) | `docs/agent/claude-handoff.md` | гейт |
 | [Параллельные исполнители запускаются волнами фиксированного размера](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/031-waves-not-salvos.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Если предмет роли наблюдаем в работающем продукте — роль обязана его запустить](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/032-role-must-run-the-product.md) | `docs/agent/roles.md` | не объявлено |
 | [Темп длинной работы считается от лимита, а не от желания](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/033-pace-from-limit-not-desire.md) | `docs/agent/multiagent.md` | не объявлено |

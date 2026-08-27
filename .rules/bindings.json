@@ -126,8 +126,8 @@
     },
     "027": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/claude-handoff.md"
+      "mechanism": "gate",
+      "where": "scripts/nightly_checks.py — чистый обход пишет в задачу «Находок нет» с датой и числом проверок, а не оставляет пустое тело; docs/audit/README.md и docs/agent/claude-handoff.md объявляют пустоту словами"
     },
     "028": {
       "status": "not-applicable",
@@ -664,8 +664,8 @@
     },
     "142": {
       "status": "active",
-      "mechanism": "none",
-      "where": "ночной прогон tracker-guardrails.yml печатает находки в summary прогона — адресата у них нет, и красное на вкладке прогонов им не является"
+      "mechanism": "gate",
+      "where": "scripts/nightly_checks.py — ночной обход ведёт одну задачу с меткой «ночной обход»: пока находки есть, она открыта и обновляется, стало чисто — закрывается; красным прогон при этом не становится, потому что красное на вкладке прогонов адресатом не является"
     },
     "144": {
       "status": "active",
