@@ -304,6 +304,14 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         default=8000,
         help=t["cli_help_port"],
     )
+    # issue #1365: журнал прогонов наружу отдаётся только по явной просьбе.
+    # Флаг отдельный, а не часть `--serve`: включать сервер и делиться
+    # накопленным — разные решения, и второе принимает человек.
+    parser.add_argument(
+        "--expose-usage",
+        action="store_true",
+        help=t["cli_help_expose_usage"],
+    )
     parser.add_argument(
         "--root",
         type=pathlib.Path,
