@@ -536,6 +536,54 @@ def check_tests_mentioning_changed_names(git: GitRunner = _git) -> Check:
     return Check(name=title, ok=True, detail=detail or "прямых упоминаний нет", blocking=False)
 
 
+def check_adr_records(
+    runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> Check:
+    """Запись о решении полна, и ветка не переписывает её задним числом.
+
+    Правила 042 и 043 каталога. Здесь, а не только в CI: правку ADR автор
+    делает локально, и «меняется решение — новый ADR, а старый Superseded»
+    стоит узнать до пуша, а не после. Сравнение с ``origin/main`` требует
+    истории, которой у мелкого клона CI нет, — там гоняется та же проверка без
+    базы (полнота записей).
+    """
+    title = "запись о решении полна"
+    run = runner or (
+        lambda: subprocess.run(
+            [sys.executable, str(_ROOT / "scripts" / "check_adr_records.py"), "--base", _BASE],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            encoding="utf-8",
+        )
+    )
+    done = run()
+    if done.returncode == 0:
+        return Check(
+            name=title,
+            ok=True,
+            detail=done.stdout.strip().splitlines()[-1] if done.stdout.strip() else "чисто",
+        )
+    if done.returncode == 2:
+        # «Проверить не с чем» — не то же самое, что «нашла»: блокировать
+        # пуш из-за отсутствующей базы значило бы наказывать за среду.
+        return Check(
+            name=title,
+            ok=True,
+            detail=done.stderr.strip().splitlines()[-1] if done.stderr.strip() else "не отработала",
+            blocking=False,
+        )
+    return Check(
+        name=title,
+        ok=False,
+        detail="; ".join(
+            line.strip(" •") for line in done.stderr.splitlines() if line.strip().startswith("•")
+        ),
+        hint="python scripts/check_adr_records.py --base origin/main — полный разбор",
+    )
+
+
 def _git_dir(root: pathlib.Path, *, shared: bool = False) -> pathlib.Path:
     """Служебный каталог git рабочего дерева ``root`` (PR #1251).
 
@@ -897,6 +945,7 @@ def main(argv: list[str] | None = None) -> int:
         check_changelog_buffer(),
         check_commit_authorship(),
         check_tests_mentioning_changed_names(),
+        check_adr_records(),
     ]
 
     if args.branch_only:

@@ -154,6 +154,13 @@ repos:
         pass_filenames: false
         files: '^(scripts|tests)/.*\\.py$'
 
+      - id: check-adr-records
+        name: запись о решении полна
+        entry: python scripts/check_adr_records.py
+        language: system
+        pass_filenames: false
+        files: '^docs/dev/adr/.*\\.md$'
+
       - id: check-truncation-marks
         name: обрезка оставляет признак обрыва
         entry: python scripts/check_truncation_marks.py
