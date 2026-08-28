@@ -175,6 +175,7 @@ jobs:
           python scripts/check_step_deadlines.py
           python scripts/check_raw_values.py
           python scripts/check_truncation_marks.py
+          python scripts/check_declared_outcomes.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают

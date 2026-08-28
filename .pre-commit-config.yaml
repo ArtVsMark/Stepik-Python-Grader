@@ -147,6 +147,13 @@ repos:
         pass_filenames: false
         files: '^(scripts|src|tests|\\.claude/hooks)/.*\\.py$'
 
+      - id: check-declared-outcomes
+        name: прогнан каждый объявленный исход
+        entry: python scripts/check_declared_outcomes.py
+        language: system
+        pass_filenames: false
+        files: '^(scripts|tests)/.*\\.py$'
+
       - id: check-truncation-marks
         name: обрезка оставляет признак обрыва
         entry: python scripts/check_truncation_marks.py

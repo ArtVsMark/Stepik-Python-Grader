@@ -55,6 +55,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "tests/test_contrast.py",
         "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",
     ),
+    "check_declared_outcomes.py": (
+        ".github/workflows/ci.yml",
+        "правило 145: у каждого объявленного исхода есть прогон, а долг виден числом",
+    ),
     "check_docs_guardrails.py": (".github/workflows/ci.yml", "бюджеты и ссылки документации"),
     "check_gate_tests.py": (
         ".github/workflows/ci.yml",

@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 50 |
+| **гейт** | падает в CI или в `preflight.py` | 51 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 37 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 36 |
 
-**Не объявлено: 37.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 36.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -72,7 +72,7 @@
 | [Порядок очереди задаётся правилом, а не готовностью](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/053-queue-order-is-a-rule-not-arrival.md) | #1325, #1326, #1329 | гейт |
 | [Сбор и разбор — разные проходы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/054-collect-and-analyse-are-separate-passes.md) | `docs/agent/course-walkthrough.md` | не объявлено |
 | [Собственный эталон — тоже гипотеза](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/055-your-own-expectations-are-a-hypothesis.md) | `docs/agent/course-walkthrough.md` | не объявлено |
-| [Правило, которое нельзя проверить машиной, называется явно](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/057-unmechanizable-rules-are-named-explicitly.md) | `docs/agent/preflight.md` | не объявлено |
+| [Правило, которое нельзя проверить машиной, называется явно](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/057-unmechanizable-rules-are-named-explicitly.md) | `docs/agent/preflight.md` | гейт |
 | [Исчерпав квоту — остановиться, а не повторять](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/058-when-the-quota-is-out-stop.md) | `docs/agent/preflight.md` | гейт |
 | [У каждого исчерпаемого ресурса есть заранее составленная карта обхода](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/059-map-the-detour-before-the-resource-runs-out.md) | `docs/agent/preflight.md` | не объявлено |
 | [Разбор после каждой волны, и качество важнее механики](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/060-debrief-every-wave-quality-first.md) | `docs/agent/multiagent.md` | не объявлено |

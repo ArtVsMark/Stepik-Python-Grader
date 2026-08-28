@@ -263,8 +263,8 @@
     },
     "057": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "gate",
+      "where": ".rules/bindings.json — правило без механизма записано со статусом active и mechanism none, а не выброшено и не объявлено очевидным; поле where объясняет, почему гейта нет, а scripts/check_rule_bindings.py считает такие правила метрикой, которая обязана уменьшаться"
     },
     "058": {
       "status": "active",
@@ -674,8 +674,8 @@
     },
     "145": {
       "status": "active",
-      "mechanism": "none",
-      "where": "у workflow объявлено по нескольку исходов (agent-pr.yml, merge-queue.yml, rerun-flaky-checks.yml), прогонялись не все ветки; требования прогнать каждый объявленный исход ничто не держит"
+      "mechanism": "gate",
+      "where": "scripts/check_declared_outcomes.py — у каждого НЕуспешного кода возврата есть тест, ожидающий именно его; непрогнанные ветки видны числом (BUDGET), и оно опускается починкой"
     },
     "146": {
       "status": "active",

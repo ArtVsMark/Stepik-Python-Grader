@@ -90,3 +90,15 @@ def test_broken_file_is_skipped_not_crashed() -> None:
 def test_live_repository_passes() -> None:
     """Живой предмет: в продукте и скриптах молчаливой обрезки нет."""
     assert guard.truncations_without_mark() == []
+
+
+def test_main_reports_a_finding(monkeypatch: Any, capsys: Any) -> None:
+    """Ветка отказа: без прогона она существует только в исходнике."""
+    monkeypatch.setattr(guard, "truncations_without_mark", lambda: [("молчун.py", "show")])
+
+    assert guard.main() == 1
+    assert "show()" in capsys.readouterr().err
+
+
+def test_main_is_clean_on_the_live_repository() -> None:
+    assert guard.main() == 0
