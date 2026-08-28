@@ -55,6 +55,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "tests/test_contrast.py",
         "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",
     ),
+    "check_adr_records.py": (
+        ".github/workflows/ci.yml",
+        "правила 042/043: запись о решении полна, и её не правят задним числом",
+    ),
     "check_declared_outcomes.py": (
         ".github/workflows/ci.yml",
         "правило 145: у каждого объявленного исхода есть прогон, а долг виден числом",
