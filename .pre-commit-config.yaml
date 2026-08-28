@@ -140,6 +140,13 @@ repos:
         pass_filenames: false
         files: '^(docs/.*|\.github/.*|\.rules/.*|scripts/generate_.*\.py)$'
 
+      - id: check-three-outcomes
+        name: у проверки три исхода, а не два
+        entry: python scripts/check_three_outcomes.py
+        language: system
+        pass_filenames: false
+        files: '^scripts/.*\\.py$'
+
       - id: check-showcase-links
         name: оригинал не ссылается на свою витрину
         entry: python scripts/check_showcase_links.py

@@ -225,15 +225,30 @@ class TestMain:
     def test_unreachable_github_is_retry_later_not_success(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Пустой ответ читался бы как «делать нечего» — та же ошибка, что у гейтов на пустоте."""
+        """Пустой ответ читался бы как «делать нечего» — та же ошибка, что у гейтов на пустоте.
+
+        Код именно третий (2), а не тот же, что у находки: «веток без PR нет» и
+        «состояние не прочитано» — разные вещи с разными действиями (правило 039).
+        """
         module = _load_module()
 
         def _boom(*_args: object, **_kwargs: object) -> None:
-            raise module.gh_rest.GitHubError("квота исчерпана")
+            raise module.gh_rest.GitHubError("GitHub отказал")
 
         monkeypatch.setattr(module.gh_rest, "list_pulls", _boom)
 
-        assert module.main([]) == 1
+        assert module.main([]) == 2
+
+    def test_exhausted_quota_says_wait(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Квота — «ждать», а не «сломалось»: повтор отодвигает сброс (правило 058)."""
+        module = _load_module()
+
+        def _boom(*_args: object, **_kwargs: object) -> None:
+            raise module.gh_rest.RateLimited("лимит", reset_at=0, resource="core")
+
+        monkeypatch.setattr(module.gh_rest, "list_pulls", _boom)
+
+        assert module.main([]) == module.gh_rest.EXIT_WAIT
 
     def test_one_failing_branch_does_not_stop_the_rest(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

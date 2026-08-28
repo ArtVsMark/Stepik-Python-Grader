@@ -206,9 +206,17 @@ def main(argv: list[str] | None = None) -> int:
     try:
         open_heads = {pull.branch for pull in gh_rest.list_pulls(args.repo)}
         pending = branches_without_pull(branch_names(args.repo), open_heads, args.prefix)
+    except gh_rest.RateLimited as exc:
+        # Квота — «ждать», а не «сломалось»: повтор её не лечит, а отодвигает
+        # сброс (правило 058).
+        print(f"::warning::квота исчерпана, состояние не прочитано: {exc}", file=sys.stderr)
+        return gh_rest.EXIT_WAIT
     except gh_rest.GitHubError as exc:
+        # Третий исход (правило 039): «веток без PR нет» и «состояние не
+        # прочитано» — разные вещи с разными действиями, и код возврата обязан
+        # их различать. Раньше здесь стоял тот же код, что у находки.
         print(f"::warning::не удалось прочитать состояние репозитория: {exc}", file=sys.stderr)
-        return 1
+        return 2
 
     if not pending:
         print(f"Веток {args.prefix}** без открытого PR нет.")

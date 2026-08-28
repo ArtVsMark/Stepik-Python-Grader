@@ -182,8 +182,8 @@
     },
     "039": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/supply-chain.md"
+      "mechanism": "gate",
+      "where": "scripts/check_three_outcomes.py — скрипт, ходящий в GitHub, обязан отличать отказ источника от результата (RateLimited → EXIT_WAIT, GitHubError → код 2); объявленный долг перечислен в KNOWN_DEBT с причиной"
     },
     "040": {
       "status": "active",

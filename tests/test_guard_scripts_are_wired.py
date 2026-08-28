@@ -106,6 +106,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
     "check_ruff_pin.py": (".github/workflows/ci.yml", "пины инструментов вердикта"),
     "check_secret_dumps.py": (".github/workflows/ci.yml", "реестр точек дампа секретов"),
     "check_test_isolation.py": (".github/workflows/ci.yml", "изоляция тестов"),
+    "check_three_outcomes.py": (
+        ".github/workflows/ci.yml",
+        "правило 039: скрипт, ходящий в GitHub, отличает «не отработала» от «чисто»",
+    ),
     "check_ui_locale_guardrails.py": (".github/workflows/ci.yml", "UI-строки без хардкода"),
     "check_version_consistency.py": (".github/workflows/ci.yml", "дрейф версии в доках"),
     "check_web_imports.py": (".github/workflows/ci.yml", "импорты ES-модулей веб-слоя"),
