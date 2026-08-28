@@ -149,3 +149,31 @@ def test_unheld_counts_unreviewed_and_none() -> None:
         )
     )
     assert (unheld, total) == (2, 4)
+
+
+class TestUnheldBudget:
+    """Храповик: правило без механизма обязано быть записано документом.
+
+    Бюджет — не «столько допустимо», а «столько осталось». Поэтому две стороны:
+    гейт краснеет при превышении и — отдельным тестом — само число сверяется с
+    реальностью, иначе бюджет тихо разойдётся с ответом и перестанет что-либо
+    держать.
+    """
+
+    def test_budget_matches_reality(self) -> None:
+        data = json.loads(_BINDINGS.read_text(encoding="utf-8"))
+
+        unheld, _total = _MODULE.unheld_count(data)
+
+        assert unheld <= _MODULE.UNHELD_BUDGET, (
+            f"не обеспечено ничем {unheld} при бюджете {_MODULE.UNHELD_BUDGET}. "
+            "Бюджет опускают починкой, а не правкой числа."
+        )
+
+    def test_live_answer_is_green(self) -> None:
+        assert _MODULE.main([]) == 0
+
+    def test_exceeding_the_budget_is_red(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(_MODULE, "UNHELD_BUDGET", -1)
+
+        assert _MODULE.main([]) == 1

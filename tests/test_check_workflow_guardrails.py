@@ -699,7 +699,10 @@ class TestPinningMatchesTheEvent:
         "    steps:\n      - uses: actions/checkout@v7\n        with:\n"
         "          ref: ${{ github.event.pull_request.base.sha }}\n"
     )
-    _PLAIN = "name: z\non:\n  pull_request:\njobs:\n  a:\n    steps:\n      - uses: actions/checkout@v7\n"
+    _PLAIN = (
+        "name: z\non:\n  pull_request:\njobs:\n  a:\n"
+        "    steps:\n      - uses: actions/checkout@v7\n"
+    )
 
     def test_privileged_event_checking_out_the_pr_head_is_flagged(self) -> None:
         found = _MODULE.pinning_mismatches({"a.yml": self._PRIVILEGED})
