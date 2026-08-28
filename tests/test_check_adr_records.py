@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import pathlib
 import subprocess
 import sys
@@ -189,6 +190,18 @@ class TestEntryPoint:
             capture_output=True,
             text=True,
             cwd=_ROOT,
+        )
+
+        assert done.returncode == 0, done.stderr
+
+    def test_runs_under_a_windows_console_encoding(self) -> None:
+        """issue #1095: cp1252 в CI-джобе Windows роняла скрипт на первой же букве."""
+        done = subprocess.run(
+            [sys.executable, str(_ROOT / "scripts" / "check_adr_records.py")],
+            capture_output=True,
+            text=True,
+            cwd=_ROOT,
+            env={**os.environ, "PYTHONIOENCODING": "cp1252"},
         )
 
         assert done.returncode == 0, done.stderr

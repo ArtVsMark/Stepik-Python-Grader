@@ -38,6 +38,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import pathlib
 import re
 import subprocess
@@ -53,6 +54,12 @@ __all__ = [
     "rewritten_decisions",
     "status_of",
 ]
+
+# issue #1095: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 _ROOT = pathlib.Path(__file__).parent.parent
 _ADR = _ROOT / "docs" / "dev" / "adr"
