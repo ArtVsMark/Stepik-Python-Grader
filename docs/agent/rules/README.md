@@ -26,10 +26,10 @@
 | Уровень | Что это | Сколько |
 |---|---|---|
 | **гейт** | падает в CI или в `preflight.py` | 56 |
-| **шаг процесса** | проверяется человеком в названный момент | 33 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 4 |
+| **шаг процесса** | проверяется человеком в названный момент | 35 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 2 |
 
-**Не объявлено: 4.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 2.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -110,7 +110,7 @@
 | [У событийной автоматики должна быть ручная кнопка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/104-event-driven-automation-needs-a-manual-button.md) | `.github/workflows/ci.yml` | гейт |
 | [Огласка умножает и хорошее, и плохое — сначала настоящий прогон](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/106-publicity-multiplies-both-sides.md) | `docs/dev/corpus.md` | шаг процесса |
 | [Каждый выход из переходного состояния обязан быть терминальным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/109-every-exit-from-a-transient-state-must-be-terminal.md) | `src/stepik_grader/launcher.py` | гейт |
-| [Если инструмент может сделать сам — он делает, а не советует](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/111-do-it-instead-of-advising-it.md) | `src/stepik_grader/launcher.py` | не объявлено |
+| [Если инструмент может сделать сам — он делает, а не советует](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/111-do-it-instead-of-advising-it.md) | `src/stepik_grader/launcher.py` | шаг процесса |
 | [Контракт описывает правила собственной эволюции](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/113-a-contract-states-how-it-may-change.md) | `docs/dev/result-contract.md` | не объявлено |
 | [У настроек один якорь и ограниченная зона поиска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/115-config-has-one-anchor-and-a-bounded-search.md) | `docs/use/configuration.md` | гейт |
 | [Сборщик результатов — тоже источник потерь, и у него своя сверка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/116-the-collector-script-is-a-source-of-loss.md) | `docs/archive/audit-2026-07-30-full-roles.md` | гейт |
@@ -129,5 +129,5 @@
 | [Границу изменения задаёт пересечение файлов, а не число задач](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/133-file-overlap-sets-the-boundary.md) | #1345, #1350 | гейт |
 | [Окно контекста для разбора прозы — абзац, а не предложение](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/144-context-window-for-prose-is-a-paragraph.md) | `scripts/check_audit_registry.py` | гейт |
 | [Общую площадку набор забирает себе, а не вносит в исключения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/149-the-suite-owns-its-temp.md) | `tests/conftest.py`, `tests/test_conftest_temp_root.py` | гейт |
-| [Тест спрашивает решение механизма, а не повторяет его условие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/150-a-test-asks-the-mechanism-not-its-condition.md) | `tests/test_preflight_basetemp.py` | не объявлено |
+| [Тест спрашивает решение механизма, а не повторяет его условие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/150-a-test-asks-the-mechanism-not-its-condition.md) | `tests/test_preflight_basetemp.py` | шаг процесса |
 | [Диагностический след кладут туда, куда достаёт тот, кто чинит](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/151-the-trail-goes-where-the-fixer-can-reach.md) | `scripts/report_failed_tests.py`, `.github/workflows/ci.yml` | гейт |

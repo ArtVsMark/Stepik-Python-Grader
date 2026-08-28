@@ -678,3 +678,57 @@ class TestRunBlocksAreValidShell:
         _MODULE.check_run_blocks_are_valid_shell(errors)
 
         assert errors == []
+
+
+class TestPinningMatchesTheEvent:
+    """Правило 152: закрепление вызываемого согласовано с источником вызывающего.
+
+    Оба направления, потому что правило асимметрично и именно на асимметрии
+    ломается: на `pull_request` закрепление бессмысленно, на `workflow_run` —
+    обязательно, и перепутать их значит либо запереть дверь в открытой стене,
+    либо отдать свой токен тому, кто правит PR.
+    """
+
+    _PRIVILEGED = (
+        "name: x\non:\n  workflow_run:\n    workflows: [CI]\njobs:\n  a:\n"
+        "    steps:\n      - uses: actions/checkout@v7\n        with:\n"
+        "          ref: ${{ github.event.pull_request.head.sha }}\n"
+    )
+    _PLAIN_PINNED = (
+        "name: y\non:\n  pull_request:\n    types: [opened]\njobs:\n  a:\n"
+        "    steps:\n      - uses: actions/checkout@v7\n        with:\n"
+        "          ref: ${{ github.event.pull_request.base.sha }}\n"
+    )
+    _PLAIN = "name: z\non:\n  pull_request:\njobs:\n  a:\n    steps:\n      - uses: actions/checkout@v7\n"
+
+    def test_privileged_event_checking_out_the_pr_head_is_flagged(self) -> None:
+        found = _MODULE.pinning_mismatches({"a.yml": self._PRIVILEGED})
+
+        assert found and "исполнение отдаётся" in found[0]
+
+    def test_pinning_on_a_plain_pull_request_is_flagged(self) -> None:
+        """Файл прогона всё равно берётся из изменения — защита нулевая."""
+        found = _MODULE.pinning_mismatches({"b.yml": self._PLAIN_PINNED})
+
+        assert found and "не защищает ни от чего" in found[0]
+
+    def test_default_checkout_passes(self) -> None:
+        assert _MODULE.pinning_mismatches({"c.yml": self._PLAIN}) == []
+
+    def test_events_are_read_from_the_on_block_only(self) -> None:
+        """`pull_request` в теле шага — не подписка: иначе гард ловил бы условия."""
+        source = (
+            "name: q\non:\n  push:\njobs:\n  a:\n    steps:\n"
+            "      - run: echo ${{ github.event.pull_request.head.sha }}\n"
+        )
+
+        assert _MODULE._events_of(source) == {"push"}
+        assert _MODULE.pinning_mismatches({"q.yml": source}) == []
+
+    def test_repo_workflows_pass(self) -> None:
+        """Живые файлы: у нас `workflow_run` берёт общую ветку по умолчанию."""
+        errors: list[str] = []
+
+        _MODULE.check_pinning_matches_the_event(errors)
+
+        assert errors == []
