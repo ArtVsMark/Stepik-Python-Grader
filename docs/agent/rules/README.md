@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 53 |
+| **гейт** | падает в CI или в `preflight.py` | 55 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 37 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 35 |
 
-**Не объявлено: 37.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 35.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -65,8 +65,8 @@
 | [Имя окна начинается с окружения, а не с задачи](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/038-window-name-declares-its-environment.md) | `docs/agent/environments.md` | не объявлено |
 | [У проверки три исхода, а не два](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/039-three-outcomes-not-two.md) | `docs/dev/supply-chain.md` | гейт |
 | [Пропуск без причины неотличим от забытого теста](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/040-skip-without-reason-is-a-forgotten-test.md) | `scripts/skip_inventory.py`, `tests/test_skip_inventory.py` | гейт |
-| [Решение записывается вместе с отвергнутыми вариантами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/042-decision-records-its-alternatives.md) | `docs/dev/adr/README.md` | не объявлено |
-| [Решение не правится задним числом — его отменяет новое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/043-decisions-are-superseded-not-edited.md) | `docs/dev/adr/README.md` | не объявлено |
+| [Решение записывается вместе с отвергнутыми вариантами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/042-decision-records-its-alternatives.md) | `docs/dev/adr/README.md` | гейт |
+| [Решение не правится задним числом — его отменяет новое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/043-decisions-are-superseded-not-edited.md) | `docs/dev/adr/README.md` | гейт |
 | [Смена правил работы — повод перезапустить окна, а не рассылка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/047-rule-change-restarts-the-windows.md) | #1283 | не объявлено |
 | [Предупреждают о вероятном, запрещают достоверное](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/051-warn-on-likely-block-on-certain.md) | `scripts/check_work_overlap.py` | гейт |
 | [Порядок очереди задаётся правилом, а не готовностью](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/053-queue-order-is-a-rule-not-arrival.md) | #1325, #1326, #1329 | гейт |

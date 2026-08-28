@@ -196,13 +196,13 @@
     },
     "042": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/adr/README.md"
+      "mechanism": "gate",
+      "where": "scripts/check_adr_records.py"
     },
     "043": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/adr/README.md"
+      "mechanism": "gate",
+      "where": "scripts/check_adr_records.py"
     },
     "044": {
       "status": "not-applicable",
