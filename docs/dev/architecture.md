@@ -128,6 +128,7 @@ core/stepik_client.py ──→  core/storage.py
 web/api_routes.py      ──→  web/statement_adapter.py  (условие задачи: GET /api/task/statement и /api/task/image)
 web/navigation_adapter.py ──→  core/task_index.py, core/history.py, core/history_recording.py, core/diag_log.py  (дерево задач + статусы из истории)
 web/statement_adapter.py ──→  core/html_sanitizer.py, core/diag_log.py  (очистка чужого HTML и чтение вложений; роутер в core не ходит — ARCH-07)
+web/usage_adapter.py   ──→  core/usage_export.py  (журнал прогонов для GET /api/v1/usage; роутер в core не ходит — ARCH-07)
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli/__init__.py  (тонкий фасад)
 grader.py              ──→  core/runner.py  (Runner/RunSpec/RunOutcome/LocalRunner — точка расширения целиком в фасаде, рядом с set_runner)
 core/grader_core.py    ──→  core/microbench_runner.py, core/normalizers.py, core/runner.py
