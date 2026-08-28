@@ -691,6 +691,31 @@
       "status": "active",
       "mechanism": "gate",
       "where": "scripts/check_pr_ready.py читает проверки по sha головы PR, а не по полю записи, и отдельно смотрит прогон main: пустой список проверок трактуется как «CI не стартовал», а не «зелено»"
+    },
+    "149": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "tests/conftest.py — фикстура _system_temp_inside_basetemp уводит системный temp внутрь pytest-basetemp на время прогона; правило родилось здесь, из ложного обвинения стороннего теста"
+    },
+    "150": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "правило соблюдается (test_default_choice_passes_its_own_check спрашивает basetemp_problem, а не сравнивает длину с порогом), но требования спрашивать вердикт ничто не держит: отличить пересказ условия от законного использования константы статически пока нечем"
+    },
+    "151": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/report_failed_tests.py и job report-failures в .github/workflows/ci.yml — сводка упавших тестов ложится комментарием в PR, потому что логи и артефакты Actions облачной сессии недоступны (403); правило родилось здесь"
+    },
+    "152": {
+      "status": "active",
+      "mechanism": "none",
+      "where": "действия из чужих репозиториев закреплены по SHA везде, а прогоны с общей ветки (rules-inbox.yml по расписанию, merge-queue.yml по workflow_run) — те, где закрепление и защищает; различия «вызывающий из изменения или с общей ветки» ничто не проверяет"
+    },
+    "153": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "docs/agent/rules/DIGEST.md собирается из каталога генератором (scripts/generate_rules_digest.py), а не переписывается руками: чужой текст здесь производное с живым исходником, и расхождение ловит check_rules_digest.py"
     }
   }
 }

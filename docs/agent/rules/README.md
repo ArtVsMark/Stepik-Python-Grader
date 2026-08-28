@@ -21,15 +21,15 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **90**.
+Всего правил, действующих здесь: **93**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 51 |
+| **гейт** | падает в CI или в `preflight.py` | 53 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 36 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 37 |
 
-**Не объявлено: 36.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 37.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -128,3 +128,6 @@
 | [Изменение везут одной темой: сборное честно, но неразбираемо](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/132-one-change-carries-one-topic.md) | #20, #21, #1350 | гейт |
 | [Границу изменения задаёт пересечение файлов, а не число задач](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/133-file-overlap-sets-the-boundary.md) | #1345, #1350 | гейт |
 | [Окно контекста для разбора прозы — абзац, а не предложение](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/144-context-window-for-prose-is-a-paragraph.md) | `scripts/check_audit_registry.py` | гейт |
+| [Общую площадку набор забирает себе, а не вносит в исключения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/149-the-suite-owns-its-temp.md) | `tests/conftest.py`, `tests/test_conftest_temp_root.py` | гейт |
+| [Тест спрашивает решение механизма, а не повторяет его условие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/150-a-test-asks-the-mechanism-not-its-condition.md) | `tests/test_preflight_basetemp.py` | не объявлено |
+| [Диагностический след кладут туда, куда достаёт тот, кто чинит](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/151-the-trail-goes-where-the-fixer-can-reach.md) | `scripts/report_failed_tests.py`, `.github/workflows/ci.yml` | гейт |
