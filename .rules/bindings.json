@@ -29,8 +29,8 @@
     },
     "006": {
       "status": "active",
-      "mechanism": "none",
-      "where": "CLAUDE.md § Два окна называет срок 3–5 дней и признаки досрочного перезапуска, но возраст окна ничем не измеряется и никому не сообщается"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Два окна: «Окно живёт 3–5 дней, дальше перезапуск — обязательно»; замер 764 против 81 прочитанного токена на токен выхода и шаблон эстафеты — docs/agent/environments.md"
     },
     "007": {
       "status": "active",
@@ -52,8 +52,8 @@
     },
     "011": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Гейты: авто-мерж вместо опроса статусов, «цикл опроса на GraphQL запрещён как класс», интервал опроса 45–60 с; разбор — docs/agent/preflight.md"
     },
     "012": {
       "status": "active",
@@ -67,13 +67,13 @@
     },
     "014": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "process-step",
+      "where": "CONTRIBUTING.md § Когда дефект считается исправленным: краснота доказывается полу-откатом — новые имена оставить, убрать только поведение; откат всего src/ даёт ImportError"
     },
     "015": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Мультиагентный режим и docs/agent/multiagent.md § Агенты возвращают данные — файлы правит хост (agent(schema=...) → детерминированный applier)"
     },
     "016": {
       "status": "active",
@@ -87,18 +87,18 @@
     },
     "018": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/environments.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Два окна и docs/agent/environments.md § Облако проверяет узлы, локальное окно — цепочку; планируя срез аудита, окно проставляется сразу"
     },
     "019": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md § Аудит планируется от поверхностей продукта, а не от файлов: первый шаг планирования — инвентарь поверхностей"
     },
     "020": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md § Рестарт только дельты: после сбоя добирается недостающее, а не повторяется вся волна"
     },
     "021": {
       "status": "not-applicable",
@@ -143,23 +143,23 @@
     },
     "031": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Мультиагентный режим (волнами по 5) и docs/agent/multiagent.md; прецеденты залпов записаны там же числами"
     },
     "032": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/roles.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/roles.md: если предмет роли наблюдаем в работающем продукте, роль обязана его запустить — вывод чтением кода считается неполным"
     },
     "033": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md § арифметика интервала между стартами; CLAUDE.md § Гейты — порог остатка квоты и интервал опроса статусов"
     },
     "034": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md § Роль дробится на 2–3 агента; CLAUDE.md § Мультиагентный режим — явный список файлов и лимиты объёма ответа"
     },
     "035": {
       "status": "not-applicable",
@@ -167,18 +167,18 @@
     },
     "036": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/environments.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/environments.md § Фаза 0 — слепок реальности до облачных волн и подтверждение в конце; docs/agent/multiagent.md § фазы аудита"
     },
     "037": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/environments.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/environments.md: находка с фикстуры — гипотеза, уходит в список фазы L; то же в multiagent.md и roles.md"
     },
     "038": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/environments.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Два окна: имя окна начинается с окружения ([WEB]/[LOCAL]/[CLI]), метка ставится при открытии; канон — docs/agent/environments.md"
     },
     "039": {
       "status": "active",
@@ -218,8 +218,8 @@
     },
     "047": {
       "status": "active",
-      "mechanism": "none",
-      "where": "CLAUDE.md § Гейты говорит, что смена правил транспорта требует перезапуска окон, но узнать возраст правил в работающем окне нечем"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Гейты: смена правил транспорта требует перезапуска активных окон — настройки читаются при старте сессии"
     },
     "048": {
       "status": "not-applicable",
@@ -249,13 +249,13 @@
     },
     "054": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/course-walkthrough.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/course-walkthrough.md: на шаге сбора ничего не анализируется — прогнать, записать сырое; разбор на границе главы"
     },
     "055": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/course-walkthrough.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/course-walkthrough.md § Внешний судья вердикта: свои ожидания в каталоге мутаций не доказывают ничего, сверка идёт со Stepik; каталог мутаций — docs/dev/corpus.md"
     },
     "056": {
       "status": "not-applicable",
@@ -273,28 +273,28 @@
     },
     "059": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/preflight.md § Маршрут при исчерпании лимитов: что недоступно, что работает и чем занять время до сброса квоты"
     },
     "060": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md § Разбор после КАЖДОЙ волны — по двум осям, и качество важнее механики"
     },
     "061": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md § Прогонным агентам — запреты окружения прямо в промпте"
     },
     "062": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/roles.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/roles.md § критерий приёмки новой роли: свой вопрос, свой артефакт, своё возражение конкретной роли — иначе это раздел документации"
     },
     "063": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/dispatcher.md"
+      "mechanism": "gate",
+      "where": "scripts/rerun_flaky_checks.py"
     },
     "064": {
       "status": "not-applicable",
@@ -384,8 +384,8 @@
     },
     "082": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/roles.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Режим ответов: пласт без владельца — слепая зона, покрытие не равно отдельной роли; разбор пластов — docs/agent/roles.md"
     },
     "083": {
       "status": "not-applicable",
@@ -401,18 +401,18 @@
     },
     "086": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Режим ответов (🔍 не ставит окончательную тяжесть — его оценка заявка; ⚖️ доказывает) и docs/agent/multiagent.md § адверсариальный верификатор со шкалой на примерах"
     },
     "087": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md: второй аудит получает на вход накопитель первого и правило новизны — иначе на 60% переоткрывает его"
     },
     "088": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/roles.md § Роль 27 — Критик метода: вход — след фазы, вопрос о методе, а не о продукте"
     },
     "089": {
       "status": "active",
@@ -429,8 +429,8 @@
     },
     "092": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/claude-handoff.md"
+      "mechanism": "process-step",
+      "where": "CLAUDE.md § Открытая работа: аудит даёт находки (docs/audit/), очередь задаёт порядок (docs/agent/claude-handoff.md) — два документа, смешивать нельзя"
     },
     "093": {
       "status": "not-applicable",
@@ -455,13 +455,13 @@
     },
     "098": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/glossary.md"
+      "mechanism": "process-step",
+      "where": "docs/dev/glossary.md § Одна концепция — одна карточка: парные протоколы намеренно остаются бандлами, а поиск чинится keywords, а не разбиением"
     },
     "099": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/glossary.md"
+      "mechanism": "process-step",
+      "where": "docs/dev/glossary.md § Дубли двух поколений импорта: при конфликте выигрывает тематика — иначе «Типы данных» осталась бы без int/str/float"
     },
     "100": {
       "status": "active",
@@ -494,8 +494,8 @@
     },
     "106": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/corpus.md"
+      "mechanism": "process-step",
+      "where": "HISTORY.md: решение владельца — не показывать широко, пока не пройден настоящий курс и вердикты не сошлись с платформой; протокол прогона — docs/agent/course-walkthrough.md"
     },
     "107": {
       "status": "not-applicable",
@@ -544,8 +544,8 @@
     },
     "117": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/archive/audit-2026-07-30-full-roles.md"
+      "mechanism": "process-step",
+      "where": "docs/agent/multiagent.md: лимит объёма ответа прямо в схеме (minItems/maxItems, maxLength на каждом строковом поле) и бюджет обращений; то же в CLAUDE.md § Мультиагентный режим"
     },
     "118": {
       "status": "active",
