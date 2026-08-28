@@ -465,8 +465,8 @@
     },
     "100": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/use/configuration.md"
+      "mechanism": "gate",
+      "where": "scripts/check_step_deadlines.py — у шага, который ходит в сеть (установка, скачивание артефакта, клон), свой timeout-minutes: общий предел job'а старт не покрывает, и зависшая установка съедала бы его целиком"
     },
     "101": {
       "status": "active",
@@ -659,8 +659,8 @@
     },
     "141": {
       "status": "active",
-      "mechanism": "none",
-      "where": "маркеры комментариев и префикс ветки agent/ сверяются в коде по-разному; единого требования сверять целой строкой нет"
+      "mechanism": "gate",
+      "where": "scripts/check_marker_matching.py — константа-маркер не подставляется в startswith/removeprefix; префикс от маркера отличается именем, и это названо в самих константах"
     },
     "142": {
       "status": "active",

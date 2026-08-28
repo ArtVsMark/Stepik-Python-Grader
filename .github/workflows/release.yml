@@ -47,6 +47,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: pip install -e ".[dev]"
 
       - name: Ruff lint
@@ -122,11 +123,13 @@ jobs:
       # файлом `_build_info.json`; окно лаунчера потом только читает его —
       # без git и без подпроцессов (issue #1166/#1149).
       - name: Build info for the package (issue #1262)
+        timeout-minutes: 10
         run: |
           python -m pip install --upgrade "setuptools-scm>=8"
           python scripts/generate_build_info.py
 
       - name: Build sdist and wheel
+        timeout-minutes: 10
         run: |
           python -m pip install --upgrade build
           python -m build
@@ -137,6 +140,7 @@ jobs:
       # PyPI неперезаписываема, откатить публикацию нечем. Заодно проверяем, что
       # сборка вообще что-то произвела: пустой `dist/` дальше пойти не должен.
       - name: Check built artifacts
+        timeout-minutes: 10
         run: |
           python -m pip install --upgrade twine
           if [ -z "$(ls -A dist 2>/dev/null)" ]; then
@@ -182,6 +186,7 @@ jobs:
 
       # issue #559: артефакт из job `build` — без повторной сборки.
       - name: Download dist artifact
+        timeout-minutes: 5
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
@@ -245,6 +250,7 @@ jobs:
     steps:
       # issue #559: тот же артефакт из job `build` — publish без повторной сборки.
       - name: Download dist artifact
+        timeout-minutes: 5
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist

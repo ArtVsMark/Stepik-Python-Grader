@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 44 |
+| **гейт** | падает в CI или в `preflight.py` | 45 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 43 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 42 |
 
-**Не объявлено: 43.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 42.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -103,7 +103,7 @@
 | [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | не объявлено |
 | [Единица дробления определяется употреблением, а не формальным признаком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/098-the-unit-of-splitting-follows-usage.md) | `docs/dev/glossary.md` | не объявлено |
 | [Конфликт классификации разрешается по последствию, а не по правильности](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/099-classification-conflicts-resolve-by-consequence.md) | `docs/dev/glossary.md` | не объявлено |
-| [Дедлайнов два: на запуск и на работу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/100-two-deadlines-start-and-work.md) | `docs/use/configuration.md` | не объявлено |
+| [Дедлайнов два: на запуск и на работу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/100-two-deadlines-start-and-work.md) | `docs/use/configuration.md` | гейт |
 | [Повторяют только те отказы, которые могут пройти сами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/101-retry-only-what-can-heal-itself.md) | `docs/use/installation.md` | гейт |
 | [Снисхождение перечисляется таблицей и отключается режимом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/102-leniency-is-enumerated-and-switchable.md) | `docs/use/configuration.md` | гейт |
 | [Сторож побочных эффектов обвиняет не виновника — и исключения задаются формой](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/103-a-side-effect-guard-blames-the-wrong-suspect.md) | `tests/conftest.py` | гейт |

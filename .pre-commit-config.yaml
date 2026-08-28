@@ -140,6 +140,20 @@ repos:
         pass_filenames: false
         files: '^(docs/.*|\.github/.*|\.rules/.*|scripts/generate_.*\.py)$'
 
+      - id: check-marker-matching
+        name: маркер сверяется целиком, а не началом
+        entry: python scripts/check_marker_matching.py
+        language: system
+        pass_filenames: false
+        files: '^(scripts|src|tests|\\.claude/hooks)/.*\\.py$'
+
+      - id: check-step-deadlines
+        name: у сетевого шага свой дедлайн
+        entry: python scripts/check_step_deadlines.py
+        language: system
+        pass_filenames: false
+        files: '^\\.github/workflows/.*\\.yml$'
+
       - id: check-three-outcomes
         name: у проверки три исхода, а не два
         entry: python scripts/check_three_outcomes.py

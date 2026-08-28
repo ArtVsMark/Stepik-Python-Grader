@@ -171,6 +171,8 @@ jobs:
           python scripts/check_generated_sources.py
           python scripts/check_showcase_links.py
           python scripts/check_three_outcomes.py
+          python scripts/check_marker_matching.py
+          python scripts/check_step_deadlines.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
@@ -198,6 +200,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: pip install -e ".[dev]"
 
       # issue #791: версию ruff задаёт ровно одно место — `[dev]` в
@@ -304,6 +307,7 @@ jobs:
           allow-prereleases: true
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: pip install -e ".[dev]"
 
       # issue #420: в матрице test bubblewrap НАМЕРЕННО не ставится — sandbox-тесты
@@ -449,9 +453,11 @@ jobs:
       # через stepik_grader.glossary — пакет нужен установленным, одного
       # `coverage` уже недостаточно.
       - name: Install coverage and the package
+        timeout-minutes: 10
         run: pip install coverage -e .
 
       - name: Download coverage data from all OS jobs
+        timeout-minutes: 5
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: coverage-data-*
@@ -461,6 +467,7 @@ jobs:
       # issue #808 (SUP-04): per-OS отчёт ubuntu-job'а — в отдельный каталог,
       # чтобы combine ниже не перезаписал его своим общим coverage.xml.
       - name: Download ubuntu coverage.xml (issue #808)
+        timeout-minutes: 5
         if: github.event_name == 'push' || github.event_name == 'schedule'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
@@ -623,6 +630,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies (dev + e2e extras)
+        timeout-minutes: 10
         run: pip install -e ".[dev,e2e]"
 
       # Ключ кеша — ФАКТИЧЕСКАЯ версия playwright, а не хеш pyproject.toml.
@@ -632,6 +640,7 @@ jobs:
       # нужного билда браузера в нём нет. Установка при этом скипалась, и e2e
       # падал 23 ошибками «Executable doesn't exist».
       - name: Resolve Playwright version
+        timeout-minutes: 10
         id: pw
         run: |
           version=$(python -c "import importlib.metadata as m; print(m.version('playwright'))")
@@ -640,6 +649,7 @@ jobs:
 
       # Cache Chromium's downloaded binary (~100+ MB) across runs.
       - name: Cache Playwright browsers
+        timeout-minutes: 10
         id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -651,6 +661,7 @@ jobs:
       # любом случае. Так работоспособность job'а не зависит от того, угадал ли
       # кеш, — он остаётся ускорением, а не условием корректности.
       - name: Install Playwright Chromium + OS deps
+        timeout-minutes: 10
         run: playwright install --with-deps chromium
 
       # issue #790: STEPIK_REQUIRE_E2E_TESTS=1 включает guard'ы
@@ -690,6 +701,7 @@ jobs:
           python-version: "3.12"
 
       - name: Download test reports from all matrix jobs
+        timeout-minutes: 5
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: test-results-*
@@ -747,6 +759,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: pip install -e ".[dev]"
 
       # STEPIK_REQUIRE_SANDBOX_TESTS=1 превращает молчаливый skip Linux-песочницы
@@ -801,6 +814,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package (runtime deps) + pip-audit
+        timeout-minutes: 10
         run: |
           python -m pip install --upgrade pip
           pip install . pip-audit
@@ -822,6 +836,7 @@ jobs:
       # оставляет. Разбор — скриптом, у которого есть тесты: иначе получился бы
       # ещё один guard, зелёный независимо от того, работает ли он.
       - name: pip-audit (informational, non-blocking)
+        timeout-minutes: 10
         run: |
           pip-audit --skip-editable --progress-spinner=off \
             --format=json --output=pip-audit.json || true

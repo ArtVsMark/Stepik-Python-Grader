@@ -106,6 +106,14 @@ _RUNNERS: dict[str, tuple[str, str]] = {
     "check_ruff_pin.py": (".github/workflows/ci.yml", "пины инструментов вердикта"),
     "check_secret_dumps.py": (".github/workflows/ci.yml", "реестр точек дампа секретов"),
     "check_test_isolation.py": (".github/workflows/ci.yml", "изоляция тестов"),
+    "check_marker_matching.py": (
+        ".github/workflows/ci.yml",
+        "правило 141: константа-маркер сверяется целиком, а не началом",
+    ),
+    "check_step_deadlines.py": (
+        ".github/workflows/ci.yml",
+        "правило 100: у сетевого шага свой дедлайн — общий предел job'а старт не покрывает",
+    ),
     "check_three_outcomes.py": (
         ".github/workflows/ci.yml",
         "правило 039: скрипт, ходящий в GitHub, отличает «не отработала» от «чисто»",

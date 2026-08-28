@@ -130,9 +130,15 @@ _ISSUE_TAIL_RE = re.compile(r"#\d+(?:\.\d+)?")
 # docs/agent/ — указатели вроде roadmap-issue. Снижать при чистке, не повышать:
 # рост бюджета означает, что журнал снова пополз в объясняющий текст.
 _DESIGN_TAIL_BUDGET = 22
-#: Первая строка файла, собранного скриптом: номера задач в нём — данные
+#: Начало первой строки файла, собранного скриптом: номера задач в нём — данные
 #: (след правила), а не рабочий журнал (issue #1342).
-_GENERATED_MARKER = "<!-- СГЕНЕРИРОВАНО"
+#:
+#: Именно ПРЕФИКС, а не маркер, и имя об этом говорит: за словом идёт путь к
+#: генератору, который у каждого файла свой. Маркер сверяют целиком (правило
+#: 141), префикс — началом, и подменять одно другим нельзя ни в коде, ни в
+#: названии. Полноту шапки (генератор назван и существует) проверяет
+#: `check_generated_sources.py`.
+_GENERATED_PREFIX = "<!-- СГЕНЕРИРОВАНО"
 
 _AGENT_TAIL_BUDGET = 6
 
@@ -545,7 +551,7 @@ def check_issue_tail_policy(errors: list[str]) -> None:
             continue
         text = md.read_text(encoding="utf-8")
         # issue #1342: файл собран скриптом — номера в нём данные, а не журнал.
-        if text.lstrip().startswith(_GENERATED_MARKER):
+        if text.lstrip().startswith(_GENERATED_PREFIX):
             generated += 1
             continue
         tails = _ISSUE_TAIL_RE.findall(text)
