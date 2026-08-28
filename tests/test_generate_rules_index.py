@@ -189,9 +189,16 @@ def test_gate_word_in_the_incident_does_not_count(generator: ModuleType, tmp_pat
     text = _rule("ArtVsMark/Stepik-Python-Grader#3").replace(
         "Что-то сломалось.", "Гейт в CI тогда ещё не падал, и preflight молчал."
     )
-    catalogue = _catalogue(tmp_path, {"022-соблазн.md": text})
+    catalogue = _catalogue(tmp_path / "cat", {"022-соблазн.md": text})
+    # Ответ проекта берётся из пустого дерева намеренно: предмет теста —
+    # слово «гейт» в прозе каталога, а не то, что этот номер значит у нас.
+    # Без этого тест краснел бы от чужой правки `.rules/bindings.json`.
+    root = tmp_path / "repo"
+    root.mkdir()
 
-    assert generator.collect_rules(catalogue)[0].mechanism == "не объявлено"
+    rules = generator.collect_rules(catalogue, repo_root=root)
+
+    assert rules[0].mechanism == "не объявлено"
 
 
 # ---------------------------------------------------------------------------
