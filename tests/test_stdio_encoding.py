@@ -39,6 +39,12 @@ _ENTRY_POINTS = (
 # Автономные скрипты: пакет не импортируют принципиально (работают в CI без
 # `pip install -e .`), поэтому держат собственную копию приёма. Общий хелпер им
 # не подходит — проверяем, что копия на месте.
+#
+# issue #1394: список ниже остался как **явное** объявление того, что эти файлы
+# автономны, но охват им больше не задаётся. Охват вычисляется признаком
+# (`scripts_printing_non_ascii`): ровно потому, что ручной список не растёт
+# вместе с каталогом — новый гейт `check_adr_records.py` в него не попал и
+# покраснел на трёх Windows-джобах сразу, уже четвёртым повтором дефекта.
 _STANDALONE_SCRIPTS = (
     "scripts/check_docs_guardrails.py",
     "scripts/check_pr_ready.py",
@@ -60,6 +66,33 @@ _GATES = ("scripts/preflight.py", "scripts/check_pr_ready.py", "scripts/gh_rest.
 # `check_work_overlap.py`. Guard следит за наличием защиты, а не за её
 # оформлением: требовать одну форму значило бы ломать рабочий код ради стиля.
 _CALL_RE = re.compile(r"\b_?force_utf8_std(io|out)\(\)|reconfigure\(\s*encoding=[\"']utf-8[\"']")
+
+
+def scripts_printing_non_ascii() -> list[pathlib.Path]:
+    """Скрипты, которым защита кодировки нужна по признаку, а не по списку.
+
+    Признак ровно тот, из которого дефект и вырастает: файл запускается как
+    процесс (есть ``__main__``) и несёт в строковых литералах символы вне
+    ASCII, то есть первая же печать в узкой консоли Windows уронит его
+    ``UnicodeEncodeError`` — вместо результата проверки покажется её падение.
+    """
+    found: list[pathlib.Path] = []
+    for path in sorted((_ROOT / "scripts").glob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        if "__main__" not in source:
+            continue
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:  # pragma: no cover — синтаксис стережёт ruff
+            continue
+        if any(
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and any(ord(char) > 127 for char in node.value)
+            for node in ast.walk(tree)
+        ):
+            found.append(path)
+    return found
 
 
 class _FakeStream:
@@ -126,6 +159,30 @@ class TestEntryPointCoverage:
             f"{relative}: точка входа не зовёт force_utf8_stdio() — в консоли cp1251 "
             f"она упадёт UnicodeEncodeError на первом же эмодзи (issue #1108)"
         )
+
+    def test_every_printing_script_is_protected(self) -> None:
+        """Охват задаётся признаком: список не растёт вместе с каталогом.
+
+        Прецедент (issue #1394): приём был, guard был, а новый гейт в его
+        список никто не вписал — и три джоба Windows покраснели на печати
+        собственного зелёного результата.
+        """
+        unprotected = [
+            path.relative_to(_ROOT).as_posix()
+            for path in scripts_printing_non_ascii()
+            if not _CALL_RE.search(path.read_text(encoding="utf-8"))
+        ]
+
+        assert not unprotected, (
+            "скрипт печатает не-ASCII и упадёт в консоли cp1251/cp866:\n  "
+            + "\n  ".join(unprotected)
+            + "\nДобавьте reconfigure(encoding='utf-8') на уровне модуля "
+            "(образец — scripts/check_secret_dumps.py)."
+        )
+
+    def test_the_shape_finds_the_scripts_at_all(self) -> None:
+        """Признак, который никого не находит, — зелёный по недосмотру."""
+        assert len(scripts_printing_non_ascii()) > 20
 
     @pytest.mark.parametrize("relative", _STANDALONE_SCRIPTS)
     def test_standalone_script_keeps_its_own_copy(self, relative: str) -> None:

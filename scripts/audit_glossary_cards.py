@@ -33,11 +33,18 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
 from collections import Counter
 
 from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR, JsonGlossaryProvider
 from stepik_grader.glossary.models import GlossaryCard
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
     "MAX_CARDS_WITHOUT_EN",

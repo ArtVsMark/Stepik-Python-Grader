@@ -21,10 +21,17 @@ verify остаются зелёными, а на PyPI уезжает wheel бе
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fnmatch
 import pathlib
 import sys
 import zipfile
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
     "REQUIRED_PATTERNS",
