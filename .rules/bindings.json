@@ -684,8 +684,8 @@
     },
     "147": {
       "status": "active",
-      "mechanism": "none",
-      "where": "условия if в workflow отменяют джобы молча (merge-queue.yml, report-failures в ci.yml): «не совпало» и «совпало, но делать нечего» дают один наблюдаемый исход"
+      "mechanism": "gate",
+      "where": "scripts/check_orphan_branches.py"
     },
     "148": {
       "status": "active",
