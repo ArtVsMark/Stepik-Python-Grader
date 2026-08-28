@@ -36,7 +36,15 @@ from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
+import contextlib
+
 import gh_rest
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
     "CHECKS",

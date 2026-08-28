@@ -25,8 +25,15 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import pathlib
 import sys
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = ["main", "marker_names", "markers_matched_by_prefix"]
 
