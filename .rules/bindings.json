@@ -57,13 +57,13 @@
     },
     "012": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "gate",
+      "where": ".claude/hooks/pre_tool_use.py — пуш в ветку, отличную от текущей, отвергается до вызова git; CI такое поймать не может, он видит артефакт, а не действие"
     },
     "013": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "gate",
+      "where": ".claude/hooks/pre_tool_use.py — heredoc без кавычек в делимитере с экранированием в теле отвергается до записи файла"
     },
     "014": {
       "status": "active",
@@ -416,8 +416,8 @@
     },
     "089": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/glossary.md"
+      "mechanism": "gate",
+      "where": "scripts/check_showcase_links.py — данные карточек, локали и разметка веб-слоя не содержат ссылки на внешнюю витрину; объяснения в комментариях и docstring разрешены"
     },
     "090": {
       "status": "not-applicable",
@@ -549,8 +549,8 @@
     },
     "118": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/use/grader-workflow.md"
+      "mechanism": "gate",
+      "where": "scripts/check_generated_sources.py — файл с шапкой «СГЕНЕРИРОВАНО» называет генератор, и тот существует"
     },
     "119": {
       "status": "active",
@@ -654,8 +654,8 @@
     },
     "140": {
       "status": "active",
-      "mechanism": "none",
-      "where": "у части гардов двусторонние тесты есть (test_check_workflow_guardrails.py, test_check_audit_registry.py), но требования прогонять отвергаемый предмет по каждому scripts/check_*.py ничто не держит"
+      "mechanism": "gate",
+      "where": "scripts/check_gate_tests.py — у каждого scripts/check_*.py есть тест с прогоном отвергаемого предмета; объявленный долг перечислен в KNOWN_DEBT с причиной"
     },
     "141": {
       "status": "active",

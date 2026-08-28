@@ -126,6 +126,27 @@ repos:
         language: system
         pass_filenames: false
         files: '^\.claude/settings\.json$'
+      - id: check-gate-tests
+        name: у гейта есть прогон того, что он обязан отвергнуть
+        entry: python scripts/check_gate_tests.py
+        language: system
+        pass_filenames: false
+        files: '^(scripts/check_.*\.py|tests/test_.*\.py)$'
+
+      - id: check-generated-sources
+        name: у производного файла назван живой исходник
+        entry: python scripts/check_generated_sources.py
+        language: system
+        pass_filenames: false
+        files: '^(docs/.*|\.github/.*|\.rules/.*|scripts/generate_.*\.py)$'
+
+      - id: check-showcase-links
+        name: оригинал не ссылается на свою витрину
+        entry: python scripts/check_showcase_links.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/(glossary/data|locales|web/static)/.*$'
+
       - id: check-rule-bindings
         name: ответ каталогу правил сходится с фактом
         entry: python scripts/check_rule_bindings.py

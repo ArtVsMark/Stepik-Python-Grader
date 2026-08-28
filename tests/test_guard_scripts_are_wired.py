@@ -51,6 +51,18 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",
     ),
     "check_docs_guardrails.py": (".github/workflows/ci.yml", "бюджеты и ссылки документации"),
+    "check_gate_tests.py": (
+        ".github/workflows/ci.yml",
+        "правило 140: у гейта есть прогон того, что он обязан отвергнуть",
+    ),
+    "check_generated_sources.py": (
+        ".github/workflows/ci.yml",
+        "правило 118: у производного файла назван живой исходник",
+    ),
+    "check_showcase_links.py": (
+        ".github/workflows/ci.yml",
+        "правило 089: оригинал не ссылается на свою витрину",
+    ),
     "check_glossary_examples.py": (
         ".github/workflows/ci.yml",
         "предмет — файлы базы глоссария: проверяется на каждый PR, как и прочие "

@@ -88,7 +88,8 @@ class TestGuard:
     _SETTINGS = json.dumps(
         {
             "hooks": {
-                "SessionStart": [{"hooks": [{"command": "python .claude/hooks/session_start.py"}]}]
+                "SessionStart": [{"hooks": [{"command": "python .claude/hooks/session_start.py"}]}],
+                "PreToolUse": [{"hooks": [{"command": "python .claude/hooks/pre_tool_use.py"}]}],
             }
         }
     )
@@ -114,14 +115,19 @@ class TestGuard:
         assert len(errors) == 1
         assert "не названо в дайджесте" in errors[0]
 
-    def test_unregistered_hook_is_red(self) -> None:
-        """Дайджест без хука — документ, который никто не открывает."""
+    def test_unregistered_hooks_are_red(self) -> None:
+        """Дайджест без хука — документ, который никто не открывает.
+
+        Проверяются оба требуемых события: снятый `PreToolUse` осиротит правила
+        012 и 013 так же молча, как снятый `SessionStart` — весь второй рубеж.
+        """
         errors: list[str] = []
 
         guard.check_hook_is_registered(errors, json.dumps({"hooks": {}}))
 
-        assert len(errors) == 1
-        assert "SessionStart" in errors[0]
+        assert len(errors) == len(guard._REQUIRED_HOOKS)
+        assert any("SessionStart" in error for error in errors)
+        assert any("PreToolUse" in error for error in errors)
 
     def test_declared_hook_must_exist_in_the_repository(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
@@ -137,8 +143,8 @@ class TestGuard:
 
         guard.check_hook_is_registered(errors, self._SETTINGS)
 
-        assert len(errors) == 1
-        assert "нет в репозитории" in errors[0]
+        assert len(errors) == len(guard._REQUIRED_HOOKS)
+        assert all("нет в репозитории" in error for error in errors)
 
     def test_hook_file_is_tracked_by_git(self) -> None:
         """Живой предмет: файл хука виден git, а не только файловой системе."""
@@ -152,10 +158,11 @@ class TestGuard:
             cwd=_ROOT,
         ).stdout
 
-        assert "session_start.py" in tracked, (
-            "хук не отслеживается git: в чистом клоне его не будет, "
-            "а настройки продолжат его объявлять"
-        )
+        for script in guard._REQUIRED_HOOKS.values():
+            assert script in tracked, (
+                f"хук {script} не отслеживается git: в чистом клоне его не будет, "
+                "а настройки продолжат его объявлять"
+            )
 
     def test_registered_hook_passes(self) -> None:
         errors: list[str] = []
