@@ -120,12 +120,18 @@ class _GraderServer(ThreadingHTTPServer):
         confine: bool,
         sandbox: bool = False,
         record_history: bool = True,
+        expose_usage: bool = False,
         lang: str = "ru",
     ) -> None:
         self.workspace = workspace
         self.confine = confine
         self.sandbox = sandbox
         self.record_history = record_history
+        # issue #1365: журнал прогонов наружу отдаётся только по явной просьбе.
+        # Умолчание «выключено» здесь не осторожность ради осторожности:
+        # эндпоинт открывает соседнему инструменту то, что человек включал для
+        # себя (`--stats`), и решение поделиться принимает он, а не умолчание.
+        self.expose_usage = expose_usage
         # issue #1131: нормализуем здесь, а не у вызывающего, — тогда защищён
         # любой путь создания сервера, включая тесты и будущих потребителей.
         self.lang = resolve_lang(lang)
@@ -229,6 +235,7 @@ def run_server(
     confine: bool = True,
     sandbox: bool = False,
     record_history: bool = True,
+    expose_usage: bool = False,
     lang: str = DEFAULT_LANG,
 ) -> None:
     """Запустить веб-интерфейс на http://host:port (Ctrl+C — остановить).
@@ -255,6 +262,13 @@ def run_server(
     браузерной аудитории история включена по умолчанию; ``--no-history``
     выключает. Ставит оверрайд в ``viewmodels`` (``CONFIG`` — frozen).
 
+    ``expose_usage`` (issue #1365, по умолчанию ``False``) — отдавать ли
+    ``GET /api/v1/usage``: журнал прогонов в объявленной схеме для соседнего
+    инструмента. Выключено по умолчанию и включается явным ``--expose-usage``:
+    эндпоинт открывает читателю то, что человек копил для себя, и решение
+    поделиться принимает он. Сеть при этом не появляется — сервер и так слушает
+    только localhost, а сам экспорт никуда не ходит.
+
     ``lang`` (issue #1131, находка LNCH-2-05) — язык, на котором открывается
     страница при первом заходе. Прежде фронт брал его только из
     ``localStorage`` с откатом на ``ru``, поэтому ``--serve --lang en``
@@ -280,6 +294,7 @@ def run_server(
         confine=confine,
         sandbox=sandbox,
         record_history=record_history,
+        expose_usage=expose_usage,
         lang=lang,
     )
     url = f"http://{host}:{port}"

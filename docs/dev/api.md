@@ -33,6 +33,7 @@
 - [`GET /api/rules/<code>`](#get-apirulescode)
 - [`GET /api/insights`](#get-apiinsights)
 - [`GET /api/progress`](#get-apiprogress)
+- [`GET /api/v1/usage`](#get-apiv1usage)
 - [`POST /api/code-terms`](#post-apicode-terms)
 - [`GET /api/commands`](#get-apicommands)
 - [`POST /api/download`](#post-apidownload)
@@ -352,6 +353,35 @@ runs_considered, glossary_id}`; `status` ∈ `active|fading|watch` (архивн
 ```
 curl http://127.0.0.1:8000/api/insights
 ```
+
+## `GET /api/v1/usage`
+
+Журнал прогонов для соседнего инструмента — то же, что отдаёт CLI
+`stepik-grader usage`, но через локальный HTTP.
+
+**Выключен по умолчанию.** Без `--expose-usage` отвечает **404** с
+`message_id: usage_endpoint_disabled` — снаружи выключенный эндпоинт выглядит
+отсутствующим, а не запертым. Включается вместе с сервером:
+
+```
+stepik-grader --serve --expose-usage
+curl http://127.0.0.1:8000/api/v1/usage
+```
+
+**200** — объект:
+
+- `schema` — версия формата (`stepik-grader/usage/1`), она же в каждой записи;
+- `events` — записи журнала, старые сверху; поля закрыты списком
+  (`ts`, `mode`, `os`, `verdicts`, `total_time`, `isolation`);
+- `skipped` — сколько строк журнала не разобралось. «Пусто» и «всё побилось»
+  отличаются именно этим полем.
+
+Параметр `?since=<epoch>` отдаёт записи не старше отметки. Мусор в параметре
+означает «границы нет», а не отказ: клиент здесь соседний инструмент, и молча
+отдать всё безопаснее, чем ответить ошибкой на опечатку в необязательном поле.
+
+Ничего сверх журнала эндпоинт не собирает и никуда не ходит — как и сам экспорт
+(`SECURITY.md`, [docs/dev/usage-export.md](usage-export.md)).
 
 ## `GET /api/progress`
 

@@ -49,6 +49,7 @@ from stepik_grader.web.settings_adapter import (
     set_flag,
 )
 from stepik_grader.web.statement_adapter import read_image, read_statement
+from stepik_grader.web.usage_adapter import usage_snapshot
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
@@ -60,6 +61,22 @@ from stepik_grader.web.viewmodels import (
 )
 
 __all__ = ["_ApiRoutesMixin"]
+
+
+def _since_from_query(query: dict[str, list[str]]) -> float | None:
+    """Нижняя граница по времени из ``?since=`` — или ``None``.
+
+    Мусор в параметре означает «границы нет», а не ноль и не отказ: клиент
+    здесь соседний инструмент, и молча отдать ему ВСЁ безопаснее, чем ответить
+    ошибкой на опечатку в необязательном параметре (issue #1365).
+    """
+    raw = (query.get("since") or [""])[0]
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
 
 # issue #259 (A-2): API — не server-ready без лимитов на входные данные.
 # Тело POST ограничено 1 MiB (413 при превышении); repeats/number из query
@@ -150,6 +167,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/tasks/index": "_get_tasks_index",
         "/api/auth/status": "_get_auth_status",
         "/api/downloader/config": "_get_downloader_config",
+        "/api/v1/usage": "_get_usage",
     }
     _API_GET_PREFIX = (
         ("/api/v1/runs/", "_get_run_status"),
@@ -359,6 +377,35 @@ class _ApiRoutesMixin(_GuardMixin):
         # issue #538: агрегатный отчёт прогресса (KPI solved/total, вердикты,
         # TTFG по задачам в ``tasks``) — тот же движок, что CLI --export-progress.
         self._send(200, "application/json; charset=utf-8", _json(progress_report()))
+
+    def _get_usage(self, parsed: Any, lang: str) -> None:
+        """GET /api/v1/usage (issue #1365) — журнал прогонов для соседнего инструмента.
+
+        Отдаёт то же, что CLI-команда ``usage``: события в схеме
+        ``stepik-grader/usage/1`` и число пропущенных строк. Ничего не собирает
+        сверх журнала — это чтение уже накопленного, а не телеметрия, заведённая
+        боком.
+
+        **Выключено по умолчанию.** Без ``--expose-usage`` эндпоинт отвечает
+        404, как несуществующий: журнал человек копил для себя (``--stats``), и
+        решение поделиться им с соседним инструментом принимает он, а не
+        умолчание. 404, а не 403, — потому что снаружи выключенный эндпоинт и
+        должен выглядеть отсутствующим, а не запертым.
+        """
+        if not getattr(self.server, "expose_usage", False):
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("usage_endpoint_disabled", lang)}),
+            )
+            return
+
+        since = _since_from_query(parse_qs(parsed.query))
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json(usage_snapshot(since=since)),
+        )
 
     def _get_rule_card(self, parsed: Any, lang: str) -> None:
         # issue #969: коды правил ASCII, но декодируем по той же причине —

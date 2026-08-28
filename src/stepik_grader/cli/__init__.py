@@ -982,6 +982,9 @@ def main(argv: list[str] | None = None) -> ExitCode:
                 root=args.root,
                 confine=not args.no_root_confinement,
                 sandbox=args.sandbox,
+                # issue #1365: `GET /api/v1/usage` появляется только с этим
+                # флагом; без него отвечает 404, как несуществующий.
+                expose_usage=args.expose_usage,
                 # issue #395: для --serve история включена по умолчанию
                 # (локальная приватная БД наполняет «Подучить»); --no-history
                 # выключает. Отличие от режимов 1-4, где дефолт — opt-in.
