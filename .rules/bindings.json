@@ -126,8 +126,8 @@
     },
     "027": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/claude-handoff.md"
+      "mechanism": "gate",
+      "where": "scripts/nightly_checks.py — чистый обход пишет в задачу «Находок нет» с датой и числом проверок, а не оставляет пустое тело; docs/audit/README.md и docs/agent/claude-handoff.md объявляют пустоту словами"
     },
     "028": {
       "status": "not-applicable",
@@ -182,8 +182,8 @@
     },
     "039": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/supply-chain.md"
+      "mechanism": "gate",
+      "where": "scripts/check_three_outcomes.py — скрипт, ходящий в GitHub, обязан отличать отказ источника от результата (RateLimited → EXIT_WAIT, GitHubError → код 2); объявленный долг перечислен в KNOWN_DEBT с причиной"
     },
     "040": {
       "status": "active",
@@ -470,13 +470,13 @@
     },
     "101": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/use/installation.md"
+      "mechanism": "gate",
+      "where": "scripts/gh_rest.py — временный отказ отличается от постоянного по ответу сервера: 403/429 с исчерпанным остатком или Retry-After поднимают RateLimited («ждать»), а 401/403 без них — GitHubError («повтор не поможет»); названная сервером пауза важнее расчётной"
     },
     "102": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/use/configuration.md"
+      "mechanism": "gate",
+      "where": "src/stepik_grader/core/normalizers.py — каждое послабление сравнения названо и объяснено (хвостовые пробелы, пустые строки в конце), а режим strict сверяет побайтово; закреплено tests/test_output_comparison.py"
     },
     "103": {
       "status": "active",
@@ -534,13 +534,13 @@
     },
     "115": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/use/configuration.md"
+      "mechanism": "gate",
+      "where": "src/stepik_grader/config.py — _dirs_up_to_boundary поднимается только до границы проекта или домашнего каталога (issue #993), якорь один на все поверхности; закреплено tests/test_config.py"
     },
     "116": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/archive/audit-2026-07-30-full-roles.md"
+      "mechanism": "gate",
+      "where": "scripts/combine_coverage.py — сборщик сверяет пришедшие источники с названными (--require) и при недостаче включает degraded вместо молчаливого недосчёта; закреплено tests/test_combine_coverage.py"
     },
     "117": {
       "status": "active",
@@ -564,8 +564,8 @@
     },
     "121": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/claude-handoff.md"
+      "mechanism": "gate",
+      "where": "scripts/check_container_closure.py — ночной обход сверяет состояние эпика со счётчиком незакрытых дочерних задач: закрытый контейнер с открытой работой становится находкой с адресатом"
     },
     "122": {
       "status": "active",
@@ -664,8 +664,8 @@
     },
     "142": {
       "status": "active",
-      "mechanism": "none",
-      "where": "ночной прогон tracker-guardrails.yml печатает находки в summary прогона — адресата у них нет, и красное на вкладке прогонов им не является"
+      "mechanism": "gate",
+      "where": "scripts/nightly_checks.py — ночной обход ведёт одну задачу с меткой «ночной обход»: пока находки есть, она открыта и обновляется, стало чисто — закрывается; красным прогон при этом не становится, потому что красное на вкладке прогонов адресатом не является"
     },
     "144": {
       "status": "active",

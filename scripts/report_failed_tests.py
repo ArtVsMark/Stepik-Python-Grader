@@ -201,13 +201,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(body)
         return gh_rest.EXIT_OK
 
-    existing = _existing_comment(args.repo, args.pr)
-    if existing is None:
-        gh_rest.comment_issue(args.repo, args.pr, body)
-        print(f"сводка добавлена в PR #{args.pr}")
-    else:
-        gh_rest.update_comment(args.repo, existing, body)
-        print(f"сводка обновлена в PR #{args.pr} (комментарий {existing})")
+    # Третий исход (правило 039): «сводку опубликовали» и «GitHub не ответил» —
+    # разные вещи. Без этого шаг зеленел бы при отсутствии прав, то есть о
+    # молчании канала не узнал бы никто — а канал здесь и есть весь смысл.
+    try:
+        existing = _existing_comment(args.repo, args.pr)
+        if existing is None:
+            gh_rest.comment_issue(args.repo, args.pr, body)
+            print(f"сводка добавлена в PR #{args.pr}")
+        else:
+            gh_rest.update_comment(args.repo, existing, body)
+            print(f"сводка обновлена в PR #{args.pr} (комментарий {existing})")
+    except gh_rest.RateLimited as exc:
+        print(f"квота исчерпана, сводка не опубликована: {exc}", file=sys.stderr)
+        return gh_rest.EXIT_WAIT
+    except gh_rest.GitHubError as exc:
+        print(f"сводка не опубликована — GitHub отказал: {exc}", file=sys.stderr)
+        return 2
     return gh_rest.EXIT_OK
 
 

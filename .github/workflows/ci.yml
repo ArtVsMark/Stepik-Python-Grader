@@ -170,6 +170,7 @@ jobs:
           python scripts/check_gate_tests.py
           python scripts/check_generated_sources.py
           python scripts/check_showcase_links.py
+          python scripts/check_three_outcomes.py
 
   # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
   # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают

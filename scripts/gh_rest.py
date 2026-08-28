@@ -1253,13 +1253,22 @@ def disable_auto_merge(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
     return result if isinstance(result, dict) else {}
 
 
-def issues_with_label(repo: str, label: str, **kwargs: Any) -> list[dict[str, Any]]:
-    """Открытые issue и PR с указанной меткой (один запрос вместо перебора).
+def issues_with_label(
+    repo: str, label: str, *, state: str = "open", **kwargs: Any
+) -> list[dict[str, Any]]:
+    """Issue и PR с указанной меткой (один запрос вместо перебора).
 
     GitHub отдаёт PR через тот же эндпоинт issue, помечая их полем
     ``pull_request`` — по нему вызывающая сторона и отличает одно от другого.
+
+    Args:
+        repo: владелец/репозиторий.
+        label: метка.
+        state: ``open`` (по умолчанию), ``closed`` или ``all``. Умолчание
+            открытое: почти всем зовущим нужна живая работа, а закрытые нужны
+            там, где предмет — само закрытие (`check_container_closure.py`).
     """
-    query = urllib.parse.urlencode({"labels": label, "state": "open", "per_page": 100})
+    query = urllib.parse.urlencode({"labels": label, "state": state, "per_page": 100})
     data = _get(f"repos/{repo}/issues?{query}", **kwargs)
     items = data if isinstance(data, list) else []
     return [item for item in items if isinstance(item, dict)]
