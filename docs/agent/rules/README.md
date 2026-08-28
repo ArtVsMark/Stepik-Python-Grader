@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 46 |
+| **гейт** | падает в CI или в `preflight.py` | 50 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 41 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 37 |
 
-**Не объявлено: 41.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 37.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -50,8 +50,8 @@
 | [Код с экранированием писать файлом, а не heredoc'ом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/013-write-escapes-to-file-not-heredoc.md) | `docs/agent/preflight.md` | гейт |
 | [«Тест краснеет до фикса» доказывается полу-откатом, а не откатом всего](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/014-red-before-fix-needs-partial-revert.md) | `docs/agent/preflight.md` | не объявлено |
 | [Агенты возвращают данные — файлы правит хост](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/015-agents-return-data-host-writes-files.md) | `docs/agent/multiagent.md` | не объявлено |
-| [Обрезать вывод молча нельзя — только с маркером обрыва](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/016-no-silent-truncation.md) | `docs/agent/multiagent.md` | не объявлено |
-| [Остаток лимита мерить, а не угадывать — и смотреть первым шагом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/017-measure-quota-do-not-guess.md) | `docs/agent/preflight.md` | не объявлено |
+| [Обрезать вывод молча нельзя — только с маркером обрыва](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/016-no-silent-truncation.md) | `docs/agent/multiagent.md` | гейт |
+| [Остаток лимита мерить, а не угадывать — и смотреть первым шагом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/017-measure-quota-do-not-guess.md) | `docs/agent/preflight.md` | гейт |
 | [Одно окружение проверяет узлы, другое — цепочку](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/018-cloud-checks-nodes-local-checks-chain.md) | `docs/agent/environments.md` | не объявлено |
 | [Аудит планируется от поверхностей продукта, а не от файлов](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/019-audit-from-surfaces-not-files.md) | `docs/agent/multiagent.md` | не объявлено |
 | [После сбоя перезапускать дельту, а не всю волну](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/020-restart-only-the-delta.md) | `docs/agent/multiagent.md` | не объявлено |
@@ -73,7 +73,7 @@
 | [Сбор и разбор — разные проходы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/054-collect-and-analyse-are-separate-passes.md) | `docs/agent/course-walkthrough.md` | не объявлено |
 | [Собственный эталон — тоже гипотеза](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/055-your-own-expectations-are-a-hypothesis.md) | `docs/agent/course-walkthrough.md` | не объявлено |
 | [Правило, которое нельзя проверить машиной, называется явно](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/057-unmechanizable-rules-are-named-explicitly.md) | `docs/agent/preflight.md` | не объявлено |
-| [Исчерпав квоту — остановиться, а не повторять](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/058-when-the-quota-is-out-stop.md) | `docs/agent/preflight.md` | не объявлено |
+| [Исчерпав квоту — остановиться, а не повторять](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/058-when-the-quota-is-out-stop.md) | `docs/agent/preflight.md` | гейт |
 | [У каждого исчерпаемого ресурса есть заранее составленная карта обхода](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/059-map-the-detour-before-the-resource-runs-out.md) | `docs/agent/preflight.md` | не объявлено |
 | [Разбор после каждой волны, и качество важнее механики](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/060-debrief-every-wave-quality-first.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Запреты окружения пишутся в задании, а не подразумеваются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/061-environment-bans-belong-in-the-task.md) | `docs/agent/multiagent.md` | не объявлено |
@@ -100,7 +100,7 @@
 | [Критик проверяет метод фазы, а не предмет работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/088-the-critic-checks-the-method-not-the-subject.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Из оригинала в его копию не ссылаются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/089-never-link-from-the-original-to-its-copy.md) | `docs/dev/glossary.md` | гейт |
 | [Находки и порядок разбора — разные документы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/092-findings-and-ordering-live-in-different-documents.md) | `docs/agent/claude-handoff.md` | не объявлено |
-| [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | не объявлено |
+| [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | гейт |
 | [Единица дробления определяется употреблением, а не формальным признаком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/098-the-unit-of-splitting-follows-usage.md) | `docs/dev/glossary.md` | не объявлено |
 | [Конфликт классификации разрешается по последствию, а не по правильности](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/099-classification-conflicts-resolve-by-consequence.md) | `docs/dev/glossary.md` | не объявлено |
 | [Дедлайнов два: на запуск и на работу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/100-two-deadlines-start-and-work.md) | `docs/use/configuration.md` | гейт |

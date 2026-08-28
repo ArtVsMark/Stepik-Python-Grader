@@ -61,6 +61,27 @@ class TestGateTests:
 
         assert problems == []
 
+    def test_set_of_refusals_only_is_flagged(self) -> None:
+        """Правило 097: вторая ошибка проверяющего — ложное «не прошло».
+
+        Набор из одних отказов зеленеет у гейта, который краснеет на всём
+        подряд. Такой гейт не чинят — его отключают, и вместе с ним исчезает
+        первая проверка тоже.
+        """
+        problems = gate_tests.gates_without_rejection(
+            ["check_thing.py"],
+            {
+                "test_check_thing.py": (
+                    "def test_bad():\n"
+                    "    problems = check_thing.problems()\n"
+                    "    assert problems, 'обязан краснеть'\n"
+                )
+            },
+        )
+
+        assert len(problems) == 1
+        assert "пропускающего случая" in problems[0][1]
+
     def test_gate_without_tests_is_flagged(self) -> None:
         problems = gate_tests.gates_without_rejection(["check_thing.py"], {})
 

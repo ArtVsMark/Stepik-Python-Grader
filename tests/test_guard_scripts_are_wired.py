@@ -122,6 +122,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "правило 039: скрипт, ходящий в GitHub, отличает «не отработала» от «чисто»",
     ),
+    "check_truncation_marks.py": (
+        ".github/workflows/ci.yml",
+        "правило 016: обрезка по пределу оставляет признак обрыва",
+    ),
     "check_ui_locale_guardrails.py": (".github/workflows/ci.yml", "UI-строки без хардкода"),
     "check_version_consistency.py": (".github/workflows/ci.yml", "дрейф версии в доках"),
     "check_web_imports.py": (".github/workflows/ci.yml", "импорты ES-модулей веб-слоя"),

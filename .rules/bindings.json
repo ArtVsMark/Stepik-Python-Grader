@@ -77,13 +77,13 @@
     },
     "016": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/multiagent.md"
+      "mechanism": "gate",
+      "where": "scripts/check_truncation_marks.py — функция, режущая по пределу-константе, обязана оставить признак обрыва (флаг, многоточие, полную длину рядом); предел, заданный параметром, объявлен в контракте и молчанием не является"
     },
     "017": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "gate",
+      "where": "scripts/gh_rest.py — остаток квоты читается из заголовков каждого ответа (бесплатно) и печатается подкомандой rate, которая сама квоту не тратит; разбор начинается с факта, а не с гипотезы"
     },
     "018": {
       "status": "active",
@@ -268,8 +268,8 @@
     },
     "058": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/agent/preflight.md"
+      "mechanism": "gate",
+      "where": "scripts/gh_rest.py — стоп-кран по остатку: ниже DEFAULT_QUOTA_FLOOR (600, порог меняется GH_REST_QUOTA_FLOOR) операция не начинается, код возврата EXIT_WAIT «ждать», а не повтор; исчерпанный лимит поднимает RateLimited со временем сброса"
     },
     "059": {
       "status": "active",
@@ -450,8 +450,8 @@
     },
     "097": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/corpus.md"
+      "mechanism": "gate",
+      "where": "scripts/check_gate_tests.py — у каждого гейта в тестах есть обе стороны: отвергающий случай (ложное «прошло») и пропускающий (ложное «не прошло»); набор из одних отказов зеленеет у гейта, который краснеет на всём подряд"
     },
     "098": {
       "status": "active",
