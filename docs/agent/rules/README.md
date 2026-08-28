@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 45 |
+| **гейт** | падает в CI или в `preflight.py` | 46 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 42 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 41 |
 
-**Не объявлено: 42.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 41.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -119,7 +119,7 @@
 | [Свои артефакты держат вне маски входа](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/119-tool-artefacts-stay-outside-the-input-mask.md) | `tests/conftest.py` | гейт |
 | [Каталог правил ведётся по своим правилам, а указатель к нему генерируется](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/120-how-to-run-a-rule-catalogue.md) | #1342 | гейт |
 | [Закрытие контейнера — не доказательство закрытия работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/121-closing-the-container-is-not-closing-the-work.md) | `docs/agent/claude-handoff.md` | гейт |
-| [Рядом с отформатированным значением отдают сырое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/122-ship-the-raw-value-next-to-the-formatted-one.md) | `docs/dev/api.md` | не объявлено |
+| [Рядом с отформатированным значением отдают сырое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/122-ship-the-raw-value-next-to-the-formatted-one.md) | `docs/dev/api.md` | гейт |
 | [Перезапускать минимум, но зелёное со второго раза — находка, а не починка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/124-rerun-the-minimum-and-record-the-flake.md) | #924, #1171, #1344 | гейт |
 | [У заморозки должен быть выход, не проходящий через замороженное действие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/126-a-freeze-needs-a-thaw-path.md) | #1326, #1344, #1347 | гейт |
 | [Обязательное поле проверяется на полноту, а не на непустоту](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/128-a-required-field-is-checked-for-completeness.md) | #1329, #1345, #1350 | гейт |

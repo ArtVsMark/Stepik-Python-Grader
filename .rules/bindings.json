@@ -569,8 +569,8 @@
     },
     "122": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/api.md"
+      "mechanism": "gate",
+      "where": "scripts/check_raw_values.py — поле ответа веб-слоя не отдаёт отформатированное число (`f\"{x:.1f} с\"`); человеческие поля (message, hint, title) под запрет не подпадают, там строка и есть содержимое"
     },
     "123": {
       "status": "not-applicable",

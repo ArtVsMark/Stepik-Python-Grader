@@ -147,6 +147,13 @@ repos:
         pass_filenames: false
         files: '^(scripts|src|tests|\\.claude/hooks)/.*\\.py$'
 
+      - id: check-raw-values
+        name: в ответ уходит число, а не его вид
+        entry: python scripts/check_raw_values.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/web/.*\\.py$'
+
       - id: check-step-deadlines
         name: у сетевого шага свой дедлайн
         entry: python scripts/check_step_deadlines.py

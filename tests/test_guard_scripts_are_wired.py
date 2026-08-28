@@ -103,6 +103,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "гейт мержа; вызывается и вручную перед слиянием",
     ),
+    "check_raw_values.py": (
+        ".github/workflows/ci.yml",
+        "правило 122: в ответ веб-слоя уходит число, а не его отформатированный вид",
+    ),
     "check_ruff_pin.py": (".github/workflows/ci.yml", "пины инструментов вердикта"),
     "check_secret_dumps.py": (".github/workflows/ci.yml", "реестр точек дампа секретов"),
     "check_test_isolation.py": (".github/workflows/ci.yml", "изоляция тестов"),
