@@ -67,6 +67,7 @@ jobs:
       # читался с первого экрана прогона — иначе предупреждение снова окажется
       # тем, о чём никто не вспомнит.
       - name: Клонировать каталог правил
+        timeout-minutes: 5
         run: git clone --depth 1 https://github.com/ArtVsMark/claude-code-playbook /tmp/playbook
 
       # issue #1351: связь «задача → правило» была односторонней — у правила след

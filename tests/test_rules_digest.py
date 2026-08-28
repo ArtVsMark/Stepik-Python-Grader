@@ -249,3 +249,31 @@ class TestHook:
 
         assert result.returncode == 0
         assert "не прочитан" in result.stdout
+
+
+class TestGeneratorOutcomes:
+    """Ветки, которых никто не видел работающими (правило 145)."""
+
+    def test_unreadable_catalogue_is_the_third_outcome(self, tmp_path: pathlib.Path) -> None:
+        """Каталога нет — это «не отработала», а не «дайджест пуст»."""
+        assert digest.main(["--catalogue", str(tmp_path / "нет"), "--check"]) == 2
+
+    def test_check_finds_a_stale_digest(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Отставший дайджест обязан краснеть: иначе сверка бесполезна."""
+        monkeypatch.setattr(digest, "load_rules", lambda _catalogue: [_rule("001")])
+        monkeypatch.setattr(digest, "DIGEST", tmp_path / "старый.md")
+        (tmp_path / "старый.md").write_text("устарело", encoding="utf-8")
+
+        assert digest.main(["--catalogue", str(tmp_path), "--check"]) == 1
+
+    def test_check_passes_on_a_fresh_digest(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rules = [_rule("001")]
+        monkeypatch.setattr(digest, "load_rules", lambda _catalogue: rules)
+        monkeypatch.setattr(digest, "DIGEST", tmp_path / "свежий.md")
+        (tmp_path / "свежий.md").write_text(digest.render(rules), encoding="utf-8")
+
+        assert digest.main(["--catalogue", str(tmp_path), "--check"]) == 0

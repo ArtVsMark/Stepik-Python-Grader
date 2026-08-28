@@ -21,15 +21,15 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **90**.
+Всего правил, действующих здесь: **93**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 44 |
+| **гейт** | падает в CI или в `preflight.py` | 53 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 43 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 37 |
 
-**Не объявлено: 43.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 37.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -50,8 +50,8 @@
 | [Код с экранированием писать файлом, а не heredoc'ом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/013-write-escapes-to-file-not-heredoc.md) | `docs/agent/preflight.md` | гейт |
 | [«Тест краснеет до фикса» доказывается полу-откатом, а не откатом всего](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/014-red-before-fix-needs-partial-revert.md) | `docs/agent/preflight.md` | не объявлено |
 | [Агенты возвращают данные — файлы правит хост](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/015-agents-return-data-host-writes-files.md) | `docs/agent/multiagent.md` | не объявлено |
-| [Обрезать вывод молча нельзя — только с маркером обрыва](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/016-no-silent-truncation.md) | `docs/agent/multiagent.md` | не объявлено |
-| [Остаток лимита мерить, а не угадывать — и смотреть первым шагом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/017-measure-quota-do-not-guess.md) | `docs/agent/preflight.md` | не объявлено |
+| [Обрезать вывод молча нельзя — только с маркером обрыва](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/016-no-silent-truncation.md) | `docs/agent/multiagent.md` | гейт |
+| [Остаток лимита мерить, а не угадывать — и смотреть первым шагом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/017-measure-quota-do-not-guess.md) | `docs/agent/preflight.md` | гейт |
 | [Одно окружение проверяет узлы, другое — цепочку](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/018-cloud-checks-nodes-local-checks-chain.md) | `docs/agent/environments.md` | не объявлено |
 | [Аудит планируется от поверхностей продукта, а не от файлов](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/019-audit-from-surfaces-not-files.md) | `docs/agent/multiagent.md` | не объявлено |
 | [После сбоя перезапускать дельту, а не всю волну](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/020-restart-only-the-delta.md) | `docs/agent/multiagent.md` | не объявлено |
@@ -72,8 +72,8 @@
 | [Порядок очереди задаётся правилом, а не готовностью](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/053-queue-order-is-a-rule-not-arrival.md) | #1325, #1326, #1329 | гейт |
 | [Сбор и разбор — разные проходы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/054-collect-and-analyse-are-separate-passes.md) | `docs/agent/course-walkthrough.md` | не объявлено |
 | [Собственный эталон — тоже гипотеза](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/055-your-own-expectations-are-a-hypothesis.md) | `docs/agent/course-walkthrough.md` | не объявлено |
-| [Правило, которое нельзя проверить машиной, называется явно](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/057-unmechanizable-rules-are-named-explicitly.md) | `docs/agent/preflight.md` | не объявлено |
-| [Исчерпав квоту — остановиться, а не повторять](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/058-when-the-quota-is-out-stop.md) | `docs/agent/preflight.md` | не объявлено |
+| [Правило, которое нельзя проверить машиной, называется явно](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/057-unmechanizable-rules-are-named-explicitly.md) | `docs/agent/preflight.md` | гейт |
+| [Исчерпав квоту — остановиться, а не повторять](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/058-when-the-quota-is-out-stop.md) | `docs/agent/preflight.md` | гейт |
 | [У каждого исчерпаемого ресурса есть заранее составленная карта обхода](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/059-map-the-detour-before-the-resource-runs-out.md) | `docs/agent/preflight.md` | не объявлено |
 | [Разбор после каждой волны, и качество важнее механики](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/060-debrief-every-wave-quality-first.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Запреты окружения пишутся в задании, а не подразумеваются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/061-environment-bans-belong-in-the-task.md) | `docs/agent/multiagent.md` | не объявлено |
@@ -100,10 +100,10 @@
 | [Критик проверяет метод фазы, а не предмет работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/088-the-critic-checks-the-method-not-the-subject.md) | `docs/agent/multiagent.md` | не объявлено |
 | [Из оригинала в его копию не ссылаются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/089-never-link-from-the-original-to-its-copy.md) | `docs/dev/glossary.md` | гейт |
 | [Находки и порядок разбора — разные документы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/092-findings-and-ordering-live-in-different-documents.md) | `docs/agent/claude-handoff.md` | не объявлено |
-| [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | не объявлено |
+| [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | гейт |
 | [Единица дробления определяется употреблением, а не формальным признаком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/098-the-unit-of-splitting-follows-usage.md) | `docs/dev/glossary.md` | не объявлено |
 | [Конфликт классификации разрешается по последствию, а не по правильности](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/099-classification-conflicts-resolve-by-consequence.md) | `docs/dev/glossary.md` | не объявлено |
-| [Дедлайнов два: на запуск и на работу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/100-two-deadlines-start-and-work.md) | `docs/use/configuration.md` | не объявлено |
+| [Дедлайнов два: на запуск и на работу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/100-two-deadlines-start-and-work.md) | `docs/use/configuration.md` | гейт |
 | [Повторяют только те отказы, которые могут пройти сами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/101-retry-only-what-can-heal-itself.md) | `docs/use/installation.md` | гейт |
 | [Снисхождение перечисляется таблицей и отключается режимом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/102-leniency-is-enumerated-and-switchable.md) | `docs/use/configuration.md` | гейт |
 | [Сторож побочных эффектов обвиняет не виновника — и исключения задаются формой](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/103-a-side-effect-guard-blames-the-wrong-suspect.md) | `tests/conftest.py` | гейт |
@@ -119,7 +119,7 @@
 | [Свои артефакты держат вне маски входа](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/119-tool-artefacts-stay-outside-the-input-mask.md) | `tests/conftest.py` | гейт |
 | [Каталог правил ведётся по своим правилам, а указатель к нему генерируется](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/120-how-to-run-a-rule-catalogue.md) | #1342 | гейт |
 | [Закрытие контейнера — не доказательство закрытия работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/121-closing-the-container-is-not-closing-the-work.md) | `docs/agent/claude-handoff.md` | гейт |
-| [Рядом с отформатированным значением отдают сырое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/122-ship-the-raw-value-next-to-the-formatted-one.md) | `docs/dev/api.md` | не объявлено |
+| [Рядом с отформатированным значением отдают сырое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/122-ship-the-raw-value-next-to-the-formatted-one.md) | `docs/dev/api.md` | гейт |
 | [Перезапускать минимум, но зелёное со второго раза — находка, а не починка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/124-rerun-the-minimum-and-record-the-flake.md) | #924, #1171, #1344 | гейт |
 | [У заморозки должен быть выход, не проходящий через замороженное действие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/126-a-freeze-needs-a-thaw-path.md) | #1326, #1344, #1347 | гейт |
 | [Обязательное поле проверяется на полноту, а не на непустоту](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/128-a-required-field-is-checked-for-completeness.md) | #1329, #1345, #1350 | гейт |
@@ -128,3 +128,6 @@
 | [Изменение везут одной темой: сборное честно, но неразбираемо](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/132-one-change-carries-one-topic.md) | #20, #21, #1350 | гейт |
 | [Границу изменения задаёт пересечение файлов, а не число задач](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/133-file-overlap-sets-the-boundary.md) | #1345, #1350 | гейт |
 | [Окно контекста для разбора прозы — абзац, а не предложение](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/144-context-window-for-prose-is-a-paragraph.md) | `scripts/check_audit_registry.py` | гейт |
+| [Общую площадку набор забирает себе, а не вносит в исключения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/149-the-suite-owns-its-temp.md) | `tests/conftest.py`, `tests/test_conftest_temp_root.py` | гейт |
+| [Тест спрашивает решение механизма, а не повторяет его условие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/150-a-test-asks-the-mechanism-not-its-condition.md) | `tests/test_preflight_basetemp.py` | не объявлено |
+| [Диагностический след кладут туда, куда достаёт тот, кто чинит](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/151-the-trail-goes-where-the-fixer-can-reach.md) | `scripts/report_failed_tests.py`, `.github/workflows/ci.yml` | гейт |

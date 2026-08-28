@@ -148,3 +148,18 @@ def test_live_audit_registry_is_in_sync() -> None:
         # Находка-дубликат законно стоит в обоих списках: закрыта тем же PR, что и
         # оригинал, и помечена дубликатом (`RUN-5-03` — дубликат `RUN-4-03`).
         assert rejected <= all_ids, f"{document.name}: отклонён ID, которого нет в таблицах"
+
+
+def test_unreachable_github_is_the_third_outcome(monkeypatch: Any) -> None:
+    """«Трекер не прочитан» и «реестр не отстал» — разные исходы (правило 039).
+
+    Ветка прогоняется, а не только пишется: непрогнанная ветка отказа обычно и
+    оказывается сломанной — её никто не видел работающей.
+    """
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise guard.gh_rest.GitHubError("403: прав нет")
+
+    monkeypatch.setattr(guard.gh_rest, "request", refuse)
+
+    assert guard.main(["--repo", "owner/repo"]) == 2

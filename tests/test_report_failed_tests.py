@@ -191,3 +191,33 @@ def test_first_summary_is_created(tmp_path: pathlib.Path, monkeypatch: pytest.Mo
     reporter.main(["--dir", str(tmp_path), "--pr", "42", "--apply"])
 
     assert created == [42]
+
+
+def test_refused_github_is_the_third_outcome(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """«Сводку опубликовали» и «GitHub не ответил» — разные вещи (правило 039).
+
+    Ветка прогоняется, а не только пишется: без этого о молчании канала не
+    узнал бы никто, а канал здесь и есть весь смысл.
+    """
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise reporter.gh_rest.GitHubError("403: прав нет")
+
+    monkeypatch.setattr(reporter.gh_rest, "issue_comments", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--pr", "1", "--apply"]) == 2
+
+
+def test_exhausted_quota_says_wait(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise reporter.gh_rest.RateLimited("лимит", reset_at=0, resource="core")
+
+    monkeypatch.setattr(reporter.gh_rest, "issue_comments", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--pr", "1", "--apply"]) == (
+        reporter.gh_rest.EXIT_WAIT
+    )

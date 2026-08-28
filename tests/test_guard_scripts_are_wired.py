@@ -55,6 +55,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "tests/test_contrast.py",
         "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",
     ),
+    "check_declared_outcomes.py": (
+        ".github/workflows/ci.yml",
+        "правило 145: у каждого объявленного исхода есть прогон, а долг виден числом",
+    ),
     "check_docs_guardrails.py": (".github/workflows/ci.yml", "бюджеты и ссылки документации"),
     "check_gate_tests.py": (
         ".github/workflows/ci.yml",
@@ -103,12 +107,28 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "гейт мержа; вызывается и вручную перед слиянием",
     ),
+    "check_raw_values.py": (
+        ".github/workflows/ci.yml",
+        "правило 122: в ответ веб-слоя уходит число, а не его отформатированный вид",
+    ),
     "check_ruff_pin.py": (".github/workflows/ci.yml", "пины инструментов вердикта"),
     "check_secret_dumps.py": (".github/workflows/ci.yml", "реестр точек дампа секретов"),
     "check_test_isolation.py": (".github/workflows/ci.yml", "изоляция тестов"),
+    "check_marker_matching.py": (
+        ".github/workflows/ci.yml",
+        "правило 141: константа-маркер сверяется целиком, а не началом",
+    ),
+    "check_step_deadlines.py": (
+        ".github/workflows/ci.yml",
+        "правило 100: у сетевого шага свой дедлайн — общий предел job'а старт не покрывает",
+    ),
     "check_three_outcomes.py": (
         ".github/workflows/ci.yml",
         "правило 039: скрипт, ходящий в GitHub, отличает «не отработала» от «чисто»",
+    ),
+    "check_truncation_marks.py": (
+        ".github/workflows/ci.yml",
+        "правило 016: обрезка по пределу оставляет признак обрыва",
     ),
     "check_ui_locale_guardrails.py": (".github/workflows/ci.yml", "UI-строки без хардкода"),
     "check_version_consistency.py": (".github/workflows/ci.yml", "дрейф версии в доках"),
