@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 38 |
+| **гейт** | падает в CI или в `preflight.py` | 43 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 49 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 44 |
 
-**Не объявлено: 49.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 44.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -104,21 +104,21 @@
 | [Единица дробления определяется употреблением, а не формальным признаком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/098-the-unit-of-splitting-follows-usage.md) | `docs/dev/glossary.md` | не объявлено |
 | [Конфликт классификации разрешается по последствию, а не по правильности](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/099-classification-conflicts-resolve-by-consequence.md) | `docs/dev/glossary.md` | не объявлено |
 | [Дедлайнов два: на запуск и на работу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/100-two-deadlines-start-and-work.md) | `docs/use/configuration.md` | не объявлено |
-| [Повторяют только те отказы, которые могут пройти сами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/101-retry-only-what-can-heal-itself.md) | `docs/use/installation.md` | не объявлено |
-| [Снисхождение перечисляется таблицей и отключается режимом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/102-leniency-is-enumerated-and-switchable.md) | `docs/use/configuration.md` | не объявлено |
+| [Повторяют только те отказы, которые могут пройти сами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/101-retry-only-what-can-heal-itself.md) | `docs/use/installation.md` | гейт |
+| [Снисхождение перечисляется таблицей и отключается режимом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/102-leniency-is-enumerated-and-switchable.md) | `docs/use/configuration.md` | гейт |
 | [Сторож побочных эффектов обвиняет не виновника — и исключения задаются формой](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/103-a-side-effect-guard-blames-the-wrong-suspect.md) | `tests/conftest.py` | гейт |
 | [У событийной автоматики должна быть ручная кнопка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/104-event-driven-automation-needs-a-manual-button.md) | `.github/workflows/ci.yml` | гейт |
 | [Огласка умножает и хорошее, и плохое — сначала настоящий прогон](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/106-publicity-multiplies-both-sides.md) | `docs/dev/corpus.md` | не объявлено |
 | [Каждый выход из переходного состояния обязан быть терминальным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/109-every-exit-from-a-transient-state-must-be-terminal.md) | `src/stepik_grader/launcher.py` | гейт |
 | [Если инструмент может сделать сам — он делает, а не советует](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/111-do-it-instead-of-advising-it.md) | `src/stepik_grader/launcher.py` | не объявлено |
 | [Контракт описывает правила собственной эволюции](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/113-a-contract-states-how-it-may-change.md) | `docs/dev/result-contract.md` | не объявлено |
-| [У настроек один якорь и ограниченная зона поиска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/115-config-has-one-anchor-and-a-bounded-search.md) | `docs/use/configuration.md` | не объявлено |
-| [Сборщик результатов — тоже источник потерь, и у него своя сверка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/116-the-collector-script-is-a-source-of-loss.md) | `docs/archive/audit-2026-07-30-full-roles.md` | не объявлено |
+| [У настроек один якорь и ограниченная зона поиска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/115-config-has-one-anchor-and-a-bounded-search.md) | `docs/use/configuration.md` | гейт |
+| [Сборщик результатов — тоже источник потерь, и у него своя сверка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/116-the-collector-script-is-a-source-of-loss.md) | `docs/archive/audit-2026-07-30-full-roles.md` | гейт |
 | [У задания исполнителя есть числовые границы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/117-numeric-limits-belong-in-the-task-spec.md) | `docs/archive/audit-2026-07-30-full-roles.md`, `docs/agent/multiagent.md` | не объявлено |
 | [Исходник хранится рядом с производным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/118-keep-the-source-next-to-the-derived.md) | `docs/use/grader-workflow.md` | гейт |
 | [Свои артефакты держат вне маски входа](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/119-tool-artefacts-stay-outside-the-input-mask.md) | `tests/conftest.py` | гейт |
 | [Каталог правил ведётся по своим правилам, а указатель к нему генерируется](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/120-how-to-run-a-rule-catalogue.md) | #1342 | гейт |
-| [Закрытие контейнера — не доказательство закрытия работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/121-closing-the-container-is-not-closing-the-work.md) | `docs/agent/claude-handoff.md` | не объявлено |
+| [Закрытие контейнера — не доказательство закрытия работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/121-closing-the-container-is-not-closing-the-work.md) | `docs/agent/claude-handoff.md` | гейт |
 | [Рядом с отформатированным значением отдают сырое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/122-ship-the-raw-value-next-to-the-formatted-one.md) | `docs/dev/api.md` | не объявлено |
 | [Перезапускать минимум, но зелёное со второго раза — находка, а не починка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/124-rerun-the-minimum-and-record-the-flake.md) | #924, #1171, #1344 | гейт |
 | [У заморозки должен быть выход, не проходящий через замороженное действие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/126-a-freeze-needs-a-thaw-path.md) | #1326, #1344, #1347 | гейт |

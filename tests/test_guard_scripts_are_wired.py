@@ -46,6 +46,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "запись уезжает в CHANGELOG и на PyPI — проверяется на каждый PR",
     ),
+    "check_container_closure.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "правило 121: предмет — состояние трекера, поэтому расписание, а не прогон "
+        "на каждый PR (квота общая на аккаунт)",
+    ),
     "check_contrast.py": (
         "tests/test_contrast.py",
         "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",

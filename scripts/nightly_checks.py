@@ -32,6 +32,7 @@ import datetime as _datetime
 import pathlib
 import subprocess
 import sys
+from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
@@ -98,6 +99,11 @@ CHECKS: tuple[Check, ...] = (
         "Реестр закрытых находок не отстаёт",
         ["scripts/check_audit_registry.py"],
         "находка, закрытая PR, вписана в реестр аудита",
+    ),
+    Check(
+        "Закрытие контейнера не закрывает работу",
+        ["scripts/check_container_closure.py"],
+        "закрытый эпик с открытыми дочерними: снаружи готово, изнутри работа идёт",
     ),
     Check(
         "Ответ каталогу правил полон",
@@ -208,7 +214,7 @@ def issue_body(outcomes: list[Outcome], today: _datetime.date) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _existing_issue(repo: str, **kwargs: object) -> dict[str, object] | None:
+def _existing_issue(repo: str, **kwargs: Any) -> dict[str, object] | None:
     """Задача-адресат, если она уже заведена, — по маркеру, а не по номеру."""
     for issue in gh_rest.issues_with_label(repo, _LABEL, **kwargs):
         if MARKER in str(issue.get("body") or ""):
