@@ -25,11 +25,11 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 53 |
+| **гейт** | падает в CI или в `preflight.py` | 54 |
 | **шаг процесса** | проверяется человеком в названный момент | 3 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 37 |
+| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 36 |
 
-**Не объявлено: 37.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 36.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
 нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
 становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
@@ -111,7 +111,7 @@
 | [Огласка умножает и хорошее, и плохое — сначала настоящий прогон](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/106-publicity-multiplies-both-sides.md) | `docs/dev/corpus.md` | не объявлено |
 | [Каждый выход из переходного состояния обязан быть терминальным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/109-every-exit-from-a-transient-state-must-be-terminal.md) | `src/stepik_grader/launcher.py` | гейт |
 | [Если инструмент может сделать сам — он делает, а не советует](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/111-do-it-instead-of-advising-it.md) | `src/stepik_grader/launcher.py` | не объявлено |
-| [Контракт описывает правила собственной эволюции](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/113-a-contract-states-how-it-may-change.md) | `docs/dev/result-contract.md` | не объявлено |
+| [Контракт описывает правила собственной эволюции](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/113-a-contract-states-how-it-may-change.md) | `docs/dev/result-contract.md` | гейт |
 | [У настроек один якорь и ограниченная зона поиска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/115-config-has-one-anchor-and-a-bounded-search.md) | `docs/use/configuration.md` | гейт |
 | [Сборщик результатов — тоже источник потерь, и у него своя сверка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/116-the-collector-script-is-a-source-of-loss.md) | `docs/archive/audit-2026-07-30-full-roles.md` | гейт |
 | [У задания исполнителя есть числовые границы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/117-numeric-limits-belong-in-the-task-spec.md) | `docs/archive/audit-2026-07-30-full-roles.md`, `docs/agent/multiagent.md` | не объявлено |

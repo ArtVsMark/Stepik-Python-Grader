@@ -525,8 +525,8 @@
     },
     "113": {
       "status": "active",
-      "mechanism": "none",
-      "where": "docs/dev/result-contract.md"
+      "mechanism": "gate",
+      "where": "scripts/check_contract_evolution.py"
     },
     "114": {
       "status": "not-applicable",

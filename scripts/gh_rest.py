@@ -1145,6 +1145,45 @@ def create_pull(
     return data if isinstance(data, dict) else {}
 
 
+def edit_pull(
+    repo: str,
+    number: int,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Поправить заголовок или тело уже открытого PR (``PATCH .../pulls/N``).
+
+    Понадобилось из-за связи с задачей. Тело PR веток ``agent/**`` берётся из
+    сообщения коммита один раз, при открытии, — а `Closes #N` иногда становится
+    известен позже (задача заведена после, прежняя закрыта). Без этой команды
+    оставалось советовать человеку открыть браузер, хотя операция ровно на один
+    REST-запрос: инструмент, который может сделать сам, делает.
+
+    Args:
+        repo: ``владелец/репозиторий``.
+        number: номер PR.
+        title: новый заголовок; ``None`` — оставить прежний.
+        body: новое тело; ``None`` — оставить прежнее.
+
+    Returns:
+        Ответ GitHub по обновлённому PR.
+
+    Raises:
+        ValueError: не названо, что менять.
+    """
+    payload: dict[str, Any] = {}
+    if title is not None:
+        payload["title"] = title
+    if body is not None:
+        payload["body"] = body
+    if not payload:
+        raise ValueError("нечего менять: назовите --title или --body/--body-file")
+    data = request("PATCH", f"repos/{repo}/pulls/{number}", body=payload, **kwargs).data
+    return data if isinstance(data, dict) else {}
+
+
 def update_branch(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
     """Подтянуть базовую ветку в ветку PR (``PUT .../update-branch``).
 
@@ -1859,6 +1898,21 @@ def _cmd_create_pr(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_edit_pr(args: argparse.Namespace) -> int:
+    """Обновить заголовок/тело PR."""
+    body = _resolve_body(args) if (args.body or args.body_file) else None
+    try:
+        updated = edit_pull(args.repo, args.pull, title=args.title, body=body)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_FAIL
+    if args.json:
+        _print_json(updated)
+        return EXIT_OK
+    print(f"#{updated.get('number', args.pull)}: обновлено — {updated.get('title', '')}")
+    return EXIT_OK
+
+
 def _cmd_update_branch(args: argparse.Namespace) -> int:
     """Подтянуть базовую ветку в ветку PR."""
     result = update_branch(args.repo, args.pull)
@@ -2123,6 +2177,13 @@ def _build_parser() -> argparse.ArgumentParser:
     create.add_argument("--label", action="append", default=[], help="метка (повторяемый)")
     create.add_argument("--draft", action="store_true")
     create.set_defaults(handler=_cmd_create_pr)
+
+    edit = sub.add_parser("edit-pr", help="поправить заголовок или тело PR")
+    edit.add_argument("pull", type=int)
+    edit.add_argument("--title")
+    edit.add_argument("--body", default="")
+    edit.add_argument("--body-file", help="тело из файла UTF-8; '-' — со стандартного ввода")
+    edit.set_defaults(handler=_cmd_edit_pr)
 
     update = sub.add_parser("update-branch", help="подтянуть base в ветку PR")
     update.add_argument("pull", type=int)
