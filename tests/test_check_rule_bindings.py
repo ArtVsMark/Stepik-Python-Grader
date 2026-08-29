@@ -57,15 +57,27 @@ def test_answer_file_exists_and_parses() -> None:
 
 
 def test_metric_counts_rules_held_by_nothing() -> None:
-    """Метрика — предмет задачи: она обязана быть ненулевой и честной."""
+    """Метрика честна: она видит правило на словах, а не считает в приятную сторону.
+
+    Раньше здесь стояло `unheld > 0` — «правила на словах у нас есть». Теперь их
+    нет ни одного, и такое утверждение проверяло бы состояние мира, а не работу
+    счётчика: метрика, дошедшая до нуля, роняла бы собственный тест. Поэтому
+    спрашивается вердикт на заданном входе.
+    """
     data = json.loads(_BINDINGS.read_text(encoding="utf-8"))
-    unheld, total = _MODULE.unheld_count(data)
+    _unheld, total = _MODULE.unheld_count(data)
 
     assert total > 100, "ответ нужен по каждому правилу каталога"
-    assert unheld > 0, (
-        "нулевая метрика на старте означала бы, что она считается в приятную "
-        "сторону: правила, принятые на словах, у нас есть"
+
+    on_words = _data(
+        {
+            "001": {"status": "active", "mechanism": "none", "where": "только память окна"},
+            "002": {"status": "unreviewed"},
+            "003": {"status": "active", "mechanism": "gate", "where": "scripts/x.py"},
+        }
     )
+
+    assert _MODULE.unheld_count(on_words) == (2, 3)
 
 
 # --- проверка контракта -------------------------------------------------------

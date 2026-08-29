@@ -259,7 +259,7 @@ Workflow, **файлы правит хост, а не агенты** (`agent(sch
 python scripts/preflight.py --branch-only   # ДО работы: чужая ли задача, свободно ли имя ветки
 python scripts/preflight.py                 # перед коммитом: весь набор + линтеры + типы
 python scripts/check_pr_ready.py <PR>       # перед мержем: проверки созданы, завершены, зелёные
-python scripts/gh_rest.py pulls|checks|compare|create-pr|update-branch|auto-merge|merge  # PR
+python scripts/gh_rest.py pulls|checks|compare|create-pr|edit-pr|update-branch|auto-merge|merge  # PR
 python scripts/gh_rest.py issue|close-issue|label|comment|create-issue|sub-issues <N>   # issue
 python scripts/gh_rest.py runs|run-jobs|cancel-run   # прогоны CI; rate — остаток квоты даром
 python scripts/gh_rest.py queue             # очередь мержа: кого обновлять, кто ждёт

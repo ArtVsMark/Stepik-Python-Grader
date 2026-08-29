@@ -353,6 +353,25 @@ class TestPipelineOperations:
         }
         assert created["number"] == 5
 
+    def test_edit_pull_patches_only_what_was_named(self, module: ModuleType) -> None:
+        """Тело правится, заголовок не трогается — иначе правка сотрёт соседнее поле."""
+        opener = _opener(_FakeResponse({"number": 1392, "title": "прежний"}))
+
+        module.edit_pull("x/y", 1392, body="новое тело", opener=opener)
+
+        request = opener.captured[0]
+        assert request.get_method() == "PATCH"
+        assert json.loads(request.data.decode("utf-8")) == {"body": "новое тело"}
+
+    def test_edit_pull_without_changes_is_refused(self, module: ModuleType) -> None:
+        """Пустая правка — ошибка вызывающего, а не запрос впустую."""
+        opener = _opener(_FakeResponse({}))
+
+        with pytest.raises(ValueError):
+            module.edit_pull("x/y", 1392, opener=opener)
+
+        assert opener.captured == []
+
     def test_update_branch_uses_put(self, module: ModuleType) -> None:
         opener = _opener(_FakeResponse({"message": "Updating pull request branch."}))
         module.update_branch("x/y", 1242, opener=opener)

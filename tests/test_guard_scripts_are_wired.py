@@ -59,6 +59,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "правила 042/043: запись о решении полна, и её не правят задним числом",
     ),
+    "check_contract_evolution.py": (
+        ".github/workflows/ci.yml",
+        "правило 113: контракт говорит, что стабильно, что расширяемо и как добавляют новое",
+    ),
     "check_orphan_branches.py": (
         ".github/workflows/tracker-guardrails.yml",
         "правило 147: у отмены по префиксу ветки есть адресат — ночной обход",
