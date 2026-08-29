@@ -37,12 +37,19 @@ Baseline вычисляется из git (``git describe --tags --abbrev=0``). �
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 _ROOT = Path(__file__).resolve().parent.parent
 _PYPROJECT = _ROOT / "pyproject.toml"

@@ -55,9 +55,17 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "tests/test_contrast.py",
         "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",
     ),
+    "check_adr_records.py": (
+        ".github/workflows/ci.yml",
+        "правила 042/043: запись о решении полна, и её не правят задним числом",
+    ),
     "check_contract_evolution.py": (
         ".github/workflows/ci.yml",
         "правило 113: контракт говорит, что стабильно, что расширяемо и как добавляют новое",
+    ),
+    "check_orphan_branches.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "правило 147: у отмены по префиксу ветки есть адресат — ночной обход",
     ),
     "check_declared_outcomes.py": (
         ".github/workflows/ci.yml",

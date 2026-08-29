@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scripts/check_raw_values.py — наружу уходит число, а не его вид.
+"""scripts/check_raw_values.py — сырое значение доходит и до клиента, и до сторожа.
 
 Правило 122 каталога: форматирование — операция с потерей. Отдавая величину для
 показа, отдают рядом исходное число; разбор строки обратно — это восстановление
@@ -16,6 +16,16 @@
 числа внутри фразы («не удалось за 3 попытки») никакой величиной наружу не
 являются. Требовать сырое рядом с ними значило бы ломать тексты ради буквы.
 
+**Второе правило о том же значении — 137: сторож смотрит на сырое.** Проверка
+«источник ответил» ставится на **сырое** значение, а форматирование применяется
+к тому, что уже проверено. Показать сторожу отформатированное — значит отдать
+ему строку, которая непуста всегда: `f"{value}"` от `None` это `"None"`, а
+`f"{value:.1f}"` от нуля — `"0.0"`. Признак, по которому сторож узнаёт молчание
+источника, форматирование уничтожает первым.
+
+Проверки формы под это не попадают (длина, шаблон, набор символов): их предмет
+как раз отформатированное.
+
 Запуск::
 
     python scripts/check_raw_values.py
@@ -24,10 +34,22 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import pathlib
 import sys
 
-__all__ = ["HUMAN_KEYS", "formatted_numbers_in_responses", "main"]
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
+__all__ = [
+    "HUMAN_KEYS",
+    "formatted_numbers_in_responses",
+    "guards_over_formatted",
+    "main",
+]
 
 _ROOT = pathlib.Path(__file__).parent.parent
 _WEB = _ROOT / "src" / "stepik_grader" / "web"
@@ -108,8 +130,82 @@ def formatted_numbers_in_responses(
     return problems
 
 
+def _formatted_kind(node: ast.expr) -> str | None:
+    """Чем именно отформатировано выражение, если отформатировано."""
+    if isinstance(node, ast.JoinedStr):
+        return "f-строкой"
+    if isinstance(node, ast.Call):
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == "format":
+            return "вызовом .format()"
+        if isinstance(func, ast.Name) and func.id in {"str", "format"}:
+            return f"вызовом {func.id}()"
+    if (
+        isinstance(node, ast.BinOp)
+        and isinstance(node.op, ast.Mod)
+        and isinstance(node.left, ast.Constant)
+        and isinstance(node.left.value, str)
+    ):
+        return "%-форматированием"
+    return None
+
+
+def guards_over_formatted(roots: tuple[pathlib.Path, ...] | None = None) -> list[str]:
+    """Сторожа, которым показали вид значения вместо самого значения.
+
+    Сторожем считается условие целиком: ``if <форматирование>`` или
+    ``if not <форматирование>`` (и то же в ``assert``). Форматирование внутри
+    более сложного выражения — ``if str(x) in known`` — предметом не является:
+    там проверяют принадлежность, а не молчание источника.
+
+    Args:
+        roots: где искать; по умолчанию пакет и скрипты.
+
+    Returns:
+        Строки «файл:строка — сторож над …».
+    """
+    bases = roots or (_ROOT / "src", _ROOT / "scripts")
+    found: list[str] = []
+    for base in bases:
+        for path in sorted(base.rglob("*.py")):
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+            except SyntaxError:  # pragma: no cover — синтаксис стережёт ruff
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.If | ast.Assert):
+                    continue
+                test = node.test
+                if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+                    test = test.operand
+                kind = _formatted_kind(test)
+                if kind:
+                    # Путь показывается относительным, когда файл внутри дерева
+                    # проекта, и полным, когда он снаружи (передан тестом): своя
+                    # ошибка про subpath была бы хуже находки, ради которой её
+                    # позвали.
+                    try:
+                        place = path.relative_to(_ROOT).as_posix()
+                    except ValueError:
+                        place = path.as_posix()
+                    found.append(f"{place}:{node.lineno} — сторож над {kind}")
+    return found
+
+
 def main() -> int:
-    """0 — наружу уходят числа; 1 — где-то уходит их вид."""
+    """0 — сырое доходит до обоих; 1 — где-то уехал вид вместо значения."""
+    guarded = guards_over_formatted()
+    if guarded:
+        print("сторожу показали вид значения вместо самого значения:", file=sys.stderr)
+        for place in guarded:
+            print(f"  • {place}", file=sys.stderr)
+        print(
+            '\nОтформатированное непусто всегда: f"{x}" от None это "None". '
+            "Проверяйте сырое, форматируйте проверенное.",
+            file=sys.stderr,
+        )
+        return 1
+
     problems = formatted_numbers_in_responses()
     if problems:
         print("в ответ уходит вид числа вместо самого числа:", file=sys.stderr)
@@ -123,7 +219,7 @@ def main() -> int:
         )
         return 1
 
-    print("ответы веб-слоя несут числа, а не их вид")
+    print("ответы веб-слоя несут числа, а сторожа смотрят на сырое")
     return 0
 
 

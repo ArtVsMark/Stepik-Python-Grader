@@ -29,12 +29,19 @@
 
 from __future__ import annotations
 
+import contextlib
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
     "GITHUB_RELEASE_JOB",
@@ -43,6 +50,7 @@ __all__ = [
     "check_consent_workflow_uses_its_own_token",
     "check_coverage_gate_is_explicit",
     "check_every_job_has_a_timeout",
+    "check_pinning_matches_the_event",
     "check_pr_opener_uses_its_own_token",
     "check_queue_mover_uses_its_own_token",
     "check_release_gates_match_promises",
@@ -53,6 +61,7 @@ __all__ = [
     "extract_job",
     "jobs_without_timeout",
     "main",
+    "pinning_mismatches",
     "run_scripts",
 ]
 
@@ -74,6 +83,12 @@ VERIFY_JOB = "verify"
 
 # Job внутри `jobs:` — строка с двумя пробелами отступа и двоеточием на конце.
 _JOB_HEADER_RE = re.compile(r"^  (?P<name>[a-zA-Z0-9_-]+):\s*$")
+
+#: Чекаут кода из самого изменения: голова PR по ref или sha.
+_HEAD_REF_RE = re.compile(r"ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.(ref|sha)")
+
+#: Чекаут кода с общей ветки — то самое «закрепление вызываемого».
+_BASE_REF_RE = re.compile(r"ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.(ref|sha)")
 
 
 def extract_job(source: str, job_name: str) -> list[str]:
@@ -632,6 +647,66 @@ def check_run_blocks_are_valid_shell(
                 errors.append(f"{name}: шаг «{step}» — не разбирается как shell: {reason}")
 
 
+def _events_of(source: str) -> set[str]:
+    """События, на которые подписан workflow (блок ``on:`` до первого ключа)."""
+    events: set[str] = set()
+    inside = False
+    for line in source.splitlines():
+        if line.startswith("on:"):
+            inside = True
+            continue
+        if inside:
+            if line and not line.startswith((" ", "\t", "#")):
+                break
+            stripped = line.strip()
+            if line.startswith("  ") and not line.startswith("    ") and stripped.endswith(":"):
+                events.add(stripped.rstrip(":"))
+    return events
+
+
+def pinning_mismatches(sources: dict[str, str]) -> list[str]:
+    """Где закрепление вызываемого расходится с тем, откуда берётся вызывающий.
+
+    Правило 152 каталога. На событии ``pull_request`` площадка берёт файл
+    прогона **из самого изменения**: правящий изменение правит и шаг, и то, что
+    шаг зовёт, — закреплять вызываемый скрипт с общей ветки бессмысленно, дверь
+    заперта в открытой стене. На ``workflow_run`` и ``pull_request_target`` всё
+    наоборот: файл прогона берётся с общей ветки, и чекаут кода **из изменения**
+    отдаёт правящему изменение и токен, и исполнение.
+
+    Args:
+        sources: содержимое файлов workflow по имени.
+
+    Returns:
+        Строки «файл: что не сходится».
+    """
+    found: list[str] = []
+    for name, source in sorted(sources.items()):
+        events = _events_of(source)
+        privileged = {"workflow_run", "pull_request_target"} & events
+        if privileged and _HEAD_REF_RE.search(source):
+            found.append(
+                f"{name}: событие {', '.join(sorted(privileged))} даёт шагу общую ветку и "
+                "свой токен, а чекаут берёт код из изменения — исполнение отдаётся тому, "
+                "кто правит PR"
+            )
+        if "pull_request" in events and not privileged and _BASE_REF_RE.search(source):
+            found.append(
+                f"{name}: на pull_request сам файл прогона берётся из изменения, поэтому "
+                "закрепление вызываемого кода на общей ветке не защищает ни от чего"
+            )
+    return found
+
+
+def check_pinning_matches_the_event(
+    errors: list[str], sources: dict[str, str] | None = None
+) -> None:
+    """Закрепление вызываемого согласовано с тем, откуда берётся вызывающий."""
+    if sources is None:
+        sources = {path.name: path.read_text(encoding="utf-8") for path in _WORKFLOWS.glob("*.yml")}
+    errors.extend(pinning_mismatches(sources))
+
+
 def main() -> int:
     """Вернуть 0, если инварианты workflow держатся; 1 — если нарушены."""
     errors: list[str] = []
@@ -647,6 +722,7 @@ def main() -> int:
     check_pr_opener_uses_its_own_token(errors)
     check_consent_workflow_uses_its_own_token(errors)
     check_run_blocks_are_valid_shell(errors)
+    check_pinning_matches_the_event(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
