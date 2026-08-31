@@ -284,6 +284,55 @@ def test_declared_debt_is_named_with_a_reason() -> None:
         assert "#" in reason, f"{script}: причина без адреса задачи"
 
 
+def _catalogue(root: pathlib.Path, schema: str) -> pathlib.Path:
+    """Клон каталога с заготовкой ответа — там он публикует версию контракта."""
+    template = root / "templates" / "bindings.json"
+    template.parent.mkdir(parents=True, exist_ok=True)
+    template.write_text(json.dumps({"schema": schema, "rules": {}}), encoding="utf-8")
+    return root
+
+
+def test_contract_version_is_compared_with_the_publisher(tmp_path: pathlib.Path) -> None:
+    """Версия сверяется с каталогом, а не с собственной константой.
+
+    Прежняя проверка сравнивала `schema` из нашего файла с нашей же строкой:
+    обе стороны принадлежали потребителю, поэтому подъём версии у издателя она
+    не могла заметить в принципе — а текст отказа при этом утверждал «контракт
+    каталога сегодня 1.0», ни разу в каталог не заглянув (issue #1400).
+    """
+    problems = _MODULE.contract_drift({"schema": "1.0"}, _catalogue(tmp_path, "1.1"))
+
+    assert problems, "разошедшаяся версия контракта не замечена"
+    assert "1.1" in problems[0] and "1.0" in problems[0], problems
+
+
+def test_a_version_bump_asks_to_re_read_the_answers(tmp_path: pathlib.Path) -> None:
+    """Находка говорит «перечитать ответы», а не «поправить номер».
+
+    Смысл именно в этом: вместе с версией меняется ЗНАЧЕНИЕ полей, и записи
+    остаются формально валидными. У нас 52 ответа из 153 пережили подъём 1.0 →
+    1.1 нетронутыми, означая уже другое.
+    """
+    problems = _MODULE.contract_drift({"schema": "1.0"}, _catalogue(tmp_path, "1.1"))
+
+    assert any("ответы" in problem for problem in problems), problems
+
+
+def test_matching_versions_are_silent(tmp_path: pathlib.Path) -> None:
+    """Версии сошлись — находки нет."""
+    assert _MODULE.contract_drift({"schema": "1.1"}, _catalogue(tmp_path, "1.1")) == []
+
+
+def test_an_unreadable_contract_is_not_a_finding(tmp_path: pathlib.Path) -> None:
+    """«Прочитать нечем» и «прочитали плохое» — разные исходы.
+
+    Каталога может не быть под рукой (прогон без клона), и молчание здесь
+    честнее выдуманного расхождения.
+    """
+    assert _MODULE.contract_drift({"schema": "1.1"}, tmp_path / "нет-клона") == []
+    assert _MODULE.catalogue_schema(tmp_path / "нет-клона") is None
+
+
 @pytest.mark.parametrize("status", ["rejected", "not-applicable"])
 def test_negative_decision_needs_a_reason(status: str) -> None:
     """Отрицательное решение без причины через полгода не отличить от забывчивости."""
