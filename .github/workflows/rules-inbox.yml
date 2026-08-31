@@ -39,6 +39,6 @@ jobs:
       # Закреплено по SHA, а не по тегу и тем более не по ветке: тег переставим
       # кто угодно на той стороне, и «закрепиться» перестало бы что-либо значить.
       # Комментарий рядом называет версию, чтобы обновление читалось глазами.
-      - uses: ArtVsMark/claude-code-playbook@d7efbd64447219d0a764c1a28d2280a6297b7ee2 # 0.1.0
+      - uses: ArtVsMark/claude-code-playbook@ae8036feed0b7ca2679ff333aff07a42ee957314 # 1.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
