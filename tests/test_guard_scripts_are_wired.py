@@ -147,17 +147,35 @@ _RUNNERS: dict[str, tuple[str, str]] = {
     "check_web_imports.py": (".github/workflows/ci.yml", "импорты ES-модулей веб-слоя"),
     "check_wheel_contents.py": (".github/workflows/release.yml", "содержимое колеса при релизе"),
     "check_work_overlap.py": (
-        "docs/agent/preflight.md",
-        "механизм ДОБРОВОЛЬНЫЙ (opt-in pre-push хук `--install-hook`): "
-        "список чужих веток стоит обращения к API, поэтому предпушевой гейт его "
-        "не зовёт — и это названо явно, по правилу «правило без механизма»",
+        "scripts/preflight.py",
+        "карта чужой работы показывается сама, неблокирующим шагом. Прежде "
+        "механизм был добровольным (opt-in хук `--install-hook`), и причиной "
+        "названо «список чужих веток стоит обращения к API» — премиса неверная: "
+        "living_branches() читает git for-each-ref refs/remotes/origin, то есть "
+        "локальные ссылки, без сети и токена, о чём говорит и docstring самого "
+        "скрипта. Из-за неё три ответа каталогу (051, 132, 133) полтора месяца "
+        "называли гейтом то, что не запускалось ничем (issue #1400). Шаг остался "
+        "НЕблокирующим: пересечение по файлам — штатное состояние конвейера",
     ),
     "check_workflow_guardrails.py": (".github/workflows/ci.yml", "пины и таймауты в workflow'ах"),
+    "skip_inventory.py": (
+        ".github/workflows/ci.yml",
+        "у каждого пропуска в наборе названа причина",
+    ),
 }
 
 
+#: Гарды, не попадающие под соглашение об имени `check_*.py`. Соглашение и было
+#: дырой: `skip_inventory.py` написан гейтом (ненулевой выход на пропуске без
+#: причины) и полтора месяца не запускался ничем — реестр его просто не видел,
+#: потому что имя начинается не с `check_` (issue #1400).
+_GUARDS_BEYOND_THE_NAMING: tuple[str, ...] = ("skip_inventory.py",)
+
+
 def _guard_scripts() -> list[str]:
-    return sorted(path.name for path in _SCRIPTS.glob("check_*.py"))
+    named = {path.name for path in _SCRIPTS.glob("check_*.py")}
+    named |= {name for name in _GUARDS_BEYOND_THE_NAMING if (_SCRIPTS / name).exists()}
+    return sorted(named)
 
 
 def test_every_guard_declares_its_runner() -> None:

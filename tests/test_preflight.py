@@ -306,6 +306,48 @@ class TestChangedNames:
         assert not check.blocking
 
 
+class TestWorkOverlapMap:
+    """Карта «кто ещё трогает те же файлы» — показывается сама, но не судит.
+
+    Полтора месяца `scripts/check_work_overlap.py` не запускал никто: ни
+    прогон, ни pre-commit, ни preflight. Причиной в реестре исполнителей стояло
+    «список чужих веток стоит обращения к API» — премиса неверная, скрипт
+    читает локальные ссылки. Три ответа каталогу при этом называли его гейтом
+    (issue #1400).
+    """
+
+    def test_overlapping_branches_are_named(self, preflight: ModuleType) -> None:
+        """Пересечение показывается с именем ветки и файлами."""
+        check = preflight.check_work_overlap(
+            overlapping=lambda: {"origin/agent/сосед": {"scripts/x.py", "docs/y.md"}}
+        )
+
+        assert "origin/agent/сосед" in check.detail
+        assert "scripts/x.py" in check.detail
+
+    def test_the_map_never_blocks(self, preflight: ModuleType) -> None:
+        """Пересечение — штатное состояние конвейера, а не нарушение.
+
+        Механизм, не отличающий нарушение от нормы, — не механизм: блокирующий
+        шаг здесь краснел бы на каждой второй ветке (та же причина, что у
+        правил 146 и 150).
+        """
+        check = preflight.check_work_overlap(overlapping=lambda: {"origin/agent/сосед": {"a.py"}})
+
+        assert check.ok and not check.blocking
+
+    def test_unreadable_branches_are_not_a_verdict(self, preflight: ModuleType) -> None:
+        """Отказ чтения веток — не провал шага: карта необязательна."""
+
+        def boom() -> dict[str, set[str]]:
+            raise RuntimeError("git недоступен")
+
+        check = preflight.check_work_overlap(overlapping=boom)
+
+        assert check.ok and not check.blocking
+        assert "не прочитать" in check.detail
+
+
 class TestRunLockAndStamp:
     """Один прогон за раз и штамп проверенного коммита."""
 
