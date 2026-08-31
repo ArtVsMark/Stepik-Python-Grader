@@ -67,7 +67,8 @@ _REQUIRED_HOOKS: dict[str, str] = {
 GROUP_TITLES: dict[str, str] = {
     "Не держится ничем": "none",
     "Ответа по правилу ещё нет": "unreviewed",
-    "Держится шагом процесса": "process-step",
+    "Держится документом": "document",
+    "Держится конвейером": "pipeline",
     "Держится гейтом": "gate",
 }
 

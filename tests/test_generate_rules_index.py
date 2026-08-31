@@ -154,14 +154,14 @@ def test_mechanism_comes_from_the_project_answer(generator: ModuleType, tmp_path
         root,
         {
             "020": {"status": "active", "mechanism": "gate", "where": "scripts/x.py"},
-            "021": {"status": "active", "mechanism": "process-step", "where": "чек-лист"},
+            "021": {"status": "active", "mechanism": "document", "where": "CONTRIBUTING.md"},
         },
     )
 
     rules = {r.slug: r.mechanism for r in generator.collect_rules(catalogue, repo_root=root)}
 
     assert rules["020-гейт"] == "гейт"
-    assert rules["021-шаг"] == "шаг процесса"
+    assert rules["021-шаг"] == "документ"
 
 
 def test_without_an_answer_everything_is_undeclared(generator: ModuleType, tmp_path: Path) -> None:

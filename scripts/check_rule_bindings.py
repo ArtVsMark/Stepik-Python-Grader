@@ -31,9 +31,9 @@
 Метрика — **сколько правил не обеспечено ничем**: ``unreviewed`` плюс
 ``active`` с ``mechanism: none``. Она не просто «должна уменьшаться» — её держит
 храповик :data:`UNHELD_BUDGET`: правило, принятое на словах, обязано быть либо
-закрыто гейтом, либо **записано документом** (``process-step`` с указанием
-места). ``none`` означает, что правило не держится ничем, и такого быть не
-должно; бюджет опускается починкой, а не правкой числа. На пустом входе гейт
+закрыто гейтом, либо замечено конвейером, либо **записано документом** — с
+разрешимым адресом в любом случае. ``none`` означает, что нарушение не заметит
+никто; бюджет опускается починкой, а не правкой числа. На пустом входе гейт
 падает, а не зеленеет.
 
 Запуск::
@@ -48,17 +48,21 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
 
 __all__ = [
     "BINDINGS",
+    "GATE_DEBT",
     "MECHANISMS",
     "STATUSES",
     "UNHELD_BUDGET",
     "binding_violations",
     "main",
+    "named_paths",
+    "reachable_gates",
     "unheld_count",
 ]
 
@@ -66,21 +70,151 @@ _ROOT = Path(__file__).resolve().parent.parent
 BINDINGS = _ROOT / ".rules" / "bindings.json"
 
 STATUSES = ("active", "rejected", "not-applicable", "unreviewed")
-MECHANISMS = ("gate", "process-step", "none")
+#: Четыре уровня контракта 1.1. Граница между ними — один вопрос: что
+#: случится, если правило нарушить. `gate` отвергает до слияния, `pipeline`
+#: замечает прогоном не блокируя, `document` замечается человеком, если он
+#: читал, `none` не замечается ничем.
+#:
+#: Прежнего `process-step` здесь нет намеренно. Одно слово называло сразу три
+#: последних уровня, и каталог в своих отчётах его не сводит ни к одному —
+#: подмена была бы догадкой за потребителя. Цена склейки измерена на нашем же
+#: ответе: 52 записи `process-step` разошлись на 24 конвейера, 26 документов и
+#: 2 «ничем» (issue #1400).
+MECHANISMS = ("gate", "pipeline", "document", "none")
 
 #: Сколько правил ещё не закреплено ничем. Не «столько допустимо», а «столько
 #: осталось»: каждое такое правило действует ровно до тех пор, пока о нём помнит
 #: окно. Число опускается починкой — гейтом или записью решения в документ.
-UNHELD_BUDGET = 0
+UNHELD_BUDGET = 2
 
 #: Расширения, по которым `where` считается путём, а не описанием шага.
 _PATH_SUFFIXES = (".py", ".yml", ".yaml", ".json", ".md", ".txt")
 
+#: Каталоги репозитория, с которых начинается путь в `where`. Список закрыт:
+#: угадывать путь по одному слэшу нельзя, иначе `merge=union` из прозы поедет
+#: в проверку как имя файла.
+_PATH_ROOTS = ("scripts", "src", "tests", "docs", ".github", ".claude", ".rules", "changelog.d")
 
-def _looks_like_path(where: str) -> str | None:
-    """Первое слово `where`, если оно похоже на путь к файлу; иначе ``None``."""
-    head = where.split()[0].strip("`,") if where.split() else ""
-    return head if head.endswith(_PATH_SUFFIXES) and "/" in head else None
+_PATH_RE = re.compile(
+    r"(?:{roots})/[\w./-]+(?:{suffixes})".format(
+        roots="|".join(re.escape(root) for root in _PATH_ROOTS),
+        suffixes="|".join(re.escape(suffix) for suffix in _PATH_SUFFIXES),
+    )
+)
+
+#: Откуда вообще что-то запускается: прогоны CI, pre-commit и предпушевой гейт.
+#: Всё остальное достижимо только через них.
+_ENTRY_POINTS = (".github/workflows/*.yml", ".pre-commit-config.yaml", "scripts/preflight.py")
+
+#: Гейты, объявленные в ответе, но пока никем не запускаемые. Причина и адрес
+#: обязательны: молча внесённое исключение — это отключённая проверка, а не
+#: объявленный долг. Список — храповик, он может только уменьшаться.
+GATE_DEBT: dict[str, str] = {
+    "check_pr_ready.py": (
+        "issue #1400: вердикт перед мержем запускает окно руками — в прогонах он "
+        "встречается только в комментариях. Отказ настоящий, но держится памятью "
+        "окна, а не падением: это шаг процесса, названный гейтом"
+    ),
+    "check_attribution.py": (
+        "issue #1400: зовётся из check_pr_ready.py, поэтому наследует его долг — "
+        "цепочка начинается там, где её запускает человек"
+    ),
+    "check_work_overlap.py": (
+        "issue #1400: не вызывается ни из workflow, ни из pre-commit, ни из preflight; "
+        "шаг preflight «кто ссылается на правку» объявлен неблокирующим намеренно"
+    ),
+    "skip_inventory.py": (
+        "issue #1400: инвентарь пропусков набора — отчёт, а не проверка; "
+        "вне собственного теста его никто не зовёт"
+    ),
+    "version.py": (
+        "issue #1400: считает версию, а не проверяет её; дрейф ловит "
+        "check_version_consistency.py, и он в прогоне"
+    ),
+}
+
+
+def named_paths(where: str) -> list[str]:
+    """ВСЕ пути репозитория, названные в `where`, — а не только первый.
+
+    Раньше проверялось первое слово строки, и этого хватало ровно до записи,
+    где путей два. Из 153 ответов таких 34, то есть у каждой пятой второе и
+    дальнейшие утверждения не проверял никто: правило 119 называло креплением
+    `tests/test_test_loader.py`, которого нет, и гейт молчал, потому что первым
+    в строке стоял существующий модуль (issue #1400).
+    """
+    return list(dict.fromkeys(_PATH_RE.findall(where)))
+
+
+#: Корневые документы, которые считаются адресом по имени.
+_ROOT_DOCS = (
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "SECURITY.md",
+    "HISTORY.md",
+    "CHANGELOG.md",
+)
+
+
+def _has_address(where: str) -> bool:
+    """Есть ли в `where` разрешимый адрес механизма, а не одна проза."""
+    return bool(named_paths(where)) or any(doc in where for doc in _ROOT_DOCS)
+
+
+def _invocations(text: str, *, yaml: bool) -> set[str]:
+    """Имена скриптов, которые этот текст ЗАПУСКАЕТ, а не упоминает.
+
+    Различать обязательно, и оба направления ошибки уже случились на этом самом
+    файле. Упоминание в прозе выдаёт отчёт за подключённый гейт:
+    `check_docs_guardrails.py` называет ``scripts/skip_inventory.py`` в
+    docstring. Комментарий в workflow — то же самое: `check_pr_ready.py`
+    встречается в трёх прогонах, и **везде** это `#`-комментарий, а не строка
+    запуска, из-за чего гейт по одному `grep` выглядел подключённым.
+
+    Поэтому в YAML сначала снимаются комментарии, а в Python засчитываются
+    только формы настоящего вызова: элемент argv строкой, сборка пути через
+    ``"scripts" / "X.py"`` и импорт соседнего модуля.
+    """
+    if yaml:
+        body = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+        return set(re.findall(r"python[^\n]*?\bscripts/([\w]+\.py)", body))
+
+    found: set[str] = set()
+    for pattern in (
+        r"[\"']scripts/([\w]+\.py)[\"']",
+        r"[\"']scripts[\"']\s*/\s*[\"']([\w]+\.py)[\"']",
+    ):
+        found.update(re.findall(pattern, text))
+    # Импорт соседнего скрипта — тоже вызов: `check_pr_ready` ходит в GitHub
+    # через `import gh_rest`, а не запуском отдельного процесса.
+    found.update(f"{name}.py" for name in re.findall(r"^\s*import\s+([\w]+)$", text, re.M))
+    return found
+
+
+def reachable_gates(base: Path) -> set[str]:
+    """Скрипты, до которых дотягивается хоть один вход — с пересадками.
+
+    Пересадки нужны, потому что цепочка обычно длиннее одного звена:
+    `check_attribution.py` зовёт `check_pr_ready.py`, а его — `ci.yml`. Считать
+    достижимым только названное в workflow значило бы записать в долг рабочий
+    гейт.
+    """
+    seeds: list[Path] = []
+    for pattern in _ENTRY_POINTS:
+        seeds.extend(sorted(base.glob(pattern)) if "*" in pattern else [base / pattern])
+
+    reached: set[str] = set()
+    frontier = [path for path in seeds if path.exists()]
+    while frontier:
+        path = frontier.pop()
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for name in _invocations(text, yaml=path.suffix in {".yml", ".yaml"}) - reached:
+            reached.add(name)
+            script = base / "scripts" / name
+            if script.exists():
+                frontier.append(script)
+    return reached
 
 
 def binding_violations(data: dict[str, Any], *, root: Path | None = None) -> list[str]:
@@ -88,9 +222,9 @@ def binding_violations(data: dict[str, Any], *, root: Path | None = None) -> lis
     base = root if root is not None else _ROOT
     problems: list[str] = []
 
-    if data.get("schema") != "1.0":
+    if data.get("schema") != "1.1":
         problems.append(
-            f"schema={data.get('schema')!r} — контракт каталога сегодня 1.0; "
+            f"schema={data.get('schema')!r} — контракт потребителя сегодня 1.1; "
             "читатель обязан игнорировать незнакомые поля, но не версию"
         )
 
@@ -117,15 +251,24 @@ def binding_violations(data: dict[str, Any], *, root: Path | None = None) -> lis
                     "«принято» без ответа на вопрос «чем держится» и есть фикция"
                 )
             where = str(raw.get("where") or "")
-            if not where:
+            if not where and mechanism != "none":
                 problems.append(f"правило {rule_id}: active без `where` — где именно держится?")
-            else:
-                named = _looks_like_path(where)
-                if named is not None and not (base / named).exists():
+            elif where:
+                if mechanism != "none" and not _has_address(where):
                     problems.append(
-                        f"правило {rule_id}: `where` указывает на {named}, которого нет — "
-                        "предмет правила изменился, а запись осталась"
+                        f"правило {rule_id}: в `where` нет разрешимого адреса — путь к файлу, "
+                        "образец вида .github/workflows/*.yml или корневой документ по имени. "
+                        "Проза рядом законна, вместо адреса — нет: гейт, чей адрес нельзя "
+                        "назвать, обычно и не гейт"
                     )
+                for named in named_paths(where):
+                    if not (base / named).exists():
+                        problems.append(
+                            f"правило {rule_id}: `where` указывает на {named}, которого нет — "
+                            "предмет правила изменился, а запись осталась"
+                        )
+                if mechanism == "gate":
+                    problems.extend(_unreachable(rule_id, where, base=base))
         elif status in {"rejected", "not-applicable"} and not str(raw.get("why") or "").strip():
             problems.append(
                 f"правило {rule_id}: {status} без причины — через полгода это "
@@ -133,6 +276,41 @@ def binding_violations(data: dict[str, Any], *, root: Path | None = None) -> lis
             )
 
     return problems
+
+
+def _unreachable(rule_id: str, where: str, *, base: Path) -> list[str]:
+    """Отказ, если гейт заявлен, но ни один названный скрипт никем не запускается.
+
+    Строка ``"mechanism": "gate", "where": "scripts/что_угодно.py"`` зеленела,
+    пока файл существует, — то есть «держится гейтом» подтверждалось наличием
+    файла, а не тем, что он где-то падает (issue #1400).
+
+    Достаточно **одного** достижимого скрипта из названных: запись законно
+    называет и генератор, и сторожа при нём (правило 120 — `generate_rules_
+    index.py` рядом с `check_rules_digest.py`), и держит её второй. Требовать
+    достижимости от каждого значило бы запретить называть предмет вместе с
+    механизмом.
+    """
+    scripts = [
+        named.split("/", 1)[1]
+        for named in named_paths(where)
+        if named.startswith("scripts/") and (base / named).exists()
+    ]
+    if not scripts:
+        return []
+
+    reached = reachable_gates(base)
+    if any(script in reached for script in scripts):
+        return []
+    declared = [script for script in scripts if script in GATE_DEBT]
+    if declared:
+        return []
+    return [
+        f"правило {rule_id}: ни один из {', '.join(scripts)} не запускается ни "
+        "workflow, ни pre-commit, ни preflight — «держится гейтом» подтверждается "
+        "падением, а не существованием файла. Подключите скрипт либо объявите "
+        "долг в GATE_DEBT с причиной"
+    ]
 
 
 def unheld_count(data: dict[str, Any]) -> tuple[int, int]:
@@ -213,9 +391,10 @@ def main(argv: list[str] | None = None) -> int:
     if unheld > UNHELD_BUDGET:
         print(
             f"FAIL: не обеспечено ничем — {unheld} правил(а) при бюджете {UNHELD_BUDGET}.\n"
-            "Правило без механизма обязано быть записано документом "
-            "(mechanism: process-step + where), иначе оно действует ровно до тех пор, "
-            "пока о нём помнит окно. Бюджет опускают починкой, а не правкой числа."
+            "Правило без механизма обязано быть закрыто гейтом, замечено конвейером "
+            "либо записано документом (mechanism + разрешимый адрес в where), иначе оно "
+            "действует ровно до тех пор, пока о нём помнит окно. Бюджет опускают "
+            "починкой, а не правкой числа."
         )
         return 1
 

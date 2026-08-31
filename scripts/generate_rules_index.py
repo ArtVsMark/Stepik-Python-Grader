@@ -65,7 +65,7 @@ PROJECT = "ArtVsMark/Stepik-Python-Grader"
 GENERATED_HEADER = "<!-- СГЕНЕРИРОВАНО scripts/generate_rules_index.py — не править руками -->"
 
 #: Три уровня обеспечения. Порядок важен: он же порядок убывания надёжности.
-MECHANISM_LEVELS = ("гейт", "шаг процесса", "не объявлено")
+MECHANISM_LEVELS = ("гейт", "конвейер", "документ", "не объявлено")
 
 _TITLE_RE = re.compile(r"^#\s+(?P<title>.+?)\s*$", re.MULTILINE)
 _SECTION_RE = re.compile(r"^##\s+(?P<name>.+?)\s*$", re.MULTILINE)
@@ -116,7 +116,12 @@ def _section(text: str, name: str) -> str:
 
 
 #: Как статус из `.rules/bindings.json` читается в указателе.
-_MECHANISM_LABELS = {"gate": "гейт", "process-step": "шаг процесса", "none": "не объявлено"}
+_MECHANISM_LABELS = {
+    "gate": "гейт",
+    "pipeline": "конвейер",
+    "document": "документ",
+    "none": "не объявлено",
+}
 
 
 def _bindings_mechanisms(path: pathlib.Path | None = None) -> dict[str, str]:
@@ -339,9 +344,10 @@ def render_index(rules: list[Rule], *, catalogue_url: str = "") -> str:
     for level in MECHANISM_LEVELS:
         count = sum(1 for rule in rules if rule.mechanism == level)
         explanation = {
-            "гейт": "падает в CI или в `preflight.py`",
-            "шаг процесса": "проверяется человеком в названный момент",
-            "не объявлено": "ответа проекта ещё нет — очередь на автоматизацию",
+            "гейт": "нарушение отвергается до слияния",
+            "конвейер": "нарушение замечает прогон, но слияние не держит",
+            "документ": "нарушение заметит человек, если читал",
+            "не объявлено": "не замечается ничем — очередь на автоматизацию",
         }[level]
         lines.append(f"| **{level}** | {explanation} | {count} |")
 

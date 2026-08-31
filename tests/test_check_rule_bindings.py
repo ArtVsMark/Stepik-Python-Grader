@@ -38,7 +38,7 @@ _MODULE = _load_module()
 
 
 def _data(rules: dict[str, Any]) -> dict[str, Any]:
-    return {"schema": "1.0", "project": "x/y", "catalogue": "https://example", "rules": rules}
+    return {"schema": "1.1", "project": "x/y", "catalogue": "https://example", "rules": rules}
 
 
 # --- состояние репозитория ----------------------------------------------------
@@ -51,7 +51,7 @@ def test_repository_answer_is_valid() -> None:
 
 def test_answer_file_exists_and_parses() -> None:
     data = json.loads(_BINDINGS.read_text(encoding="utf-8"))
-    assert data["schema"] == "1.0"
+    assert data["schema"] == "1.1"
     assert data["project"] == "ArtVsMark/Stepik-Python-Grader"
     assert data["rules"], "пустой ответ — то же самое, что отсутствие ответа"
 
@@ -105,20 +105,183 @@ def test_where_pointing_at_a_missing_file_is_a_violation(tmp_path: pathlib.Path)
     assert any("нет-такого.py" in problem for problem in problems), problems
 
 
-def test_where_describing_a_step_is_not_treated_as_a_path() -> None:
-    """`where` бывает разделом свода, а не файлом — это законно."""
+def test_a_root_document_by_name_is_an_address() -> None:
+    """Корневой документ по имени — адрес, а прозы рядом контракт не запрещает."""
     problems = _MODULE.binding_violations(
         _data(
             {
                 "001": {
                     "status": "active",
-                    "mechanism": "process-step",
-                    "where": "ревью документации",
+                    "mechanism": "document",
+                    "where": "CONTRIBUTING.md § ревью документации: читает мержащий",
                 }
             }
         )
     )
     assert problems == [], problems
+
+
+def test_prose_instead_of_an_address_is_a_violation() -> None:
+    """Проза ВМЕСТО адреса — нет: гейт, чей адрес не назвать, обычно и не гейт.
+
+    Контракт 1.1 требует от `where` разрешимый адрес. Асимметрия стоила ровно
+    того, чего от неё ждали: пока проверялась только непустота, разложить
+    ответы по уровням можно было лишь разбором прозы регулярным выражением.
+    """
+    problems = _MODULE.binding_violations(
+        _data({"001": {"status": "active", "mechanism": "document", "where": "ревью документации"}})
+    )
+
+    assert any("разрешимого адреса" in problem for problem in problems), problems
+
+
+def test_none_may_answer_in_prose() -> None:
+    """У `none` адрес не требуется: механизма нет, называть нечего."""
+    problems = _MODULE.binding_violations(
+        _data({"001": {"status": "active", "mechanism": "none", "where": "механизма нет"}})
+    )
+    assert problems == [], problems
+
+
+def test_the_deprecated_word_is_no_longer_accepted() -> None:
+    """`process-step` называл сразу три уровня — и потому не значил ничего.
+
+    Каталог принимает его для совместимости, но в отчётах не сводит ни к
+    одному из новых: подмена была бы догадкой за потребителя. У нас все записи
+    переведены, поэтому слово отвергается — иначе склейка вернётся (#1400).
+    """
+    problems = _MODULE.binding_violations(
+        _data(
+            {"001": {"status": "active", "mechanism": "process-step", "where": "CLAUDE.md § Гейты"}}
+        )
+    )
+
+    assert any("process-step" in problem or "механизма из" in problem for problem in problems), (
+        problems
+    )
+
+
+def _repo(root: pathlib.Path, *, workflow: str = "", scripts: dict[str, str] | None = None) -> None:
+    """Минимальный репозиторий: прогон CI плюс несколько скриптов."""
+    (root / ".github" / "workflows").mkdir(parents=True, exist_ok=True)
+    (root / ".github" / "workflows" / "ci.yml").write_text(workflow, encoding="utf-8")
+    (root / "scripts").mkdir(exist_ok=True)
+    for name, text in (scripts or {}).items():
+        (root / "scripts" / name).write_text(text, encoding="utf-8")
+
+
+def test_every_named_path_is_checked_not_only_the_first(tmp_path: pathlib.Path) -> None:
+    """Проверяется каждый путь в `where`, а не первое слово строки.
+
+    Пока смотрели первый, у записи с двумя путями второе утверждение не
+    проверял никто: правило 119 называло креплением `tests/test_test_loader.py`,
+    которого нет, и гейт молчал, потому что первым стоял существующий модуль
+    (issue #1400).
+    """
+    _repo(tmp_path, workflow="run: python scripts/check_x.py", scripts={"check_x.py": ""})
+
+    problems = _MODULE.binding_violations(
+        _data(
+            {
+                "119": {
+                    "status": "active",
+                    "mechanism": "gate",
+                    "where": "scripts/check_x.py — закреплено tests/test_нет_такого.py",
+                }
+            }
+        ),
+        root=tmp_path,
+    )
+
+    assert any("test_нет_такого.py" in problem for problem in problems), problems
+
+
+def test_a_gate_nobody_runs_is_a_violation(tmp_path: pathlib.Path) -> None:
+    """«Держится гейтом» подтверждается падением, а не существованием файла."""
+    _repo(tmp_path, workflow="run: python scripts/check_other.py", scripts={"check_x.py": ""})
+
+    problems = _MODULE.binding_violations(
+        _data({"001": {"status": "active", "mechanism": "gate", "where": "scripts/check_x.py"}}),
+        root=tmp_path,
+    )
+
+    assert any("не запускается" in problem for problem in problems), problems
+
+
+def test_a_mention_is_not_an_invocation(tmp_path: pathlib.Path) -> None:
+    """Скрипт, лишь НАЗВАННЫЙ в прозе, подключённым не считается.
+
+    Обе стороны ошибки уже случались: `check_docs_guardrails.py` называет
+    `skip_inventory.py` в docstring, а `check_pr_ready.py` встречается в трёх
+    прогонах — и везде это `#`-комментарий. По одному `grep` оба выглядели
+    работающими гейтами.
+    """
+    _repo(
+        tmp_path,
+        workflow="# запускать не будем: python scripts/check_x.py",
+        scripts={
+            "check_x.py": "",
+            "check_runner.py": '"""Похож на scripts/check_x.py, но не зовёт его."""',
+        },
+    )
+
+    problems = _MODULE.binding_violations(
+        _data({"001": {"status": "active", "mechanism": "gate", "where": "scripts/check_x.py"}}),
+        root=tmp_path,
+    )
+
+    assert any("не запускается" in problem for problem in problems), problems
+
+
+def test_a_gate_reached_through_another_script_counts(tmp_path: pathlib.Path) -> None:
+    """Цепочка длиннее одного звена — тоже подключение, а не долг."""
+    _repo(
+        tmp_path,
+        workflow="run: python scripts/check_runner.py",
+        scripts={
+            "check_runner.py": 'run([sys.executable, str(_ROOT / "scripts" / "check_x.py")])',
+            "check_x.py": "",
+        },
+    )
+
+    problems = _MODULE.binding_violations(
+        _data({"001": {"status": "active", "mechanism": "gate", "where": "scripts/check_x.py"}}),
+        root=tmp_path,
+    )
+
+    assert problems == [], problems
+
+
+def test_one_reachable_script_is_enough(tmp_path: pathlib.Path) -> None:
+    """Запись законно называет и генератор, и сторожа при нём — держит второй."""
+    _repo(
+        tmp_path,
+        workflow="run: python scripts/check_guard.py",
+        scripts={"check_guard.py": "", "generate_thing.py": ""},
+    )
+
+    problems = _MODULE.binding_violations(
+        _data(
+            {
+                "120": {
+                    "status": "active",
+                    "mechanism": "gate",
+                    "where": "scripts/generate_thing.py, а scripts/check_guard.py их сверяет",
+                }
+            }
+        ),
+        root=tmp_path,
+    )
+
+    assert problems == [], problems
+
+
+def test_declared_debt_is_named_with_a_reason() -> None:
+    """Долг объявляется с причиной: молча внесённое исключение — глушилка."""
+    assert _MODULE.GATE_DEBT, "список долга пуст — тогда и исключений быть не должно"
+    for script, reason in _MODULE.GATE_DEBT.items():
+        assert reason.strip(), f"{script}: долг без причины"
+        assert "#" in reason, f"{script}: причина без адреса задачи"
 
 
 @pytest.mark.parametrize("status", ["rejected", "not-applicable"])
