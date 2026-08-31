@@ -180,6 +180,61 @@ def test_without_an_answer_everything_is_undeclared(generator: ModuleType, tmp_p
     )
 
 
+def test_answered_not_here_is_not_counted_as_undeclared(
+    generator: ModuleType, tmp_path: Path
+) -> None:
+    """«Решено, что не про нас» и «руки не дошли» — разные состояния.
+
+    У обоих след ведёт сюда, но `not-applicable` и `rejected` несут причину по
+    контракту каталога, то есть решение принято. Пока такой ответ показывался
+    как «не объявлено», он стоял в метрике «очередь на автоматизацию», которая
+    объявлена обязанной уменьшаться, — и уменьшить её было нечем: строить гейт
+    для предмета, которого здесь нет, не из чего (правило 154).
+    """
+    catalogue = _catalogue(
+        tmp_path / "cat",
+        {
+            "020-гейт.md": _rule("ArtVsMark/Stepik-Python-Grader#1"),
+            "079-срок.md": _rule("ArtVsMark/Stepik-Python-Grader#2"),
+            "080-отклонено.md": _rule("ArtVsMark/Stepik-Python-Grader#3"),
+        },
+    )
+    root = tmp_path / "repo"
+    root.mkdir()
+    _bindings(
+        root,
+        {
+            "020": {"status": "active", "mechanism": "gate", "where": "scripts/x.py"},
+            "079": {"status": "not-applicable", "why": "сроков от постановки здесь нет"},
+            "080": {"status": "rejected", "why": "решение иное и записано"},
+        },
+    )
+
+    rules = generator.collect_rules(catalogue, repo_root=root)
+
+    assert {rule.slug for rule in rules} == {"020-гейт"}, (
+        "отвеченное «здесь не действует» перечисляется среди действующих"
+    )
+    assert all(rule.mechanism != "не объявлено" for rule in rules), (
+        "ответ с причиной попал в очередь на автоматизацию, которую нечем закрыть"
+    )
+
+
+def test_answered_not_here_still_needs_a_live_trail(generator: ModuleType, tmp_path: Path) -> None:
+    """Пропуск не глушит отказ «след ведёт в никуда».
+
+    Иначе ответом `not-applicable` можно было бы спрятать правило, чей предмет
+    исчез, — а это ровно тот сигнал, ради которого генератор падает.
+    """
+    catalogue = _catalogue(tmp_path / "cat", {"079-срок.md": _rule("`scripts/нет_такого.py`")})
+    root = tmp_path / "repo"
+    root.mkdir()
+    _bindings(root, {"079": {"status": "not-applicable", "why": "предмета здесь нет"}})
+
+    with pytest.raises(ValueError, match="в никуда"):
+        generator.collect_rules(catalogue, repo_root=root)
+
+
 def test_gate_word_in_the_incident_does_not_count(generator: ModuleType, tmp_path: Path) -> None:
     """Слово «гейт» в описании инцидента не делает правило обеспеченным.
 
