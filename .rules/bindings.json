@@ -1,5 +1,5 @@
 {
-  "schema": "1.0",
+  "schema": "1.1",
   "project": "ArtVsMark/Stepik-Python-Grader",
   "catalogue": "https://github.com/ArtVsMark/claude-code-playbook",
   "rules": {
@@ -15,7 +15,7 @@
     },
     "003": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "pipeline",
       "where": "CLAUDE.md § Рабочая ветка: префикс agent/ — переключатель, а не стиль (его подхватывает .github/workflows/agent-pr.yml и открывает PR от имени владельца); проверяется при создании ветки, гейта на имя нет"
     },
     "004": {
@@ -30,12 +30,12 @@
     },
     "006": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Два окна: «Окно живёт 3–5 дней, дальше перезапуск — обязательно»; замер 764 против 81 прочитанного токена на токен выхода и шаблон эстафеты — docs/agent/environments.md"
     },
     "007": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/dispatcher.md — окно, ждущее разрешения, узнаётся по pending_action в реестре сессий; порог получаса, решение принимает диспетчер"
     },
     "008": {
@@ -49,12 +49,12 @@
     },
     "010": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_pr_ready.py: пустой или неполный список проверок трактуется как «CI не стартовал», а не «зелено», и мерж отклоняется"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Гейты: пустой список проверок — «CI не стартовал», а не «зелено»; проверяет scripts/check_pr_ready.py, который запускает окно перед мержем"
     },
     "011": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Гейты: авто-мерж вместо опроса статусов, «цикл опроса на GraphQL запрещён как класс», интервал опроса 45–60 с; разбор — docs/agent/preflight.md"
     },
     "012": {
@@ -69,12 +69,12 @@
     },
     "014": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CONTRIBUTING.md § Когда дефект считается исправленным: краснота доказывается полу-откатом — новые имена оставить, убрать только поведение; откат всего src/ даёт ImportError"
     },
     "015": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Мультиагентный режим и docs/agent/multiagent.md § Агенты возвращают данные — файлы правит хост (agent(schema=...) → детерминированный applier)"
     },
     "016": {
@@ -84,22 +84,22 @@
     },
     "017": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/gh_rest.py — остаток квоты читается из заголовков каждого ответа (бесплатно) и печатается подкомандой rate, которая сама квоту не тратит; разбор начинается с факта, а не с гипотезы"
     },
     "018": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Два окна и docs/agent/environments.md § Облако проверяет узлы, локальное окно — цепочку; планируя срез аудита, окно проставляется сразу"
     },
     "019": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md § Аудит планируется от поверхностей продукта, а не от файлов: первый шаг планирования — инвентарь поверхностей"
     },
     "020": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md § Рестарт только дельты: после сбоя добирается недостающее, а не повторяется вся волна"
     },
     "021": {
@@ -109,7 +109,7 @@
     },
     "022": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Источники истины: канонический документ на тему один, остальные ссылаются; компактные триггеры не дублируют канон"
     },
     "023": {
@@ -119,7 +119,7 @@
     },
     "024": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Обновление CHANGELOG.md / HISTORY.md: журнал работ живёт в HISTORY.md и docs/archive/, действующие документы описывают настоящее; docs/agent/claude-handoff.md § чего там не бывает"
     },
     "025": {
@@ -129,22 +129,22 @@
     },
     "026": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "pipeline",
       "where": "CLAUDE.md § Открытая работа: отклонённая находка фиксируется с причиной — молча удалённая вернётся следующим аудитом; реестр сверяет scripts/check_audit_registry.py"
     },
     "027": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/nightly_checks.py — чистый обход пишет в задачу «Находок нет» с датой и числом проверок, а не оставляет пустое тело; docs/audit/README.md и docs/agent/claude-handoff.md объявляют пустоту словами"
     },
     "028": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/check_issue_checklists.py — комплексный issue от трёх находок ведёт чек-лист с исходом каждой"
     },
     "029": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md: блок в главном файле — компактный триггер, детали канонически живут в docs/ и не дублируются"
     },
     "030": {
@@ -154,22 +154,22 @@
     },
     "031": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Мультиагентный режим (волнами по 5) и docs/agent/multiagent.md; прецеденты залпов записаны там же числами"
     },
     "032": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/roles.md: если предмет роли наблюдаем в работающем продукте, роль обязана его запустить — вывод чтением кода считается неполным"
     },
     "033": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md § арифметика интервала между стартами; CLAUDE.md § Гейты — порог остатка квоты и интервал опроса статусов"
     },
     "034": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md § Роль дробится на 2–3 агента; CLAUDE.md § Мультиагентный режим — явный список файлов и лимиты объёма ответа"
     },
     "035": {
@@ -179,17 +179,17 @@
     },
     "036": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/environments.md § Фаза 0 — слепок реальности до облачных волн и подтверждение в конце; docs/agent/multiagent.md § фазы аудита"
     },
     "037": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/environments.md: находка с фикстуры — гипотеза, уходит в список фазы L; то же в multiagent.md и roles.md"
     },
     "038": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Два окна: имя окна начинается с окружения ([WEB]/[LOCAL]/[CLI]), метка ставится при открытии; канон — docs/agent/environments.md"
     },
     "039": {
@@ -199,12 +199,12 @@
     },
     "040": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/skip_inventory.py"
+      "mechanism": "none",
+      "where": "scripts/skip_inventory.py собирает пропуски статически, но его не запускает ни прогон, ни pre-commit, ни preflight, и требования «у пропуска есть причина» нет ни в одном действующем документе — нарушение не заметит никто (issue #1400)"
     },
     "041": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "document",
       "where": "два бейджа покрытия — single-OS и cross-OS combined: одного правдивого числа не существует, потому что три backend'а песочницы ОС-специфичны (CLAUDE.md § Метрики)"
     },
     "042": {
@@ -219,7 +219,7 @@
     },
     "044": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/roles.md: оценка 🔍 Аудитора едет как заявка и проходит через ⚖️ Верификатора с установкой «опровергай по умолчанию» — по находке не работают, пока её премиса не проверена"
     },
     "045": {
@@ -229,12 +229,12 @@
     },
     "046": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "SECURITY.md § Гарантии по ОС: таблица асимметрии, а не выравнивание на бумаге — что даёт bwrap, seatbelt и Job Object, названо порознь"
     },
     "047": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Гейты: смена правил транспорта требует перезапуска активных окон — настройки читаются при старте сессии"
     },
     "048": {
@@ -243,7 +243,7 @@
     },
     "049": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/gh_rest.py queue вычисляет очередь из состояния API и печатает обоснование; реестра нет намеренно — хранимое состояние разъезжается между окнами"
     },
     "050": {
@@ -253,32 +253,32 @@
     },
     "051": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_work_overlap.py"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Метки при заведении issue — «Границу PR задаёт пересечение файлов»; scripts/check_work_overlap.py показывает пересечение, но его не зовёт ни прогон, ни pre-commit, ни preflight"
     },
     "052": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/move_merge_queue.py обновляет только голову очереди — из main остальные не двигаются (CLAUDE.md § Гейты: N против N(N−1)/2)"
     },
     "053": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/gh_rest.py queue вычисляет очередь из состояния API и печатает обоснование (приоритет метки, общий файл, готовность), а не берёт из хранимого реестра"
     },
     "054": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/course-walkthrough.md: на шаге сбора ничего не анализируется — прогнать, записать сырое; разбор на границе главы"
     },
     "055": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/course-walkthrough.md § Внешний судья вердикта: свои ожидания в каталоге мутаций не доказывают ничего, сверка идёт со Stepik; каталог мутаций — docs/dev/corpus.md"
     },
     "056": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/dev/result-contract.md § Вердикты (семантика) и docs/agent/preflight.md: пустой список проверок означает «CI не стартовал», а не «зелено» — у сигнала записано и то, чего он не означает"
     },
     "057": {
@@ -288,48 +288,48 @@
     },
     "058": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/gh_rest.py — стоп-кран по остатку: ниже DEFAULT_QUOTA_FLOOR (600, порог меняется GH_REST_QUOTA_FLOOR) операция не начинается, код возврата EXIT_WAIT «ждать», а не повтор; исчерпанный лимит поднимает RateLimited со временем сброса"
     },
     "059": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/preflight.md § Маршрут при исчерпании лимитов: что недоступно, что работает и чем занять время до сброса квоты"
     },
     "060": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md § Разбор после КАЖДОЙ волны — по двум осям, и качество важнее механики"
     },
     "061": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md § Прогонным агентам — запреты окружения прямо в промпте"
     },
     "062": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/roles.md § критерий приёмки новой роли: свой вопрос, свой артефакт, своё возражение конкретной роли — иначе это раздел документации"
     },
     "063": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/rerun_flaky_checks.py"
     },
     "064": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_pr_ready.py отказывает мержить PR без area/*, типа работы и связи с задачей: от меток зависят закрытие задачи и приоритет очереди"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Метки при заведении issue: на PR обязательны area/*, тип работы и связь с задачей; отказывает scripts/check_pr_ready.py, который запускает окно перед мержем"
     },
     "065": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/check_good_first_issues_bilingual.py — good first issue и help wanted ведутся на двух языках, и меток именно две: путь участника не кончается первым вкладом"
     },
     "066": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/atomic_io.py — блокировка берётся на файл-спутник (LOCK_SUFFIX), потому что сам файл заменяется целиком через tmp+replace; закреплено тестами atomic_io"
+      "where": "tests/test_atomic_io.py — блокировка берётся на спутника, а не на файл, заменяемый целиком; предмет — src/stepik_grader/atomic_io.py"
     },
     "067": {
       "status": "active",
@@ -338,13 +338,13 @@
     },
     "068": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "закрытые списки разрешённого: _FIELDS в src/stepik_grader/core/usage_export.py (что покидает журнал) и AUTO_RERUN в scripts/rerun_flaky_checks.py (что вообще можно перезапускать); оба закреплены тестами"
     },
     "069": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/core/user_settings.py save_fields пишет названные поля, а не снимок всего файла: настройки правятся из нескольких поверхностей (CLI, web, GUI)"
+      "where": "tests/test_user_settings.py — пишется поле, а не снимок; предмет — src/stepik_grader/core/user_settings.py"
     },
     "070": {
       "status": "active",
@@ -353,8 +353,8 @@
     },
     "071": {
       "status": "active",
-      "mechanism": "process-step",
-      "where": "дубликат находки в документе аудита помечается явно и закрывается тем же PR, что и оригинал (RUN-5-03 — дубликат RUN-4-03); сверяет ревизия реестра, гейта нет"
+      "mechanism": "none",
+      "where": "дубликат находки в документе аудита помечается явно и закрывается тем же PR, что и оригинал (RUN-5-03 — дубликат RUN-4-03); ревизия реестра идёт глазами, механизма нет (issue #1400)"
     },
     "072": {
       "status": "active",
@@ -397,7 +397,7 @@
     },
     "080": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Новое правило — в общий каталог: правило уезжает в claude-code-playbook тем же заходом; гейта нет и не будет — проверить запись в чужой репозиторий нечем"
     },
     "081": {
@@ -407,17 +407,17 @@
     },
     "082": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Режим ответов: пласт без владельца — слепая зона, покрытие не равно отдельной роли; разбор пластов — docs/agent/roles.md"
     },
     "083": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "document",
       "where": "docs/dev/corpus.md — прогонный корпус проверяет вердикты детерминированными мутациями эталона, а не сверкой с «правильным ответом» LLM"
     },
     "084": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Архитектурные инварианты, п. 3: rich опционален, весь вывод через _console с graceful fallback; AI-подсказка отказывает молча и не задерживает проверку"
     },
     "085": {
@@ -427,17 +427,17 @@
     },
     "086": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Режим ответов (🔍 не ставит окончательную тяжесть — его оценка заявка; ⚖️ доказывает) и docs/agent/multiagent.md § адверсариальный верификатор со шкалой на примерах"
     },
     "087": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md: второй аудит получает на вход накопитель первого и правило новизны — иначе на 60% переоткрывает его"
     },
     "088": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/roles.md § Роль 27 — Критик метода: вход — след фазы, вопрос о методе, а не о продукте"
     },
     "089": {
@@ -452,33 +452,33 @@
     },
     "091": {
       "status": "active",
-      "mechanism": "process-step",
-      "where": "CLAUDE.md § Открытая работа: порядок обращения сверху вниз — issue, docs/audit/, claude-handoff.md, CHANGELOG.md; первый непустой источник и есть план"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Открытая работа: порядок обращения сверху вниз — issue, docs/audit/, docs/agent/claude-handoff.md, CHANGELOG.md; первый непустой источник и есть план"
     },
     "092": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Открытая работа: аудит даёт находки (docs/audit/), очередь задаёт порядок (docs/agent/claude-handoff.md) — два документа, смешивать нельзя"
     },
     "093": {
       "status": "active",
-      "mechanism": "process-step",
-      "where": "ADR-0006: протокол Runner введён швом до server mode — минимальная обратимая точка расширения вместо обобщения по первому случаю"
+      "mechanism": "document",
+      "where": "docs/dev/adr/0006-runner-abstraction.md — протокол Runner введён швом до server mode: минимальная обратимая точка расширения вместо обобщения по первому случаю"
     },
     "094": {
       "status": "active",
-      "mechanism": "process-step",
-      "where": "ADR-0004 § Альтернативы, вариант B: src-layout плюс тонкие root-shim'ы отклонён явно — два пути импорта и их дрейф, а заглушки маскируют ровно ту упаковку, ради которой шла миграция"
+      "mechanism": "document",
+      "where": "docs/dev/adr/0004-src-layout.md § Альтернативы, вариант B: src-layout плюс тонкие root-shim'ы отклонён явно — два пути импорта и их дрейф"
     },
     "095": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "ADR-0002 (история opt-in), consent-гейт AI-подсказки и флаг --expose-usage: сбор и отдача данных выключены по умолчанию, решение принимает человек"
+      "mechanism": "document",
+      "where": "docs/dev/adr/0002-history-opt-in.md: сбор и отдача данных выключены по умолчанию, решение принимает человек; consent-гейт AI-подсказки и флаг --expose-usage"
     },
     "096": {
       "status": "active",
-      "mechanism": "process-step",
-      "where": "ADR-0011: SQLite для того, что пишется конкурентно и переживает прогон, JSON для настроек — хранилище выбрано по жизненному циклу данных"
+      "mechanism": "document",
+      "where": "docs/dev/adr/0011-local-persistence.md: SQLite для того, что пишется конкурентно и переживает прогон, JSON для настроек — хранилище выбрано по жизненному циклу данных"
     },
     "097": {
       "status": "active",
@@ -487,12 +487,12 @@
     },
     "098": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/dev/glossary.md § Одна концепция — одна карточка: парные протоколы намеренно остаются бандлами, а поиск чинится keywords, а не разбиением"
     },
     "099": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/dev/glossary.md § Дубли двух поколений импорта: при конфликте выигрывает тематика — иначе «Типы данных» осталась бы без int/str/float"
     },
     "100": {
@@ -502,7 +502,7 @@
     },
     "101": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/gh_rest.py — временный отказ отличается от постоянного по ответу сервера: 403/429 с исчерпанным остатком или Retry-After поднимают RateLimited («ждать»), а 401/403 без них — GitHubError («повтор не поможет»); названная сервером пауза важнее расчётной"
     },
     "102": {
@@ -517,22 +517,22 @@
     },
     "104": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": ".github/workflows/ci.yml"
     },
     "105": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": ".github/workflows/claude-code-review.yml — ревью ведёт отдельный прогон, не то окно, что писало код; claude-review в списке обязательных проверок защиты main"
     },
     "106": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "HISTORY.md: решение владельца — не показывать широко, пока не пройден настоящий курс и вердикты не сошлись с платформой; протокол прогона — docs/agent/course-walkthrough.md"
     },
     "107": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "document",
       "where": "матрица CI (три ОС × 3.12/3.13): вторая и третья ОС не проверяются руками ни в одном окне — только матрицей, потому что выборка окна это выборка его автора (CLAUDE.md § Два окна)"
     },
     "108": {
@@ -552,7 +552,7 @@
     },
     "111": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CLAUDE.md § Гейты: может сделать сам — делает, а не советует; прецедент — gh_rest.py edit-pr вместо совета проставить Closes руками"
     },
     "112": {
@@ -568,7 +568,7 @@
     "114": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/db.py — миграции идут от user_version, каждая ступень применяется только к состоянию, которое её не проходило"
+      "where": "tests/test_db.py — общий коннектор SQLite (connect/user_version/apply_schema); предмет — src/stepik_grader/db.py"
     },
     "115": {
       "status": "active",
@@ -582,7 +582,7 @@
     },
     "117": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/multiagent.md: лимит объёма ответа прямо в схеме (minItems/maxItems, maxLength на каждом строковом поле) и бюджет обращений; то же в CLAUDE.md § Мультиагентный режим"
     },
     "118": {
@@ -593,7 +593,7 @@
     "119": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/core/test_loader.py — маска входа принимает только task*.py, поэтому свои артефакты (.grader_cache/, .grader_stats.jsonl, StepikTasks/) под неё не попадают; закреплено tests/test_test_loader.py"
+      "where": "src/stepik_grader/core/test_loader.py — обход берёт только .py и не заходит в скрытые каталоги (_is_hidden_or_service_dir), поэтому .grader_cache/ и .grader_stats.jsonl под него не попадают; шаблон task*.py — приоритет с откатом (_solution_files_in возвращает by_pattern or files), а не жёсткий фильтр; закреплено tests/test_loader.py"
     },
     "120": {
       "status": "active",
@@ -602,7 +602,7 @@
     },
     "121": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/check_container_closure.py — ночной обход сверяет состояние эпика со счётчиком незакрытых дочерних задач: закрытый контейнер с открытой работой становится находкой с адресатом"
     },
     "122": {
@@ -612,12 +612,12 @@
     },
     "123": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_attribution.py --check-branch смотрит авторов коммитов ветки: squash пересобирает сообщение, и трейлеры платформа берёт из git-идентичности окна"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Формат коммитов: идентичность окна согласована до слияния, после squash подпись не переписать; смотрит scripts/check_attribution.py --check-branch, который не зовёт ни прогон, ни preflight"
     },
     "124": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/rerun_flaky_checks.py: список разрешённых к автоперезапуску закрыт, попытка ровно одна, а зелёное со второго раза записывается находкой в docs/agent/flaky-runs.md"
     },
     "125": {
@@ -627,7 +627,7 @@
     },
     "126": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "красная main замораживает очередь мержа, и выход из заморозки — метка blocker на чинящем PR, то есть путь мимо замороженного действия; вычисляет scripts/gh_rest.py queue"
     },
     "127": {
@@ -637,8 +637,8 @@
     },
     "128": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_pr_ready.py проверяет связь с задачей на ПОЛНОТУ: сверяет номера в фрагментах changelog.d с телом PR и предупреждает о половинчатой связи, а не только о её отсутствии"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Метки при заведении issue: связь проверяется на полноту — номера во фрагментах changelog.d против тела PR; сверяет scripts/check_pr_ready.py, запускаемый окном перед мержем"
     },
     "129": {
       "status": "active",
@@ -647,23 +647,23 @@
     },
     "130": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/link_rules_to_issues.py — новое правило приходит вместе со списком кандидатов из нашего трекера"
     },
     "131": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_pr_ready.py отказывает мержить PR, открытый ботом: из облачного окна учётные данные на записи подменяются на claude[bot], и squash записал бы его автором в main"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Формат коммитов: PR, открытый ботом, пересоздаётся, а не мержится — squash записал бы бота автором в main; отказывает scripts/check_pr_ready.py при запуске окном"
     },
     "132": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_work_overlap.py показывает, кто ещё трогает те же файлы, а check_pr_ready.py требует объявить все задачи сборного изменения (Closes #N либо «Часть #N»)"
+      "mechanism": "document",
+      "where": "CONTRIBUTING.md § Границу PR задаёт пересечение файлов: сборный PR законен, незаявленный — нет; scripts/check_work_overlap.py запускается руками"
     },
     "133": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "граница PR проверяется пересечением файлов: scripts/check_work_overlap.py считает его по git diff --name-only, а не по числу задач"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Метки при заведении issue: граница PR считается по git diff --name-only, а не по числу задач; scripts/check_work_overlap.py запускается руками"
     },
     "134": {
       "status": "active",
@@ -672,12 +672,12 @@
     },
     "135": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_pr_ready.py отказывает мержить PR, открытый ботом (squash записал бы его автором в main), а scripts/check_attribution.py --check-branch сверяет подпись коммитов ветки до слияния — обе проверки узнают личность окна записью, а не опросом"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Формат коммитов: автор PR — человек, соавторство — место вклада Claude; scripts/check_pr_ready.py и scripts/check_attribution.py --check-branch запускаются окном, а не прогоном"
     },
     "136": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "gate",
       "where": "ответ по внешнему правилу пишется в .rules/bindings.json одним заходом: сначала перечисляются все свои предметы правила, потом вердикт; сверяется на ревью PR — гейта на полноту перечисления нет"
     },
     "137": {
@@ -687,12 +687,12 @@
     },
     "138": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/environments.md — решение оседает задачей или комментарием сразу, эстафета передаётся ссылками; шаблон стартового сообщения окна там же"
     },
     "139": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "CONTRIBUTING.md § Когда дефект считается исправленным и чек-лист CLAUDE.md: дефект закрыт прогоном той поверхности, где найден, — браузер браузером, CLI командой"
     },
     "140": {
@@ -707,12 +707,12 @@
     },
     "142": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/nightly_checks.py — ночной обход ведёт одну задачу с меткой «ночной обход»: пока находки есть, она открыта и обновляется, стало чисто — закрывается; красным прогон при этом не становится, потому что красное на вкладке прогонов адресатом не является"
     },
     "144": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/check_audit_registry.py — mention_verdict берёт окно контекста абзацем, а заголовок раздела перевешивает форму строки; закреплено тестами test_check_audit_registry.py"
     },
     "145": {
@@ -722,18 +722,18 @@
     },
     "146": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/preflight.md § Что гейты не ловят: зелёный гейт подтверждает себя, утверждение проверяется замером на живом предмете, замер пишется рядом с механизмом"
     },
     "147": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/check_orphan_branches.py"
     },
     "148": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_pr_ready.py читает проверки по sha головы PR, а не по полю записи, и отдельно смотрит прогон main: пустой список проверок трактуется как «CI не стартовал», а не «зелено»"
+      "mechanism": "document",
+      "where": "CLAUDE.md § Гейты: проверки читаются по sha головы PR, отдельно смотрится прогон main; scripts/check_pr_ready.py запускает окно перед мержем"
     },
     "149": {
       "status": "active",
@@ -742,12 +742,12 @@
     },
     "150": {
       "status": "active",
-      "mechanism": "process-step",
+      "mechanism": "document",
       "where": "docs/agent/preflight.md § Что гейты не ловят: тест проверки спрашивает её вердикт, а не пересказывает условие; механизмом не ловится — тот же признак законен там, где предмет теста и есть константа"
     },
     "151": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "scripts/report_failed_tests.py и job report-failures в .github/workflows/ci.yml — сводка упавших тестов ложится комментарием в PR, потому что логи и артефакты Actions облачной сессии недоступны (403); правило родилось здесь"
     },
     "152": {
@@ -757,7 +757,7 @@
     },
     "153": {
       "status": "active",
-      "mechanism": "gate",
+      "mechanism": "pipeline",
       "where": "docs/agent/rules/DIGEST.md собирается из каталога генератором (scripts/generate_rules_digest.py), а не переписывается руками: чужой текст здесь производное с живым исходником, и расхождение ловит check_rules_digest.py"
     },
     "154": {
