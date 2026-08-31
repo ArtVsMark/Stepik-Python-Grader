@@ -60,6 +60,8 @@ __all__ = [
     "STATUSES",
     "UNHELD_BUDGET",
     "binding_violations",
+    "catalogue_schema",
+    "contract_drift",
     "main",
     "named_paths",
     "reachable_gates",
@@ -340,6 +342,55 @@ def _export_ids(catalogue: Path) -> set[str]:
     return {str(rule["id"]) for rule in data.get("rules", []) if rule.get("id")}
 
 
+def catalogue_schema(catalogue: Path) -> str | None:
+    """Версия контракта потребителя, объявленная САМИМ каталогом.
+
+    Берётся из заготовки ``templates/bindings.json``: это единственное место,
+    где контракт публикует свою версию машиночитаемо. Нет файла или версии —
+    ``None``: «прочитать нечем» и «прочитали плохое» — разные исходы.
+    """
+    template = catalogue / "templates" / "bindings.json"
+    if not template.exists():
+        return None
+    try:
+        version = json.loads(template.read_text(encoding="utf-8")).get("schema")
+    except json.JSONDecodeError:
+        return None
+    return str(version) if version else None
+
+
+def contract_drift(data: dict[str, Any], catalogue: Path) -> list[str]:
+    """Разошлась ли наша версия контракта с той, что публикует каталог.
+
+    Прежняя проверка сравнивала ``schema`` из нашего файла с нашей же
+    константой: обе стороны принадлежали потребителю, поэтому подъём версии у
+    издателя она не могла заметить в принципе, а текст отказа при этом
+    утверждал «контракт каталога сегодня 1.0», ни разу в каталог не заглянув.
+
+    Цена измерена: контракт стал 1.1, и это была не косметика — слово
+    ``process-step`` раскололось на ``pipeline``/``document``/``none``, а к
+    ``where`` добавилось требование разрешимого адреса. Записи остались
+    формально валидными и продолжали проходить гейт, хотя 52 ответа из 153
+    были сформулированы словом, которое каталог больше не сводит ни к одному
+    уровню. Заметили это не проверкой, а вопросом владельца (issue #1400).
+
+    Отсюда и текст находки: смена версии — повод перечитать **ответы**, а не
+    только формат.
+    """
+    published = catalogue_schema(catalogue)
+    if published is None:
+        return []
+    ours = str(data.get("schema") or "")
+    if ours == published:
+        return []
+    return [
+        f"контракт потребителя у каталога — {published}, у нас — {ours or 'не объявлен'}. "
+        "Это не переименование поля: вместе с версией меняется ЗНАЧЕНИЕ ответов, "
+        "и формальная валидность это переживает. Перечитать нужно ответы по всем "
+        "правилам, а не только схему файла"
+    ]
+
+
 def main(argv: list[str] | None = None) -> int:
     """Вернуть 0, если ответ проекта сходится с контрактом; иначе 1."""
     reconfigure = getattr(sys.stdout, "reconfigure", None)
@@ -369,6 +420,7 @@ def main(argv: list[str] | None = None) -> int:
         except (FileNotFoundError, json.JSONDecodeError) as exc:
             print(f"FAIL: {exc}")
             return 1
+        problems.extend(contract_drift(data, args.catalogue))
         answered = set(data.get("rules") or {})
         missing = sorted(expected - answered, key=int)
         if missing:
