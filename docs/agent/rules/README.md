@@ -11,6 +11,12 @@
 > **Признак принятия — наличие следа.** Правило без ссылки на этот проект
 > сюда не попадает: здесь оно не действует.
 >
+> **Отвеченное «здесь не действует» — тоже не здесь.** Статусы
+> `not-applicable` и `rejected` несут причину по контракту каталога, и
+> она лежит в [`.rules/bindings.json`](../../../.rules/bindings.json).
+> Показывать такое правило необеспеченным значило бы слить решение с
+> недоделкой: первое закрывать нечем, вторая и есть очередь.
+>
 > **Второй рубеж — [дайджест](DIGEST.md).** Там утверждение каждого правила
 > одной строкой, и его читает окно на старте: указатель отвечает «какие
 > правила есть и чем держатся», дайджест — «что именно они требуют».
@@ -21,18 +27,21 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **93**.
+Всего правил, действующих здесь: **98**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | падает в CI или в `preflight.py` | 57 |
-| **шаг процесса** | проверяется человеком в названный момент | 35 |
-| **не объявлено** | механизм не назван в каталоге — очередь на автоматизацию | 1 |
+| **гейт** | падает в CI или в `preflight.py` | 62 |
+| **шаг процесса** | проверяется человеком в названный момент | 36 |
+| **не объявлено** | ответа проекта ещё нет — очередь на автоматизацию | 0 |
 
-**Не объявлено: 1.** Это метрика, и она обязана уменьшаться.
-Уровень берётся из раздела «Механизм» самого правила — догадываться по тексту
-нельзя: правило, где слово «гейт» встретилось в описании инцидента, не
-становится от этого обеспеченным, а метрика начала бы врать в приятную сторону.
+**Не объявлено: 0.** Это метрика, и она обязана уменьшаться.
+Уровень берётся из ответа этого проекта — `.rules/bindings.json`, а не из
+раздела «Механизм» каталога: тот описывает чужие механизмы (issue #1351).
+Догадываться по тексту нельзя: правило, где слово «гейт» встретилось в
+описании инцидента, не становится от этого обеспеченным, а метрика начала бы
+врать в приятную сторону. Считаются здесь только неотвеченные: правило со
+статусом `not-applicable` или `rejected` в указатель не входит вовсе.
 
 ## Правила
 
@@ -79,26 +88,28 @@
 | [Запреты окружения пишутся в задании, а не подразумеваются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/061-environment-bans-belong-in-the-task.md) | `docs/agent/multiagent.md` | шаг процесса |
 | [Роль заводится, если способна возразить, а не дополнить](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/062-a-role-must-be-able-to-object.md) | `docs/agent/roles.md` | шаг процесса |
 | [Автоматическое вмешательство включается по всем условиям сразу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/063-automatic-intervention-needs-all-conditions.md) | `docs/agent/dispatcher.md` | гейт |
-| [Блокировку берут на спутника, а не на файл, который заменяется целиком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/066-lock-the-companion-not-the-target.md) | `src/stepik_grader/atomic_io.py` | гейт |
-| [Уборка после сбоя не превращает сбой в успех](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/067-cleanup-must-not-swallow-the-failure.md) | `src/stepik_grader/atomic_io.py` | гейт |
+| [Метки — вход механизма, а не украшение](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/064-labels-are-machine-input-not-decoration.md) | #1329 | гейт |
+| [Блокировку берут на спутника, а не на файл, который заменяется целиком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/066-lock-the-companion-not-the-target.md) | #1136, `src/stepik_grader/atomic_io.py` | гейт |
+| [Уборка после сбоя не превращает сбой в успех](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/067-cleanup-must-not-swallow-the-failure.md) | #996, `src/stepik_grader/atomic_io.py` | гейт |
 | [Список разрешённого, а не список запрещённого](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/068-allowlist-not-denylist.md) | #1280, #1346, `src/stepik_grader/web/statement_adapter.py` | гейт |
-| [Пишем поле, а не снимок, если писателей несколько](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/069-write-the-field-not-the-snapshot.md) | `src/stepik_grader/web/settings_adapter.py` | гейт |
-| [Эвристическая защита ослабляется осознанно — с записью остаточного риска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/070-a-heuristic-guard-fails-open-with-a-written-risk.md) | `src/stepik_grader/web/http_guards.py` | гейт |
-| [Намеренный дубль подписывается](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/071-deliberate-duplication-is-signed.md) | `src/stepik_grader/web/auth_adapter.py`, `src/stepik_grader/launcher.py` | шаг процесса |
-| [Причину ловит гейт, факт — фикстура: нужны обе](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/072-guard-the-cause-and-the-effect.md) | `scripts/check_test_isolation.py`, `tests/conftest.py` | гейт |
-| [Версия инструмента — из одного источника и с верхней границей](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/073-tool-version-from-one-source-with-an-upper-bound.md) | `scripts/check_ruff_pin.py` | гейт |
-| [Необратимый шаг проверяется инвариантами заранее](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/074-one-shot-irreversible-steps-get-their-own-guard.md) | `scripts/check_workflow_guardrails.py` | гейт |
+| [Пишем поле, а не снимок, если писателей несколько](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/069-write-the-field-not-the-snapshot.md) | #997, `src/stepik_grader/web/settings_adapter.py` | гейт |
+| [Эвристическая защита ослабляется осознанно — с записью остаточного риска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/070-a-heuristic-guard-fails-open-with-a-written-risk.md) | #631, `src/stepik_grader/web/http_guards.py` | гейт |
+| [Намеренный дубль подписывается](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/071-deliberate-duplication-is-signed.md) | #433, `src/stepik_grader/web/auth_adapter.py`, `src/stepik_grader/launcher.py` | шаг процесса |
+| [Причину ловит гейт, факт — фикстура: нужны обе](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/072-guard-the-cause-and-the-effect.md) | #997, `scripts/check_test_isolation.py`, `tests/conftest.py` | гейт |
+| [Версия инструмента — из одного источника и с верхней границей](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/073-tool-version-from-one-source-with-an-upper-bound.md) | #791, `scripts/check_ruff_pin.py` | гейт |
+| [Необратимый шаг проверяется инвариантами заранее](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/074-one-shot-irreversible-steps-get-their-own-guard.md) | #988, `scripts/check_workflow_guardrails.py` | гейт |
 | [Гейт, не нашедший предмета проверки, обязан упасть](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/075-a-guard-that-finds-nothing-must-fail.md) | `scripts/check_workflow_guardrails.py` | гейт |
-| [Сообщение ссылается на то, что есть у получателя](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/076-messages-point-at-what-the-user-actually-has.md) | `scripts/check_locale_guardrails.py` | гейт |
-| [Совпадение ключей — ещё не перевод](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/077-key-parity-is-not-translation.md) | `scripts/check_locale_guardrails.py` | гейт |
-| [Отмена — отдельный исход, а не разновидность ошибки](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/078-cancelled-is-not-an-error.md) | `src/stepik_grader/web/runs.py` | гейт |
-| [Срок хранения отсчитывается от завершения, а не от постановки](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/079-ttl-counts-from-completion.md) | `src/stepik_grader/web/runs.py` | не объявлено |
-| [Чужой код запускают из приватного каталога, а не из общего временного](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/081-untrusted-code-runs-in-a-private-directory.md) | `src/stepik_grader/web/playground.py` | гейт |
-| [Состав ролей покрывает все пласты продукта, а не только разработку](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/082-roles-must-cover-every-layer.md) | `docs/agent/roles.md` | шаг процесса |
+| [Сообщение ссылается на то, что есть у получателя](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/076-messages-point-at-what-the-user-actually-has.md) | #1005, `scripts/check_locale_guardrails.py` | гейт |
+| [Совпадение ключей — ещё не перевод](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/077-key-parity-is-not-translation.md) | #264, #821, `scripts/check_locale_guardrails.py` | гейт |
+| [Отмена — отдельный исход, а не разновидность ошибки](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/078-cancelled-is-not-an-error.md) | #262, #296, `src/stepik_grader/web/runs.py` | гейт |
+| [Чужой код запускают из приватного каталога, а не из общего временного](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/081-untrusted-code-runs-in-a-private-directory.md) | #799, `src/stepik_grader/web/playground.py` | гейт |
+| [Состав ролей покрывает все пласты продукта, а не только разработку](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/082-roles-must-cover-every-layer.md) | #1005, #1007, `docs/agent/roles.md` | шаг процесса |
+| [Текст, пришедший от проверяемого, — недоверенный вход в промпт](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/085-content-from-the-subject-is-untrusted-input-to-the-prompt.md) | #931 | гейт |
 | [Тяжесть находки ставит не тот, кто её нашёл — но опровергателю нужна шкала](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/086-the-finder-does-not-grade-the-finding.md) | `docs/agent/multiagent.md` | шаг процесса |
 | [Повторный проход получает на вход прошлые находки и запрет их переоткрывать](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/087-a-second-pass-needs-a-novelty-rule.md) | `docs/agent/multiagent.md` | шаг процесса |
 | [Критик проверяет метод фазы, а не предмет работы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/088-the-critic-checks-the-method-not-the-subject.md) | `docs/agent/multiagent.md` | шаг процесса |
 | [Из оригинала в его копию не ссылаются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/089-never-link-from-the-original-to-its-copy.md) | `docs/dev/glossary.md` | гейт |
+| [Источники работы упорядочены: первый непустой и есть план](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/091-work-sources-are-ordered-first-non-empty-wins.md) | #97, #151 | шаг процесса |
 | [Находки и порядок разбора — разные документы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/092-findings-and-ordering-live-in-different-documents.md) | `docs/agent/claude-handoff.md` | шаг процесса |
 | [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | гейт |
 | [Единица дробления определяется употреблением, а не формальным признаком](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/098-the-unit-of-splitting-follows-usage.md) | `docs/dev/glossary.md` | шаг процесса |
@@ -106,13 +117,16 @@
 | [Дедлайнов два: на запуск и на работу](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/100-two-deadlines-start-and-work.md) | `docs/use/configuration.md` | гейт |
 | [Повторяют только те отказы, которые могут пройти сами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/101-retry-only-what-can-heal-itself.md) | `docs/use/installation.md` | гейт |
 | [Снисхождение перечисляется таблицей и отключается режимом](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/102-leniency-is-enumerated-and-switchable.md) | `docs/use/configuration.md` | гейт |
-| [Сторож побочных эффектов обвиняет не виновника — и исключения задаются формой](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/103-a-side-effect-guard-blames-the-wrong-suspect.md) | `tests/conftest.py` | гейт |
-| [У событийной автоматики должна быть ручная кнопка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/104-event-driven-automation-needs-a-manual-button.md) | `.github/workflows/ci.yml` | гейт |
+| [Сторож побочных эффектов обвиняет не виновника — и исключения задаются формой](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/103-a-side-effect-guard-blames-the-wrong-suspect.md) | #646, #818, `tests/conftest.py` | гейт |
+| [У событийной автоматики должна быть ручная кнопка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/104-event-driven-automation-needs-a-manual-button.md) | #988, #1095, `.github/workflows/ci.yml` | гейт |
 | [Огласка умножает и хорошее, и плохое — сначала настоящий прогон](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/106-publicity-multiplies-both-sides.md) | `docs/dev/corpus.md` | шаг процесса |
-| [Каждый выход из переходного состояния обязан быть терминальным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/109-every-exit-from-a-transient-state-must-be-terminal.md) | `src/stepik_grader/launcher.py` | гейт |
-| [Если инструмент может сделать сам — он делает, а не советует](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/111-do-it-instead-of-advising-it.md) | `src/stepik_grader/launcher.py` | шаг процесса |
+| [Каждый выход из переходного состояния обязан быть терминальным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/109-every-exit-from-a-transient-state-must-be-terminal.md) | #823, `src/stepik_grader/launcher.py` | гейт |
+| [Всё, что может отказать, делается до подмены глобального состояния](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/110-fail-before-you-take-anything-over.md) | #806, #1135 | гейт |
+| [Если инструмент может сделать сам — он делает, а не советует](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/111-do-it-instead-of-advising-it.md) | #1134, `src/stepik_grader/launcher.py` | шаг процесса |
+| [Что инструмент создал — он обязан уметь удалить](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/112-whatever-the-tool-created-it-must-be-able-to-delete.md) | #813 | гейт |
 | [Контракт описывает правила собственной эволюции](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/113-a-contract-states-how-it-may-change.md) | `docs/dev/result-contract.md` | гейт |
-| [У настроек один якорь и ограниченная зона поиска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/115-config-has-one-anchor-and-a-bounded-search.md) | `docs/use/configuration.md` | гейт |
+| [Миграция идёт от текущей версии, а не от нуля](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/114-migrate-from-the-current-version-not-from-zero.md) | #947, #990 | гейт |
+| [У настроек один якорь и ограниченная зона поиска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/115-config-has-one-anchor-and-a-bounded-search.md) | #984, #993, `docs/use/configuration.md` | гейт |
 | [Сборщик результатов — тоже источник потерь, и у него своя сверка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/116-the-collector-script-is-a-source-of-loss.md) | `docs/archive/audit-2026-07-30-full-roles.md` | гейт |
 | [У задания исполнителя есть числовые границы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/117-numeric-limits-belong-in-the-task-spec.md) | `docs/archive/audit-2026-07-30-full-roles.md`, `docs/agent/multiagent.md` | шаг процесса |
 | [Исходник хранится рядом с производным](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/118-keep-the-source-next-to-the-derived.md) | `docs/use/grader-workflow.md` | гейт |
@@ -123,9 +137,9 @@
 | [Перезапускать минимум, но зелёное со второго раза — находка, а не починка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/124-rerun-the-minimum-and-record-the-flake.md) | #924, #1171, #1344 | гейт |
 | [У заморозки должен быть выход, не проходящий через замороженное действие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/126-a-freeze-needs-a-thaw-path.md) | #1326, #1344, #1347 | гейт |
 | [Обязательное поле проверяется на полноту, а не на непустоту](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/128-a-required-field-is-checked-for-completeness.md) | #1329, #1345, #1350 | гейт |
-| [У каталога есть контракт потребления, а не только правила ведения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/129-a-catalogue-needs-a-consumption-contract.md) | #15, #1351 | гейт |
+| [У каталога есть контракт потребления, а не только правила ведения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/129-a-catalogue-needs-a-consumption-contract.md) | #1351 | гейт |
 | [Из облачного окна не пишут: на записи учётные данные подменяются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/131-no-writes-from-a-cloud-session.md) | #1302 | гейт |
-| [Изменение везут одной темой: сборное честно, но неразбираемо](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/132-one-change-carries-one-topic.md) | #20, #21, #1350 | гейт |
+| [Изменение везут одной темой: сборное честно, но неразбираемо](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/132-one-change-carries-one-topic.md) | #1350 | гейт |
 | [Границу изменения задаёт пересечение файлов, а не число задач](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/133-file-overlap-sets-the-boundary.md) | #1345, #1350 | гейт |
 | [Окно контекста для разбора прозы — абзац, а не предложение](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/144-context-window-for-prose-is-a-paragraph.md) | `scripts/check_audit_registry.py` | гейт |
 | [Общую площадку набор забирает себе, а не вносит в исключения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/149-the-suite-owns-its-temp.md) | `tests/conftest.py`, `tests/test_conftest_temp_root.py` | гейт |

@@ -759,6 +759,11 @@
       "status": "active",
       "mechanism": "gate",
       "where": "docs/agent/rules/DIGEST.md собирается из каталога генератором (scripts/generate_rules_digest.py), а не переписывается руками: чужой текст здесь производное с живым исходником, и расхождение ловит check_rules_digest.py"
+    },
+    "154": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_rule_bindings.py — храповик UNHELD_BUDGET = 0: запись active + mechanism: none сюда не мержится вовсе, поэтому состояние, у которого 154 требует причину, здесь недостижимо, а не молчаливо; у отрицательных статусов (rejected, not-applicable) тот же гейт отказывает при пустом why"
     }
   }
 }
