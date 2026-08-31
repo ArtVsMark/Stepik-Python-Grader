@@ -536,6 +536,54 @@ def check_tests_mentioning_changed_names(git: GitRunner = _git) -> Check:
     return Check(name=title, ok=True, detail=detail or "прямых упоминаний нет", blocking=False)
 
 
+def check_work_overlap(
+    overlapping: Callable[[], dict[str, set[str]]] | None = None,
+) -> Check:
+    """Кто ещё трогает те же файлы — карта чужой работы, а не вердикт.
+
+    Не блокирует намеренно. Пересечение по файлам — штатное состояние
+    конвейера, а не нарушение: механизм, не отличающий одно от другого, не
+    механизм. Смысл шага в том, что пересечение показывается САМО, а не когда
+    кто-то вспомнит команду.
+
+    До этого `scripts/check_work_overlap.py` не запускал никто — ни прогон, ни
+    pre-commit, ни preflight, — а три ответа каталогу (051, 132, 133) называли
+    его гейтом. Скрипт существовал, и этого хватало, чтобы утверждение
+    выглядело правдой (issue #1400).
+    """
+    title = "кто ещё трогает те же файлы"
+    try:
+        if overlapping is None:
+            sys.path.insert(0, str(_ROOT / "scripts"))
+            import check_work_overlap as overlap_module
+
+            found = overlap_module.overlaps(overlap_module.changed_files())
+            visible = bool(overlap_module.living_branches(exclude=current_branch()))
+        else:
+            found = overlapping()
+            visible = True
+    except Exception as exc:  # карта необязательна: отказ чтения — не вердикт шага
+        return Check(name=title, ok=True, detail=f"веток не прочитать: {exc}", blocking=False)
+
+    if not visible:
+        # Третий исход, а не разновидность «чисто»: узкий клон (`--depth 1` с
+        # одной ссылкой) чужих веток не видит вовсе, и пустая карта означала бы
+        # «пересечений нет» там, где их просто не на чем искать.
+        return Check(
+            name=title,
+            ok=True,
+            detail="чужих веток на origin не видно — карта пуста не потому, что пересечений нет",
+            blocking=False,
+        )
+    if not found:
+        return Check(name=title, ok=True, detail="пересечений с живыми ветками нет", blocking=False)
+    detail = "; ".join(
+        f"{branch} ({', '.join(sorted(files)[:3])}{'…' if len(files) > 3 else ''})"
+        for branch, files in sorted(found.items())
+    )
+    return Check(name=title, ok=True, detail=detail, blocking=False)
+
+
 def check_adr_records(
     runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
 ) -> Check:
@@ -945,6 +993,7 @@ def main(argv: list[str] | None = None) -> int:
         check_changelog_buffer(),
         check_commit_authorship(),
         check_tests_mentioning_changed_names(),
+        check_work_overlap(),
         check_adr_records(),
     ]
 

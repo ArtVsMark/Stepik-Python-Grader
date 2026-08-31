@@ -173,6 +173,11 @@ jobs:
           python scripts/check_three_outcomes.py
           python scripts/check_marker_matching.py
           python scripts/check_step_deadlines.py
+          # issue #1400: правило 040 — пропуск без причины неотличим от забытого
+          # теста. Скрипт был написан гейтом (ненулевой выход на необъяснённом
+          # пропуске) и полтора месяца не запускался ничем, поэтому «держится
+          # гейтом» в ответе каталогу было утверждением, а не фактом.
+          python scripts/skip_inventory.py --summary
           python scripts/check_raw_values.py
           python scripts/check_truncation_marks.py
           python scripts/check_declared_outcomes.py

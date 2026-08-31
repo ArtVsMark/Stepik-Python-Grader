@@ -31,12 +31,12 @@
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | нарушение отвергается до слияния | 41 |
-| **конвейер** | нарушение замечает прогон, но слияние не держит | 14 |
-| **документ** | нарушение заметит человек, если читал | 41 |
-| **не объявлено** | не замечается ничем — очередь на автоматизацию | 2 |
+| **гейт** | нарушение отвергается до слияния | 42 |
+| **конвейер** | нарушение замечает прогон, но слияние не держит | 17 |
+| **документ** | нарушение заметит человек, если читал | 38 |
+| **не объявлено** | не замечается ничем — очередь на автоматизацию | 1 |
 
-**Не объявлено: 2.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 1.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из ответа этого проекта — `.rules/bindings.json`, а не из
 раздела «Механизм» каталога: тот описывает чужие механизмы (issue #1351).
 Догадываться по тексту нельзя: правило, где слово «гейт» встретилось в
@@ -74,11 +74,11 @@
 | [Находка, полученная не на той поверхности, — гипотеза](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/037-finding-status-depends-on-window.md) | `docs/agent/environments.md` | документ |
 | [Имя окна начинается с окружения, а не с задачи](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/038-window-name-declares-its-environment.md) | `docs/agent/environments.md` | документ |
 | [У проверки три исхода, а не два](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/039-three-outcomes-not-two.md) | `docs/dev/supply-chain.md` | гейт |
-| [Пропуск без причины неотличим от забытого теста](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/040-skip-without-reason-is-a-forgotten-test.md) | `scripts/skip_inventory.py`, `tests/test_skip_inventory.py` | не объявлено |
+| [Пропуск без причины неотличим от забытого теста](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/040-skip-without-reason-is-a-forgotten-test.md) | `scripts/skip_inventory.py`, `tests/test_skip_inventory.py` | гейт |
 | [Решение записывается вместе с отвергнутыми вариантами](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/042-decision-records-its-alternatives.md) | `docs/dev/adr/README.md` | гейт |
 | [Решение не правится задним числом — его отменяет новое](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/043-decisions-are-superseded-not-edited.md) | `docs/dev/adr/README.md` | гейт |
 | [Смена правил работы — повод перезапустить окна, а не рассылка](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/047-rule-change-restarts-the-windows.md) | #1283 | документ |
-| [Предупреждают о вероятном, запрещают достоверное](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/051-warn-on-likely-block-on-certain.md) | `scripts/check_work_overlap.py` | документ |
+| [Предупреждают о вероятном, запрещают достоверное](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/051-warn-on-likely-block-on-certain.md) | `scripts/check_work_overlap.py` | конвейер |
 | [Порядок очереди задаётся правилом, а не готовностью](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/053-queue-order-is-a-rule-not-arrival.md) | #1325, #1326, #1329 | конвейер |
 | [Сбор и разбор — разные проходы](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/054-collect-and-analyse-are-separate-passes.md) | `docs/agent/course-walkthrough.md` | документ |
 | [Собственный эталон — тоже гипотеза](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/055-your-own-expectations-are-a-hypothesis.md) | `docs/agent/course-walkthrough.md` | документ |
@@ -140,8 +140,8 @@
 | [Обязательное поле проверяется на полноту, а не на непустоту](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/128-a-required-field-is-checked-for-completeness.md) | #1329, #1345, #1350 | документ |
 | [У каталога есть контракт потребления, а не только правила ведения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/129-a-catalogue-needs-a-consumption-contract.md) | #1351 | гейт |
 | [Из облачного окна не пишут: на записи учётные данные подменяются](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/131-no-writes-from-a-cloud-session.md) | #1302 | документ |
-| [Изменение везут одной темой: сборное честно, но неразбираемо](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/132-one-change-carries-one-topic.md) | #1350 | документ |
-| [Границу изменения задаёт пересечение файлов, а не число задач](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/133-file-overlap-sets-the-boundary.md) | #1345, #1350 | документ |
+| [Изменение везут одной темой: сборное честно, но неразбираемо](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/132-one-change-carries-one-topic.md) | #1350 | конвейер |
+| [Границу изменения задаёт пересечение файлов, а не число задач](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/133-file-overlap-sets-the-boundary.md) | #1345, #1350 | конвейер |
 | [Окно контекста для разбора прозы — абзац, а не предложение](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/144-context-window-for-prose-is-a-paragraph.md) | `scripts/check_audit_registry.py` | конвейер |
 | [Общую площадку набор забирает себе, а не вносит в исключения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/149-the-suite-owns-its-temp.md) | `tests/conftest.py`, `tests/test_conftest_temp_root.py` | гейт |
 | [Тест спрашивает решение механизма, а не повторяет его условие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/150-a-test-asks-the-mechanism-not-its-condition.md) | `tests/test_preflight_basetemp.py` | документ |

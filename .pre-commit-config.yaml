@@ -230,3 +230,10 @@ repos:
         language: system
         pass_filenames: false
         files: '^(pyproject\.toml|CHANGELOG\.md|README\.md|README\.en\.md)$'
+
+      - id: skip-inventory
+        name: у каждого пропуска в наборе названа причина
+        entry: python scripts/skip_inventory.py --summary
+        language: system
+        pass_filenames: false
+        files: '^tests/.*\.py$'
