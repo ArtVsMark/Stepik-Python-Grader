@@ -397,8 +397,8 @@
     },
     "080": {
       "status": "active",
-      "mechanism": "document",
-      "where": "CLAUDE.md § Новое правило — в общий каталог: правило уезжает в claude-code-playbook тем же заходом; гейта нет и не будет — проверить запись в чужой репозиторий нечем"
+      "mechanism": "pipeline",
+      "where": "scripts/check_proposal_verdicts.py сверяет .rules/proposals.json с вердиктами каталога ночным обходом (.github/workflows/tracker-guardrails.yml): принятое предложение перестаёт быть предложением и требует ответа по номеру. Что правило вообще предложено — не проверяется ничем, это строка чек-листа CLAUDE.md § Новое правило — в общий каталог"
     },
     "081": {
       "status": "active",

@@ -115,6 +115,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "разбор отчёта pip-audit в цепочке поставок",
     ),
+    "check_proposal_verdicts.py": (
+        "scripts/nightly_checks.py",
+        "вердикт каталога по нашим предложениям: канал двусторонний, и ответ "
+        "читается из клона каталога, а не из памяти окна",
+    ),
     "check_pr_ready.py": (
         ".github/workflows/ci.yml",
         "гейт мержа; вызывается и вручную перед слиянием",
