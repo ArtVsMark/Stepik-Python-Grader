@@ -228,7 +228,15 @@ def issue_body(outcomes: list[Outcome], today: _datetime.date) -> str:
 
 
 def _existing_issue(repo: str, **kwargs: Any) -> dict[str, object] | None:
-    """Задача-адресат, если она уже заведена, — по маркеру, а не по номеру."""
+    """Задача-адресат, если она уже заведена, — по маркеру, а не по номеру.
+
+    Ищется среди ВСЕХ, а не только открытых. Умолчание ``state="open"``
+    означало, что закрытую задачу обход не видит и на следующей находке заводит
+    новую: #1398 закрыт 31 августа в 07:52, и в 11:48 того же дня появился
+    #1404 с тем же телом. Номера так и множились бы, а обещание «следующая
+    находка откроет её снова» оставалось бы текстом.
+    """
+    kwargs.setdefault("state", "all")
     for issue in gh_rest.issues_with_label(repo, _LABEL, **kwargs):
         if MARKER in str(issue.get("body") or ""):
             return issue
@@ -279,8 +287,14 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\nзаведена задача #{created.get('number')}: находок {len(problems)}")
         else:
             number = int(str(existing.get("number")))
-            gh_rest.update_issue(args.repo, number, body=body)
-            print(f"\nобновлена задача #{number}: находок {len(problems)}")
+            # Закрытую — открыть снова, а не завести соседнюю: адресат у находок
+            # один, и его история читается только пока номер не меняется.
+            reopened = str(existing.get("state") or "") == "closed"
+            gh_rest.update_issue(args.repo, number, body=body, state="open" if reopened else None)
+            print(
+                f"\n{'переоткрыта' if reopened else 'обновлена'} задача #{number}: "
+                f"находок {len(problems)}"
+            )
     elif existing is not None:
         number = int(str(existing.get("number")))
         gh_rest.update_issue(args.repo, number, body=body)

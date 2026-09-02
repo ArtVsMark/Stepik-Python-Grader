@@ -388,11 +388,38 @@ def commits_without_owner(log: str, owner: str) -> list[str]:
         short, author, message = parts[0], parts[1], parts[2]
         if not authored_by_tool(author):
             continue
-        trailers = [line for line in message.splitlines() if line.lower().startswith("co-authored")]
+        # Правило 156: трейлер читается из ХВОСТОВОГО блока. Прежний разбор брал
+        # любую строку, начинающуюся с «co-authored», — то есть прозаическое
+        # упоминание в теле сообщения удовлетворяло гейт, и он зеленел на
+        # коммите без настоящего трейлера.
+        trailers = [
+            line
+            for line in _trailer_block(message)
+            if line.lower().lstrip().startswith("co-authored")
+        ]
         if any(owner.casefold() in line.casefold() for line in trailers):
             continue
         lost.append(short)
     return lost
+
+
+_TRAILER_LINE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:\s")
+
+
+def _trailer_block(message: str) -> list[str]:
+    """Последний абзац сообщения, если он целиком из строк ``Ключ: значение``.
+
+    Тот же разбор, что в ``scripts/check_attribution.py`` (правило 156).
+    Дублируется намеренно и подписан: ``preflight`` обязан работать без
+    импорта соседних гейтов — он и есть то, что запускают первым.
+    """
+    paragraphs = [block for block in message.strip().split("\n\n") if block.strip()]
+    if not paragraphs:
+        return []
+    lines = [line for line in paragraphs[-1].splitlines() if line.strip()]
+    if not lines or not all(_TRAILER_LINE_RE.match(line.strip()) for line in lines):
+        return []
+    return lines
 
 
 def check_commit_authorship(git: GitRunner = _git) -> Check:

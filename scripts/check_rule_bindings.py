@@ -64,9 +64,13 @@ __all__ = [
     "contract_drift",
     "main",
     "named_paths",
+    "neighbour_holds",
     "reachable_gates",
     "unheld_count",
 ]
+
+#: Как этот проект назван в сводке потребителей каталога.
+PROJECT = "ArtVsMark/Stepik-Python-Grader"
 
 _ROOT = Path(__file__).resolve().parent.parent
 BINDINGS = _ROOT / ".rules" / "bindings.json"
@@ -87,7 +91,7 @@ MECHANISMS = ("gate", "pipeline", "document", "none")
 #: Сколько правил ещё не закреплено ничем. Не «столько допустимо», а «столько
 #: осталось»: каждое такое правило действует ровно до тех пор, пока о нём помнит
 #: окно. Число опускается починкой — гейтом или записью решения в документ.
-UNHELD_BUDGET = 1
+UNHELD_BUDGET = 0
 
 #: Расширения, по которым `where` считается путём, а не описанием шага.
 _PATH_SUFFIXES = (".py", ".yml", ".yaml", ".json", ".md", ".txt")
@@ -359,6 +363,46 @@ def catalogue_schema(catalogue: Path) -> str | None:
     return str(version) if version else None
 
 
+def neighbour_holds(catalogue: Path, rule_ids: list[str]) -> dict[str, list[tuple[str, str, str]]]:
+    """Чем названные правила держатся у СОСЕДЕЙ по тому же своду.
+
+    Правило 162 каталога: прежде чем строить механизм правилу, у которого его
+    нет, смотрят, чем оно держится у тех, кто отвечает по тому же каталогу.
+    Ответ соседа не приказ — он называет того, кто уже платил за этот механизм.
+
+    Список собирается машиной из ``export/where.json``, то есть из уже собранных
+    ответов, а не походом по чужим репозиториям: у окна нет ни прав, ни причин
+    туда ходить.
+
+    Returns:
+        Номер правила → список (репозиторий, механизм, адрес). Пусто —
+        законный ответ: сосед мог не отвечать или держать так же ничем.
+    """
+    export = catalogue / "export" / "where.json"
+    if not export.exists():
+        return {}
+    try:
+        consumers = json.loads(export.read_text(encoding="utf-8")).get("consumers") or []
+    except json.JSONDecodeError:
+        return {}
+
+    found: dict[str, list[tuple[str, str, str]]] = {}
+    for rule_id in rule_ids:
+        for consumer in consumers:
+            if not isinstance(consumer, dict) or consumer.get("repo") == PROJECT:
+                continue
+            held = (consumer.get("holds") or {}).get(rule_id)
+            if not isinstance(held, dict):
+                continue
+            mechanism = str(held.get("mechanism") or "")
+            if mechanism in {"", "none"}:
+                continue
+            found.setdefault(rule_id, []).append(
+                (str(consumer.get("repo")), mechanism, str(held.get("where") or ""))
+            )
+    return found
+
+
 def contract_drift(data: dict[str, Any], catalogue: Path) -> list[str]:
     """Разошлась ли наша версия контракта с той, что публикует каталог.
 
@@ -432,6 +476,20 @@ def main(argv: list[str] | None = None) -> int:
         stale = sorted(answered - expected, key=lambda item: int(item) if item.isdigit() else 0)
         if stale:
             problems.append(f"ответ на несуществующие правила: {', '.join(stale)}")
+
+    if args.catalogue is not None:
+        unheld_ids = [
+            rule_id
+            for rule_id, raw in sorted((data.get("rules") or {}).items())
+            if isinstance(raw, dict)
+            and raw.get("status") == "active"
+            and raw.get("mechanism") == "none"
+        ]
+        for rule_id, neighbours in neighbour_holds(args.catalogue, unheld_ids).items():
+            print(f"\nправило {rule_id} не держится ничем — у соседей по своду оно закрыто:")
+            for repo, mechanism, where in neighbours:
+                print(f"  {repo} — {mechanism}: {where[:160]}")
+            print("  Приём переносится — повторите его; нет — причина остаётся в ответе.")
 
     unheld, total = unheld_count(data)
     if problems:

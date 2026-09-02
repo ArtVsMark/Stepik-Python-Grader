@@ -197,3 +197,48 @@ def test_trailers_are_read_case_insensitively(attribution: ModuleType) -> None:
     assert attribution.Identity("Claude", "noreply@anthropic.com") in found
     assert attribution.Identity("Артём", "a@b.c") in found
     assert len(found) == 2, "не-трейлерные строки в список не попадают"
+
+
+class TestTrailerBlock:
+    """Трейлер читается из хвостового блока, а не из любой строки (правило 156).
+
+    Разбор по образцу «строка начинается с имени трейлера» принимает за
+    директиву прозаическое упоминание — и тем чаще, чем подробнее написано
+    сообщение. У нас подробные сообщения норма, а `CLAUDE.md` содержит образец
+    строки соавторства дословно.
+    """
+
+    def test_prose_mention_is_not_a_trailer(self, attribution: ModuleType) -> None:
+        """Упоминание в теле — не трейлер, даже если строка начинается с ключа."""
+        # Строка ПРАВИЛЬНОЙ формы, но в теле: так выглядит цитата образца из
+        # CLAUDE.md, попавшая в сообщение коммита. Прежний разбор считал её
+        # трейлером, потому что смотрел на любую строку.
+        message = (
+            "fix(rules): разбор трейлеров\n"
+            "\n"
+            "Согласованная строка выглядит так:\n"
+            "\n"
+            "Co-Authored-By: Цитата Образца <quoted@example.com>\n"
+            "\n"
+            "и ставится в каждом коммите.\n"
+            "\n"
+            "Co-Authored-By: Настоящий <real@example.com>\n"
+        )
+
+        found = {identity.email for identity in attribution.trailer_identities(message)}
+
+        assert found == {"real@example.com"}, found
+
+    def test_a_paragraph_with_prose_is_not_a_block(self, attribution: ModuleType) -> None:
+        """Абзац, где есть хоть одна не-`Ключ: значение` строка, блоком не является."""
+        message = "тема\n\nCo-authored-by: Кто-То <no@example.com>\nи ещё абзац прозой\n"
+
+        assert attribution.trailer_block(message) == []
+        assert attribution.trailer_identities(message) == set()
+
+    def test_the_trailing_block_is_read(self, attribution: ModuleType) -> None:
+        """Хвостовой блок из нескольких пар читается целиком."""
+        message = "тема\n\nтело\n\nCo-Authored-By: А <a@e.com>\nClaude-Session: https://e/1\n"
+
+        assert len(attribution.trailer_block(message)) == 2
+        assert {i.email for i in attribution.trailer_identities(message)} == {"a@e.com"}
