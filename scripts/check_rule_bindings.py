@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/check_rule_bindings.py — ответ проекта каталогу правил (issue #1351).
 
-Каталог [claude-code-playbook](https://github.com/ArtVsMark/claude-code-playbook)
+Каталог [Engineering-Incidents-Playbook](https://github.com/ArtVsMark/Engineering-Incidents-Playbook)
 отдаёт правила машиночитаемо, а проект-потребитель отвечает, что он с каждым
 сделал: статус, чем держится и где. Контракт — `export/README.md` каталога,
 схема ``1.0``; заготовка — `templates/bindings.json` там же.
@@ -340,7 +340,7 @@ def _export_ids(catalogue: Path) -> set[str]:
     if not export.exists():
         raise FileNotFoundError(
             f"{export}: экспорта каталога нет — клонируйте "
-            "https://github.com/ArtVsMark/claude-code-playbook"
+            "https://github.com/ArtVsMark/Engineering-Incidents-Playbook"
         )
     data = json.loads(export.read_text(encoding="utf-8"))
     return {str(rule["id"]) for rule in data.get("rules", []) if rule.get("id")}

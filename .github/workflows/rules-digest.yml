@@ -83,7 +83,7 @@ jobs:
       # то, что каталог изменился. Пин здесь означал бы «догонять вчерашнее».
       - name: Клонировать каталог правил
         timeout-minutes: 5
-        run: git clone --depth 1 https://github.com/ArtVsMark/claude-code-playbook /tmp/playbook
+        run: git clone --depth 1 https://github.com/ArtVsMark/Engineering-Incidents-Playbook /tmp/playbook
 
       # Решение — в скрипте, а не здесь: шаги workflow не тестируются, а
       # scripts/rebuild_rules_digest.py покрыт набором на все три исхода.

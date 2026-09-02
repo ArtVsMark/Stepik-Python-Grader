@@ -58,7 +58,7 @@ _EXPORT = {
             "id": "120",
             "slug": "how-to-run-a-rule-catalogue",
             "title": {"ru": "Как вести каталог", "en": "How to run a catalogue"},
-            "trails": [{"repo": "ArtVsMark/claude-code-playbook", "issue": "12"}],
+            "trails": [{"repo": "ArtVsMark/Engineering-Incidents-Playbook", "issue": "12"}],
         },
     ]
 }

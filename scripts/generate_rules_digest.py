@@ -58,7 +58,7 @@ __all__ = [
 _ROOT = pathlib.Path(__file__).parent.parent
 DIGEST = _ROOT / "docs" / "agent" / "rules" / "DIGEST.md"
 _BINDINGS = _ROOT / ".rules" / "bindings.json"
-_CATALOGUE_URL = "https://github.com/ArtVsMark/claude-code-playbook/blob/main"
+_CATALOGUE_URL = "https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main"
 
 #: Предел длины утверждения в строке дайджеста. Не косметика: сто сорок правил
 #: по абзацу каждое — это уже не стартовый контекст, а документ, который окно

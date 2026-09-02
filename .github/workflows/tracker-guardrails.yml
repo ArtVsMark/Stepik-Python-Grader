@@ -68,7 +68,7 @@ jobs:
       # тем, о чём никто не вспомнит.
       - name: Клонировать каталог правил
         timeout-minutes: 5
-        run: git clone --depth 1 https://github.com/ArtVsMark/claude-code-playbook /tmp/playbook
+        run: git clone --depth 1 https://github.com/ArtVsMark/Engineering-Incidents-Playbook /tmp/playbook
 
       # issue #1351: связь «задача → правило» была односторонней — у правила след
       # ведёт на задачу, у задачи о правиле ни слова, и следующий разбор того же

@@ -115,6 +115,12 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "разбор отчёта pip-audit в цепочке поставок",
     ),
+    "check_catalogue_name.py": (
+        "scripts/nightly_checks.py",
+        "переименование каталога правил ничего не ломает сразу: клон по старому "
+        "имени переадресуется, и заметить смену нечем — кроме канонического "
+        "имени, которое отдаёт площадка",
+    ),
     "check_proposal_verdicts.py": (
         "scripts/nightly_checks.py",
         "вердикт каталога по нашим предложениям: канал двусторонний, и ответ "
