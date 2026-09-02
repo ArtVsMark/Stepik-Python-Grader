@@ -353,8 +353,8 @@
     },
     "071": {
       "status": "active",
-      "mechanism": "none",
-      "where": "дубликат находки в документе аудита помечается явно и закрывается тем же PR, что и оригинал (RUN-5-03 — дубликат RUN-4-03); ревизия реестра идёт глазами, механизма нет (issue #1400)"
+      "mechanism": "document",
+      "where": "намеренный дубль подписывается комментарием с причиной: src/stepik_grader/launcher.py — имя дублирует downloader.CONFIG_FILE намеренно (issue #823), scripts/preflight.py::_trailer_block повторяет разбор из scripts/check_attribution.py, чтобы предпушевой гейт не импортировал соседние. Приём подсказан ответом соседа по своду (правило 162)"
     },
     "072": {
       "status": "active",
@@ -764,6 +764,51 @@
       "status": "active",
       "mechanism": "gate",
       "where": "scripts/check_rule_bindings.py — храповик UNHELD_BUDGET = 0: запись active + mechanism: none сюда не мержится вовсе, поэтому состояние, у которого 154 требует причину, здесь недостижимо, а не молчаливо; у отрицательных статусов (rejected, not-applicable) тот же гейт отказывает при пустом why"
+    },
+    "155": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "tests/test_shipped_examples.py — secrets.json.example и stepik_config.json.example проверяются НАБОРОМ ключей, который читает реальный код (core/stepik_client.py, downloader_config.normalize_config_paths), а не фактом своего существования"
+    },
+    "156": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_attribution.py::trailer_block и scripts/preflight.py::_trailer_block читают трейлер только из хвостового блока — последнего абзаца целиком из строк «Ключ: значение»; закреплено tests/test_check_attribution.py"
+    },
+    "157": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/check_rule_bindings.py::contract_drift сверяет нашу schema с той, что публикует каталог (templates/bindings.json); ходит ночным обходом .github/workflows/tracker-guardrails.yml — прогон замечает, слияние не держит"
+    },
+    "158": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/preflight.md § Что гейты не ловят: scripts/check_three_outcomes.py требует наличия третьего исхода, но не адреса отказа; признак «в сообщении есть адрес» от «есть любая подстановка» машинно не отличить"
+    },
+    "159": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/preflight.md § Что гейты не ловят: ранний return посреди перебора ловится грепом и почти всегда законен — отличает их только то, копится ли что-то в список, который читают позже"
+    },
+    "160": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": ".github/workflows/ci.yml — бейджи собираются в .github/badges/ и публикуются ОТДЕЛЬНОЙ веткой badges, а не в main (issue #1235): производное обновляется чаще изменений и в общей ветке давало бы конфликт на каждое слияние"
+    },
+    "161": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/dev/adr/README.md — поворот с отвергнутой альтернативой пишется записью ADR, и полноту такой записи держит гейт scripts/check_adr_records.py; HISTORY.md по CLAUDE.md § Обновление CHANGELOG.md / HISTORY.md ведётся релизными сводками. Механизма, требующего завести ADR на состоявшийся поворот, нет"
+    },
+    "162": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/check_rule_bindings.py::neighbour_holds печатает, чем правило без механизма держится у соседей по своду — собирает из export/where.json каталога, а не походом по чужим репозиториям; ходит ночным обходом"
+    },
+    "163": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/use/installation.md и README.md — вход описан командами (pip install -e, stepik-grader, stepik-grader-gui), список команд один и живёт в CLAUDE.md § Команды; копирование образцов названо там же"
     }
   }
 }

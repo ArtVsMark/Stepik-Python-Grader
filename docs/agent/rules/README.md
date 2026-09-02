@@ -27,16 +27,16 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **98**.
+Всего правил, действующих здесь: **99**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
 | **гейт** | нарушение отвергается до слияния | 42 |
-| **конвейер** | нарушение замечает прогон, но слияние не держит | 17 |
-| **документ** | нарушение заметит человек, если читал | 38 |
-| **не объявлено** | не замечается ничем — очередь на автоматизацию | 1 |
+| **конвейер** | нарушение замечает прогон, но слияние не держит | 18 |
+| **документ** | нарушение заметит человек, если читал | 39 |
+| **не объявлено** | не замечается ничем — очередь на автоматизацию | 0 |
 
-**Не объявлено: 1.** Это метрика, и она обязана уменьшаться.
+**Не объявлено: 0.** Это метрика, и она обязана уменьшаться.
 Уровень берётся из ответа этого проекта — `.rules/bindings.json`, а не из
 раздела «Механизм» каталога: тот описывает чужие механизмы (issue #1351).
 Догадываться по тексту нельзя: правило, где слово «гейт» встретилось в
@@ -95,7 +95,7 @@
 | [Список разрешённого, а не список запрещённого](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/068-allowlist-not-denylist.md) | #1280, #1346, `src/stepik_grader/web/statement_adapter.py` | конвейер |
 | [Пишем поле, а не снимок, если писателей несколько](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/069-write-the-field-not-the-snapshot.md) | #997, `src/stepik_grader/web/settings_adapter.py` | гейт |
 | [Эвристическая защита ослабляется осознанно — с записью остаточного риска](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/070-a-heuristic-guard-fails-open-with-a-written-risk.md) | #631, `src/stepik_grader/web/http_guards.py` | гейт |
-| [Намеренный дубль подписывается](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/071-deliberate-duplication-is-signed.md) | #433, `src/stepik_grader/web/auth_adapter.py`, `src/stepik_grader/launcher.py` | не объявлено |
+| [Намеренный дубль подписывается](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/071-deliberate-duplication-is-signed.md) | #433, `src/stepik_grader/web/auth_adapter.py`, `src/stepik_grader/launcher.py` | документ |
 | [Причину ловит гейт, факт — фикстура: нужны обе](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/072-guard-the-cause-and-the-effect.md) | #997, `scripts/check_test_isolation.py`, `tests/conftest.py` | гейт |
 | [Версия инструмента — из одного источника и с верхней границей](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/073-tool-version-from-one-source-with-an-upper-bound.md) | #791, `scripts/check_ruff_pin.py` | гейт |
 | [Необратимый шаг проверяется инвариантами заранее](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/074-one-shot-irreversible-steps-get-their-own-guard.md) | #988, `scripts/check_workflow_guardrails.py` | гейт |
@@ -146,3 +146,4 @@
 | [Общую площадку набор забирает себе, а не вносит в исключения](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/149-the-suite-owns-its-temp.md) | `tests/conftest.py`, `tests/test_conftest_temp_root.py` | гейт |
 | [Тест спрашивает решение механизма, а не повторяет его условие](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/150-a-test-asks-the-mechanism-not-its-condition.md) | `tests/test_preflight_basetemp.py` | документ |
 | [Диагностический след кладут туда, куда достаёт тот, кто чинит](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/151-the-trail-goes-where-the-fixer-can-reach.md) | `scripts/report_failed_tests.py`, `.github/workflows/ci.yml` | конвейер |
+| [Смена версии чужого контракта — повод перечитать ответы, а не только формат](https://github.com/ArtVsMark/claude-code-playbook/blob/main/rules/ru/157-a-contract-version-bump-is-a-re-read.md) | #1400 | конвейер |

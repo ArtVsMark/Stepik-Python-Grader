@@ -104,7 +104,13 @@ class TestApply:
 
     @pytest.fixture
     def api(self, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-        state: dict[str, Any] = {"created": [], "updated": [], "closed": [], "existing": []}
+        state: dict[str, Any] = {
+            "created": [],
+            "updated": [],
+            "patched": [],
+            "closed": [],
+            "existing": [],
+        }
         monkeypatch.setattr(nightly.gh_rest, "issues_with_label", lambda *a, **k: state["existing"])
         monkeypatch.setattr(nightly.gh_rest, "ensure_label", lambda *a, **k: True)
         monkeypatch.setattr(
@@ -115,7 +121,9 @@ class TestApply:
         monkeypatch.setattr(
             nightly.gh_rest,
             "update_issue",
-            lambda repo, number, **kwargs: state["updated"].append(number) or {},
+            lambda repo, number, **kwargs: (
+                state["updated"].append(number) or state["patched"].append(kwargs) or {}
+            ),
         )
         monkeypatch.setattr(
             nightly.gh_rest,
@@ -149,6 +157,34 @@ class TestApply:
         assert self._run(monkeypatch, tmp_path, [1]) == 0
         assert api["updated"] == [77]
         assert api["created"] == []
+
+    def test_a_closed_issue_is_reopened_not_duplicated(
+        self, api: dict[str, Any], monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Закрытую задачу открывают снова, а не заводят соседнюю.
+
+        Поиск шёл среди ОТКРЫТЫХ, поэтому закрытую адресатку обход не видел:
+        #1398 закрыли 31 августа в 07:52, и в 11:48 того же дня появился #1404
+        с тем же телом. Номера множились бы, а история находок обрывалась на
+        каждом «стало чисто».
+        """
+        api["existing"] = [
+            {"number": 77, "state": "closed", "body": f"{nightly.MARKER}\nстарое тело"}
+        ]
+
+        assert self._run(monkeypatch, tmp_path, [1]) == 0
+        assert api["created"] == [], "заведена новая задача вместо переоткрытия старой"
+        assert api["updated"] == [77]
+        assert api["patched"][0].get("state") == "open", api["patched"]
+
+    def test_an_open_issue_is_not_touched_by_state(
+        self, api: dict[str, Any], monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Открытую не «переоткрывают»: лишний PATCH-поле — лишний шум в истории."""
+        api["existing"] = [{"number": 77, "state": "open", "body": f"{nightly.MARKER}\nтело"}]
+
+        assert self._run(monkeypatch, tmp_path, [1]) == 0
+        assert api["patched"][0].get("state") is None, api["patched"]
 
     def test_clean_run_closes_the_issue(
         self, api: dict[str, Any], monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path

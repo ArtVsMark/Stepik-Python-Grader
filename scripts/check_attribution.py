@@ -51,6 +51,7 @@ __all__ = [
     "mismatched",
     "owner_identity",
     "parse_identity",
+    "trailer_block",
     "trailer_identities",
 ]
 
@@ -153,10 +154,39 @@ def owner_identity(pyproject: pathlib.Path | None = None) -> Identity | None:
     return None
 
 
+#: Строка вида ``Ключ: значение`` — из таких целиком состоит хвостовой блок.
+_TRAILER_LINE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:\s")
+
+
+def trailer_block(message: str) -> list[str]:
+    """Хвостовой блок сообщения: последний абзац из строк ``Ключ: значение``.
+
+    Правило 156 каталога. Трейлер — это НЕ «строка, начинающаяся с имени
+    трейлера»: разбор по такому образцу принимает за директиву прозаическое
+    упоминание, и тем чаще, чем подробнее написано сообщение. У нас подробные
+    сообщения — норма, а `CLAUDE.md` содержит образец строки соавторства
+    дословно, то есть попасть в тело коммита ему ничего не мешает.
+
+    Опаснее направление, в котором ошибался `preflight.py`: там проза
+    **удовлетворяла** проверку «владелец участвует в коммите», то есть гейт
+    зеленел на коммите без настоящего трейлера.
+
+    Блоком считается последний абзац сообщения, если КАЖДАЯ его строка — пара
+    ``Ключ: значение``. Иначе трейлеров нет вовсе.
+    """
+    paragraphs = [block for block in message.strip().split("\n\n") if block.strip()]
+    if not paragraphs:
+        return []
+    lines = [line for line in paragraphs[-1].splitlines() if line.strip()]
+    if not lines or not all(_TRAILER_LINE_RE.match(line.strip()) for line in lines):
+        return []
+    return lines
+
+
 def trailer_identities(message: str) -> set[Identity]:
-    """Личности из трейлеров ``Co-authored-by`` сообщения коммита."""
+    """Личности из трейлеров ``Co-authored-by`` — из хвостового блока."""
     found: set[Identity] = set()
-    for line in message.splitlines():
+    for line in trailer_block(message):
         match = _TRAILER_RE.match(line)
         if match is None:
             continue

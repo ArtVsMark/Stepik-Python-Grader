@@ -1417,9 +1417,14 @@ def update_issue(
     *,
     title: str | None = None,
     body: str | None = None,
+    state: str | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Обновить заголовок и/или тело issue.
+    """Обновить заголовок, тело и/или состояние issue.
+
+    ``state`` нужен переоткрытию: адресат находок один, и его история читается,
+    только пока номер не меняется. Обход, не умевший открыть закрытую задачу,
+    заводил вместо неё соседнюю (issue #1404).
 
     Raises:
         ValueError: не задано ни одного поля — пустой ``PATCH`` потратил бы
@@ -1430,6 +1435,8 @@ def update_issue(
         payload["title"] = title
     if body is not None:
         payload["body"] = body
+    if state is not None:
+        payload["state"] = state
     if not payload:
         raise ValueError("нечего обновлять: задайте title и/или body")
     data = request("PATCH", f"repos/{repo}/issues/{number}", body=payload, **kwargs).data
