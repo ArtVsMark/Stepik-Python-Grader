@@ -97,14 +97,22 @@ def test_an_unmeasured_key_is_absent_not_zero(
     assert "checks_per_pr" not in built
 
 
-def test_the_schema_says_what_it_versions(facts: ModuleType, tmp_path: pathlib.Path) -> None:
+def test_the_schema_says_what_it_versions(
+    facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
     """Номер обязан называть, ЧЕГО он версия.
 
     Номера разного назначения, названные одним словом, разъезжаются по чужим
     полям: сосед по каталогу правил записал версию формата выгрузки в поле
     версии ответа потребителя, и обе стороны остались формально валидными.
+
+    Обращение к площадке подменено: предмет теста — поле, а не измерение. Без
+    подмены тест молча ходил в сеть, и urllib заводил кэш в домашнем каталоге —
+    сторож изоляции поймал это на свежем раннере, где каталога ещё не было.
+    Локально не падало: там он давно существует, а ловится СОЗДАНИЕ.
     """
     root = _project(tmp_path)
+    monkeypatch.setattr(facts, "_checks_per_pr", lambda _root: None)
 
     built = facts.build_facts(root)
 
