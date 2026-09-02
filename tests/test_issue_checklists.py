@@ -127,10 +127,24 @@ def test_fetch_parses_number_title_labels_and_body() -> None:
     assert found == [(987, "🎯 [Подэпик] Вернувшиеся дефекты", ["audit", "bug"], "- [ ] REV-1-01")]
 
 
-def test_main_reports_warnings_without_failing(
+def test_a_finding_returns_one_so_the_nightly_walk_sees_it(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Состояние трекера — не дефект кода: чужой PR из-за него не краснеет."""
+    """Находка возвращает 1, а не 0.
+
+    Ночной обход читает исход ПО КОДУ ВОЗВРАТА: 0 — чисто, 1 — находка,
+        2 — проверка не отработала, и на находке прогон НЕ краснеет — она
+        уезжает в задачу-адресата. Прежний 0 означал, что находка не доезжает
+        никуда, кроме `::warning::` в логе прогона, который читает только тот,
+        кто его открыл.
+
+        Прежнее обоснование — «посторонний PR из-за этого не падает» — верно по
+        сути и неверно по коду: скрипт запускается ТОЛЬКО ночным обходом, ни в
+        одном PR-прогоне его нет, и краснеть от него нечему.
+
+    Цена измерена: #1001 перечислял 74 находки скопом без чек-листа, сторож
+    видел это дословно — и молчал.
+    """
     body = "| RUN-1-01 | | |\n| RUN-1-02 | | |\n| RUN-1-03 | | |"
     monkeypatch.setattr(
         gate,
@@ -140,5 +154,27 @@ def test_main_reports_warnings_without_failing(
 
     code = gate.main([])
 
-    assert code == 0
+    assert code == gate.EXIT_FINDING
     assert "::warning::" in capsys.readouterr().out
+
+
+def test_a_clean_tracker_returns_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Чисто — 0: иначе обход держал бы задачу открытой всегда."""
+    monkeypatch.setattr(gate, "fetch_open_issues", lambda repo: [])
+
+    assert gate.main([]) == gate.EXIT_OK
+
+
+def test_an_unreadable_tracker_is_the_third_outcome(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Не прочитали трекер — 2, а не 1: это сломанный механизм, а не находка.
+
+    Коды были перевёрнуты: настоящая находка исчезала, а отказ чтения приезжал
+    в задачу как находка — и чинить предлагалось не то.
+    """
+
+    def _boom(_repo: str) -> None:
+        raise OSError("сеть недоступна")
+
+    monkeypatch.setattr(gate, "fetch_open_issues", _boom)
+
+    assert gate.main([]) == gate.EXIT_BROKEN

@@ -51,6 +51,9 @@ from dataclasses import dataclass
 
 __all__ = [
     "DEFAULT_REPO",
+    "EXIT_BROKEN",
+    "EXIT_FINDING",
+    "EXIT_OK",
     "MIN_ITEMS_FOR_CHECKLIST",
     "ChecklistItem",
     "bulk_listed_ids",
@@ -66,6 +69,20 @@ DEFAULT_REPO = "ArtVsMark/Stepik-Python-Grader"
 # Сколько находок делают issue комплексным. Две задачи в теле ещё читаются
 # глазами; с третьей список уже нужно вести, а не пересказывать.
 MIN_ITEMS_FOR_CHECKLIST = 3
+
+#: Исходы читает ночной обход по коду возврата: 0 — чисто, 1 — находка,
+#: 2 — проверка не отработала. Раньше находки здесь возвращали 0 и уезжали в
+#: `::warning::`, который читает только тот, кто открыл лог прогона; отказ
+#: чтения, наоборот, возвращал 1 и приезжал в задачу как находка. Коды были
+#: перевёрнуты, и проверка молчала о настоящем.
+#:
+#: «Предупреждение, а не отказ» кодом 0 не выражается: обход и так не краснеет
+#: на находке — он пишет её в задачу-адресата, а красным делает только третий
+#: исход.
+EXIT_OK = 0
+EXIT_FINDING = 1
+EXIT_BROKEN = 2
+
 
 _API = "https://api.github.com/search/issues"
 
@@ -224,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         issues = fetch_open_issues(args.repo)
     except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
         print(f"::warning::не удалось получить список issue: {exc}", file=sys.stderr)
-        return 1
+        return EXIT_BROKEN
 
     complex_issues = [item for item in issues if is_complex(item[1], item[2])]
     problems = [
@@ -237,7 +254,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"::warning::{problem}")
     if not problems:
         print("OK: у каждого комплексного issue есть чек-лист, у каждой галочки — исход.")
-    return 0
+        return EXIT_OK
+    return EXIT_FINDING
 
 
 if __name__ == "__main__":
