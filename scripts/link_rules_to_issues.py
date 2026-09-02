@@ -75,13 +75,13 @@ EXIT_UNKNOWN = 2
 DEFAULT_LABEL = "породило правило"
 
 _LABEL_COLOR = "5319e7"
-_LABEL_DESCRIPTION = "из этой задачи вышло правило каталога claude-code-playbook"
+_LABEL_DESCRIPTION = "из этой задачи вышло правило каталога Engineering-Incidents-Playbook"
 
 #: Скрытый маркер: по нему комментарий узнаётся при следующем прогоне. Сравнивать
 #: по тексту нельзя — он меняется, когда правил становится больше.
 MARKER = "<!-- rules-backlink -->"
 
-_CATALOGUE_URL = "https://github.com/ArtVsMark/claude-code-playbook"
+_CATALOGUE_URL = "https://github.com/ArtVsMark/Engineering-Incidents-Playbook"
 
 
 def backlinks(export: dict[str, Any], repo: str) -> dict[int, list[dict[str, str]]]:
@@ -129,7 +129,8 @@ def comment_body(rules: list[dict[str, str]]) -> str:
     word = "правило" if len(rules) == 1 else "правила"
     lines = [
         MARKER,
-        f"**Эта задача породила {word} каталога** [claude-code-playbook]({_CATALOGUE_URL}):",
+        f"**Эта задача породила {word} каталога** "
+        f"[Engineering-Incidents-Playbook]({_CATALOGUE_URL}):",
         "",
     ]
     for rule in rules:

@@ -13,7 +13,7 @@
 начал бы отставать с первого же нового правила — молча, как уже было с числами
 в витрине и со списками открытых задач.
 
-Источник — каталог [claude-code-playbook](https://github.com/ArtVsMark/claude-code-playbook):
+Источник — каталог [Engineering-Incidents-Playbook](https://github.com/ArtVsMark/Engineering-Incidents-Playbook):
 у каждого правила есть раздел «След» со ссылкой на issue или файл. Отсюда три
 свойства:
 
@@ -30,8 +30,8 @@
 
 Запуск::
 
-    python scripts/generate_rules_index.py --catalogue ../claude-code-playbook
-    python scripts/generate_rules_index.py --catalogue ../claude-code-playbook --check
+    python scripts/generate_rules_index.py --catalogue ../Engineering-Incidents-Playbook
+    python scripts/generate_rules_index.py --catalogue ../Engineering-Incidents-Playbook --check
 """
 
 from __future__ import annotations
@@ -262,7 +262,7 @@ def collect_rules(catalogue: pathlib.Path, *, repo_root: pathlib.Path | None = N
     if not files:
         raise FileNotFoundError(
             f"{rules_dir}: правил не найдено — указатель строить не из чего. "
-            "Клонируйте каталог: git clone https://github.com/ArtVsMark/claude-code-playbook"
+            "Клонируйте каталог: git clone https://github.com/ArtVsMark/Engineering-Incidents-Playbook"
         )
 
     root = repo_root if repo_root is not None else _ROOT
@@ -303,7 +303,7 @@ def collect_rules(catalogue: pathlib.Path, *, repo_root: pathlib.Path | None = N
 
 def render_index(rules: list[Rule], *, catalogue_url: str = "") -> str:
     """Собрать текст указателя — с колонкой «чем держится» и итоговым числом."""
-    url = catalogue_url or "https://github.com/ArtVsMark/claude-code-playbook"
+    url = catalogue_url or "https://github.com/ArtVsMark/Engineering-Incidents-Playbook"
     unmechanised = [rule for rule in rules if rule.mechanism == "не объявлено"]
 
     lines = [
@@ -312,7 +312,7 @@ def render_index(rules: list[Rule], *, catalogue_url: str = "") -> str:
         "# Указатель правил",
         "",
         "> **Что это.** Правила, действующие в этом проекте, — собранные из следов",
-        f"> каталога [claude-code-playbook]({url}). Указатель **генерируется**",
+        f"> каталога [Engineering-Incidents-Playbook]({url}). Указатель **генерируется**",
         "> (`python scripts/generate_rules_index.py`), а не ведётся руками: список,",
         "> который поддерживают вручную, начинает отставать с первого же нового",
         "> правила — молча.",
@@ -388,12 +388,12 @@ def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdout()
     parser = argparse.ArgumentParser(
         prog="python scripts/generate_rules_index.py",
-        description="Собрать указатель правил из следов каталога claude-code-playbook.",
+        description="Собрать указатель правил из следов каталога Engineering-Incidents-Playbook.",
     )
     parser.add_argument(
         "--catalogue",
         type=pathlib.Path,
-        default=_ROOT.parent / "claude-code-playbook",
+        default=_ROOT.parent / "Engineering-Incidents-Playbook",
         help="путь к клону каталога правил",
     )
     parser.add_argument(

@@ -1,7 +1,7 @@
 {
   "schema": "1.1",
   "project": "ArtVsMark/Stepik-Python-Grader",
-  "catalogue": "https://github.com/ArtVsMark/claude-code-playbook",
+  "catalogue": "https://github.com/ArtVsMark/Engineering-Incidents-Playbook",
   "rules": {
     "001": {
       "status": "active",
