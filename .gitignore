@@ -74,3 +74,9 @@ t.py
 # (scripts/generate_build_info.py) — в git лежала бы версия, устаревшая
 # на каждый следующий PR.
 src/stepik_grader/_build_info.json
+
+# Факты проекта для соседних (scripts/generate_facts.py). Собираются
+# прогоном и публикуются веткой `badges`: производное пересобирается на
+# каждом пуше, то есть чаще изменений, и в общей ветке не хранится
+# (правило 160).
+.github/badges/facts.json
