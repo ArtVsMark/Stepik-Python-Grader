@@ -1,5 +1,6 @@
 {
   "schema": "1.1",
+  "schema_of": "формат ЭТОГО файла — ответа потребителя каталогу (templates/bindings.json). Не путать с номерами рядом: выгрузка правил каталога — 1.2, сводка потребителей — 1.0, предложение правила (.rules/proposals.json) — 1.0. Ключ `schema` во всех четырёх один, предметы разные (правило 164).",
   "project": "ArtVsMark/Stepik-Python-Grader",
   "catalogue": "https://github.com/ArtVsMark/Engineering-Incidents-Playbook",
   "rules": {
@@ -809,6 +810,11 @@
       "status": "active",
       "mechanism": "document",
       "where": "docs/use/installation.md и README.md — вход описан командами (pip install -e, stepik-grader, stepik-grader-gui), список команд один и живёт в CLAUDE.md § Команды; копирование образцов названо там же"
+    },
+    "164": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": ".rules/bindings.json и .rules/proposals.json — рядом с каждым `schema` стоит ключ `schema_of`, называющий предмет в точке чтения (сам `schema` переименованию не подлежит: имя задаёт контракт каталога). Наличие обоих ключей и значение каждого номера проверяет scripts/check_rule_bindings.py::version_subjects — шагом «Rule bindings answer the catalogue» обязательного docs-guardrails в .github/workflows/ci.yml и хуком pre-commit, то есть на каждый PR; дрейф от templates/bindings.json и templates/proposals.json каталога — contract_drift и proposal_drift ночным обходом .github/workflows/tracker-guardrails.yml"
     }
   }
 }
