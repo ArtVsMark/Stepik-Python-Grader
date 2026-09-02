@@ -70,6 +70,20 @@ DEFAULT_REPO = "ArtVsMark/Stepik-Python-Grader"
 # вывода; ``DEFAULT_LABEL`` остаётся первой из них, потому что на неё смотрит
 # бейдж пула задач и одноимённый аргумент ``fetch_open_issues``.
 DEFAULT_LABELS = ("good first issue", "help wanted")
+
+#: Исходы читает ночной обход по коду возврата: 0 — чисто, 1 — находка,
+#: 2 — проверка не отработала. Раньше находки здесь возвращали 0 и уезжали в
+#: `::warning::`, который читает только тот, кто открыл лог прогона; отказ
+#: чтения, наоборот, возвращал 1 и приезжал в задачу как находка. Коды были
+#: перевёрнуты, и проверка молчала о настоящем.
+#:
+#: «Предупреждение, а не отказ» кодом 0 не выражается: обход и так не краснеет
+#: на находке — он пишет её в задачу-адресата, а красным делает только третий
+#: исход.
+EXIT_OK = 0
+EXIT_FINDING = 1
+EXIT_BROKEN = 2
+
 DEFAULT_LABEL = DEFAULT_LABELS[0]
 
 # Ниже этого перевод — не перевод, а заголовок с парой слов под ним. Порог
@@ -218,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
             issues = fetch_open_issues(args.repo, label)
         except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
             print(f"::warning::не удалось получить список {label!r}: {exc}", file=sys.stderr)
-            return 1
+            return EXIT_BROKEN
         print(f"{label}: проверено {len(issues)} открытых issue.")
         bodies.update(dict(issues))
 
@@ -229,7 +243,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"::warning::{problem}")
     if not problems and bodies:
         print("Все открытые задачи пула для внешних двуязычны.")
-    return 0
+    return EXIT_FINDING if problems else EXIT_OK
 
 
 if __name__ == "__main__":

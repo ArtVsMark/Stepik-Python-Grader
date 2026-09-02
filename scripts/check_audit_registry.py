@@ -63,6 +63,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 __all__ = [
     "AUDIT_DIR",
+    "EXIT_FINDING",
     "EXIT_OK",
     "EXIT_UNKNOWN",
     "FINDING_ID",
@@ -74,6 +75,7 @@ __all__ = [
 ]
 
 EXIT_OK = 0
+EXIT_FINDING = 1
 #: Прочитать состояние нечем — не то же самое, что «состояние плохое».
 EXIT_UNKNOWN = 2
 
@@ -282,7 +284,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         print("\nРеестр совпадает с историей мержей.")
-    return EXIT_OK
+        return EXIT_OK
+    # Отставший реестр — находка, а не «чисто»: её читает ночной обход по коду
+    # возврата, и прежний EXIT_OK делал проверку немой. Красным прогон от этого
+    # не становится — обход пишет находку в задачу-адресата.
+    return EXIT_FINDING
 
 
 if __name__ == "__main__":

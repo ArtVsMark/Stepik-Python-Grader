@@ -176,10 +176,11 @@ class TestFetchAndMain:
 
         code = module.main([])
 
-        assert code == 0
+        assert code == module.EXIT_FINDING
         assert "::warning::" in capsys.readouterr().out
 
-    def test_network_failure_is_the_only_nonzero(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_network_failure_is_the_third_outcome(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Отказ чтения — 2, а не 1: сломанный механизм чинит не тот, кто находку."""
         module = _load_module()
 
         def _boom(*_args: object, **_kwargs: object) -> None:
@@ -187,7 +188,7 @@ class TestFetchAndMain:
 
         monkeypatch.setattr(module, "fetch_open_issues", _boom)
 
-        assert module.main([]) == 1
+        assert module.main([]) == module.EXIT_BROKEN
 
     def test_help_prints_on_a_single_byte_console(self) -> None:
         """Справка печатается под cp1252, а не падает вместо неё.
@@ -255,7 +256,7 @@ class TestFetchAndMain:
         module = _load_module()
         monkeypatch.setattr(module, "fetch_open_issues", lambda *_a, **_k: [(42, _RUSSIAN)])
 
-        assert module.main([]) == 0
+        assert module.main([]) == module.EXIT_FINDING
         assert capsys.readouterr().out.count("::warning::#42") == 1
 
     def test_label_flag_narrows_the_pool(self, monkeypatch: pytest.MonkeyPatch) -> None:

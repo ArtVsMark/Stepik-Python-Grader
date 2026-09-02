@@ -150,6 +150,22 @@ def test_live_audit_registry_is_in_sync() -> None:
         assert rejected <= all_ids, f"{document.name}: отклонён ID, которого нет в таблицах"
 
 
+def test_a_lagging_registry_is_a_finding_not_silence(monkeypatch: Any) -> None:
+    """Отставший реестр возвращает 1, а не 0.
+
+    Ночной обход читает исход по коду возврата, и прежний EXIT_OK означал, что
+    находка не доезжает никуда, кроме `::warning::` в логе прогона. Так и
+    вышло: запись ADD-1-01, закрытая PR #1374, лежала вне реестра, а обход
+    отчитывался «чисто».
+
+    Прогон при этом не краснеет — код 1 обход пишет в задачу-адресата.
+    """
+    monkeypatch.setattr(guard, "_merged_pulls", lambda *a, **k: [])
+    monkeypatch.setattr(guard, "closing_mentions", lambda *a, **k: {"ADD-1-01": 1374})
+
+    assert guard.main(["--repo", "owner/repo"]) == guard.EXIT_FINDING
+
+
 def test_unreachable_github_is_the_third_outcome(monkeypatch: Any) -> None:
     """«Трекер не прочитан» и «реестр не отстал» — разные исходы (правило 039).
 
