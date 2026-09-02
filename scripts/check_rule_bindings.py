@@ -4,7 +4,7 @@
 Каталог [Engineering-Incidents-Playbook](https://github.com/ArtVsMark/Engineering-Incidents-Playbook)
 отдаёт правила машиночитаемо, а проект-потребитель отвечает, что он с каждым
 сделал: статус, чем держится и где. Контракт — `export/README.md` каталога,
-схема ``1.0``; заготовка — `templates/bindings.json` там же.
+схема ``1.1``; заготовка — `templates/bindings.json` там же.
 
 **Почему файл живёт здесь, а не в каталоге.** Здесь живёт механизм: одно и то
 же правило в проекте с полным конвейером держится гейтом, в витрине — шагом
@@ -27,6 +27,12 @@
 3. **Полнота против каталога** (только с ``--catalogue``): ответ нужен по
    КАЖДОМУ правилу, а не по тем, до которых дошли руки. Правило без записи
    попадает в метрику нерассмотренных, а не исчезает.
+4. **Каждый номер версии называет свой предмет** (правило 164). Ключ
+   ``schema`` стоит в обоих наших файлах `.rules/` и ещё в двух выгрузках
+   каталога, а предметов у него четыре: формат выгрузки правил (1.2), ответа
+   потребителя (1.1), предложения (1.0) и сводки потребителей (1.0). Сам ключ
+   переименовать нельзя — его имя задаёт чужой контракт, — поэтому предмет
+   называет соседний ``schema_of``, в точке чтения.
 
 Метрика — **сколько правил не обеспечено ничем**: ``unreviewed`` плюс
 ``active`` с ``mechanism: none``. Она не просто «должна уменьшаться» — её держит
@@ -65,8 +71,10 @@ __all__ = [
     "main",
     "named_paths",
     "neighbour_holds",
+    "proposal_drift",
     "reachable_gates",
     "unheld_count",
+    "version_subjects",
 ]
 
 #: Как этот проект назван в сводке потребителей каталога.
@@ -74,6 +82,21 @@ PROJECT = "ArtVsMark/Stepik-Python-Grader"
 
 _ROOT = Path(__file__).resolve().parent.parent
 BINDINGS = _ROOT / ".rules" / "bindings.json"
+
+#: Ключ, который называет ПРЕДМЕТ версии рядом с самой версией (правило 164).
+#: Имя `schema` задано чужим контрактом и переименованию не подлежит, а
+#: означает в четырёх местах четыре разных формата — поэтому предмет
+#: называется соседним ключом, а не оговоркой в отдельном документе.
+SUBJECT_KEY = "schema_of"
+
+#: Наши файлы ответа каталогу: путь относительно корня, заготовка каталога, с
+#: которой сверяется номер, и версия контракта на сегодня. Номера РАЗНЫЕ и
+#: двигаются независимо: ответ — 1.1, предложение — 1.0. Один ключ на оба и
+#: есть та ошибка, ради которой заведён `SUBJECT_KEY`.
+CONTRACT_FILES: tuple[tuple[str, str, str], ...] = (
+    (".rules/bindings.json", "bindings.json", "1.1"),
+    (".rules/proposals.json", "proposals.json", "1.0"),
+)
 
 STATUSES = ("active", "rejected", "not-applicable", "unreviewed")
 #: Четыре уровня контракта 1.1. Граница между ними — один вопрос: что
@@ -346,14 +369,20 @@ def _export_ids(catalogue: Path) -> set[str]:
     return {str(rule["id"]) for rule in data.get("rules", []) if rule.get("id")}
 
 
-def catalogue_schema(catalogue: Path) -> str | None:
-    """Версия контракта потребителя, объявленная САМИМ каталогом.
+def catalogue_schema(catalogue: Path, template_name: str = "bindings.json") -> str | None:
+    """Версия названного контракта, объявленная САМИМ каталогом.
 
-    Берётся из заготовки ``templates/bindings.json``: это единственное место,
-    где контракт публикует свою версию машиночитаемо. Нет файла или версии —
+    Берётся из заготовки ``templates/<имя>``: это единственное место, где
+    контракт публикует свою версию машиночитаемо. Нет файла или версии —
     ``None``: «прочитать нечем» и «прочитали плохое» — разные исходы.
+
+    Args:
+        catalogue: Клон каталога правил.
+        template_name: Имя заготовки: ``bindings.json`` — формат ответа
+            потребителя, ``proposals.json`` — формат предложения. Умолчание
+            историческое: до правила 164 контракт здесь знали ровно один.
     """
-    template = catalogue / "templates" / "bindings.json"
+    template = catalogue / "templates" / template_name
     if not template.exists():
         return None
     try:
@@ -435,6 +464,101 @@ def contract_drift(data: dict[str, Any], catalogue: Path) -> list[str]:
     ]
 
 
+def version_subjects(*, root: Path | None = None) -> list[str]:
+    """Каждый наш номер версии говорит, ЧЕГО он версия (правило 164).
+
+    Ключ ``schema`` стоит в обоих файлах `.rules/` и ещё в двух выгрузках
+    каталога, а предметов у него четыре: выгрузка правил (1.2), ответ
+    потребителя (1.1), предложение (1.0), сводка потребителей (1.0). Один ключ
+    на четыре предмета означает, что рано или поздно номер одного окажется
+    вписан в поле другого, — и обе стороны останутся валидными: ошибка не
+    ломается, а меняет смысл.
+
+    Проверяется два факта на файл: номер тот, которого требует контракт, и
+    рядом стоит :data:`SUBJECT_KEY`, называющий предмет. Отсутствующий файл
+    находкой не считается — у `.rules/proposals.json` это законное «канал не
+    подключён», а не порча формата.
+
+    Args:
+        root: Корень репозитория; ``None`` — свой собственный.
+
+    Returns:
+        Список нарушений; пустой — чисто.
+    """
+    base = root if root is not None else _ROOT
+    problems: list[str] = []
+
+    for relative, template_name, expected in CONTRACT_FILES:
+        path = base / relative
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            problems.append(f"{relative}: не разбирается ({exc})")
+            continue
+        if not isinstance(data, dict):
+            problems.append(f"{relative}: не объект")
+            continue
+
+        declared = str(data.get("schema") or "")
+        if declared != expected:
+            problems.append(
+                f"{relative}: schema={declared or 'не объявлена'!r} — контракт "
+                f"templates/{template_name} сегодня {expected}. Номера здесь разные и "
+                "двигаются независимо: номер одного контракта в поле другого остаётся "
+                "валидным и потому незаметен"
+            )
+
+        subject = str(data.get(SUBJECT_KEY) or "").strip()
+        if not subject:
+            problems.append(
+                f"{relative}: рядом с `schema` нет `{SUBJECT_KEY}` — номер не говорит, "
+                "чего он версия. Оговорка в отдельном документе не помогает тому, кто "
+                "копирует строку: предмет называется в точке чтения"
+            )
+
+    return problems
+
+
+def proposal_drift(catalogue: Path, *, root: Path | None = None) -> list[str]:
+    """Разошлась ли версия контракта ПРЕДЛОЖЕНИЯ с той, что публикует каталог.
+
+    Ответу потребителя такую сверку дал :func:`contract_drift`, а предложению
+    не давал никто: `.rules/proposals.json` нёс номер, который не сверялся ни с
+    чем. Это ровно тот случай, из которого выросло правило 164 — второй
+    независимо версионируемый артефакт, оставленный без адресата.
+
+    Args:
+        catalogue: Клон каталога правил.
+        root: Корень репозитория; ``None`` — свой собственный.
+
+    Returns:
+        Список находок; пустой — сошлось либо читать нечем.
+    """
+    base = root if root is not None else _ROOT
+    path = base / ".rules" / "proposals.json"
+    if not path.exists():
+        return []
+
+    published = catalogue_schema(catalogue, "proposals.json")
+    if published is None:
+        return []
+
+    try:
+        ours = str(json.loads(path.read_text(encoding="utf-8")).get("schema") or "")
+    except json.JSONDecodeError:
+        return []
+
+    if ours == published:
+        return []
+    return [
+        f"контракт предложения у каталога — {published}, у нас — {ours or 'не объявлен'}. "
+        "Предложение и ответ версионируются независимо, поэтому подъём одного о другом "
+        "ничего не говорит: перечитать нужно поля предложения"
+    ]
+
+
 def main(argv: list[str] | None = None) -> int:
     """Вернуть 0, если ответ проекта сходится с контрактом; иначе 1."""
     reconfigure = getattr(sys.stdout, "reconfigure", None)
@@ -457,6 +581,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     problems = binding_violations(data)
+    problems.extend(version_subjects())
 
     if args.catalogue is not None:
         try:
@@ -465,6 +590,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"FAIL: {exc}")
             return 1
         problems.extend(contract_drift(data, args.catalogue))
+        problems.extend(proposal_drift(args.catalogue))
         answered = set(data.get("rules") or {})
         missing = sorted(expected - answered, key=int)
         if missing:

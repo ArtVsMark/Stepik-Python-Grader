@@ -401,3 +401,97 @@ class TestUnheldBudget:
         monkeypatch.setattr(_MODULE, "UNHELD_BUDGET", -1)
 
         assert _MODULE.main([]) == 1
+
+
+# --- правило 164: номер говорит, чего он версия --------------------------------
+
+
+def _rules_dir(
+    root: pathlib.Path, *, bindings: str = "1.1", proposals: str = "1.0", named: bool = True
+) -> pathlib.Path:
+    """Корень репозитория с обоими нашими файлами ответа каталогу."""
+    rules = root / ".rules"
+    rules.mkdir(parents=True, exist_ok=True)
+    for name, schema in (("bindings.json", bindings), ("proposals.json", proposals)):
+        payload: dict[str, Any] = {"schema": schema}
+        if named:
+            payload[_MODULE.SUBJECT_KEY] = f"формат {name}"
+        (rules / name).write_text(json.dumps(payload), encoding="utf-8")
+    return root
+
+
+def test_live_rules_files_name_what_their_number_versions() -> None:
+    """Приёмка правила 164 на живом состоянии репозитория."""
+    assert _MODULE.version_subjects() == []
+
+
+def test_a_number_without_a_named_subject_is_a_violation(tmp_path: pathlib.Path) -> None:
+    """Голый `schema` — находка: предмет называется в точке чтения.
+
+    Инцидент правила 164: у каталога четыре независимо двигающихся номера, и
+    три из них назывались одним ключом `schema`. Перепутанный номер остаётся
+    синтаксически верным и проходит любую проверку формы — просто означает уже
+    другое, поэтому лечится это именем рядом, а не дисциплиной.
+    """
+    problems = _MODULE.version_subjects(root=_rules_dir(tmp_path, named=False))
+
+    assert len(problems) == 2, problems
+    assert all(_MODULE.SUBJECT_KEY in problem for problem in problems), problems
+
+
+def test_the_two_contracts_have_their_own_numbers(tmp_path: pathlib.Path) -> None:
+    """Номер ответа в поле предложения — находка, а не «тоже версия».
+
+    Ровно эта подстановка и не ломается сама: файл валиден, гейт формы зелен,
+    а поле означает уже другой контракт.
+    """
+    problems = _MODULE.version_subjects(root=_rules_dir(tmp_path, proposals="1.1"))
+
+    assert len(problems) == 1, problems
+    assert ".rules/proposals.json" in problems[0], problems
+
+
+def test_a_missing_proposals_file_is_not_a_violation(tmp_path: pathlib.Path) -> None:
+    """Файла нет — «канал не подключён», а не порча формата."""
+    root = _rules_dir(tmp_path)
+    (root / ".rules" / "proposals.json").unlink()
+
+    assert _MODULE.version_subjects(root=root) == []
+
+
+def _proposals_catalogue(root: pathlib.Path, schema: str) -> pathlib.Path:
+    """Клон каталога с заготовкой ПРЕДЛОЖЕНИЯ — вторая независимая версия."""
+    template = root / "catalogue" / "templates" / "proposals.json"
+    template.parent.mkdir(parents=True, exist_ok=True)
+    template.write_text(json.dumps({"schema": schema, "proposals": []}), encoding="utf-8")
+    return root / "catalogue"
+
+
+def test_proposal_contract_is_compared_with_the_publisher(tmp_path: pathlib.Path) -> None:
+    """Версию предложения тоже сверяет издатель, а не наша же константа.
+
+    Ответу потребителя такую сверку дал `contract_drift`, а предложению не
+    давал никто: номер стоял и не сверялся ни с чем.
+    """
+    problems = _MODULE.proposal_drift(
+        _proposals_catalogue(tmp_path, "1.1"), root=_rules_dir(tmp_path)
+    )
+
+    assert problems, "разошедшаяся версия контракта предложения не замечена"
+    assert "1.1" in problems[0] and "1.0" in problems[0], problems
+
+
+def test_matching_proposal_versions_are_silent(tmp_path: pathlib.Path) -> None:
+    """Версии сошлись — находки нет."""
+    assert (
+        _MODULE.proposal_drift(_proposals_catalogue(tmp_path, "1.0"), root=_rules_dir(tmp_path))
+        == []
+    )
+
+
+def test_an_unreadable_proposal_contract_is_not_a_finding(tmp_path: pathlib.Path) -> None:
+    """«Прочитать нечем» и «прочитали плохое» — разные исходы и здесь."""
+    root = _rules_dir(tmp_path)
+
+    assert _MODULE.proposal_drift(tmp_path / "нет-клона", root=root) == []
+    assert _MODULE.catalogue_schema(tmp_path / "нет-клона", "proposals.json") is None
