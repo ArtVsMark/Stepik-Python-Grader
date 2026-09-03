@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 import time
 from typing import Any
@@ -15,7 +16,7 @@ from typing import Any
 import pytest
 
 from stepik_grader import diagnostic_stepik
-from stepik_grader.core import oauth_flow
+from stepik_grader.core import diagnostics, oauth_flow, stepik_client
 
 
 def _live_secrets() -> dict[str, Any]:
@@ -152,3 +153,96 @@ def test_expired_token_is_refreshed_without_browser(
 
     assert session.headers["Authorization"] == "Bearer fresh-token"
     assert secrets_path.is_file()  # новая пара токенов сохранена
+
+
+# --- две поверхности одного реестра проверок (issue #982) ----------------------
+
+
+def test_busy_port_is_not_reported_as_bad_credentials(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Занятый порт называется занятым портом, и рядом стоит, что делать.
+
+    Находка ``JRN-3A-04``: пользователь шёл перевыпускать OAuth-приложение
+    из-за чужого процесса на 8080. Причина и следующий шаг берутся из общего
+    реестра, поэтому диагностика и основной сценарий не могут разойтись.
+    """
+    monkeypatch.setattr(
+        diagnostic_stepik,
+        "load_secrets_dict",
+        lambda _path: (_ for _ in ()).throw(
+            stepik_client.OAuthCallbackPortBusy("Порт 8080 занят другим процессом")
+        ),
+    )
+
+    code = diagnostic_stepik.main(
+        ["--url", "https://stepik.org/lesson/1/step/1", "--out", str(tmp_path)]
+    )
+
+    out = capsys.readouterr().out.replace("\n", "")
+    assert code == 1
+    assert "порт" in out.lower()
+    assert "redirect_uri" in out, "не сказано, что делать пользователю"
+
+
+def test_failure_writes_the_environment_report(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Отчёт для мейнтейнера пишется там, где он и нужен, — при сбое.
+
+    Поверхность 2 (issue #982): файл прикладывают к issue, понимать его
+    содержимое пользователю не требуется.
+    """
+    monkeypatch.setattr(
+        diagnostic_stepik,
+        "load_secrets_dict",
+        lambda _path: (_ for _ in ()).throw(ValueError("нет secrets.json")),
+    )
+
+    diagnostic_stepik.main(["--url", "https://stepik.org/lesson/1/step/1", "--out", str(tmp_path)])
+
+    report = json.loads(
+        (tmp_path / diagnostic_stepik.ENVIRONMENT_REPORT_NAME).read_text(encoding="utf-8")
+    )
+    ids = [entry["id"] for entry in report["checks"]]
+    assert ids == [check.id for check in diagnostics.CHECKS]
+    for entry in report["checks"]:
+        assert entry["subject"] and entry["remedy"], entry
+
+
+def test_environment_report_is_redacted(tmp_path: pathlib.Path) -> None:
+    """Новая точка дампа не может повторить ``OPS-1-02``.
+
+    Редакция одна на весь модуль и живёт в ``save_json``, поэтому отчёт по
+    проверкам проходит через неё же — а не через собственную копию правил.
+    """
+    findings = [
+        diagnostics.Finding(
+            check=diagnostics.CHECKS[0],
+            outcome=diagnostics.Outcome(
+                diagnostics.Status.FAIL,
+                "diag_detail_secrets_unreadable",
+                {
+                    "path": "secrets.json",
+                    "error": "access_token=ghp_0123456789abcdefghijABCDEFGHIJ0123",
+                },
+            ),
+        )
+    ]
+
+    path = diagnostic_stepik.save_json(
+        tmp_path,
+        diagnostic_stepik.ENVIRONMENT_REPORT_NAME,
+        diagnostic_stepik.build_environment_report(findings),
+    )
+
+    assert "ghp_0123456789abcdefghijABCDEFGHIJ0123" not in path.read_text(encoding="utf-8")
+
+
+def test_unknown_failure_invents_no_cause() -> None:
+    """Причина неизвестна — молчим, а не подставляем ближайшую.
+
+    Выдуманная причина хуже показанной ошибки: именно так занятый порт и стал
+    «неверными учётными данными».
+    """
+    assert diagnostic_stepik.explain_failure(ValueError("что-то своё")) == []

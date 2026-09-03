@@ -337,6 +337,13 @@ The script will save the following to the `stepik_diagnostics/`:
 - verify the validity of the authorization token;
 - retrieve information about a course, lesson, or task by ID.
 
+**If the diagnostics fail**, they name the cause and the next step right in the
+console and drop `stepik_diagnostics/environment_checks.json` next to the log —
+a report on the environment checks (`secrets.json`, the OAuth application data,
+the stored token, whether the callback port is free, whether Stepik answers).
+Secrets in it are redacted, and the file is meant to be attached to an issue:
+you do not need to understand its contents.
+
   **Launch log** — the `--diagnostic` flag (or the `STEPIK_GRADER_LOG=debug`
 variable): logs network, OAuth, and download steps to
 `stepik_diagnostics/grader.log` with secrets redacted. Disabled by default;

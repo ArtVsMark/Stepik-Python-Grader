@@ -223,6 +223,7 @@ launcher.py            ──→  core/user_settings.py  (память окна 
 launcher.py            ──→  core/settings_resolver.py  (вкладка «Дополнительно»: состав контролов, происхождение значения и запись — из ядра, чтобы состав вкладки проверялся тестом, а не глазами на машине с дисплеем)
 launcher.py            (в остальном stdlib + tkinter/subprocess — поднимает --serve отдельным процессом; ядро грейдера в процесс окна не тянет)
 diagnostic_stepik.py ──→  core/stepik_client.py
+diagnostic_stepik.py ──→  core/diagnostics.py  (реестр проверок окружения: причина сбоя и отчёт берут текст из одного места)
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 downloader.py        ──→  core/oauth_flow.py
 diagnostic_stepik.py ──→  core/oauth_flow.py

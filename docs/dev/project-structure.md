@@ -107,6 +107,7 @@ Stepik-Python-Grader/
 │           ├── submission.py     # Общий путь отправки решения: вердикт платформы → история
 │           ├── attachments.py      # Вложения условия (media/attachments) рядом с решением
 │           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов
+│           ├── diagnostics.py    # Реестр проверок окружения: проверка — данные, движок не печатает и не чинит
 │           ├── feedback.py       # Обратная связь: prefilled-URL к GitHub Issue Forms, редакция секретов
 │           ├── tracer.py         # Пошаговый трассировщик кода (sys.settrace → JSON-трейс) для песочницы
 │           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox

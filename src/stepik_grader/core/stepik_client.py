@@ -60,6 +60,7 @@ __all__ = [
     "StepikResponseFormatError",
     "SubmissionResult",
     "authorize_via_browser",
+    "callback_port_is_free",
     "clear_cache",
     "create_attempt",
     "create_user_session",
@@ -598,6 +599,35 @@ class _OAuthHTTPServer(HTTPServer):
         host, port = self.server_address[:2]
         self.server_name = str(host)
         self.server_port = int(port)
+
+
+def callback_port_is_free(host: str, port: int) -> bool:
+    """Свободен ли порт OAuth-колбэка — ТЕМ ЖЕ bind'ом, что и настоящий сервер.
+
+    Диагностике нужен ответ до похода в браузер, но отдельный ``socket.bind``
+    здесь отвечал бы на другой вопрос: флаги у занятого порта
+    платформозависимы, и именно они once уже стоили подмены причины
+    (``SO_REUSEADDR`` на Windows разрешает второй bind на слушаемый порт, см.
+    :class:`_OAuthHTTPServer`). Поэтому предикат поднимает тот же класс сервера
+    и сразу закрывает его: два места дают один ответ по построению, а не по
+    договорённости (issue #982).
+
+    Порт занимается на время проверки — это опрос состояния, а не изменение
+    системы: сервер закрывается в ``finally`` и запросов не обслуживает.
+
+    Args:
+        host: Хост из ``redirect_uri`` (обычно ``localhost``).
+        port: Порт из ``redirect_uri`` (обычно 8080).
+
+    Returns:
+        ``True``, если bind удался, иначе ``False``.
+    """
+    try:
+        server = _OAuthHTTPServer((host, port), BaseHTTPRequestHandler)  # type: ignore[arg-type]
+    except OSError:
+        return False
+    server.server_close()
+    return True
 
 
 def _make_oauth_handler(
