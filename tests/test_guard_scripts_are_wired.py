@@ -122,6 +122,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "правило 170: у подделки чужого интерфейса обязан быть снятый источник, "
         "иначе набор подтверждает представление автора, а не поведение площадки",
     ),
+    "measure_queue_wakeups.py": (
+        "scripts/nightly_checks.py",
+        "правило 169: у механизма, объявленного страховкой, обязан быть замер — "
+        "иначе «работает» держится верой, а список событий сужают под неё",
+    ),
     "check_rules_digest.py": (
         ".github/workflows/ci.yml",
         "второй рубеж: дайджест правил не разошёлся с ответом проекта, а хук SessionStart объявлен",
@@ -206,6 +211,7 @@ _RUNNERS: dict[str, tuple[str, str]] = {
 #: тот же файл умеет ещё и снимать образцы.
 _GUARDS_BEYOND_THE_NAMING: tuple[str, ...] = (
     "capture_github_fixtures.py",
+    "measure_queue_wakeups.py",
     "skip_inventory.py",
 )
 
