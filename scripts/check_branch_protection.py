@@ -53,6 +53,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -77,8 +78,10 @@ __all__ = [
     "PROTECTED_BRANCH",
     "REQUIRED_RULES",
     "check_ci_jobs",
+    "check_matrix_names",
     "check_ruleset",
     "main",
+    "matrix_checks",
 ]
 
 EXIT_OK = 0
@@ -217,6 +220,101 @@ def check_ci_jobs(text: str) -> list[str]:
     ]
 
 
+#: Блок ``matrix:`` джоба ``test`` — до первого ключа того же уровня.
+_MATRIX_RE = re.compile(r"^      matrix:\n(.*?)(?=^    [a-z]|^  [a-z])", re.M | re.S)
+
+#: Список значений одного измерения: ``os: ["a", "b"]``.
+_AXIS_RE = re.compile(r"^        ([\w-]+):\s*\[(.+?)\]\s*$", re.M)
+
+#: Добавленная комбинация: ``- {os: "x", python-version: "3.14", experimental: true}``.
+_INCLUDE_RE = re.compile(r"^\s*-\s*\{(.+?)\}\s*$", re.M)
+
+
+def matrix_checks(text: str) -> list[str]:
+    """Имена матричных проверок, ВЫВЕДЕННЫЕ из ``ci.yml`` (правило 171).
+
+    Эталон, с которым сверяется изменение, берётся из дерева этого же
+    изменения, а не переписывается в константу руками. Копия верна ровно до
+    первой правки матрицы и расходится **молча**: ruleset и константа остаются
+    согласными друг с другом, а работы называются иначе — PR уходит в вечное
+    ожидание, и ни одна проверка при этом не краснеет.
+
+    Имя площадка складывает из имени джоба и значений в порядке объявления
+    измерений: ``test (ubuntu-latest, 3.12, false)``.
+
+    Args:
+        text: Содержимое ``.github/workflows/ci.yml``.
+
+    Returns:
+        Имена комбинаций в порядке, в каком их порождает площадка.
+    """
+    block = _MATRIX_RE.search(text)
+    if block is None:
+        return []
+    body = block.group(1)
+    axes: dict[str, list[str]] = {}
+    for name, raw in _AXIS_RE.findall(body):
+        axes[name] = [item.strip().strip("\"'") for item in raw.split(",") if item.strip()]
+    if not axes:
+        return []
+
+    order = list(axes)
+    names: list[str] = []
+    combos: list[tuple[str, ...]] = [()]
+    for axis in order:
+        combos = [(*combo, value) for combo in combos for value in axes[axis]]
+    names.extend(f"test ({', '.join(combo)})" for combo in combos)
+
+    for raw in _INCLUDE_RE.findall(body):
+        pairs = dict(
+            (
+                part.split(":", 1)[0].strip(),
+                part.split(":", 1)[1].strip().strip("\"'"),
+            )
+            for part in raw.split(",")
+            if ":" in part
+        )
+        if set(order) <= set(pairs):
+            names.append(f"test ({', '.join(pairs[axis] for axis in order)})")
+    return names
+
+
+def check_matrix_names(text: str, expected: tuple[str, ...] = ()) -> list[str]:
+    """Совпадает ли объявленный список обязательных с матрицей из дерева.
+
+    Экспериментальные комбинации обязательными не делаются намеренно: они под
+    ``continue-on-error`` и блокировать мерж не должны. Поэтому сверяется
+    подмножество — неэкспериментальные имена.
+
+    Args:
+        text: Содержимое ``.github/workflows/ci.yml``.
+        expected: Объявленный список; по умолчанию :data:`EXPECTED_CHECKS`.
+
+    Returns:
+        Расхождения; пустой список — совпало.
+    """
+    declared = set(expected or EXPECTED_CHECKS)
+    derived = matrix_checks(text)
+    if not derived:
+        return ["matrix джоба test в ci.yml не разобрана — эталон сверять не с чем"]
+
+    stable = {name for name in derived if name.endswith(", false)")}
+    declared_matrix = {name for name in declared if name.startswith("test (")}
+
+    problems: list[str] = []
+    for name in sorted(stable - declared_matrix):
+        problems.append(
+            f"комбинация {name!r} есть в ci.yml, но обязательной не объявлена — "
+            "проверка, которую мерж не ждёт"
+        )
+    for name in sorted(declared_matrix - stable):
+        problems.append(
+            f"комбинация {name!r} объявлена обязательной, но ci.yml её не порождает — "
+            "PR будет ждать проверку, которой нет, и ни один прогон об этом не скажет"
+        )
+    return problems
+
+
 def _fetch(repo: str) -> dict[str, object] | None:
     """Прочитать ruleset ветки ``main``; ``None`` — прочитать нечем."""
     rulesets = gh_rest.request("GET", f"/repos/{repo}/rulesets").data
@@ -238,7 +336,35 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--repo", default=gh_rest.DEFAULT_REPO)
     parser.add_argument("--json", action="store_true", help="машинный вывод")
+    parser.add_argument(
+        "--tree-only",
+        action="store_true",
+        help="сверить эталон с ci.yml, не спрашивая площадку (годится как гейт на каждый PR)",
+    )
     args = parser.parse_args(argv)
+
+    # Половина проверки не требует ни сети, ни прав администратора: эталон
+    # обязательных проверок сверяется с деревом ЭТОГО ЖЕ изменения (правило
+    # 171). Отдельный вход нужен потому, что полная проверка без PAT возвращает
+    # «прочитать нечем» — и на каждом PR это был бы отказ, а не проверка.
+    if args.tree_only:
+        if not _CI_WORKFLOW.exists():
+            print(f"{_CI_WORKFLOW} не найден — сверять эталон не с чем", file=sys.stderr)
+            return EXIT_UNKNOWN
+        text = _CI_WORKFLOW.read_text(encoding="utf-8")
+        problems = check_ci_jobs(text) + check_matrix_names(text)
+        derived = matrix_checks(text)
+        print(
+            f"Эталон против дерева: комбинаций в ci.yml — {len(derived)}, "
+            f"объявлено обязательными — {len(EXPECTED_CHECKS)}."
+        )
+        if problems:
+            print("FAIL: эталон разошёлся с деревом:", file=sys.stderr)
+            for problem in problems:
+                print(f"  - {problem}", file=sys.stderr)
+            return EXIT_FAIL
+        print("Объявленные обязательные проверки порождаются этим же деревом.")
+        return EXIT_OK
 
     try:
         ruleset = _fetch(args.repo)

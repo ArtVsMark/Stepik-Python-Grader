@@ -431,3 +431,56 @@ def test_answer_sets_have_no_duplicate_literals_left() -> None:
     for name in ("commands.py", "interactive.py"):
         source = (_SRC_ROOT / "cli" / name).read_text(encoding="utf-8")
         assert '"да"' not in source, f"{name}: набор ответов снова задан литералом"
+
+
+# --- сообщение ведёт внутрь той поверхности, где пользователь (issue #1005) -------
+
+
+def _locale(name: str) -> dict[str, str]:
+    """Каталог локали как словарь."""
+    import json
+
+    path = pathlib.Path(__file__).parent.parent / "src" / "stepik_grader" / "core" / "locales"
+    return json.loads((path / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def test_the_web_message_about_missing_tests_is_not_a_dead_end() -> None:
+    """Находка ``ED-2-04``: веб на ту же ситуацию давал тупик.
+
+    CLI на «тестов нет» предлагает выход, а веб называл только путь — и дальше
+    пользователю идти было некуда. Сообщение обязано вести внутрь ТОЙ
+    поверхности, на которой человек находится: в вебе это раздел «Скачать
+    задачу», а не команда модуля.
+    """
+    for name, panel in (("ru", "Скачать задачу"), ("en", "Download task")):
+        text = _locale(name)["tests_not_found_for"]
+
+        assert panel in text, name
+        assert "tests/1" in text, f"{name}: не назван и второй способ — создать кейс самому"
+
+
+def test_the_menu_message_names_a_menu_item() -> None:
+    """Находка ``PROD-1-04``: сообщение уводило пользователя меню за пределы меню.
+
+    Оно предлагало `python -m stepik_grader.downloader` — команду, до которой
+    из меню не дойти, не выйдя из него. Команда остаётся для того, кто пришёл
+    из командной строки, но пункт меню назван первым.
+    """
+    ru = _locale("ru")["test_dir_not_found"]
+    en = _locale("en")["test_dir_not_found"]
+
+    assert "пункт 8" in ru, ru
+    assert "item 8" in en, en
+    assert ru.index("пункт 8") < ru.index("python -m"), "пункт меню назван позже команды"
+
+
+def test_the_named_menu_item_exists() -> None:
+    """Пункт, на который ссылается сообщение, существует в меню.
+
+    Иначе подсказка ведёт в никуда так же, как прежний тупик, — просто
+    убедительнее: у неё есть номер.
+    """
+    ru = _locale("ru")
+
+    assert "menu_8" in ru
+    assert "Скачать задачу" in ru["menu_8"]

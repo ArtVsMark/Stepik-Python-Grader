@@ -38,9 +38,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "поэтому расписание, а не прогон на каждый PR",
     ),
     "check_branch_protection.py": (
-        ".github/workflows/tracker-guardrails.yml",
-        "предмет — настройки репозитория: они не меняются от коммита к коммиту, "
-        "а расхождение означает, что публично заявленная гарантия отменена",
+        ".github/workflows/ci.yml",
+        "правило 171: половина без сети — эталон обязательных проверок сверяется "
+        "с матрицей из дерева этого же изменения (--tree-only), на каждый PR; "
+        "полная сверка с ruleset требует PAT и живёт в scripts/nightly_checks.py",
     ),
     "check_changelog_translated.py": (
         ".github/workflows/ci.yml",
