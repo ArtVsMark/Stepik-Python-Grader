@@ -102,6 +102,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "форма запрета MCP: именная запись отключается молча при переименовании",
     ),
+    "check_hidden_defaults.py": (
+        ".github/workflows/ci.yml",
+        "умолчания из окружения: -z у списков путей от git и явная encoding= "
+        "у текстового subprocess — оба дефекта видны разбором, а не прогоном",
+    ),
     "check_rules_digest.py": (
         ".github/workflows/ci.yml",
         "второй рубеж: дайджест правил не разошёлся с ответом проекта, а хук SessionStart объявлен",

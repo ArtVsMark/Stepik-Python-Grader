@@ -80,6 +80,8 @@ __all__ = [
     "check_changelog_buffer",
     "check_commit_authorship",
     "commits_without_owner",
+    "fingerprint_coverage",
+    "git_paths",
     "lock_is_active",
     "lock_path",
     "logs_dir",
@@ -212,12 +214,40 @@ def _git(*args: str) -> str:
             encoding="utf-8",
             errors="replace",
             stderr=subprocess.DEVNULL,
-        ).strip()
+            # Обрезаются только разделители, а НЕ пробелы: под ``-z`` первым и
+            # последним в выводе стоит путь, и голый ``.strip()`` съел бы у него
+            # ведущий или хвостовой пробел — ту же потерю имени, ради которой
+            # заведён сам ``-z`` (issue #1417).
+        ).strip("\n\r\0")
 
     try:
         return _run_guarded(_call) or ""
     except (OSError, subprocess.CalledProcessError):
         return ""
+
+
+def git_paths(git: GitRunner, *args: str) -> list[str]:
+    """Пути из ``git``, прочитанные по NUL, — а не по строкам (правило 165).
+
+    ``core.quotePath=true`` — умолчание git, поэтому имя с не-ASCII символами
+    отдаётся **экранированным**: ``"\\321\\203\\321\\202..."``. Разбор по
+    строкам принимает эту строку за путь, ``Path`` из неё не разрешается, и
+    файл молча выпадает из обработки. У нас это стоило дороже, чем выглядит:
+    :func:`worktree_fingerprint` читает файлы из такого списка, то есть штамп
+    «состояние проверено» не замечал правок в файлах с кириллическими именами —
+    в проекте, который ведётся по-русски (issue #1417).
+
+    ``-z`` отключает экранирование и разделяет пути NUL'ом, которого в имени
+    файла быть не может.
+
+    Args:
+        git: Запускатель ``git`` (подменяется в тестах).
+        *args: Аргументы команды БЕЗ ``-z`` — он добавляется здесь.
+
+    Returns:
+        Непустые пути в порядке выдачи ``git``.
+    """
+    return [path for path in git(*args, "-z").split("\0") if path]
 
 
 def _git_ok(*args: str) -> bool:
@@ -790,16 +820,33 @@ def worktree_fingerprint(root: pathlib.Path, git: GitRunner = _git) -> str:
     отслеживаемыми: чаще всего правка приезжает именно так — новым тестом рядом
     с новым модулем.
     """
-    listed = git("ls-files").splitlines()
-    listed += git("ls-files", "--others", "--exclude-standard").splitlines()
+    listed = git_paths(git, "ls-files")
+    listed += git_paths(git, "ls-files", "--others", "--exclude-standard")
     digest = hashlib.sha256()
-    for name in sorted(set(filter(None, listed))):
+    for name in sorted(set(listed)):
         digest.update(name.encode("utf-8"))
         try:
             digest.update(hashlib.sha256((root / name).read_bytes()).digest())
         except OSError:
             digest.update(b"<missing>")
     return digest.hexdigest()
+
+
+def fingerprint_coverage(root: pathlib.Path, git: GitRunner = _git) -> tuple[int, int]:
+    """Сколько путей учтено в отпечатке и сколько прочитать не удалось.
+
+    Вторая половина правила 165: молчание проверки означает и «ничего не
+    нашла», и «ничего не смотрела», а различить их читателю нечем. Отпечаток
+    без числа выглядел одинаково при полном обходе дерева и при обходе, из
+    которого выпал файл (issue #1417).
+
+    Returns:
+        (просмотрено, не прочитано).
+    """
+    listed = set(git_paths(git, "ls-files"))
+    listed |= set(git_paths(git, "ls-files", "--others", "--exclude-standard"))
+    missing = sum(1 for name in listed if not (root / name).exists())
+    return len(listed), missing
 
 
 def write_stamp(
@@ -861,7 +908,7 @@ def _changed_files(git: GitRunner = _git) -> set[str]:
         ("diff", "--name-only", "--cached"),
         ("ls-files", "--others", "--exclude-standard"),
     ):
-        files |= {line for line in git(*args).splitlines() if line}
+        files |= set(git_paths(git, *args))
     return files
 
 
@@ -1057,7 +1104,14 @@ def main(argv: list[str] | None = None) -> int:
     if ok:
         head = _git("rev-parse", "HEAD")
         stamp = write_stamp(_ROOT, head, tests=not args.no_tests)
-        print(f"Штамп проверенного коммита: {stamp} ({head[:8]})")
+        seen, missing = fingerprint_coverage(_ROOT)
+        # Правило 165: охват называется числом. Без него слепота отпечатка
+        # неотличима от чистого обхода — ровно так он и не замечал файлы с
+        # кириллическими именами (issue #1417).
+        coverage = f"учтено путей: {seen}"
+        if missing:
+            coverage += f", НЕ РАЗРЕШИЛИСЬ: {missing}"
+        print(f"Штамп проверенного коммита: {stamp} ({head[:8]}); {coverage}")
     return 0 if ok else 1
 
 

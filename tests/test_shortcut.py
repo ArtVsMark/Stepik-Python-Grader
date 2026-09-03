@@ -173,12 +173,14 @@ class TestRepoLaunchFiles:
         """
         try:
             result = subprocess.run(
-                ["git", "ls-files", "-s", "launcher.sh"],
+                # -z: разбор по NUL — правило 165; исключений у гейта нет.
+                ["git", "ls-files", "-s", "-z", "launcher.sh"],
                 cwd=self._ROOT,
                 capture_output=True,
                 text=True,
                 timeout=30,
                 check=False,
+                encoding="utf-8",
             )
         except (OSError, subprocess.SubprocessError) as exc:  # pragma: no cover
             pytest.skip(f"git недоступен: {exc}")
@@ -223,7 +225,12 @@ class TestRepoLaunchFiles:
         script.chmod(0o755)
 
         result = subprocess.run(
-            ["sh", str(script)], capture_output=True, text=True, timeout=30, check=False
+            ["sh", str(script)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            encoding="utf-8",
         )
 
         assert result.returncode != 0

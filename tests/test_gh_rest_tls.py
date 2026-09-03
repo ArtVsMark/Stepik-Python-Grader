@@ -65,7 +65,7 @@ class _Pki:
 
 def _openssl(*args: str) -> None:
     """Вызвать `openssl`, показав его вывод, если он упал."""
-    done = subprocess.run(["openssl", *args], capture_output=True, text=True)
+    done = subprocess.run(["openssl", *args], capture_output=True, text=True, encoding="utf-8")
     if done.returncode != 0:  # pragma: no cover - диагностика окружения
         raise AssertionError(f"openssl {' '.join(args)}\n{done.stdout}\n{done.stderr}")
 

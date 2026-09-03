@@ -61,6 +61,7 @@ def _run_partial(tmp_path: pathlib.Path, *extra: str) -> subprocess.CompletedPro
         text=True,
         env=env,
         timeout=300,
+        encoding="utf-8",
     )
 
 

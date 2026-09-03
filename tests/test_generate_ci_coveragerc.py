@@ -110,7 +110,11 @@ def test_main_writes_base_omit_from_real_pyproject(monkeypatch) -> None:
 
 def _run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(_SCRIPT), *args], capture_output=True, text=True, cwd=_REAL_ROOT
+        [sys.executable, str(_SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        cwd=_REAL_ROOT,
+        encoding="utf-8",
     )
 
 

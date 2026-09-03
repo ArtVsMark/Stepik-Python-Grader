@@ -44,7 +44,9 @@ def test_current_suite_has_no_unexplained_skips() -> None:
 
 def test_cli_exits_zero() -> None:
     """`python scripts/skip_inventory.py` завершается 0 на текущем наборе."""
-    result = subprocess.run([sys.executable, str(_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 

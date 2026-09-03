@@ -148,6 +148,7 @@ class TestEntryPoint:
             capture_output=True,
             text=True,
             cwd=_ROOT,
+            encoding="utf-8",
         )
 
         assert done.returncode == 0, done.stderr
@@ -160,6 +161,7 @@ class TestEntryPoint:
             text=True,
             cwd=_ROOT,
             env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+            encoding="utf-8",
         )
 
         assert done.returncode == 0, done.stderr
