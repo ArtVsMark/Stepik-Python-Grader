@@ -213,3 +213,20 @@ def test_worktree_fingerprint_sees_a_cyrillic_filename(tmp_path: pathlib.Path) -
     )
     seen, missing = preflight.fingerprint_coverage(tmp_path, git)
     assert seen >= 1 and missing == 0, (seen, missing)
+
+
+def test_a_finding_returns_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Ветка отказа прогоняется, а не только объявлена.
+
+    Прогон одного пути подтверждает, что механизм запускается, и ничего больше:
+    ветка, которую никто не видел работающей, обычно и оказывается сломанной.
+    """
+    bad = tmp_path / "образец.py"
+    bad.write_text('subprocess.run(["git", "log"], text=True)\n', encoding="utf-8")
+    monkeypatch.setattr(_MODULE, "scanned_files", lambda: [bad])
+    monkeypatch.setattr(_MODULE, "_ROOT", tmp_path)
+
+    assert _MODULE.main([]) == 1
+    assert "текстовый режим без encoding=" in capsys.readouterr().out
