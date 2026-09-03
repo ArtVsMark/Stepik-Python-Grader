@@ -1550,3 +1550,140 @@ class TestRerunCliRequiresATrace:
 
         assert module.main(["rerun-failed", "42", "--why", "показалось"]) == 0
         assert not log.exists(), "запись о перезапуске, которого не было, врала бы о системе"
+
+
+class TestEditIssue:
+    """Правка тела задачи — операция, которую правило требует в каждом PR.
+
+    Чек-лист находок закрывается тем же заходом, что и мерж закрывающего
+    изменения (CONTRIBUTING.md § Комплексный issue ведёт чек-лист). Функция
+    ``update_issue`` была, команды поверх неё — нет, и галочку ставили правкой
+    через браузер: обязательный шаг не имел способа быть выполненным.
+    """
+
+    def test_only_the_named_field_is_patched(self, module: ModuleType) -> None:
+        """Тело правится, заголовок не трогается — иначе правка сотрёт соседнее."""
+        opener = _opener(_FakeResponse({"number": 1004, "title": "прежний"}))
+
+        module.update_issue("x/y", 1004, body="новое тело", opener=opener)
+
+        request = opener.captured[0]
+        assert request.get_method() == "PATCH"
+        assert request.full_url.endswith("/issues/1004")
+        assert json.loads(request.data.decode("utf-8")) == {"body": "новое тело"}
+
+    def test_an_empty_edit_is_refused(self, module: ModuleType) -> None:
+        """Пустая правка — ошибка вызывающего, а не запрос впустую."""
+        opener = _opener(_FakeResponse({}))
+
+        with pytest.raises(ValueError):
+            module.update_issue("x/y", 1004, opener=opener)
+
+        assert opener.captured == []
+
+    def test_a_body_changed_since_reading_is_refused(self, module: ModuleType) -> None:
+        """Чужая галочка не стирается молча.
+
+        ``PATCH`` заменяет тело целиком, а тело задачи — общее состояние двух
+        окон. Записанное поверх чужой правки уничтожает ровно то, ради чего
+        чек-лист и заведён, и заметить это нечем: ответ GitHub успешный.
+        """
+        opener = _opener(
+            _FakeResponse({"body": "- [x] уже отметило соседнее окно"}),
+            _FakeResponse({"number": 1004}),
+        )
+
+        with pytest.raises(module.StaleBody):
+            module.update_issue(
+                "x/y", 1004, body="- [ ] моя правка", expect_body="- [ ] прежнее", opener=opener
+            )
+
+        assert len(opener.captured) == 1, "после отказа записи быть не должно"
+
+    def test_an_unchanged_body_passes_the_check(self, module: ModuleType) -> None:
+        """Совпало — пишем: guard, краснеющий на верном ответе, снимут первым же."""
+        opener = _opener(
+            _FakeResponse({"body": "- [ ] прежнее"}),
+            _FakeResponse({"number": 1004}),
+        )
+
+        module.update_issue(
+            "x/y", 1004, body="- [x] прежнее", expect_body="- [ ] прежнее", opener=opener
+        )
+
+        assert opener.captured[-1].get_method() == "PATCH"
+
+    def test_without_the_expectation_nothing_is_read(self, module: ModuleType) -> None:
+        """Не назвали ожидаемое — лишнего запроса нет, поведение прежнее."""
+        opener = _opener(_FakeResponse({"number": 1004}))
+
+        module.update_issue("x/y", 1004, body="тело", opener=opener)
+
+        assert len(opener.captured) == 1
+
+    def test_the_summary_counts_checkboxes(self, module: ModuleType) -> None:
+        """После записи называется число галочек — молчание скрыло бы утрату.
+
+        Число — самый дешёвый признак того, что ушло не то тело: «поставил
+        галочку» и «стёр чек-лист» иначе выглядят одинаково.
+        """
+        closed, left = module._checkbox_counts("- [x] раз\n- [X] два\n- [ ] три\n")
+
+        assert (closed, left) == (2, 1)
+
+
+class TestEditIssueCommand:
+    """Команда прогоняется, а не только объявляется (правило 140).
+
+    Ветка, которую никто не видел работающей, обычно и оказывается сломанной:
+    обе — и запись, и отказ по расхождению — проходятся здесь.
+    """
+
+    def test_the_command_reports_the_checkbox_count(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        tmp_path: pathlib.Path,
+    ) -> None:
+        body = tmp_path / "body.md"
+        body.write_text("- [x] сделано\n- [ ] осталось\n", encoding="utf-8")
+        monkeypatch.setattr(
+            module,
+            "_default_opener",
+            _opener(_FakeResponse({"number": 1004, "body": "- [x] сделано\n- [ ] осталось\n"})),
+        )
+
+        assert module.main(["edit-issue", "1004", "--body-file", str(body)]) == module.EXIT_OK
+        assert "закрыто 1, открыто 1" in capsys.readouterr().out
+
+    def test_a_stale_body_is_a_refusal_not_a_crash(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        tmp_path: pathlib.Path,
+    ) -> None:
+        body = tmp_path / "body.md"
+        body.write_text("- [x] моя правка\n", encoding="utf-8")
+        expected = tmp_path / "expect.md"
+        expected.write_text("- [ ] прежнее\n", encoding="utf-8")
+        monkeypatch.setattr(
+            module,
+            "_default_opener",
+            _opener(_FakeResponse({"body": "- [x] соседнее окно успело\n"})),
+        )
+
+        code = module.main(
+            [
+                "edit-issue",
+                "1004",
+                "--body-file",
+                str(body),
+                "--expect-file",
+                str(expected),
+            ]
+        )
+
+        assert code == module.EXIT_FAIL
+        assert "стёрла бы чужую" in capsys.readouterr().err
