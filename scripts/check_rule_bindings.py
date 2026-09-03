@@ -60,11 +60,13 @@ from pathlib import Path
 from typing import Any
 
 __all__ = [
+    "ABSENCE_KEY",
     "BINDINGS",
     "GATE_DEBT",
     "MECHANISMS",
     "STATUSES",
     "UNHELD_BUDGET",
+    "absence_claims",
     "binding_violations",
     "catalogue_schema",
     "contract_drift",
@@ -559,6 +561,77 @@ def proposal_drift(catalogue: Path, *, root: Path | None = None) -> list[str]:
     ]
 
 
+#: Поле, которым ответ «предмета нет» несёт СВОЙ рецепт опровержения
+#: (правило 175). Не всякая проза сводится к наличию объекта, поэтому поле
+#: необязательное: требовать его от всякого отрицания значило бы завести гейт,
+#: который нечем удовлетворить.
+ABSENCE_KEY = "absent"
+
+
+def absence_claims(data: dict[str, Any], *, root: Path | None = None) -> list[str]:
+    """Утверждения «предмета нет», опровергаемые одной командой (правило 175).
+
+    Ответ «предмета нет» — это утверждение о действительности, а не оборот
+    речи, и устаревает оно **молча**: прозу не двигает никакой механизм, а
+    выглядит она осознанным решением. Пустое поле ищут и о нём спрашивают;
+    уверенная фраза выглядит работой, которую кто-то уже сделал, и потому не
+    перечитывается.
+
+    Проверяется **подкласс**, сводимый к наличию объекта: подстрока в дереве,
+    файл, запись. Рецепт несёт сам ответ полем :data:`ABSENCE_KEY` — иначе гейт
+    угадывал бы за автора, что именно тот утверждал.
+
+    **Отказ односторонний.** Нашли опровержение — находка; не нашли — молчим:
+    незнание отсутствия не доказывает. В мелком клоне облачного окна «не нашли»
+    означает «не посмотрели», и красное на этом было бы ложным.
+
+    Args:
+        data: Ответ проекта каталогу.
+        root: Корень дерева; ``None`` — свой собственный.
+
+    Returns:
+        Находки; пустой список — все проверяемые утверждения верны.
+    """
+    base = root if root is not None else _ROOT
+    problems: list[str] = []
+    for rule_id, raw in sorted((data.get("rules") or {}).items()):
+        if not isinstance(raw, dict):
+            continue
+        recipe = raw.get(ABSENCE_KEY)
+        if not isinstance(recipe, dict):
+            continue
+        needle = str(recipe.get("substring") or "")
+        if not needle:
+            problems.append(f"правило {rule_id}: `{ABSENCE_KEY}` без `substring` — искать нечего")
+            continue
+        # `except` — ПРЕФИКСЫ пути, а не шаблоны: у `Path.glob` семантика `**`
+        # зависит от версии Python (до 3.13 он не сопоставляется с файлами), и
+        # исключение, работающее не везде, — это исключение, о котором узнают на
+        # чужой машине.
+        excluded = tuple(str(pattern) for pattern in recipe.get("except") or [])
+        hits: list[str] = []
+        for pattern in recipe.get("globs") or []:
+            for path in sorted(base.glob(str(pattern))):
+                if not path.is_file():
+                    continue
+                relative = path.relative_to(base).as_posix()
+                if any(relative == item or relative.startswith(item) for item in excluded):
+                    continue
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if needle in text:
+                    hits.append(path.relative_to(base).as_posix())
+        if hits:
+            problems.append(
+                f"правило {rule_id}: ответ утверждает, что предмета нет, а «{needle}» "
+                f"встречается в {', '.join(sorted(set(hits))[:5])} — утверждение "
+                "о действительности устарело молча"
+            )
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     """Вернуть 0, если ответ проекта сходится с контрактом; иначе 1."""
     reconfigure = getattr(sys.stdout, "reconfigure", None)
@@ -582,6 +655,7 @@ def main(argv: list[str] | None = None) -> int:
 
     problems = binding_violations(data)
     problems.extend(version_subjects())
+    problems.extend(absence_claims(data))
 
     if args.catalogue is not None:
         try:

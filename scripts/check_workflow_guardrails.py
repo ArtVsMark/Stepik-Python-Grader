@@ -647,6 +647,80 @@ def check_run_blocks_are_valid_shell(
                 errors.append(f"{name}: шаг «{step}» — не разбирается как shell: {reason}")
 
 
+#: Имя переменной оболочки: ASCII-идентификатор и ничего больше.
+_ASCII_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+#: Кандидат в идентификаторы: сплошные словесные символы, включая не-ASCII.
+#: Предмет проверки — попытка назвать переменную, а не всякая строка перед
+#: ``=``: без этого условия под правило попадали ``--format=`` из командной
+#: строки и продолжения многострочных значений YAML.
+_IDENTIFIER_LIKE_RE = re.compile(r"^\w+$", re.UNICODE)
+
+#: Присваивание в начале строки шага: ``имя=значение``. Отступ допустим.
+_ASSIGNMENT_RE = re.compile(r"^\s*([^\s=#]+)=", re.MULTILINE)
+
+#: Ключ блока ``env:`` — строка вида ``  ИМЯ: значение`` внутри него.
+_ENV_BLOCK_RE = re.compile(r"^(\s*)env:\s*$", re.MULTILINE)
+
+
+def non_ascii_shell_names(sources: dict[str, str] | None = None) -> list[str]:
+    """Имена переменных оболочки и ключей ``env:`` не из ASCII (issue #1421).
+
+    Правило 167 каталога. Внутренний язык проекта на оболочку не
+    распространяется, и ошибка проявляется двумя способами, из которых опаснее
+    второй. Присваивание с не-ASCII именем bash разбирает как **имя команды** —
+    прогон падает кодом 127, и это видно. А переменная окружения с таким именем
+    создаётся штатно, но ``$ИМЯ`` не раскрывается вовсе: парсеру нужен
+    ASCII-идентификатор после ``$``, подстановка выходит пустой, условие всегда
+    даёт одну ветку — и шаг при этом **зелёный**, не проверив ничего.
+
+    Соблазн создаётся соседним языком: в Python идентификатор кириллицей
+    законен и работает, и правило «пишем на языке проекта» переносится в
+    ``.yml`` по инерции — там же рядом лежат сообщения и имена шагов, где оно
+    верно. Правило про **имя**, а не про содержимое: значение переменной,
+    проза, имена шагов и тексты остаются на языке проекта.
+
+    Returns:
+        Находки; пустой список — чисто.
+    """
+    if sources is None:
+        sources = {
+            path.name: path.read_text(encoding="utf-8") for path in sorted(_WORKFLOWS.glob("*.yml"))
+        }
+    found: list[str] = []
+    for name, source in sorted(sources.items()):
+        for _step, script in run_scripts(source):
+            for match in _ASSIGNMENT_RE.finditer(script):
+                variable = match.group(1)
+                if _IDENTIFIER_LIKE_RE.match(variable) and not _ASCII_NAME_RE.match(variable):
+                    found.append(
+                        f"{name}: присваивание «{variable}=» — имя переменной не из ASCII; "
+                        "bash разберёт строку как запуск команды с таким именем (код 127)"
+                    )
+        for block in _ENV_BLOCK_RE.finditer(source):
+            indent = len(block.group(1))
+            lines = source[block.end() :].splitlines()
+            for line in lines:
+                if not line.strip() or line.lstrip().startswith("#"):
+                    continue
+                current = len(line) - len(line.lstrip())
+                if current <= indent:
+                    break
+                key = line.strip().split(":", 1)[0].strip()
+                if _IDENTIFIER_LIKE_RE.match(key) and not _ASCII_NAME_RE.match(key):
+                    found.append(
+                        f"{name}: ключ env «{key}» не из ASCII — переменная создастся, "
+                        "но $ИМЯ не раскроется: подстановка пуста, условие всегда даёт "
+                        "одну ветку, а шаг зелёный"
+                    )
+    return found
+
+
+def check_shell_names_are_ascii(errors: list[str], sources: dict[str, str] | None = None) -> None:
+    """Имена переменных оболочки — латиницей (правило 167, issue #1421)."""
+    errors.extend(non_ascii_shell_names(sources))
+
+
 def _events_of(source: str) -> set[str]:
     """События, на которые подписан workflow (блок ``on:`` до первого ключа)."""
     events: set[str] = set()
@@ -722,6 +796,7 @@ def main() -> int:
     check_pr_opener_uses_its_own_token(errors)
     check_consent_workflow_uses_its_own_token(errors)
     check_run_blocks_are_valid_shell(errors)
+    check_shell_names_are_ascii(errors)
     check_pinning_matches_the_event(errors)
 
     if errors:
