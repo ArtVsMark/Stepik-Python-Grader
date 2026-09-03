@@ -102,6 +102,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "форма запрета MCP: именная запись отключается молча при переименовании",
     ),
+    "check_issue_state_after_merge.py": (
+        "scripts/nightly_checks.py",
+        "вторая половина правила 173: связь проверяется ДО слияния, а врёт она "
+        "после — закрыта ли закрытая, открыта ли частичная, назван ли остаток",
+    ),
     "check_rules_digest.py": (
         ".github/workflows/ci.yml",
         "второй рубеж: дайджест правил не разошёлся с ответом проекта, а хук SessionStart объявлен",

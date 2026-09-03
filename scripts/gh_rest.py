@@ -134,6 +134,7 @@ __all__ = [
     "main_run",
     "merge_pull",
     "merge_queue",
+    "merged_pulls",
     "pull",
     "pull_checks",
     "pull_files",
@@ -782,6 +783,39 @@ def list_pulls(
         for item in items
         if isinstance(item, dict)
     ]
+
+
+def merged_pulls(
+    repo: str = DEFAULT_REPO,
+    *,
+    limit: int = 30,
+    **kwargs: Any,
+) -> list[dict[str, Any]]:
+    """Последние слитые PR — номер, тело и время слияния (issue #1419).
+
+    Отдельно от :func:`list_pulls`, потому что предмет другой: тому нужен
+    открытый конвейер, а здесь — судьба задач ПОСЛЕ слияния, и ``PullSummary``
+    времени слияния не несёт. Закрытый без слияния PR ничего не обещал и в
+    выборку не входит.
+
+    Один запрос на всё: список закрытых приходит страницей, ходить за каждым
+    PR отдельно значило бы платить по запросу там, где хватает одного.
+
+    Args:
+        repo: владелец/репозиторий.
+        limit: сколько последних слитых вернуть.
+
+    Returns:
+        Слитые PR, свежие первыми.
+    """
+    query = urllib.parse.urlencode(
+        {"state": "closed", "per_page": 100, "sort": "updated", "direction": "desc"}
+    )
+    data = _get(f"repos/{repo}/pulls?{query}", **kwargs)
+    items = data if isinstance(data, list) else []
+    merged = [item for item in items if isinstance(item, dict) and item.get("merged_at")]
+    merged.sort(key=lambda item: str(item.get("merged_at")), reverse=True)
+    return merged[:limit]
 
 
 def pull(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
