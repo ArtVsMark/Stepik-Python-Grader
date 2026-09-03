@@ -43,6 +43,21 @@ _GH = _load("_gh_rest_for_fixtures", "scripts/gh_rest.py")
 _CAPTURE = _load("_capture_github_fixtures", "scripts/capture_github_fixtures.py")
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Тест не смеет зависеть от токена в окружении.
+
+    Первая редакция этого файла зависела: разбор идёт на снятом ответе, но
+    ``gh_rest.request`` резолвит токен ДО обращения к открывателю, и без него
+    падает. Локально всё было зелено (токен в окружении есть), а у шага
+    ``Run tests`` его нет — и упали все девять ячеек матрицы разом.
+
+    Ровно тот же класс, что и правило 176: умолчание, взятое из окружения.
+    Здесь оно и лечится так же — задаётся явно.
+    """
+    monkeypatch.setattr(_GH, "resolve_token", lambda **_kwargs: "тестовый-токен")
+
+
 def _response(name: str) -> Any:
     """Сам ответ площадки из образца — без блока происхождения."""
     payload = json.loads((_FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
@@ -264,3 +279,16 @@ def test_capture_that_cannot_reach_the_platform_is_the_third_outcome(
     assert _CAPTURE.main([]) == 2
     assert "снять не удалось" in capsys.readouterr().out
     assert not list(tmp_path.glob("*.json")), "отказ не должен оставлять пустых образцов"
+
+
+def test_the_suite_does_not_depend_on_an_ambient_token() -> None:
+    """Приёмка: файл сам объявляет, что токен ему не нужен.
+
+    Проверка на исходнике, а не на прогоне: прогон в окружении с токеном
+    отвечает «сегодня совпало», и именно так дефект и уехал в CI.
+    """
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+
+    assert "resolve_token" in source, (
+        "разбор снятых ответов не должен требовать живого токена: у шага «Run tests» его нет"
+    )
