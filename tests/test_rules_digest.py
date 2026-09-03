@@ -279,3 +279,41 @@ class TestGeneratorOutcomes:
         (tmp_path / "свежий.md").write_text(digest.render(rules), encoding="utf-8")
 
         assert digest.main(["--catalogue", str(tmp_path), "--check"]) == 0
+
+
+class TestSiblingLinks:
+    """Ссылки между правилами разрешаются только В КАТАЛОГЕ.
+
+    Утверждения каталога ссылаются друг на друга относительным путём, и внутри
+    каталога это верно. У нас файлов правил нет вовсе — дайджест собирается из
+    чужого клона, — поэтому перенесённая как есть ссылка становится битой.
+    Поймал это не разбор, а гейт целостности документов: он покраснел на
+    производном файле, который никто не писал руками.
+    """
+
+    def test_a_sibling_link_becomes_a_bare_number(self) -> None:
+        text = "правило [094](094-a-compatibility-shim-makes-migration-permanent.md) — ломаем"
+
+        assert digest.unlink_siblings(text) == "правило `094` — ломаем"
+
+    def test_the_word_is_not_doubled(self) -> None:
+        """Подстановка со словом «правило» дала бы «правило правило 094».
+
+        Ссылка встречается и сама по себе, и после этого слова, поэтому
+        подставляется голый номер.
+        """
+        text = "правило [094](094-x.md) и [037](037-y.md) говорит"
+
+        assert "правило правило" not in digest.unlink_siblings(text)
+
+    def test_an_ordinary_link_is_left_alone(self) -> None:
+        """Правило узкое: трогается только ссылка на соседнее ПРАВИЛО."""
+        text = "см. [документ](docs/dev/architecture.md)"
+
+        assert digest.unlink_siblings(text) == text
+
+    def test_the_live_digest_has_no_rule_file_links(self) -> None:
+        """Приёмка: в собранном дайджесте нет ссылок на файлы правил."""
+        text = (_ROOT / "docs" / "agent" / "rules" / "DIGEST.md").read_text(encoding="utf-8")
+
+        assert not digest._SIBLING_LINK_RE.search(text)

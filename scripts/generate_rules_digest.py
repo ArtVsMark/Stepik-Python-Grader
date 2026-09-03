@@ -53,6 +53,7 @@ __all__ = [
     "load_rules",
     "main",
     "render",
+    "unlink_siblings",
 ]
 
 _ROOT = pathlib.Path(__file__).parent.parent
@@ -151,6 +152,29 @@ class Rule:
         return self.mechanism or "none"
 
 
+#: Ссылка на соседнее правило внутри утверждения: `[037](037-…md)`. Цель такой
+#: ссылки разрешается только В КАТАЛОГЕ — у нас файлов правил нет вовсе.
+_SIBLING_LINK_RE = re.compile(r"\[(\d{3})\]\((\d{3}-[^)]+\.md)\)")
+
+
+def unlink_siblings(text: str) -> str:
+    """Снять ссылки на соседние правила, оставив их номера.
+
+    Утверждения каталога ссылаются друг на друга относительным путём
+    (``[037](037-…md)``), и внутри каталога это верно. У нас файлов правил нет —
+    дайджест собирается из чужого клона, — поэтому перенесённая как есть ссылка
+    становится битой, и гейт целостности документов краснеет на производном
+    файле, который никто не писал руками.
+
+    Номер остаётся, и только номер: в исходном тексте ссылка встречается и сама
+    по себе («[037] говорит…»), и после слова «правило» («правило [094] —»).
+    Подстановка со словом дала бы «правило правило 094», поэтому подставляется
+    голый номер — он и есть адрес правила, а полный текст живёт в каталоге, как
+    и у остальных строк дайджеста.
+    """
+    return _SIBLING_LINK_RE.sub(r"`\1`", text)
+
+
 def clip(text: str, limit: int = CLAIM_LIMIT) -> str:
     """Обрезать утверждение по границе слова, обозначив обрыв (правило 016)."""
     single = " ".join(text.split())
@@ -187,7 +211,7 @@ def load_rules(catalogue: pathlib.Path) -> list[Rule]:
             Rule(
                 rule_id=item["id"],
                 title=item["title"]["ru"],
-                claim=" ".join(match.group(1).split()) if match else "",
+                claim=unlink_siblings(" ".join(match.group(1).split())) if match else "",
                 status=answer.get("status", "unreviewed"),
                 mechanism=answer.get("mechanism", ""),
                 where=answer.get("where", ""),

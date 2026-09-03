@@ -27,12 +27,12 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **99**.
+Всего правил, действующих здесь: **100**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
 | **гейт** | нарушение отвергается до слияния | 42 |
-| **конвейер** | нарушение замечает прогон, но слияние не держит | 18 |
+| **конвейер** | нарушение замечает прогон, но слияние не держит | 19 |
 | **документ** | нарушение заметит человек, если читал | 39 |
 | **не объявлено** | не замечается ничем — очередь на автоматизацию | 0 |
 
@@ -147,3 +147,4 @@
 | [Тест спрашивает решение механизма, а не повторяет его условие](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/150-a-test-asks-the-mechanism-not-its-condition.md) | `tests/test_preflight_basetemp.py` | документ |
 | [Диагностический след кладут туда, куда достаёт тот, кто чинит](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/151-the-trail-goes-where-the-fixer-can-reach.md) | `scripts/report_failed_tests.py`, `.github/workflows/ci.yml` | конвейер |
 | [Смена версии чужого контракта — повод перечитать ответы, а не только формат](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/157-a-contract-version-bump-is-a-re-read.md) | #1400 | конвейер |
+| [Факты о проекте публикует сам проект, а не считает сосед](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/174-facts-about-a-project-are-published-by-it.md) | #1411 | конвейер |
