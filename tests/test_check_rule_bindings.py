@@ -495,3 +495,83 @@ def test_an_unreadable_proposal_contract_is_not_a_finding(tmp_path: pathlib.Path
 
     assert _MODULE.proposal_drift(tmp_path / "нет-клона", root=root) == []
     assert _MODULE.catalogue_schema(tmp_path / "нет-клона", "proposals.json") is None
+
+
+# --- правило 175: «предмета нет», опровергаемое одной командой -------------------
+
+
+def _claim(**recipe: object) -> dict[str, Any]:
+    """Ответ «предмета нет» со своим рецептом опровержения."""
+    return {"rules": {"008": {"status": "not-applicable", "why": "предмета нет", "absent": recipe}}}
+
+
+def test_live_absence_claims_hold() -> None:
+    """Приёмка: наши утверждения «предмета нет» не устарели."""
+    data = json.loads(_BINDINGS.read_text(encoding="utf-8"))
+
+    assert _MODULE.absence_claims(data) == []
+
+
+def test_a_refuted_claim_is_a_finding(tmp_path: pathlib.Path) -> None:
+    """Предмет нашёлся — находка.
+
+    Пустое поле и ложное утверждение — разные состояния, и второе хуже:
+    уверенная фраза выглядит решением, то есть работой, которую уже кто-то
+    сделал, и потому не перечитывается.
+    """
+    (tmp_path / "живой.md").write_text("<details>тут</details>", encoding="utf-8")
+
+    problems = _MODULE.absence_claims(_claim(substring="<details>", globs=["*.md"]), root=tmp_path)
+
+    assert len(problems) == 1
+    assert "устарело молча" in problems[0]
+
+
+def test_an_upheld_claim_is_silent(tmp_path: pathlib.Path) -> None:
+    """Предмета нет — молчим: незнание отсутствия не доказывает.
+
+    Отказ односторонний намеренно: в мелком клоне облачного окна «не нашли»
+    означает «не посмотрели», и красное на этом было бы ложным.
+    """
+    (tmp_path / "живой.md").write_text("обычный текст", encoding="utf-8")
+
+    assert (
+        _MODULE.absence_claims(_claim(substring="<details>", globs=["*.md"]), root=tmp_path) == []
+    )
+
+
+def test_history_is_excluded_by_prefix(tmp_path: pathlib.Path) -> None:
+    """Исключения — префиксы пути, а не шаблоны.
+
+    У ``Path.glob`` семантика ``**`` зависит от версии Python (до 3.13 он не
+    сопоставляется с файлами), и исключение, работающее не везде, — это
+    исключение, о котором узнают на чужой машине.
+    """
+    (tmp_path / "docs" / "archive").mkdir(parents=True)
+    (tmp_path / "docs" / "archive" / "old.md").write_text("<details>", encoding="utf-8")
+
+    problems = _MODULE.absence_claims(
+        _claim(substring="<details>", globs=["docs/**/*.md"], **{"except": ["docs/archive/"]}),
+        root=tmp_path,
+    )
+
+    assert problems == []
+
+
+def test_a_claim_without_a_recipe_is_left_to_prose() -> None:
+    """Проза, не сводимая к объекту, прозой и остаётся.
+
+    Требовать от неё машинной проверки значило бы завести гейт, который нечем
+    удовлетворить (правило 002).
+    """
+    data = {"rules": {"079": {"status": "not-applicable", "why": "сроков здесь нет"}}}
+
+    assert _MODULE.absence_claims(data) == []
+
+
+def test_a_recipe_without_a_needle_is_a_finding() -> None:
+    """Рецепт без того, что искать, — не рецепт, а видимость проверки."""
+    problems = _MODULE.absence_claims(_claim(globs=["*.md"]))
+
+    assert len(problems) == 1
+    assert "искать нечего" in problems[0]
