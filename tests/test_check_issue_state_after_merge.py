@@ -195,3 +195,36 @@ def test_the_guard_never_closes_anything() -> None:
 
     for writing in ("close_issue", "update_issue", "comment_issue", "add_labels"):
         assert writing not in source, f"сторож пишет в трекер: {writing}"
+
+
+# --- задачи, чьё состояние ведёт механизм ----------------------------------------
+
+
+def test_a_machine_led_issue_is_not_a_finding() -> None:
+    """Задача ночного обхода закрывается и переоткрывается механизмом.
+
+    Проверка нашла это на себе, на первом же прогоне по свежей `main`: PR #1406
+    закрыл задачу обхода, обход её потом переоткрыл — и правило прочиталось как
+    нарушенное. Открытая задача там означает «есть что разобрать», а не
+    «обещание закрыть не выполнено». Гейт, краснеющий на верном ответе, снимают
+    первой же правкой.
+    """
+    found = _MODULE.mismatches(
+        [_pull(30, "Closes #1404")], {1404: ("open", "")}, machine_issues={1404}
+    )
+
+    assert found == []
+
+
+def test_the_same_issue_without_the_label_is_still_a_finding() -> None:
+    """Исключение узкое: снимает его только объявленная метка."""
+    found = _MODULE.mismatches([_pull(30, "Closes #1404")], {1404: ("open", "")})
+
+    assert len(found) == 1
+
+
+def test_machine_led_is_decided_by_the_declared_label() -> None:
+    """Метка названа явно, а не угадывается по заголовку."""
+    assert _MODULE.machine_led(["ночной обход"])
+    assert not _MODULE.machine_led(["enhancement", "area/ci"])
+    assert not _MODULE.machine_led([])

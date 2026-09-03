@@ -37,6 +37,7 @@ import contextlib
 import pathlib
 import re
 import sys
+from collections.abc import Iterable
 from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -49,8 +50,10 @@ for _stream in (sys.stdout, sys.stderr):
 
 __all__ = [
     "DEFAULT_LIMIT",
+    "MACHINE_LED_LABELS",
     "Mismatch",
     "closing_numbers",
+    "machine_led",
     "main",
     "mismatches",
     "partial_numbers",
@@ -69,6 +72,17 @@ _PARTIAL_RE = re.compile(r"^\s*Часть\s+#(\d+)\s*[—–-]\s*\S", re.MULTILI
 #: Незакрытая галочка чек-листа: ``- [ ] ...``. Остаток называется галочками, а
 #: не прозой (правило 028) — по прозе состояние приходится вычислять чтением.
 _UNCHECKED_RE = re.compile(r"^\s*[-*]\s*\[ \]\s*\S", re.MULTILINE)
+
+#: Задачи, чьё СОСТОЯНИЕ ведёт механизм, а не человек. Их эта проверка не
+#: трогает: ночной обход закрывает свою задачу, когда чисто, и переоткрывает,
+#: когда находки вернулись, — то есть открытая задача там означает «есть что
+#: разобрать», а не «обещание закрыть не выполнено».
+#:
+#: Проверка нашла это на себе, на первом же прогоне по свежей `main`:
+#: PR #1406 закрыл задачу обхода, обход её потом переоткрыл, и правило 173
+#: прочиталось как нарушенное. Гейт, краснеющий на верном ответе, снимают
+#: первой же правкой, поэтому исключение названо, а не подразумевается.
+MACHINE_LED_LABELS = frozenset({"ночной обход"})
 
 
 class Mismatch:
@@ -112,9 +126,16 @@ def remainder_is_named(issue_body: str) -> bool:
     return bool(_UNCHECKED_RE.search(issue_body))
 
 
+def machine_led(labels: Iterable[str]) -> bool:
+    """Ведёт ли состояние этой задачи механизм, а не человек."""
+    return bool(MACHINE_LED_LABELS & {str(label) for label in labels})
+
+
 def mismatches(
     pulls: list[dict[str, Any]],
     issue_state: dict[int, tuple[str, str]],
+    *,
+    machine_issues: Iterable[int] = (),
 ) -> list[Mismatch]:
     """Расхождения между объявленным в изменениях и состоянием задач.
 
@@ -126,13 +147,14 @@ def mismatches(
     Returns:
         Расхождения в порядке изменений.
     """
+    skip = set(machine_issues)
     found: list[Mismatch] = []
     for pull in pulls:
         number = int(pull.get("number") or 0)
         body = str(pull.get("body") or "")
         for issue in closing_numbers(body):
             state = issue_state.get(issue)
-            if state is None:
+            if state is None or issue in skip:
                 continue
             if state[0] != "closed":
                 found.append(
@@ -146,7 +168,7 @@ def mismatches(
                 )
         for issue in partial_numbers(body):
             state = issue_state.get(issue)
-            if state is None:
+            if state is None or issue in skip:
                 continue
             if state[0] == "closed":
                 # Закрытие ПОСЛЕ того, как остаток доделан, — нормальный конец
@@ -190,9 +212,17 @@ def main(argv: list[str] | None = None) -> int:
             body = str(pull.get("body") or "")
             wanted |= set(closing_numbers(body)) | set(partial_numbers(body))
         state: dict[int, tuple[str, str]] = {}
+        machine: set[int] = set()
         for number in sorted(wanted):
             issue = gh_rest.issue(args.repo, number)
             state[number] = (str(issue.get("state") or ""), str(issue.get("body") or ""))
+            labels = [
+                str(label.get("name", ""))
+                for label in (issue.get("labels") or [])
+                if isinstance(label, dict)
+            ]
+            if machine_led(labels):
+                machine.add(number)
     except gh_rest.RateLimited as error:
         print(f"проверка не отработала: {error}")
         return 2
@@ -200,11 +230,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"проверка не отработала: {error}")
         return 2
 
-    found = mismatches(pulls, state)
+    found = mismatches(pulls, state, machine_issues=machine)
     # Правило 165, вторая половина: охват называется числом. Молчание означает и
     # «расхождений нет», и «ничего не смотрели».
     print(
-        f"Судьба задач после слияния: изменений просмотрено — {len(pulls)}, задач — {len(state)}."
+        f"Судьба задач после слияния: изменений просмотрено — {len(pulls)}, "
+        f"задач — {len(state)}, из них ведёт механизм — {len(machine)}."
     )
     if found:
         print("FAIL: сделанное разошлось с состоянием задачи:")
