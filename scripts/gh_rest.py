@@ -109,6 +109,7 @@ __all__ = [
     "Quota",
     "RateLimited",
     "Response",
+    "StaleBody",
     "TlsVerificationError",
     "add_labels",
     "add_sub_issue",
@@ -121,6 +122,7 @@ __all__ = [
     "create_issue",
     "create_pull",
     "disable_auto_merge",
+    "edit_pull",
     "enable_auto_merge",
     "ensure_label",
     "ensure_quota",
@@ -1218,6 +1220,10 @@ def edit_pull(
     return data if isinstance(data, dict) else {}
 
 
+class StaleBody(GitHubError):
+    """Тело задачи изменилось между чтением и записью."""
+
+
 def update_branch(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
     """Подтянуть базовую ветку в ветку PR (``PUT .../update-branch``).
 
@@ -1452,6 +1458,7 @@ def update_issue(
     title: str | None = None,
     body: str | None = None,
     state: str | None = None,
+    expect_body: str | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Обновить заголовок, тело и/или состояние issue.
@@ -1460,9 +1467,18 @@ def update_issue(
     только пока номер не меняется. Обход, не умевший открыть закрытую задачу,
     заводил вместо неё соседнюю (issue #1404).
 
+    ``expect_body`` — необязательная защита от гонки, и нужна она именно телу
+    задачи, а не телу PR. Тело PR почти всегда пишет один автор; тело задачи —
+    общее состояние: окон два, и оба ставят галочки в чек-листе находок.
+    ``PATCH`` заменяет тело целиком, поэтому запись поверх чужой правки стирает
+    её молча — а стирается ровно то, ради чего чек-лист и заведён, и ответ
+    GitHub при этом успешный. Назвали ожидаемое тело — расхождение станет
+    отказом; не назвали — поведение прежнее, без лишнего запроса.
+
     Raises:
         ValueError: не задано ни одного поля — пустой ``PATCH`` потратил бы
             запрос и ничего не изменил.
+        StaleBody: тело изменилось с момента чтения.
     """
     payload: dict[str, Any] = {}
     if title is not None:
@@ -1473,6 +1489,13 @@ def update_issue(
         payload["state"] = state
     if not payload:
         raise ValueError("нечего обновлять: задайте title и/или body")
+    if expect_body is not None:
+        current = str(issue(repo, number, **kwargs).get("body") or "")
+        if current != expect_body:
+            raise StaleBody(
+                f"тело #{number} изменилось с момента чтения — правка стёрла бы чужую; "
+                "перечитайте задачу и повторите"
+            )
     data = request("PATCH", f"repos/{repo}/issues/{number}", body=payload, **kwargs).data
     return data if isinstance(data, dict) else {}
 
@@ -1939,6 +1962,18 @@ def _cmd_create_pr(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _checkbox_counts(body: str) -> tuple[int, int]:
+    """Сколько галочек закрыто и сколько осталось.
+
+    Печатается после правки не для красоты: ``PATCH`` заменяет тело целиком, и
+    число галочек — самый дешёвый признак того, что ушло не то тело. Молчание
+    после записи означало бы и «поставил галочку», и «стёр чек-лист».
+    """
+    closed = len(re.findall(r"^\s*[-*]\s*\[[xX]\]", body, re.MULTILINE))
+    left = len(re.findall(r"^\s*[-*]\s*\[ \]", body, re.MULTILINE))
+    return closed, left
+
+
 def _cmd_edit_pr(args: argparse.Namespace) -> int:
     """Обновить заголовок/тело PR."""
     body = _resolve_body(args) if (args.body or args.body_file) else None
@@ -1951,6 +1986,33 @@ def _cmd_edit_pr(args: argparse.Namespace) -> int:
         _print_json(updated)
         return EXIT_OK
     print(f"#{updated.get('number', args.pull)}: обновлено — {updated.get('title', '')}")
+    return EXIT_OK
+
+
+def _cmd_edit_issue(args: argparse.Namespace) -> int:
+    """Обновить заголовок/тело задачи."""
+    body = _resolve_body(args) if (args.body or args.body_file) else None
+    expect = None
+    if args.expect_file:
+        expect = pathlib.Path(args.expect_file).read_text(encoding="utf-8")
+    try:
+        updated = update_issue(
+            args.repo, args.number, title=args.title, body=body, expect_body=expect
+        )
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_FAIL
+    except StaleBody as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_FAIL
+    if args.json:
+        _print_json(updated)
+        return EXIT_OK
+    ticked = _checkbox_counts(str(updated.get("body") or ""))
+    print(
+        f"#{updated.get('number', args.number)}: обновлено — "
+        f"галочек закрыто {ticked[0]}, открыто {ticked[1]}"
+    )
     return EXIT_OK
 
 
@@ -2225,6 +2287,17 @@ def _build_parser() -> argparse.ArgumentParser:
     edit.add_argument("--body", default="")
     edit.add_argument("--body-file", help="тело из файла UTF-8; '-' — со стандартного ввода")
     edit.set_defaults(handler=_cmd_edit_pr)
+
+    edit_task = sub.add_parser("edit-issue", help="поправить заголовок или тело задачи")
+    edit_task.add_argument("number", type=int)
+    edit_task.add_argument("--title")
+    edit_task.add_argument("--body", default="")
+    edit_task.add_argument("--body-file", help="тело из файла UTF-8; '-' — со стандартного ввода")
+    edit_task.add_argument(
+        "--expect-file",
+        help="файл с телом, которое читали перед правкой; расхождение — отказ",
+    )
+    edit_task.set_defaults(handler=_cmd_edit_issue)
 
     update = sub.add_parser("update-branch", help="подтянуть base в ветку PR")
     update.add_argument("pull", type=int)
