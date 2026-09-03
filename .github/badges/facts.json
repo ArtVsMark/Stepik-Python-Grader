@@ -2,10 +2,10 @@
   "schema": "1.0",
   "_": "Факты этого проекта для соседних. schema — версия ФОРМАТА файла, не версия проекта и не его выпуск. Ключа нет — значит не измеряли: нулём отсутствие не обозначается.",
   "repo": "ArtVsMark/Stepik-Python-Grader",
-  "generated_at": "2026-09-03T07:27:24+00:00",
+  "generated_at": "2026-09-03T08:11:20+00:00",
   "tests": {
-    "functions": 4961,
-    "modules": 247
+    "functions": 4990,
+    "modules": 248
   },
   "python": {
     "supported": [
@@ -16,11 +16,10 @@
       "3.14"
     ]
   },
-  "commit": "dbbbd47b72cc43519a50fb3ac921ec2f5791d929",
+  "commit": "c8b729341aea418318fd4adfce639de23d886999",
   "checks_per_pr": {
-    "count": 17,
+    "count": 16,
     "names": [
-      "apply-consent",
       "coverage-combine",
       "docs-guardrails",
       "e2e",
