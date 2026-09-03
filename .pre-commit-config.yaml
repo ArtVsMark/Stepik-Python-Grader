@@ -210,6 +210,13 @@ repos:
         pass_filenames: false
         files: '^(\.rules/bindings\.json|scripts/.*\.py)$'
 
+      - id: check-branch-protection-tree
+        name: эталон обязательных проверок выведен из ci.yml, а не переписан
+        entry: python scripts/check_branch_protection.py --tree-only
+        language: system
+        pass_filenames: false
+        files: '^(\.github/workflows/ci\.yml|scripts/check_branch_protection\.py)$'
+
       - id: check-hidden-defaults
         name: умолчания заданы явно (кодировка, -z у списков путей)
         entry: python scripts/check_hidden_defaults.py

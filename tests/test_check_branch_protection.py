@@ -154,3 +154,82 @@ def test_fixture_is_not_mutated_between_cases() -> None:
     guard.check_ruleset(first)
 
     assert first == second
+
+
+# --- правило 171: эталон берётся из дерева самого изменения ----------------------
+
+
+_CI = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "ci.yml"
+
+
+class TestReferenceComesFromTheTree:
+    """Эталон обязательных проверок — производное от `ci.yml`, а не копия.
+
+    Копия верна ровно до первой правки матрицы и расходится **молча**: ruleset
+    и константа остаются согласными друг с другом, а работы называются иначе.
+    Класс поломки здесь не ложное срабатывание, а самоблокировка — PR уходит в
+    вечное ожидание, и требуемое условие достижимо только после слияния.
+    """
+
+    def test_the_live_tree_agrees_with_the_declared_list(self) -> None:
+        """Приёмка: объявленное сегодня порождается этим же деревом."""
+        assert guard.check_matrix_names(_CI.read_text(encoding="utf-8")) == []
+
+    def test_names_are_derived_in_the_platform_order(self) -> None:
+        """Имя площадка складывает из значений в порядке объявления измерений."""
+        names = guard.matrix_checks(_CI.read_text(encoding="utf-8"))
+
+        assert "test (ubuntu-latest, 3.12, false)" in names
+        assert "test (macos-latest, 3.14, true)" in names
+
+    def test_experimental_combinations_are_not_required(self) -> None:
+        """3.14 под `continue-on-error` мерж блокировать не должна."""
+        declared = {name for name in guard.EXPECTED_CHECKS if name.startswith("test (")}
+
+        assert not any(name.endswith(", true)") for name in declared)
+
+    def test_a_renamed_cell_is_rejected_from_both_sides(self) -> None:
+        """Переименование ячейки видно и как лишнее, и как пропавшее.
+
+        Односторонняя проверка пропустила бы половину: комбинация, которой нет
+        в ruleset, — просто непроверенная, а объявленная и не порождаемая —
+        вечное ожидание.
+        """
+        renamed = _CI.read_text(encoding="utf-8").replace(
+            'python-version: ["3.12", "3.13"]', 'python-version: ["3.13", "3.14"]'
+        )
+
+        problems = guard.check_matrix_names(renamed)
+
+        assert any("обязательной не объявлена" in problem for problem in problems)
+        assert any("ci.yml её не порождает" in problem for problem in problems)
+
+    def test_an_unparsable_matrix_is_a_finding_not_silence(self) -> None:
+        """Матрицу не разобрали — говорим об этом, а не зеленеем на пустоте.
+
+        Пустой результат разбора и «расхождений нет» — разные состояния
+        (правило 010): второе читалось бы как проверенное.
+        """
+        problems = guard.check_matrix_names("jobs:\n  test:\n    runs-on: ubuntu-latest\n")
+
+        assert problems and "эталон сверять не с чем" in problems[0]
+
+    def test_a_missing_workflow_is_the_third_outcome(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """`ci.yml` не найден — «сверять не с чем» (код 2), а не «совпало».
+
+        «Не знать» и «знать плохое» — разные исходы (правило 039). Зелёное на
+        отсутствующем эталоне читалось бы как проверенное.
+        """
+        monkeypatch.setattr(guard, "_CI_WORKFLOW", tmp_path / "нет.yml")
+
+        assert guard.main(["--tree-only"]) == guard.EXIT_UNKNOWN
+
+    def test_tree_only_needs_no_network(self) -> None:
+        """Половина без сети возвращает вердикт, а не «прочитать нечем».
+
+        Полная проверка без PAT отвечает кодом 2, и на каждом PR это был бы
+        отказ, а не проверка, — поэтому у половины отдельный вход.
+        """
+        assert guard.main(["--tree-only"]) == guard.EXIT_OK
