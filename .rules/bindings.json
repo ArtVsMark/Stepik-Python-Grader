@@ -829,6 +829,66 @@
       "status": "active",
       "mechanism": "gate",
       "where": ".rules/bindings.json и .rules/proposals.json — рядом с каждым `schema` стоит ключ `schema_of`, называющий предмет в точке чтения (сам `schema` переименованию не подлежит: имя задаёт контракт каталога). Наличие обоих ключей и значение каждого номера проверяет scripts/check_rule_bindings.py::version_subjects — шагом «Rule bindings answer the catalogue» обязательного docs-guardrails в .github/workflows/ci.yml и хуком pre-commit, то есть на каждый PR; дрейф от templates/bindings.json и templates/proposals.json каталога — contract_drift и proposal_drift ночным обходом .github/workflows/tracker-guardrails.yml"
+    },
+    "165": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_hidden_defaults.py — разбор исходника отвергает список путей от git без -z; шаг «Умолчания заданы явно» обязательного docs-guardrails в .github/workflows/ci.yml и хук pre-commit. Сами списки читаются по NUL: scripts/preflight.py (git_paths), scripts/check_work_overlap.py, scripts/check_adr_records.py; охват называет числом scripts/preflight.py (fingerprint_coverage). Подтверждено живой пробой: отпечаток не замечал правок в файле с кириллическим именем, то есть pre-push хук принимал состояние, которого гейт не проверял (issue #1417)"
+    },
+    "166": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_docs_guardrails.py ищет разметку ссылки `](адрес`, а не подстроку адреса, — шаг обязательного docs-guardrails в .github/workflows/ci.yml; регрессии в tests/test_check_docs_guardrails.py. Подстрока зеленела бы на подписи ссылки при подменённой цели"
+    },
+    "167": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_workflow_guardrails.py (non_ascii_shell_names) — имена переменных оболочки и ключей env: в .github/workflows/*.yml; шаг обязательного docs-guardrails в .github/workflows/ci.yml. Тихая форма опаснее громкой: переменная с не-ASCII именем создаётся, но $ИМЯ не раскрывается, и шаг зеленеет, не проверив ничего (issue #1421)"
+    },
+    "168": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/check_branch_protection.py сверяет список обязательных проверок с ruleset дословно — ночным обходом .github/workflows/tracker-guardrails.yml. Обязательных проверок у нас одиннадцать, шесть из них — имена ячеек матрицы, то есть ровно названная правилом ловушка; агрегирующей проверки с постоянным именем нет, это issue #1420, а до неё риск назван в CLAUDE.md § Гейты"
+    },
+    "169": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/preflight.md § Что гейты НЕ ловят — очередь слияний застрахована расписанием (.github/workflows/merge-queue.yml, cron «23 * * * *», в шапке названо страховкой), а замера срабатываний по источникам нет: issue #1427. Ночной прогон cross-OS бейджа (CLAUDE.md § Метрики) под правило не подпадает — предмет там суточный, и правило само называет эту границу"
+    },
+    "170": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/preflight.md § Что гейты НЕ ловят — подделки чужих интерфейсов (GitHub REST в tests/test_gh_rest.py, Stepik API в tests/test_stepik_client.py) сочинены автором и ни с чем не сверены. Снятие источника для стороны GitHub — issue #1422; ответы Stepik API из облака снять нечем, это работа локального окна"
+    },
+    "171": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/preflight.md § Что гейты НЕ ловят — эталон обязательных проверок в scripts/check_branch_protection.py (EXPECTED_CHECKS) является КОПИЕЙ имён из .github/workflows/ci.yml, а не производным от него: переименование ячейки матрицы оставит ruleset и константу согласными друг с другом, а работы — с другими именами. Самоблокировка и починка — issue #1420"
+    },
+    "172": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/check_stale_repo_names.py — перепись имён репозиториев в действующих файлах против канона от площадки, ночным обходом .github/workflows/tracker-guardrails.yml; scripts/check_catalogue_name.py сверяет объявленное имя каталога с каноном. История отделена от адреса явно: журналы и архив в перепись не входят (issue #1421)"
+    },
+    "173": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/check_issue_state_after_merge.py спрашивает у трекера судьбу задачи ПОСЛЕ слияния — закрыта ли закрытая, открыта ли частичная, назван ли остаток галочками; ночным обходом .github/workflows/tracker-guardrails.yml. Первая половина — три ответа (Closes #N · «Часть #N — что именно» · «Без issue:») — в scripts/check_pr_ready.py, но он числится в GATE_DEBT: запускает его окно руками, поэтому уровень взят по слабейшему звену (issue #1419)"
+    },
+    "174": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/generate_facts.py публикует факты о проекте машиночитаемо — шаг в .github/workflows/ci.yml (под `|| true`, слияние не держит). Правило родилось здесь: след ведёт на #1411, соседи перестали считать наши числа сами"
+    },
+    "175": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": ".rules/bindings.json — ответ «предмета нет» несёт СВОЙ рецепт опровержения полем `absent`; проверяет scripts/check_rule_bindings.py (absence_claims) шагом «Rule bindings answer the catalogue» обязательного docs-guardrails в .github/workflows/ci.yml и хуком pre-commit. Отказ односторонний: нашли опровержение — красное, не нашли — молчим (issue #1421)"
+    },
+    "176": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_hidden_defaults.py (encoding_findings) — текстовый subprocess без encoding= отвергается разбором исходника, а не прогоном; шаг обязательного docs-guardrails в .github/workflows/ci.yml и хук pre-commit. Прогон отвечает «сегодня не совпало», разбор — «умолчание не задано» (issue #1417)"
     }
   }
 }
