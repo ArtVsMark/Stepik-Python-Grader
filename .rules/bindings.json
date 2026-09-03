@@ -857,8 +857,8 @@
     },
     "170": {
       "status": "active",
-      "mechanism": "document",
-      "where": "docs/agent/preflight.md § Что гейты НЕ ловят — подделки чужих интерфейсов (GitHub REST в tests/test_gh_rest.py, Stepik API в tests/test_stepik_client.py) сочинены автором и ни с чем не сверены. Снятие источника для стороны GitHub — issue #1422; ответы Stepik API из облака снять нечем, это работа локального окна"
+      "mechanism": "pipeline",
+      "where": "scripts/capture_github_fixtures.py --check — у каждой подделки чужого интерфейса есть снятый источник с блоком происхождения (tests/fixtures/github/), сверка ночным обходом .github/workflows/tracker-guardrails.yml; разбор гоняется на снятых ответах в tests/test_fixture_sources.py. Ответы Stepik API из облака снять нечем — эти подделки названы несверенными, и это остаток задачи #1422"
     },
     "171": {
       "status": "active",
