@@ -10,10 +10,17 @@ Not a test module itself (no ``test_`` prefix, so pytest never collects it).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable
 from pathlib import Path
 
-__all__ = ["GUARD_FILE", "REQUIRE_E2E_ENV", "executed_beyond_guards", "write_task"]
+__all__ = [
+    "GUARD_FILE",
+    "REQUIRE_E2E_ENV",
+    "executed_beyond_guards",
+    "ui_text",
+    "write_task",
+]
 
 REQUIRE_E2E_ENV = "STEPIK_REQUIRE_E2E_TESTS"
 """Переменная, включающая жёсткий режим: пропуск набора становится отказом."""
@@ -51,3 +58,34 @@ def write_task(
     (tests_dir / "1").write_text(stdin, encoding="utf-8")
     (tests_dir / "1.clue").write_text(expected, encoding="utf-8")
     return sol
+
+
+_UI_LOCALES = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "stepik_grader"
+    / "web"
+    / "static"
+    / "locales"
+    / "ui.json"
+)
+
+
+def ui_text(key: str, lang: str = "ru") -> str:
+    """Строка интерфейса из ``static/locales/ui.json`` — та же, что видит браузер.
+
+    Язык по умолчанию русский, и это не предпочтение автора, а свойство стенда
+    (issue #1004, находка `QA-2-05`). Начальный язык фронтенд берёт как
+    ``localStorage.grader_lang || document.body.dataset.startLang || "ru"``;
+    ``navigator.language`` не участвует нигде. У свежего контекста Playwright
+    ``localStorage`` пуст, а ``data-start-lang`` подставляет сервер из своего
+    ``lang``, который фикстура ``e2e_server`` не передаёт вовсе — остаётся
+    умолчание ``ru``. Значит ассерт «слово в любой из двух локалей» страховал
+    от несуществующего риска и заодно принимал английский текст как верный.
+
+    Ключ берётся из файла, а не переписывается в тест: сверять текст с копией
+    его же самого — значит проверять, что копия не разошлась, а не что
+    интерфейс показывает нужное сообщение.
+    """
+    catalogue = json.loads(_UI_LOCALES.read_text(encoding="utf-8"))
+    return str(catalogue[lang][key])

@@ -16,13 +16,12 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import expect
 
-from tests.e2e._helpers import write_task
+from tests.e2e._helpers import ui_text, write_task
 
 _TIMEOUT_MS = 10_000
 
@@ -51,12 +50,17 @@ def test_lost_run_shows_error_and_unlocks_ui(page: Any, e2e_server: str, tmp_pat
     page.fill("#path", str(tmp_path))
     page.click("#run")
 
-    # 1) Пользователь видит, что произошло, и знает следующий шаг. Язык
-    # интерфейса берётся из браузера, а он на CI-раннере может быть любым —
-    # поэтому ищем слово в обеих локалях, а не в той, что стоит у автора.
-    expect(page.locator("#out")).to_contain_text(
-        re.compile(r"сервер|server", re.IGNORECASE), timeout=_TIMEOUT_MS
-    )
+    # 1) Пользователь видит, ЧТО произошло, и знает следующий шаг — сверяем с
+    # той самой строкой каталога, а не со словом из неё.
+    #
+    # Прежде здесь стоял ``re.compile(r"сервер|server")`` с объяснением «язык
+    # интерфейса берётся из браузера, а на раннере он любой». Посылка ложна
+    # (issue #1004, находка `QA-2-05`): язык детерминированно русский, см.
+    # ``ui_text``. Цена была не в лишней широте, а в том, что ассерт проходил
+    # на любом сообщении со словом «сервер» — в том числе на общем
+    # ``common.request_error_detail``, то есть на цикле, упавшем не по той
+    # причине, которую этот тест и стережёт.
+    expect(page.locator("#out")).to_contain_text(ui_text("grade.run_lost"), timeout=_TIMEOUT_MS)
 
     # 2) Интерфейс разблокирован — можно запустить проверку снова, не
     # перезагружая страницу. Это и есть суть issue: раньше кнопка оставалась
