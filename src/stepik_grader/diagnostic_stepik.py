@@ -26,7 +26,7 @@ import requests
 # issue #997 (STR-3-06): импортируем МОДУЛЬ, а не значение — иначе
 # переопределение хоста через STEPIK_GRADER_API_HOST не видно диагностике,
 # и она проверяет боевой stepik.org, пока грейдер ходит на стенд.
-from stepik_grader.core import stepik_client
+from stepik_grader.core import diagnostics, stepik_client
 from stepik_grader.core.diag_log import DIAGNOSTICS_DIR, configure_diagnostics, get_logger, redact
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
@@ -34,11 +34,14 @@ from stepik_grader.downloader import parse_stepik_step_url
 from stepik_grader.stdio_encoding import force_utf8_stdio
 
 __all__ = [
+    "ENVIRONMENT_REPORT_NAME",
     "OAUTH_TIMEOUT_SECONDS",
     "api_get",
     "build_diagnostic_result",
+    "build_environment_report",
     "collect_string_candidates",
     "create_user_session",
+    "explain_failure",
     "extract_zip_url_from_step_data",
     "extract_zip_url_from_text",
     "get_lesson_data",
@@ -289,6 +292,79 @@ def print_result_summary(
 
 
 # ---------------------------------------------------------------------------
+# Две поверхности одного реестра проверок (issue #982)
+# ---------------------------------------------------------------------------
+
+#: Имя файла с отчётом по проверкам окружения. Адресат — мейнтейнер: файл
+#: прикладывают к issue, понимать его содержимое пользователю не требуется.
+ENVIRONMENT_REPORT_NAME = "environment_checks.json"
+
+
+def explain_failure(error: BaseException) -> list[str]:
+    """Строки «причина» и «что делать» для сбоя — из общего реестра проверок.
+
+    Поверхность точки сбоя: пользователь узнаёт причину там, где сломалось, а
+    не по совету «сходите запустите диагностику». Текст берётся из реестра,
+    поэтому диагностика и основной сценарий не могут разойтись формулировками —
+    ровно то расхождение, из-за которого занятый порт 8080 объявлялся неверными
+    учётными данными (issue #982, находка ``JRN-3A-04``).
+
+    Проба здесь **не** перезапускается: исключение уже сказало, как узнали, а
+    повторный опрос стоил бы ещё одного похода в сеть ради того же ответа.
+
+    Args:
+        error: Пойманное исключение.
+
+    Returns:
+        Готовые к печати строки; пустой список — причина неизвестна, и
+        выдумывать её хуже, чем показать саму ошибку.
+    """
+    check = diagnostics.explain_exception(error)
+    if check is None:
+        return []
+    return [
+        _t("diag_cause", subject=_t(check.subject), detail=str(error)),
+        _t("diag_next_step", remedy=_t(check.remedy)),
+    ]
+
+
+def build_environment_report(findings: list[diagnostics.Finding]) -> dict[str, Any]:
+    """Собрать отчёт по проверкам окружения в сериализуемую форму.
+
+    Ключи локалей разворачиваются здесь, на поверхности: движок отдаёт данные и
+    о языке отчёта не знает. Секреты не редактируются в этой функции намеренно —
+    редакция одна на весь модуль и живёт в :func:`save_json`, поэтому новая
+    точка дампа не может повторить находку ``OPS-1-02``.
+    """
+    return {
+        "checks": [
+            {
+                "id": finding.id,
+                "status": str(finding.status),
+                "subject": _t(finding.check.subject),
+                "detail": _t(finding.outcome.detail, **finding.outcome.params),
+                "remedy": _t(finding.check.remedy),
+            }
+            for finding in findings
+        ]
+    }
+
+
+def print_environment_checks(findings: list[diagnostics.Finding]) -> None:
+    """Вывести компактную сводку проверок окружения."""
+    _print(_t("diag_checks_header"))
+    for finding in findings:
+        _print(
+            _t(
+                "diag_check_line",
+                status=str(finding.status),
+                subject=_t(finding.check.subject),
+                detail=_t(finding.outcome.detail, **finding.outcome.params),
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
 
@@ -370,6 +446,22 @@ def main(argv: list[str] | None = None) -> int:
         # Диагностика без места падения бесполезна ровно там, где нужна.
         _log.exception("сбой диагностики Stepik (secrets=%s, url=%s)", secrets_file, step_url)
         _print(_t("diag_failed", error=error))
+        # issue #982, поверхность 1 — точка сбоя. Причина и следующий шаг берутся
+        # из общего реестра, а не пишутся здесь: два места, называющие причину
+        # независимо, рано или поздно называют разные.
+        for line in explain_failure(error):
+            _print(line)
+        # issue #982, поверхность 2 — отчёт. Прогон всех проверок нужен именно
+        # здесь: файл для issue ценен тогда, когда сломалось, а не когда всё
+        # прошло. Редакция секретов — общая, в save_json.
+        findings = diagnostics.run_checks(
+            diagnostics.Context(secrets_path=pathlib.Path(secrets_file))
+        )
+        print_environment_checks(findings)
+        report_path = save_json(
+            output_dir, ENVIRONMENT_REPORT_NAME, build_environment_report(findings)
+        )
+        _print(_t("diag_report_path", path=report_path.resolve()))
         # issue #997 (OPS-1-03): стек лежит в логе, но пользователю о нём не
         # говорили — оставалось гадать, есть ли он и где. Путь печатается, только
         # когда файл действительно создан.
