@@ -260,7 +260,7 @@ python scripts/preflight.py --branch-only   # ДО работы: чужая ли
 python scripts/preflight.py                 # перед коммитом: весь набор + линтеры + типы
 python scripts/check_pr_ready.py <PR>       # перед мержем: проверки созданы, завершены, зелёные
 python scripts/gh_rest.py pulls|checks|compare|create-pr|edit-pr|update-branch|auto-merge|merge  # PR
-python scripts/gh_rest.py issue|close-issue|label|comment|create-issue|sub-issues <N>   # issue
+python scripts/gh_rest.py issue|edit-issue|close-issue|label|comment|create-issue|sub-issues <N>  # issue
 python scripts/gh_rest.py runs|run-jobs|cancel-run   # прогоны CI; rate — остаток квоты даром
 python scripts/gh_rest.py queue             # очередь мержа: кого обновлять, кто ждёт
 ```
@@ -268,6 +268,15 @@ python scripts/gh_rest.py queue             # очередь мержа: ког�
 Тело сообщения везде передаётся одинаково: `--body "текст"` либо
 `--body-file <файл>` (`-` — со стандартного ввода). Файл снимает мороку с
 кавычками и кодовой страницей PowerShell, поэтому длинный текст — файлом.
+
+**Галочку в чек-листе задачи ставит `edit-issue`, и правится тело целиком.**
+Это делается тем же заходом, что и мерж закрывающего PR, поэтому команда есть:
+раньше её не было, и обязательный шаг выполнялся правкой через браузер или
+залезанием в модуль руками. `PATCH` заменяет тело полностью, а тело задачи —
+общее состояние двух окон, так что запись поверх чужой правки стирает её
+молча. На этот случай — `--expect-file <файл с телом, которое читали>`:
+расхождение становится отказом. После записи команда называет число галочек —
+«поставил галочку» и «стёр чек-лист» иначе выглядят одинаково.
 
 Гейты появились после разбора сессии, где **девять инцидентов из одиннадцати —
 не незнание правила, а его пропуск**: «прогонять ВЕСЬ набор» уже было в этом
