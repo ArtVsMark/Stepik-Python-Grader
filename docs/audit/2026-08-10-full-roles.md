@@ -178,7 +178,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | QA-1-04 | `src/stepik_grader/core/grader_core.py:437` | Обрезка вывода по max_output_bytes не проверена до вердикта: пользователь получает WA без причины | medium | ✅ |
 | ARCH-1-01 | `src/stepik_grader/core/grader_core.py:283` | grader_core берёт max_memory_mb/max_output_bytes из снимка CONFIG, а timeout — из get_config() | low | ◐ |
 | ARCH-1-02 | `src/stepik_grader/config.py:9` | Импорт core/grader_core.py читает pyproject.toml — ленивая загрузка конфига не работает | low | ◐ |
-| ARCH-1-03 | `tests/test_import_dag.py:85` | DAG-guard слеп к ленивым импортам: 42 ребра вне графа, цикл cli ↔ cli.commands реален | low | ◐ |
+| ARCH-1-03 | `tests/test_import_dag.py:85` | DAG-guard слеп к ленивым импортам: 42 ребра вне графа, цикл cli ↔ cli.commands реален | low | ✅ |
 | ARCH-1-04 | `docs/dev/architecture.md:57` | architecture.md помещает run_dir в core/sandbox/, реальный модуль — core/run_dir.py | low | ✅ |
 | ARCH-1-05 | `src/stepik_grader/config.py:41` | config.py — god-object: 30 полей восьми подсистем в одном frozen dataclass, 21 импортёр | low | ◐ |
 | ARCH-1-06 | `src/stepik_grader/core/result.py:154` | TestResult.to_dict() мёртв и лоссов: теряет exit_code — обязательное поле CaseResult | low | ◐ |
@@ -266,7 +266,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | ADD-1-07 | `src/stepik_grader/web/rules_adapter.py:21` | Резолвер пути к БД истории скопирован в два адаптера вместо общего хелпера | low | ◐ |
 | ARCH-2-02 | `src/stepik_grader/web/api_routes.py:207` | Синхронный GET /api/grade обходит реестр прогонов: ни back-pressure, ни отмены, ни TTL | low | ✅ |
 | ARCH-2-03 | `src/stepik_grader/web/grading.py:43` | ADR-0010 выполнен формально: grading.py — ре-экспорт, оркестрация осталась в viewmodels | low | ◐ |
-| ARCH-2-04 | `tests/test_import_dag.py:298` | Boundary-guard grade-ядра — денилист из 7 имён, а не allowlist, как обещает ADR-0010 §4 | low | ◐ |
+| ARCH-2-04 | `tests/test_import_dag.py:298` | Boundary-guard grade-ядра — денилист из 7 имён, а не allowlist, как обещает ADR-0010 §4 | low | ✅ |
 | ARCH-2-05 | `scripts/check_web_imports.py:51` | check_web_imports.py охраняет только ребро → core.js, остальной граф ES-модулей не проверяется | low | ✅ |
 | ARCH-2-06 | `src/stepik_grader/web/api_routes.py:114` | api_routes.py разросся в god-mixin: ~33 хендлера всех доменов в одном классе | low | ◐ |
 | ARCH-2-07 | `src/stepik_grader/web/viewmodels.py:447` | Флаг истории и реестр прогонов — процесс-глобалы при состоянии-на-сервере | low | ✅ |
@@ -1175,7 +1175,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | REV-5-01 | `docs/archive/audit-2026-07-30-full-roles.md:593` | Реестр отклонённых находок обрезан посреди слова — отклонение невозможно перепроверить | low | ◐ |
 | REV-5-02 | `tests/test_glossary_draft_pipeline.py:700` | Ratchet глоссария сверяет только id: новое расхождение у 150 разрешённых карточек невидимо | low | ✅ |
 | REV-5-03 | `CONTRIBUTING.md:94` | CONTRIBUTING отправляет любой внутренний модуль в core/, ломая leaf-инвариант ADR-0011 | low | ✅ |
-| REV-5-04 | `tests/test_import_dag.py:682` | Guard architecture.md проверяет только рёбра графа — таблица модулей дрейфует безнаказанно | low | ✅ |
+| REV-5-04 | `tests/test_import_dag.py:682` | Guard architecture.md проверяет только рёбра графа — таблица модулей дрейфует безнаказанно | low | ◐ |
 | REV-6-01 | `src/stepik_grader/core/microbench_runner.py:257` | SECC-01 закрыта не на всех путях: bench-скрипт микробенча остаётся в общем /tmp и он же — sys.path[0] | low | ◐ |
 | REV-6-02 | `src/stepik_grader/core/sandbox/_linux.py:117` | PY-13 закрыта наполовину: RLIMIT_FSIZE песочницы по-прежнему из CONFIG, а не из RunSpec | low | ◐ |
 | REV-6-03 | `docs/archive/audit-2026-07-30-full-roles.md:196` | MIGR-01 фактически закрыта кодом (SchemaTooNewError), но архивный аудит числит её открытой | low | ✅ |
@@ -1549,6 +1549,8 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | LNCH-1-01 | Лаунчер молча включает запись истории прогонов и не даёт её выключить | #1140 |
 | DES-1-04 | check_contrast.py проверяет наличие токена в парах, а не реальную пару текст/фон | #1276 |
 | ADD-1-01 | reference_adapter: обновление токена вне try — сетевая ошибка ломает контракт «никогда не бросает» | #1374 |
+| ARCH-1-03 | DAG-guard слеп к ленивым импортам: 42 ребра вне графа, цикл cli ↔ cli.commands реален | #1437 |
+| ARCH-2-04 | Boundary-guard grade-ядра — денилист из 7 имён, а не allowlist, как обещает | #1437 |
 
 ---
 
