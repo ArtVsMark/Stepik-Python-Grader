@@ -102,10 +102,20 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "форма запрета MCP: именная запись отключается молча при переименовании",
     ),
+    "check_hidden_defaults.py": (
+        ".github/workflows/ci.yml",
+        "умолчания из окружения: -z у списков путей от git и явная encoding= "
+        "у текстового subprocess — оба дефекта видны разбором, а не прогоном",
+    ),
     "check_issue_state_after_merge.py": (
         "scripts/nightly_checks.py",
         "вторая половина правила 173: связь проверяется ДО слияния, а врёт она "
         "после — закрыта ли закрытая, открыта ли частичная, назван ли остаток",
+    ),
+    "check_stale_repo_names.py": (
+        "scripts/nightly_checks.py",
+        "правило 172: переименование чужого репозитория чинит редирект площадки, "
+        "поэтому сигнала о незавершённой миграции нет вовсе — заменяет его перепись",
     ),
     "check_rules_digest.py": (
         ".github/workflows/ci.yml",

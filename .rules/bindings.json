@@ -41,7 +41,21 @@
     },
     "008": {
       "status": "not-applicable",
-      "why": "предмета нет по факту, а не по следу: <details> не встречается ни в одном действующем документе (единственное вхождение — docs/archive/changelog-archive.md, который читают глазами)"
+      "why": "предмета нет по факту, а не по следу: <details> не встречается ни в одном действующем документе (единственное вхождение — docs/archive/changelog-archive.md, который читают глазами)",
+      "absent": {
+        "substring": "<details>",
+        "globs": [
+          "*.md",
+          "docs/**/*.md",
+          ".github/**/*.md"
+        ],
+        "except": [
+          "docs/archive/",
+          "CHANGELOG.md",
+          "HISTORY.md",
+          "changelog.d/"
+        ]
+      }
     },
     "009": {
       "status": "active",

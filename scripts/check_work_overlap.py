@@ -96,10 +96,21 @@ def living_branches(exclude: str = "") -> list[str]:
     return sorted(branches)
 
 
+def _git_paths(*args: str) -> set[str]:
+    """Пути от ``git``, прочитанные по NUL, а не по строкам (правило 165).
+
+    ``core.quotePath=true`` — умолчание git, и имя с не-ASCII символами
+    приезжает экранированным. Разбор по строкам принимает такую строку за путь,
+    и файл выпадает из сравнения: пересечение с чужой веткой по нему не
+    находится вовсе — то есть предупреждение молчит там, где обязано сработать
+    (issue #1417). Проект ведётся по-русски, поэтому случай не экзотический.
+    """
+    return {path for path in _git(*args, "-z").split("\0") if path}
+
+
 def branch_files(branch: str) -> set[str]:
     """Файлы, которые ветка меняет относительно ``origin/main``."""
-    raw = _git("diff", "--name-only", f"{_BASE}...{branch}")
-    return {line for line in raw.splitlines() if line}
+    return _git_paths("diff", "--name-only", f"{_BASE}...{branch}")
 
 
 def changed_files() -> set[str]:
@@ -109,8 +120,8 @@ def changed_files() -> set[str]:
     когда правку ещё дёшево перенести в другой файл или согласовать.
     """
     files = set(branch_files("HEAD"))
-    for extra in (_git("diff", "--name-only"), _git("diff", "--name-only", "--cached")):
-        files |= {line for line in extra.splitlines() if line}
+    for extra in (("diff", "--name-only"), ("diff", "--name-only", "--cached")):
+        files |= _git_paths(*extra)
     return files
 
 

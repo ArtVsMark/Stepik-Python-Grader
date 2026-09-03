@@ -137,7 +137,10 @@ class TestCliAndWiring:
     def test_cli_returns_the_code(self, tmp_path: Path) -> None:
         path = _report(tmp_path, _VULNERABLE)
         result = subprocess.run(
-            [sys.executable, str(_SCRIPT), str(path)], capture_output=True, text=True
+            [sys.executable, str(_SCRIPT), str(path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
         )
 
         assert result.returncode == 1

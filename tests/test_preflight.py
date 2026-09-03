@@ -260,6 +260,7 @@ class TestChangelogBuffer:
             capture_output=True,
             text=True,
             env=env,
+            encoding="utf-8",
         )
 
         assert result.returncode == 0, result.stdout + result.stderr

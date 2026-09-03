@@ -34,7 +34,9 @@ def test_current_css_passes() -> None:
 
 def test_cli_exits_zero() -> None:
     """`python scripts/check_contrast.py` завершается кодом 0."""
-    result = subprocess.run([sys.executable, str(_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 

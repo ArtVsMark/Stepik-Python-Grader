@@ -240,11 +240,17 @@ def rewritten_decisions(base: str = "origin/main", root: pathlib.Path | None = N
     diff = git("diff", "--unified=0", f"{base}...HEAD", "--", "docs/dev/adr")
     # Файл, добавленный этой же веткой, править задним числом нельзя по
     # определению: он ещё не решение, а черновик решения.
-    fresh = set(
-        git(
-            "diff", "--name-only", "--diff-filter=A", f"{base}...HEAD", "--", "docs/dev/adr"
-        ).split()
-    )
+    # Правило 165: пути читаются по NUL. ``.split()`` разваливал бы ещё и имена
+    # с пробелами, а экранированное не-ASCII имя молча выпадало бы из набора
+    # «добавлено этой веткой» — то есть правка задним числом переставала бы
+    # отличаться от нового файла (issue #1417).
+    fresh = {
+        path
+        for path in git(
+            "diff", "--name-only", "--diff-filter=A", f"{base}...HEAD", "-z", "--", "docs/dev/adr"
+        ).split("\0")
+        if path
+    }
 
     def side(path: str, which: str) -> str:
         revision = "HEAD" if which == "new" else base

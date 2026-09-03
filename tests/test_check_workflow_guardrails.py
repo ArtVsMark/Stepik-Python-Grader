@@ -735,3 +735,69 @@ class TestPinningMatchesTheEvent:
         _MODULE.check_pinning_matches_the_event(errors)
 
         assert errors == []
+
+
+# --- правило 167: имена переменных оболочки латиницей (issue #1421) --------------
+
+
+class TestShellNamesAreAscii:
+    """Внутренний язык проекта на оболочку не распространяется.
+
+    Ошибка проявляется двумя способами, и второй опаснее: присваивание с
+    не-ASCII именем падает кодом 127 и это видно, а переменная окружения с таким
+    именем создаётся штатно, `$ИМЯ` не раскрывается вовсе, подстановка пуста —
+    и шаг зелёный, не проверив ничего.
+    """
+
+    def test_repository_is_clean(self) -> None:
+        """Приёмка: в наших прогонах таких имён нет."""
+        assert _MODULE.non_ascii_shell_names() == []
+
+    def test_a_cyrillic_assignment_is_rejected(self) -> None:
+        """Присваивание — громкая форма: bash запустит команду с таким именем."""
+        source = (
+            "jobs:\n  a:\n    steps:\n      - name: шаг\n"
+            "        run: |\n          файлы=$(git diff)\n"
+        )
+
+        found = _MODULE.non_ascii_shell_names({"x.yml": source})
+
+        assert len(found) == 1
+        assert "файлы=" in found[0]
+
+    def test_a_cyrillic_env_key_is_rejected(self) -> None:
+        """Тихая форма: переменная создастся, а подстановка будет пустой."""
+        source = "jobs:\n  a:\n    env:\n      ТИП: bug\n    steps:\n      - run: echo\n"
+
+        found = _MODULE.non_ascii_shell_names({"x.yml": source})
+
+        assert len(found) == 1
+        assert "ТИП" in found[0]
+
+    def test_an_ascii_name_passes(self) -> None:
+        """Латинское имя — не находка, каким бы ни было значение."""
+        source = (
+            "jobs:\n  a:\n    env:\n      KIND: ошибка\n"
+            "    steps:\n      - run: |\n          files=$(git diff)\n"
+        )
+
+        assert _MODULE.non_ascii_shell_names({"x.yml": source}) == []
+
+    def test_an_option_is_not_a_variable_name(self) -> None:
+        """`--format=json` присваиванием не является.
+
+        Первая редакция проверки считала его именем переменной: под правило
+        попадала любая строка перед `=`, и гейт краснел на собственном ci.yml.
+        """
+        source = "jobs:\n  a:\n    steps:\n      - run: |\n          ruff check --format=json .\n"
+
+        assert _MODULE.non_ascii_shell_names({"x.yml": source}) == []
+
+    def test_prose_in_step_names_is_not_the_subject(self) -> None:
+        """Правило про имя, а не про содержимое: имена шагов остаются русскими."""
+        source = (
+            "jobs:\n  a:\n    steps:\n"
+            "      - name: собрать список изменённых файлов\n        run: echo ok\n"
+        )
+
+        assert _MODULE.non_ascii_shell_names({"x.yml": source}) == []

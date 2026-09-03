@@ -54,6 +54,7 @@ def test_subprocess_inherits_the_same_temp(basetemp: pathlib.Path) -> None:
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     )
 
     assert pathlib.Path(completed.stdout.strip()).resolve().is_relative_to(basetemp)

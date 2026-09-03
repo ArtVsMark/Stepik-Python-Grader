@@ -132,7 +132,9 @@ class TestExitCode:
 
 def test_runs_on_this_repository() -> None:
     """Скрипт отрабатывает на настоящем репозитории проекта."""
-    result = subprocess.run([sys.executable, str(_SCRIPT), "--all"], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--all"], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0
 
 
@@ -149,7 +151,11 @@ def test_survives_narrow_console_encoding(encoding: str) -> None:
     env = {**os.environ, "PYTHONIOENCODING": encoding}
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), "--all"], capture_output=True, text=True, env=env
+        [sys.executable, str(_SCRIPT), "--all"],
+        capture_output=True,
+        text=True,
+        env=env,
+        encoding="utf-8",
     )
 
     assert result.returncode == 0, result.stderr

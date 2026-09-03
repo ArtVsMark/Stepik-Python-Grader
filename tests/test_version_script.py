@@ -61,7 +61,7 @@ def _git_env() -> dict[str, str]:
 def _run(repo: Path, *args: str) -> str:
     """Выполнить git в repo; падение теста несёт stderr, а не голый returncode."""
     result = subprocess.run(
-        ["git", *args], cwd=repo, env=_git_env(), capture_output=True, text=True
+        ["git", *args], cwd=repo, env=_git_env(), capture_output=True, text=True, encoding="utf-8"
     )
     assert result.returncode == 0, f"git {' '.join(args)} → {result.stderr}"
     return result.stdout.strip()
@@ -77,7 +77,12 @@ def _commit(repo: Path, name: str, subject: str) -> None:
 def _patch_of(repo: Path) -> int:
     """PATCH, посчитанный скриптом в этом репозитории."""
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT)], cwd=repo, env=_git_env(), capture_output=True, text=True
+        [sys.executable, str(_SCRIPT)],
+        cwd=repo,
+        env=_git_env(),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
     return int(result.stdout.strip().split(".")[-1])
@@ -102,7 +107,9 @@ def test_project_version_matches_scheme() -> None:
 def test_version_script_cli_prints_version() -> None:
     """`python scripts/version.py` печатает валидную версию и завершается 0
     (acceptance-критерий issue #68)."""
-    result = subprocess.run([sys.executable, str(_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0
     assert _XYZ.match(result.stdout.strip()), result.stdout
 
@@ -388,7 +395,12 @@ def test_badge_bot_and_sync_merges_not_counted(tmp_path: Path) -> None:
 def _version_of(repo: Path) -> str:
     """Полная версия, напечатанная скриптом в этом репозитории."""
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT)], cwd=repo, env=_git_env(), capture_output=True, text=True
+        [sys.executable, str(_SCRIPT)],
+        cwd=repo,
+        env=_git_env(),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
     return result.stdout.strip()
@@ -422,7 +434,12 @@ def test_service_tag_alone_falls_back_instead_of_crashing(tmp_path: Path) -> Non
     _run(repo, "tag", "v-checkpoint-2026-06-24")
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT)], cwd=repo, env=_git_env(), capture_output=True, text=True
+        [sys.executable, str(_SCRIPT)],
+        cwd=repo,
+        env=_git_env(),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     )
 
     assert result.returncode == 0, result.stderr
@@ -438,7 +455,12 @@ def test_release_tag_shape_is_enforced(tmp_path: Path) -> None:
     _run(repo, "tag", "v1.10")
 
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT)], cwd=repo, env=_git_env(), capture_output=True, text=True
+        [sys.executable, str(_SCRIPT)],
+        cwd=repo,
+        env=_git_env(),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
     )
 
     assert result.returncode == 0, result.stderr
