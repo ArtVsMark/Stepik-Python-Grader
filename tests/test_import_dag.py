@@ -1162,3 +1162,105 @@ def test_the_lazy_graph_is_wider_than_the_load_graph() -> None:
     lazy_edges = sum(len(targets) for targets in _lazy_import_graph().values())
 
     assert lazy_edges > load_edges, (load_edges, lazy_edges)
+
+
+# ---------------------------------------------------------------------------
+# REV-5-04 (issue #1004): таблица модулей architecture.md сверяется с деревом.
+# Рёбра графа уже сверялись в обе стороны, а таблица — нет: модуль появлялся,
+# строки не было, и заметить это было нечем.
+# ---------------------------------------------------------------------------
+
+#: Строки таблицы, покрывающие каталог целиком, а не файл. Пакеты, чьи части
+#: приватны и описываются одной строкой: перечислять три backend'а песочницы
+#: поимённо значило бы обещать читателю выбор, которого у него нет.
+_GROUP_ROW_SUFFIX = "/"
+
+
+def _module_table_rows() -> tuple[frozenset[str], frozenset[str]]:
+    """Первая колонка таблицы «Что умеет (модули и слои)»: файлы и группы.
+
+    Возвращает (пути файлов, префиксы групп). Разбор построчный и по первой
+    ячейке: имя всегда лежит в обратных кавычках, а пояснение вроде
+    ``(top-level)`` стоит рядом и предметом не является.
+    """
+    lines = _ARCHITECTURE_MD.read_text(encoding="utf-8").split("\n")
+    start = next(i for i, line in enumerate(lines) if line.startswith("| Модуль |"))
+    files: set[str] = set()
+    groups: set[str] = set()
+    for line in lines[start + 2 :]:
+        if not line.startswith("|"):
+            break
+        cell = line.split("|")[1].strip()
+        if "`" not in cell:
+            continue
+        name = cell.split("`")[1]
+        (groups if name.endswith(_GROUP_ROW_SUFFIX) else files).add(name)
+    return frozenset(files), frozenset(groups)
+
+
+def _package_files() -> frozenset[str]:
+    """Пути модулей пакета относительно ``src/stepik_grader``."""
+    return frozenset(path.relative_to(_PKG_ROOT).as_posix() for path in _iter_module_files())
+
+
+def test_every_module_has_a_row_in_the_table() -> None:
+    """Модуль без строки в таблице — модуль, которого для читателя не существует.
+
+    ``__init__.py`` не в счёт, если он не назван явно: пустой реэкспорт
+    описывать нечем, а содержательный (``cli/__init__.py``) в таблице стоит.
+    """
+    documented, groups = _module_table_rows()
+    missing = sorted(
+        path
+        for path in _package_files() - documented
+        if not path.endswith("__init__.py") and not any(path.startswith(group) for group in groups)
+    )
+
+    assert not missing, (
+        "модуль есть в дереве, а строки в docs/dev/architecture.md § «Что умеет "
+        "(модули и слои)» нет (issue #1004, находка `REV-5-04`):\n"
+        + "\n".join(f"  {path}" for path in missing)
+    )
+
+
+def test_every_row_names_a_module_that_exists() -> None:
+    """Обратная половина: строка пережила модуль.
+
+    Таблица, обещающая несуществующее, дороже отсутствующей строки: читатель
+    ищет файл, которого нет, и решает, что ошибся сам.
+    """
+    documented, groups = _module_table_rows()
+    files = _package_files()
+    phantom = sorted(documented - files)
+    empty_groups = sorted(
+        group for group in groups if not any(path.startswith(group) for path in files)
+    )
+
+    assert not phantom and not empty_groups, (
+        "docs/dev/architecture.md § «Что умеет (модули и слои)» называет то, чего "
+        "в дереве нет: " + ", ".join(phantom + empty_groups)
+    )
+
+
+def test_the_table_is_parsed_and_not_empty() -> None:
+    """Guard-the-guard: таблица прочиталась.
+
+    Пустой разбор оставил бы обе проверки выше зелёными на пустоте — сравнение
+    с пустым множеством не находит расхождений ни в одну сторону.
+    """
+    documented, groups = _module_table_rows()
+
+    assert len(documented) > 50, len(documented)
+    assert groups, "групповые строки не распознаны — разбор читает не ту колонку"
+
+
+def test_a_group_row_covers_its_package() -> None:
+    """Групповая строка закрывает свои файлы, а не только себя.
+
+    Без этого приватные backend'ы песочницы требовали бы строки поимённо, и
+    первая же проверка краснела бы на верном ответе.
+    """
+    _, groups = _module_table_rows()
+
+    assert "core/sandbox/" in groups
+    assert any(path.startswith("core/sandbox/") for path in _package_files())

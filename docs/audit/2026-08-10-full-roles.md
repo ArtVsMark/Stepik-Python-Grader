@@ -1175,7 +1175,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | REV-5-01 | `docs/archive/audit-2026-07-30-full-roles.md:593` | Реестр отклонённых находок обрезан посреди слова — отклонение невозможно перепроверить | low | ◐ |
 | REV-5-02 | `tests/test_glossary_draft_pipeline.py:700` | Ratchet глоссария сверяет только id: новое расхождение у 150 разрешённых карточек невидимо | low | ✅ |
 | REV-5-03 | `CONTRIBUTING.md:94` | CONTRIBUTING отправляет любой внутренний модуль в core/, ломая leaf-инвариант ADR-0011 | low | ✅ |
-| REV-5-04 | `tests/test_import_dag.py:682` | Guard architecture.md проверяет только рёбра графа — таблица модулей дрейфует безнаказанно | low | ◐ |
+| REV-5-04 | `tests/test_import_dag.py:682` | Guard architecture.md проверяет только рёбра графа — таблица модулей дрейфует безнаказанно | low | ✅ |
 | REV-6-01 | `src/stepik_grader/core/microbench_runner.py:257` | SECC-01 закрыта не на всех путях: bench-скрипт микробенча остаётся в общем /tmp и он же — sys.path[0] | low | ◐ |
 | REV-6-02 | `src/stepik_grader/core/sandbox/_linux.py:117` | PY-13 закрыта наполовину: RLIMIT_FSIZE песочницы по-прежнему из CONFIG, а не из RunSpec | low | ◐ |
 | REV-6-03 | `docs/archive/audit-2026-07-30-full-roles.md:196` | MIGR-01 фактически закрыта кодом (SchemaTooNewError), но архивный аудит числит её открытой | low | ✅ |
@@ -1551,6 +1551,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | ADD-1-01 | reference_adapter: обновление токена вне try — сетевая ошибка ломает контракт «никогда не бросает» | #1374 |
 | ARCH-1-03 | DAG-guard слеп к ленивым импортам: 42 ребра вне графа, цикл cli ↔ cli.commands реален | #1437 |
 | ARCH-2-04 | Boundary-guard grade-ядра — денилист из 7 имён, а не allowlist, как обещает | #1437 |
+| REV-5-04 | Guard architecture.md проверяет только рёбра графа — таблица модулей дрейфует безнаказанно | #1437 |
 
 ---
 
