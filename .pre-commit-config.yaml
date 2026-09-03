@@ -210,6 +210,13 @@ repos:
         pass_filenames: false
         files: '^(\.rules/bindings\.json|scripts/.*\.py)$'
 
+      - id: check-hidden-defaults
+        name: умолчания заданы явно (кодировка, -z у списков путей)
+        entry: python scripts/check_hidden_defaults.py
+        language: system
+        pass_filenames: false
+        files: '^(src|scripts|tests)/.*\.py$'
+
       - id: check-rules-digest
         name: второй рубеж — дайджест правил сходится с ответом проекта
         entry: python scripts/check_rules_digest.py

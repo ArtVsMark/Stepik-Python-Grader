@@ -408,6 +408,7 @@ class TestCorpusIsActuallyInTheRepository:
             capture_output=True,
             text=True,
             cwd=str(self._CORPUS.parent.parent),
+            encoding="utf-8",
         )
 
         assert result.returncode == 1, f"корпус игнорируется git: {result.stdout.strip()}"

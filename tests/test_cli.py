@@ -653,12 +653,14 @@ class TestPackageMainEntryPoint:
             capture_output=True,
             text=True,
             check=True,
+            encoding="utf-8",
         ).stdout.strip()
 
         result = subprocess.run(
             [sys.executable, "-m", "stepik_grader", "--version"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         assert result.returncode == 0
         assert expected in result.stdout
@@ -685,6 +687,7 @@ class TestPackageMainEntryPoint:
             capture_output=True,
             text=True,
             check=True,
+            encoding="utf-8",
         ).stdout.strip()
         assert in_process == installed, (
             "версия в процессе pytest разошлась с установленной "

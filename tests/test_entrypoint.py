@@ -39,7 +39,9 @@ def test_console_script_prints_version() -> None:
     script = _console_script_path()
     if script is None:
         pytest.skip("stepik-grader console script not found (pip install -e . not run?)")
-    proc = subprocess.run([str(script), "--version"], capture_output=True, text=True, timeout=15)
+    proc = subprocess.run(
+        [str(script), "--version"], capture_output=True, text=True, timeout=15, encoding="utf-8"
+    )
     assert proc.returncode == 0
     # issue #820: версия называет реальную команду, а не файл grader.py,
     # которого при src-layout не существует.
@@ -53,6 +55,7 @@ def test_module_entrypoint_prints_version() -> None:
         capture_output=True,
         text=True,
         timeout=15,
+        encoding="utf-8",
     )
     assert proc.returncode == 0
     # issue #820: версия называет реальную команду, а не файл grader.py,
@@ -68,6 +71,7 @@ def test_grader_module_entrypoint_prints_version() -> None:
         capture_output=True,
         text=True,
         timeout=15,
+        encoding="utf-8",
     )
     assert proc.returncode == 0
     # issue #820: версия называет реальную команду, а не файл grader.py,
@@ -99,6 +103,7 @@ def test_console_script_runs_mode_1_end_to_end(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         timeout=15,
+        encoding="utf-8",
     )
     assert proc.returncode == 0
     assert '"passed": 1' in proc.stdout
@@ -126,6 +131,7 @@ def test_module_entrypoint_survives_stdlib_shadow(tmp_path: Path, shadow: str) -
         capture_output=True,
         text=True,
         timeout=60,
+        encoding="utf-8",
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
@@ -148,6 +154,7 @@ def test_stdlib_shadow_needed_by_runpy_is_out_of_reach(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         timeout=60,
+        encoding="utf-8",
     )
 
     assert result.returncode != 0

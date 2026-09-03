@@ -151,7 +151,9 @@ class TestGuard:
         import subprocess
 
         tracked = subprocess.run(
-            ["git", "ls-files", ".claude/hooks"],
+            # -z: разбор по NUL — правило 165. Здесь путь фиксированный, но
+            # исключений у гейта нет намеренно: молча внесённое — отключённая проверка.
+            ["git", "ls-files", "-z", ".claude/hooks"],
             capture_output=True,
             text=True,
             encoding="utf-8",

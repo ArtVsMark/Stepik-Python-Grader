@@ -63,7 +63,9 @@ def test_passes_on_current_repo() -> None:
 
 def test_cli_exits_zero() -> None:
     """`python scripts/check_ui_locale_guardrails.py` завершается 0."""
-    result = subprocess.run([sys.executable, str(_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
