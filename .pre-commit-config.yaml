@@ -126,6 +126,12 @@ repos:
         language: system
         pass_filenames: false
         files: '^\.claude/settings\.json$'
+      - id: check-sources-of-truth
+        name: контракт не называет двух источников одного предмета
+        entry: python scripts/check_sources_of_truth.py
+        language: system
+        pass_filenames: false
+        files: '^(CLAUDE\.md|\.rules/sources_of_truth\.json)$'
       - id: check-gate-tests
         name: у гейта есть прогон того, что он обязан отвергнуть
         entry: python scripts/check_gate_tests.py

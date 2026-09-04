@@ -161,6 +161,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "правило 122: в ответ веб-слоя уходит число, а не его отформатированный вид",
     ),
     "check_ruff_pin.py": (".github/workflows/ci.yml", "пины инструментов вердикта"),
+    "check_sources_of_truth.py": (
+        ".github/workflows/ci.yml",
+        "предмет — согласованность самого контракта: ни сети, ни клона не нужно, "
+        "поэтому на каждый PR (и в pre-commit по правкам CLAUDE.md)",
+    ),
     "check_secret_dumps.py": (".github/workflows/ci.yml", "реестр точек дампа секретов"),
     "check_test_isolation.py": (".github/workflows/ci.yml", "изоляция тестов"),
     "check_marker_matching.py": (
