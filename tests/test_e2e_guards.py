@@ -17,14 +17,18 @@ job'е с браузером. Значит его сторожа — код, к�
 
 from __future__ import annotations
 
+import ast
+import inspect
+import pathlib
 import sys
 import types
 from typing import Any
 
 import pytest
 
+from stepik_grader import web as web_static
 from tests.e2e import conftest as e2e_conftest
-from tests.e2e._helpers import GUARD_FILE, REQUIRE_E2E_ENV, executed_beyond_guards
+from tests.e2e._helpers import GUARD_FILE, REQUIRE_E2E_ENV, executed_beyond_guards, ui_text
 
 
 class _Report:
@@ -205,3 +209,70 @@ class TestImportIsHardUnderTheFlag:
 
         assert e2e_conftest.load_sync_api() is module
         assert calls == ["playwright.sync_api"]
+
+
+class TestTheUiLanguageOfTheStandIsRussian:
+    """Посылка, на которой стоят текстовые ассерты e2e (находка `QA-2-05`).
+
+    Прежде тесты хеджировали: искали слово «в обеих локалях», объясняя это тем,
+    что язык интерфейса приходит из браузера. Хедж стоил точности — ассерт
+    проходил и на постороннем сообщении, лишь бы в нём встретилось слово, — а
+    посылка при этом была ложной. Теперь ассерт называет конкретную строку, и
+    посылка обязана проверяться, а не подразумеваться: изменится умолчание —
+    сломается здесь, с объяснением, а не в браузерном job'е с загадочным
+    «текст не найден».
+    """
+
+    def test_the_server_starts_in_russian_by_default(self) -> None:
+        """Сервер отдаёт странице ``data-start-lang`` из своего ``lang``.
+
+        Фикстура ``e2e_server`` язык не передаёт, значит работает умолчание.
+        """
+        from stepik_grader.web import server as web_server
+
+        signature = inspect.signature(web_server._GraderServer.__init__)
+
+        assert signature.parameters["lang"].default == "ru"
+
+    def test_the_e2e_fixture_does_not_override_the_language(self) -> None:
+        """Стенд язык не задаёт — иначе умолчание сервера ни при чём.
+
+        Смотрим на сам вызов, а не на подстроку ``lang=`` в файле: она законно
+        встречается в адресах (``?lang=``), и поиск по тексту краснел бы на
+        верном коде.
+        """
+        tree = ast.parse(pathlib.Path(e2e_conftest.__file__).read_text(encoding="utf-8"))
+        constructions = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "_GraderServer"
+        ]
+
+        assert constructions, "стенд больше не поднимает _GraderServer — проверка смотрит в пустоту"
+        for call in constructions:
+            passed = {keyword.arg for keyword in call.keywords}
+            assert "lang" not in passed, "стенд стал задавать язык — ассерты надо пересмотреть"
+
+    def test_the_frontend_never_asks_the_browser_for_a_language(self) -> None:
+        """``navigator.language`` в выборе начального языка не участвует.
+
+        Именно это и утверждала отменённая посылка. Проверяется по исходнику
+        фронтенда, потому что решение принимает он, а не сервер.
+        """
+        static = pathlib.Path(web_static.__file__).parent / "static"
+        scripts = sorted(static.glob("*.js"))
+
+        assert scripts, "фронтенд не найден — проверка ничего не смотрела"
+        for script in scripts:
+            assert "navigator.language" not in script.read_text(encoding="utf-8"), script.name
+
+    def test_the_message_the_poller_shows_exists_in_the_catalogue(self) -> None:
+        """Ключ, на который ссылается ассерт, в каталоге есть.
+
+        Опечатка в ключе иначе даёт красный браузерный тест вместо внятного
+        «такой строки нет» — и разбирать её приходится в чужом job'е.
+        """
+        assert ui_text("grade.run_lost").strip()
+        assert ui_text("grade.run_lost", "en").strip()
