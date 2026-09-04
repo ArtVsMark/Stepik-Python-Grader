@@ -674,7 +674,16 @@ def _assert_fork_bomb_contained(runner, tmp_path: pathlib.Path) -> None:
         "print('spawned', len(procs))\n",
     )
     outcome = runner.run(RunSpec(path=path, stdin=None, timeout=8.0))
-    assert outcome.returncode != 0
+    # Предмет — СДЕРЖАНА ли бомба, а не каким путём (issue #1447). Прежняя
+    # редакция требовала только `returncode != 0` и краснела там, где
+    # сдерживание идёт через psutil-backstop: `sandbox_violation="memory"`,
+    # вывод пуст, «spawned 200» не напечатано — то есть всё сработало. Путь
+    # зависит от машины (лимит PID против лимита памяти), и тест, привязанный
+    # к одному, зелен ровно на той машине, где его писали. Соседний
+    # `_assert_memory_overrun_violation` про это оговорён с самого начала.
+    assert outcome.returncode != 0 or outcome.sandbox_violation, (
+        "форк-бомба не сдержана ни кодом возврата, ни объявленным нарушением"
+    )
     assert b"spawned 200" not in outcome.stdout
 
 
