@@ -46,6 +46,8 @@ for _stream in (sys.stdout, sys.stderr):
 __all__ = [
     "GITHUB_RELEASE_JOB",
     "VERIFY_JOB",
+    "cancelling_groups",
+    "check_cancelling_groups_name_the_head",
     "check_ci_listens_to_ready_for_review",
     "check_consent_workflow_uses_its_own_token",
     "check_coverage_gate_is_explicit",
@@ -772,6 +774,92 @@ def pinning_mismatches(sources: dict[str, str]) -> list[str]:
     return found
 
 
+#: Отменяющие группы, которым голова не нужна, — и почему. Объявление, а не
+#: молчание: правило 179 бьёт по прогонам, чей результат привязан к КОММИТУ, и
+#: там, где привязки нет, требование головы дало бы гейт, краснеющий на верном
+#: ответе. Новый файл сюда не попадает сам — незаявленная группа краснеет.
+_GROUPS_WITHOUT_A_HEAD: dict[str, str] = {
+    "claude-code-review.yml": (
+        "одно ревью на PR — намеренно (issue #1036): каждый пуш отменял предыдущее, "
+        "а оно продолжало дописывать комментарии к уже переписанному диффу. Голова в "
+        "группе вернула бы ревью на каждый коммит; проверка при этом не обязательная, "
+        "и потеря её на голове очередь не держит"
+    ),
+    "rules-digest.yml": (
+        "дайджест собирается из каталога по расписанию и к коммиту не привязан вовсе: "
+        "устаревший прогон отменять правильно, а голова в группе делала бы каждый "
+        "запуск отдельным"
+    ),
+}
+
+
+def cancelling_groups(sources: dict[str, str]) -> dict[str, str]:
+    """Группы ``concurrency``, которые ОТМЕНЯЮТ, — имя группы по файлу.
+
+    Предмет узкий: группа без отмены вытеснить ничего не может, и требовать от
+    неё головы значило бы краснеть на верном ответе.
+    """
+    found: dict[str, str] = {}
+    for name, source in sources.items():
+        group: str | None = None
+        cancels = False
+        inside = False
+        for line in source.split("\n"):
+            if line.startswith("concurrency:"):
+                inside = True
+                continue
+            if inside:
+                if line.strip().startswith("group:"):
+                    group = line.split("group:", 1)[1].strip()
+                elif line.strip().startswith("cancel-in-progress:"):
+                    cancels = "false" not in line.split(":", 1)[1]
+                elif line and not line.startswith((" ", "\t", "#")):
+                    inside = False
+        if group is not None and cancels:
+            found[name] = group
+    return found
+
+
+def check_cancelling_groups_name_the_head(
+    errors: list[str], sources: dict[str, str] | None = None
+) -> None:
+    """Группа, отменяющая прогон, называет голову, а не только изменение.
+
+    Правило 179 каталога. Для события ``pull_request`` ``github.ref`` — это
+    ``refs/pull/N/merge``, один и тот же ref у всех коммитов: прогоны на РАЗНЫХ
+    головах попадают в одну группу. События площадки доставляются не в том
+    порядке, в каком сделаны коммиты, поэтому вытеснить может более новый — и
+    последнее слово остаётся за прогоном на устаревшем коммите, а на актуальном
+    обязательной проверки нет вовсе. Создать её после этого нечем: новый прогон
+    рождается только от нового события.
+
+    Обратная половина требования держится тем, что предмет — только отменяющие
+    группы: отмену не выключают, голову добавляют.
+    """
+    if sources is None:
+        sources = {
+            path.name: path.read_text(encoding="utf-8") for path in sorted(_WORKFLOWS.glob("*.yml"))
+        }
+    cancelling = cancelling_groups(sources)
+    for name, reason in sorted(_GROUPS_WITHOUT_A_HEAD.items()):
+        if name in sources and name not in cancelling:
+            errors.append(
+                f"{name}: объявлено исключение из правила 179, но группа больше не "
+                f"отменяет — уберите строку, иначе следующая проедет под чужой причиной "
+                f"({reason[:60]}…)"
+            )
+    for name, group in sorted(cancelling.items()):
+        if name in _GROUPS_WITHOUT_A_HEAD:
+            continue
+        if not any(marker in group for marker in ("head.sha", "github.sha", "head_sha")):
+            errors.append(
+                f"{name}: группа отмены не называет голову — {group}. Прогоны на разных "
+                "коммитах попадают в одну группу, и вытеснить может событие другого "
+                "коммита: на актуальной голове обязательной проверки не останется, а "
+                "создать её будет нечем (правило 179)"
+            )
+
+
 def check_pinning_matches_the_event(
     errors: list[str], sources: dict[str, str] | None = None
 ) -> None:
@@ -798,6 +886,7 @@ def main() -> int:
     check_run_blocks_are_valid_shell(errors)
     check_shell_names_are_ascii(errors)
     check_pinning_matches_the_event(errors)
+    check_cancelling_groups_name_the_head(errors)
 
     if errors:
         print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
