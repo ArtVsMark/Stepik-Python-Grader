@@ -10,9 +10,16 @@ grader.py», и это был единственный инвариант кон
 Приватные реэкспорты (`_build_function_wrapper`, `_verdict`, `_RICH`, …) в
 `__all__` не входят, но на них держатся monkeypatch-тесты набора и они
 задокументированы в докстринге `grader.py` — их состав тоже заморожен.
+
+Заморожен он, впрочем, стал не сразу: до issue #1004 (находка `AUD-1-01`)
+здесь перечислялись шесть имён из двадцати девяти, и проверка отвечала на
+«объявленное имя на месте», а не на «в фасаде ровно эти имена». Обещание в
+этом абзаце было, механизма под ним не было.
 """
 
 from __future__ import annotations
+
+import types
 
 import pytest
 
@@ -57,16 +64,67 @@ _EXPECTED_PUBLIC = {
     "set_runner",
 }
 
-# Приватные имена, на которые опираются существующие monkeypatch-тесты и
-# facade-доступ из тестов/скриптов.
+# Приватные имена, реэкспортируемые фасадом. Докстринг модуля объявляет их
+# состав замороженным — и до issue #1004 (находка `AUD-1-01`) заморожены были
+# шесть из двадцати девяти: проверялось «объявленное имя на месте», а не «в
+# фасаде ровно эти имена». Обе пропущенные стороны опасны по-разному.
+#
+# Новое приватное имя, приехавшее случайно (звёздный импорт расширили, соседний
+# модуль переименовал внутренность), становится де-факто контрактом: его тут же
+# начинают патчить в тестах, и убрать его потом уже нельзя.
+#
+# Исчезнувшее — ломает monkeypatch-тесты набора, но не импорт фасада, поэтому
+# падает не там, где сломали.
+#
+# Список сокращаем осознанно и в PR: «заморожен» значит, что имя уходит
+# решением, а не молча.
 _EXPECTED_PRIVATE = {
-    "_ask_number",
     "_BENCH_PROFILES",
     "_MICRO_PROFILES",
+    "_RICH",
+    "_SEP",
+    "_SOLUTION_FILE_RE",
+    "_STATUS_COLORS",
+    "_VERDICT_COLORS",
+    "_apply_run_mode_override",
+    "_ask_bench_profile",
+    "_ask_micro_profile",
+    "_ask_number",
+    "_ast_function_name",
+    "_build_call_wrapper",
+    "_build_function_wrapper",
+    "_console",
+    "_correctness_status",
+    "_cprint",
+    "_detect_run_mode",
     "_interactive_menu",
+    "_is_python_code_block",
+    "_is_safe_constant",
+    "_measure_peak_memory",
+    "_micro_stats",
+    "_normalize_output_line",
+    "_parse_testblock_file",
     "_print_menu",
+    "_read_meta_function_name",
     "_resolve_test_dir_from_input",
+    "_verdict",
 }
+
+
+def _facade_private_names() -> set[str]:
+    """Приватные имена, которые фасад реально отдаёт.
+
+    Дандеры не в счёт — это машинерия модуля, а не реэкспорт. Модули тоже:
+    ``import stepik_grader.core.x`` кладёт в пространство имён сам пакет, и
+    считать его реэкспортом значило бы замораживать структуру импортов.
+    """
+    return {
+        name
+        for name, value in vars(grader).items()
+        if name.startswith("_")
+        and not name.startswith("__")
+        and not isinstance(value, types.ModuleType)
+    }
 
 
 @pytest.mark.parametrize("name", sorted(_EXPECTED_PUBLIC))
@@ -91,6 +149,45 @@ def test_all_has_no_duplicates() -> None:
 def test_private_reexport_is_available(name: str) -> None:
     """Приватные реэкспорты держат monkeypatch-тесты набора — тоже контракт."""
     assert hasattr(grader, name)
+
+
+def test_private_reexports_match_the_frozen_contract() -> None:
+    """Состав приватных реэкспортов заморожен — как и публичный, в обе стороны.
+
+    До issue #1004 (находка `AUD-1-01`) докстринг это обещал, а проверка
+    отвечала только на «объявленное имя на месте»: двадцать три реэкспорта
+    из двадцати девяти не были заморожены ничем, и появление нового имени
+    не замечал никто.
+    """
+    actual = _facade_private_names()
+    appeared = sorted(actual - _EXPECTED_PRIVATE)
+    vanished = sorted(_EXPECTED_PRIVATE - actual)
+
+    assert not appeared and not vanished, (
+        "приватная поверхность фасада разошлась с замороженным составом.\n"
+        f"  приехали и стали де-факто контрактом: {', '.join(appeared) or '—'}\n"
+        f"  исчезли (сломают monkeypatch, но не импорт): {', '.join(vanished) or '—'}"
+    )
+
+
+def test_the_private_surface_is_actually_read() -> None:
+    """Guard-the-guard: список приватных имён собрался, а не оказался пустым.
+
+    Пустое множество совпало бы с пустым ожиданием, и проверка выше зеленела
+    бы на любом фасаде — включая сломанный.
+    """
+    assert len(_facade_private_names()) > 20
+
+
+def test_modules_are_not_counted_as_reexports() -> None:
+    """Пакет в пространстве имён — не реэкспорт имени.
+
+    Иначе контракт замораживал бы структуру импортов фасада: перенос строки
+    ``from ... import`` менял бы «поверхность», ничего не меняя для потребителя.
+    """
+    assert not any(
+        isinstance(getattr(grader, name), types.ModuleType) for name in _facade_private_names()
+    )
 
 
 def test_star_import_exposes_exactly_the_contract() -> None:
