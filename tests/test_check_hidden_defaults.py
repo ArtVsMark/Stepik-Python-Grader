@@ -83,21 +83,21 @@ def test_text_mode_without_encoding_is_rejected(keyword: str) -> None:
     ``errors="replace"`` опаснее прочих: он выглядит предусмотрительностью, а
     кодировку при этом оставляет локальной.
     """
-    source = f'subprocess.run(["git", "log"], {keyword})\n'
+    source = f'import subprocess\n\nsubprocess.run(["git", "log"], {keyword})\n'
 
     assert _findings(source, "encoding"), keyword
 
 
 def test_explicit_encoding_passes() -> None:
     """Кодировка задана — находки нет."""
-    source = 'subprocess.run(["git", "log"], text=True, encoding="utf-8")\n'
+    source = 'import subprocess\n\nsubprocess.run(["git", "log"], text=True, encoding="utf-8")\n'
 
     assert _findings(source, "encoding") == []
 
 
 def test_binary_mode_is_not_a_finding() -> None:
     """Без текстового режима предмета нет: байты декодирует вызывающий сам."""
-    source = 'subprocess.run(["git", "log"], capture_output=True)\n'
+    source = 'import subprocess\n\nsubprocess.run(["git", "log"], capture_output=True)\n'
 
     assert _findings(source, "encoding") == []
 
@@ -105,7 +105,7 @@ def test_binary_mode_is_not_a_finding() -> None:
 def test_all_subprocess_entry_points_are_covered() -> None:
     """Проверяются все вызовы с текстовым режимом, а не один ``run``."""
     for name in _MODULE.SUBPROCESS_CALLS:
-        source = f'subprocess.{name}(["git", "log"], text=True)\n'
+        source = f'import subprocess\n\nsubprocess.{name}(["git", "log"], text=True)\n'
 
         assert _findings(source, "encoding"), name
 
@@ -224,9 +224,68 @@ def test_a_finding_returns_one(
     ветка, которую никто не видел работающей, обычно и оказывается сломанной.
     """
     bad = tmp_path / "образец.py"
-    bad.write_text('subprocess.run(["git", "log"], text=True)\n', encoding="utf-8")
+    bad.write_text(
+        'import subprocess\n\nsubprocess.run(["git", "log"], text=True)\n', encoding="utf-8"
+    )
     monkeypatch.setattr(_MODULE, "scanned_files", lambda: [bad])
     monkeypatch.setattr(_MODULE, "_ROOT", tmp_path)
 
     assert _MODULE.main([]) == 1
     assert "текстовый режим без encoding=" in capsys.readouterr().out
+
+
+# --- правило 180: вызов разрешается по импортам файла, а не по звену имени -------
+
+
+class TestCallIsResolvedThroughImports:
+    """Предмет — как ``subprocess`` назван В ЭТОМ файле (правило 180 каталога).
+
+    Прежний разбор смотрел на последнее звено имени, и обе половины ошибки
+    подтверждены пробой: псевдоним прятал вызов от проверки, а свой метод с тем
+    же именем объявлялся нарушением. Второе хуже — гейт, краснеющий на верном
+    коде, снимают первой же правкой.
+    """
+
+    def test_an_aliased_function_is_still_found(self) -> None:
+        """``from subprocess import run as r`` — псевдоним не прячет вызов."""
+        source = "from subprocess import run as r\nr(['git', 'log'], text=True)\n"
+
+        assert _findings(source, "encoding")
+
+    def test_an_aliased_module_is_still_found(self) -> None:
+        """``import subprocess as sp`` — то же для псевдонима модуля."""
+        source = "import subprocess as sp\nsp.run(['git'], text=True)\n"
+
+        assert _findings(source, "encoding")
+
+    def test_a_plain_import_of_the_function_is_found(self) -> None:
+        """``from subprocess import run`` — вызов без точки тоже предмет."""
+        source = "from subprocess import run\nrun(['git'], text=True)\n"
+
+        assert _findings(source, "encoding")
+
+    def test_someone_elses_run_is_not_a_subprocess_call(self) -> None:
+        """Свой метод ``run`` с теми же ключами нарушением не является.
+
+        Совпадение звена не доказывает ничего: ``text=`` бывает и у чужого API.
+        """
+        source = (
+            "class Job:\n    def run(self, cmd, text=False): ...\n\nJob().run(['x'], text=True)\n"
+        )
+
+        assert _findings(source, "encoding") == []
+
+    def test_an_attribute_call_on_a_foreign_module_is_ignored(self) -> None:
+        """``other.run(...)`` — модуль не тот, предмета нет."""
+        source = "import other\nother.run(['x'], text=True)\n"
+
+        assert _findings(source, "encoding") == []
+
+    def test_the_names_are_taken_from_the_imports(self) -> None:
+        """Guard-the-guard: разбор импортов возвращает именно ввезённые имена."""
+        tree = ast.parse("import subprocess as sp\nfrom subprocess import run as r, check_output\n")
+
+        modules, functions = _MODULE.subprocess_names(tree)
+
+        assert modules == {"sp"}
+        assert functions == {"r", "check_output"}

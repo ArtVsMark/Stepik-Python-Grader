@@ -309,3 +309,51 @@ def test_check_mode_passes_on_a_fresh_index(generator: ModuleType, tmp_path: Pat
 
     assert generator.main(["--catalogue", str(catalogue), "--output", str(output)]) == 0
     assert generator.main(["--catalogue", str(catalogue), "--output", str(output), "--check"]) == 0
+
+
+class TestOwnershipIsHandedOverInsideAParagraph:
+    """След правила, родившегося здесь, кончается словами «а у каталога — вот чем».
+
+    Владельца абзаца задаёт первый названный репозиторий, и для такого следа это
+    мы. Но путь после передачи владения принадлежит уже не нам, и считать его
+    своим значит искать в дереве файл, которого тут быть не должно.
+
+    Прецедент — правило 181: оно вышло отсюда, поэтому абзац наш, а последняя
+    фраза про каталог. Указатель не находил `scripts/check_exclusive.py` и
+    отказывался пересобираться ЦЕЛИКОМ — гейт, краснеющий на верном ответе.
+    """
+
+    def test_a_path_after_the_handover_is_not_ours(self, generator: ModuleType) -> None:
+        """Путь после «У каталога —» в свои не берётся."""
+        trace = (
+            "`ArtVsMark/Stepik-Python-Grader` — `scripts/preflight.py`, строки 845–846; "
+            "сверено по HEAD. У каталога — `scripts/check_exclusive.py`."
+        )
+
+        paths = generator._our_paths(trace)
+
+        assert "scripts/preflight.py" in paths
+        assert "scripts/check_exclusive.py" not in paths
+
+    def test_our_own_paths_before_the_handover_survive(self, generator: ModuleType) -> None:
+        """Передача владения не должна съедать то, что стоит до неё."""
+        trace = (
+            "`ArtVsMark/Stepik-Python-Grader` — `scripts/check_sources_of_truth.py` и "
+            "`tests/test_check_sources_of_truth.py`. У каталога — `scripts/check_exclusive.py`."
+        )
+
+        paths = generator._our_paths(trace)
+
+        assert "scripts/check_sources_of_truth.py" in paths
+        assert "tests/test_check_sources_of_truth.py" in paths
+        assert "scripts/check_exclusive.py" not in paths
+
+    def test_a_paragraph_without_a_handover_is_unchanged(self, generator: ModuleType) -> None:
+        """Нет передачи — поведение прежнее, все пути наши."""
+        trace = (
+            "`ArtVsMark/Stepik-Python-Grader` — `scripts/preflight.py`, `docs/agent/preflight.md`."
+        )
+
+        paths = generator._our_paths(trace)
+
+        assert set(paths) == {"scripts/preflight.py", "docs/agent/preflight.md"}

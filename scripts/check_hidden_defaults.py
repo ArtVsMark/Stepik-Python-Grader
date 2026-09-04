@@ -48,6 +48,7 @@ __all__ = [
     "main",
     "nul_safe_wrappers",
     "scanned_files",
+    "subprocess_names",
 ]
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -96,7 +97,12 @@ def _literals(node: ast.Call) -> list[str]:
 
 
 def _call_name(node: ast.Call) -> str:
-    """Имя вызываемого: ``subprocess.run`` → ``run``, ``git(...)`` → ``git``."""
+    """Последнее звено имени вызова: ``subprocess.run`` → ``run``, ``git(...)`` → ``git``.
+
+    Годится там, где предмет — само ИМЯ: обёртки, добавляющие ``-z``, и
+    эвристика «в вызове упомянут git». Для распознавания ``subprocess`` не
+    годится (правило 180) — там смотрят импорты файла, см. ``subprocess_names``.
+    """
     func = node.func
     if isinstance(func, ast.Attribute):
         return func.attr
@@ -105,11 +111,52 @@ def _call_name(node: ast.Call) -> str:
     return ""
 
 
+def subprocess_names(tree: ast.AST) -> tuple[set[str], set[str]]:
+    """Как ``subprocess`` назван В ЭТОМ файле: (псевдонимы модуля, имена функций).
+
+    Правило 180 каталога: предмет определяется импортами разбираемого файла, а
+    не последним звеном имени вызова. Совпадение звена не доказывает ничего —
+    у своей функции может быть то же имя, — и обе половины проверены пробой:
+
+    * ``from subprocess import run as r`` → вызов ``r(...)`` прежний разбор не
+      видел вовсе: псевдоним прятал функцию от списка проверяемых;
+    * свой метод ``Job().run(cmd, text=True)`` прежний разбор объявлял
+      нарушением. Гейт, краснеющий на верном коде, снимают первой же правкой.
+    """
+    modules: set[str] = set()
+    functions: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules |= {
+                alias.asname or alias.name for alias in node.names if alias.name == "subprocess"
+            }
+        elif isinstance(node, ast.ImportFrom) and node.module == "subprocess":
+            functions |= {
+                alias.asname or alias.name for alias in node.names if alias.name in SUBPROCESS_CALLS
+            }
+    return modules, functions
+
+
+def _is_subprocess_call(node: ast.Call, modules: set[str], functions: set[str]) -> bool:
+    """Вызов ли это ``subprocess`` — по именам, под которыми он ввезён в файл."""
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        return (
+            isinstance(func.value, ast.Name)
+            and func.value.id in modules
+            and func.attr in SUBPROCESS_CALLS
+        )
+    if isinstance(func, ast.Name):
+        return func.id in functions
+    return False
+
+
 def encoding_findings(path: Path, tree: ast.AST) -> list[str]:
     """Вызовы ``subprocess`` в текстовом режиме без явной ``encoding`` (правило 176)."""
     problems: list[str] = []
+    modules, functions = subprocess_names(tree)
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or _call_name(node) not in SUBPROCESS_CALLS:
+        if not isinstance(node, ast.Call) or not _is_subprocess_call(node, modules, functions):
             continue
         keywords = {keyword.arg for keyword in node.keywords if keyword.arg}
         if not (keywords & TEXT_MODE_KEYWORDS) or "encoding" in keywords:

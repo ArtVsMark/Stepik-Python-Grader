@@ -575,3 +575,55 @@ def test_a_recipe_without_a_needle_is_a_finding() -> None:
 
     assert len(problems) == 1
     assert "искать нечего" in problems[0]
+
+
+class TestUnfinishedRuleWorkIsNamedFirst:
+    """Три числа незакрытой работы по правилам (правило 177 каталога).
+
+    Разбор правил проигрывает продуктовой работе всегда по одной причине: у
+    задачи есть заказчик, а у разбора его нет. Правило без механизма ничего не
+    ломает сегодня, поэтому откладывается не решением, а его отсутствием — и
+    «действует, но ничем» остаётся зелёным во всех отчётах.
+    """
+
+    def test_all_three_numbers_are_printed_even_at_zero(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """«0 · 0 · 0» — это состояние, а не пустота (правило 027)."""
+        _MODULE.main([])
+
+        out = capsys.readouterr().out
+        assert "без ответа" in out
+        assert "не рассмотрено" in out
+        assert "держится ничем" in out
+
+    def test_the_numbers_come_first(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Заслон называет, а не запрещает, — но названное нельзя не увидеть."""
+        _MODULE.main([])
+
+        out = capsys.readouterr().out
+        assert out.index("Незакрытая работа по правилам") < out.index("Ответ каталогу")
+
+    def test_unanswered_without_a_catalogue_is_not_zero(self) -> None:
+        """Без клона каталога честный ответ — «не спрошено», а не ноль.
+
+        Не знать и знать ноль — разное: ноль здесь означал бы «всё отвечено».
+        """
+        unanswered, _, _ = _MODULE.unfinished_rule_work({"rules": {}}, None)
+
+        assert "не спрошено" in unanswered
+
+    def test_unreviewed_and_unheld_are_counted_from_the_answer(self) -> None:
+        """Два числа из трёх считаются локально — клон каталога им не нужен."""
+        data = {
+            "rules": {
+                "1": {"status": "unreviewed"},
+                "2": {"status": "active", "mechanism": "none", "where": "нигде"},
+                "3": {"status": "active", "mechanism": "gate", "where": "scripts/x.py"},
+            }
+        }
+
+        _, unreviewed, unheld = _MODULE.unfinished_rule_work(data, None)
+
+        assert unreviewed == "1"
+        assert unheld == "2", "нерассмотренное считается необеспеченным наравне с «ничем»"
