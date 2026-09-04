@@ -178,7 +178,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | QA-1-04 | `src/stepik_grader/core/grader_core.py:437` | Обрезка вывода по max_output_bytes не проверена до вердикта: пользователь получает WA без причины | medium | ✅ |
 | ARCH-1-01 | `src/stepik_grader/core/grader_core.py:283` | grader_core берёт max_memory_mb/max_output_bytes из снимка CONFIG, а timeout — из get_config() | low | ◐ |
 | ARCH-1-02 | `src/stepik_grader/config.py:9` | Импорт core/grader_core.py читает pyproject.toml — ленивая загрузка конфига не работает | low | ◐ |
-| ARCH-1-03 | `tests/test_import_dag.py:85` | DAG-guard слеп к ленивым импортам: 42 ребра вне графа, цикл cli ↔ cli.commands реален | low | ◐ |
+| ARCH-1-03 | `tests/test_import_dag.py:85` | DAG-guard слеп к ленивым импортам: 42 ребра вне графа, цикл cli ↔ cli.commands реален | low | ✅ |
 | ARCH-1-04 | `docs/dev/architecture.md:57` | architecture.md помещает run_dir в core/sandbox/, реальный модуль — core/run_dir.py | low | ✅ |
 | ARCH-1-05 | `src/stepik_grader/config.py:41` | config.py — god-object: 30 полей восьми подсистем в одном frozen dataclass, 21 импортёр | low | ◐ |
 | ARCH-1-06 | `src/stepik_grader/core/result.py:154` | TestResult.to_dict() мёртв и лоссов: теряет exit_code — обязательное поле CaseResult | low | ◐ |
@@ -203,7 +203,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | PY-3-05 | `src/stepik_grader/atomic_io.py:55` | Temp-файлы атомарной записи утекают при любом не-OSError прерывании (Ctrl+C) | low | ✅ |
 | PY-3-06 | `src/stepik_grader/core/stats.py:188` | read_summary игнорирует поле схемы v — записи чужой версии молча смешиваются в сводку | low | ◐ |
 | QA-1-02 | `src/stepik_grader/core/test_loader.py:214` | Смешение форматов 1 и 2 в одной папке даёт дубли index — ни теста, ни предупреждения | low | ✅ |
-| QA-1-03 | `tests/test_runner.py:60` | Лимит памяти проверяется только против поддельного модуля resource — реального прогона нет | low | ◐ |
+| QA-1-03 | `tests/test_runner.py:60` | Лимит памяти проверяется только против поддельного модуля resource — реального прогона нет | low | ✅ |
 | QA-1-05 | `src/stepik_grader/core/result.py:154` | Round-trip тест TestResult зелёный по построению: to_dict() теряет exit_code, а фикстура его не содержит | low | ◐ |
 | QA-1-06 | `tests/test_result.py:149` | Тесты передают str туда, где сигнатура требует Path — фиксируют терпимость, которой не должно быть | low | ✅ |
 | QA-1-07 | `src/stepik_grader/core/runner.py:625` | Каждый прогон решения оставляет ResourceWarning о незакрытых пайпах; набор тестов это не ловит | low | ✅ |
@@ -266,7 +266,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | ADD-1-07 | `src/stepik_grader/web/rules_adapter.py:21` | Резолвер пути к БД истории скопирован в два адаптера вместо общего хелпера | low | ◐ |
 | ARCH-2-02 | `src/stepik_grader/web/api_routes.py:207` | Синхронный GET /api/grade обходит реестр прогонов: ни back-pressure, ни отмены, ни TTL | low | ✅ |
 | ARCH-2-03 | `src/stepik_grader/web/grading.py:43` | ADR-0010 выполнен формально: grading.py — ре-экспорт, оркестрация осталась в viewmodels | low | ◐ |
-| ARCH-2-04 | `tests/test_import_dag.py:298` | Boundary-guard grade-ядра — денилист из 7 имён, а не allowlist, как обещает ADR-0010 §4 | low | ◐ |
+| ARCH-2-04 | `tests/test_import_dag.py:298` | Boundary-guard grade-ядра — денилист из 7 имён, а не allowlist, как обещает ADR-0010 §4 | low | ✅ |
 | ARCH-2-05 | `scripts/check_web_imports.py:51` | check_web_imports.py охраняет только ребро → core.js, остальной граф ES-модулей не проверяется | low | ✅ |
 | ARCH-2-06 | `src/stepik_grader/web/api_routes.py:114` | api_routes.py разросся в god-mixin: ~33 хендлера всех доменов в одном классе | low | ◐ |
 | ARCH-2-07 | `src/stepik_grader/web/viewmodels.py:447` | Флаг истории и реестр прогонов — процесс-глобалы при состоянии-на-сервере | low | ✅ |
@@ -279,7 +279,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | SEC-1-04 | `src/stepik_grader/web/server.py:208` | run_server принимает произвольный host, а Host-заголовок подделывается любым не-браузером | low | ◐ |
 | SEC-1-05 | `src/stepik_grader/web/api_routes.py:846` | Согласие на отправку кода AI выдаётся тем же запросом, что и передаёт данные | low | ◐ |
 | SEC-1-06 | `tests/e2e/test_xss_regression.py:29` | XSS-регрессия закрывает единственный сток (stdout), эхо-поля path/name не покрыты | low | ✅ |
-| SEC-1-07 | `tests/e2e/test_xss_regression.py:1` | Тест периметра написан по-английски вопреки инварианту «артефакты по-русски» | low | ✅ |
+| SEC-1-07 | `tests/e2e/test_xss_regression.py:1` | Тест периметра написан по-английски вопреки инварианту «артефакты по-русски» | low | ◐ |
 
 ### Фронтенд и дизайн
 
@@ -581,7 +581,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | QA-2-03 | `tests/e2e/test_not_silently_skipped.py:43` | Guard запуска браузера сам скипается при сломанном окружении: фикстура срабатывает раньше проверки флага | low | ✅ |
 | QA-2-04 | `tests/e2e/test_load_failures.py:91` | Тест «Повторить» не доказывает повторный запрос — фикс, только прячущий баннер, остаётся зелёным | low | ✅ |
 | QA-2-05 | `tests/e2e/test_poller_resilience.py:55` | Ассерты по обеим локалям опираются на неверную посылку — язык UI детерминированно русский | low | ✅ |
-| QA-2-06 | `tests/e2e/test_journeys.py:216` | Жёсткий Control+A в редакторе: e2e-набор чинён под Linux, у контрибьютора на macOS ломается молча по смыслу | low | ◐ |
+| QA-2-06 | `tests/e2e/test_journeys.py:216` | Жёсткий Control+A в редакторе: e2e-набор чинён под Linux, у контрибьютора на macOS ломается молча по смыслу | low | ✅ |
 | QA-2-07 | `tests/test_property.py:28` | Property-набор может исчезнуть молча: нет guard'а на hypothesis, в отличие от e2e и песочницы | low | ✅ |
 | QA-3-01 | `corpus/README.md:24` | Корпус пуст: ни одной зафиксированной задачи в репозитории — стенд не ловит ничего | low | ✅ |
 | QA-3-02 | `scripts/corpus_mutations.py:106` | Префиксные мутации ломают решения с `from __future__ import` — 9 из 12 дают ложный «дефект ядра» | low | ✅ |
@@ -1549,8 +1549,11 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | LNCH-1-01 | Лаунчер молча включает запись истории прогонов и не даёт её выключить | #1140 |
 | DES-1-04 | check_contrast.py проверяет наличие токена в парах, а не реальную пару текст/фон | #1276 |
 | ADD-1-01 | reference_adapter: обновление токена вне try — сетевая ошибка ломает контракт «никогда не бросает» | #1374 |
-| SEC-1-06 | XSS-регрессия закрывает единственный сток (stdout), эхо-поля path/name не покрыты | #1442 |
-| SEC-1-07 | Тест периметра написан по-английски вопреки инварианту «артефакты по-русски» | #1442 |
+| ARCH-1-03 | DAG-guard слеп к ленивым импортам: 42 ребра вне графа, цикл cli ↔ cli.commands реален | #1437 |
+| ARCH-2-04 | Boundary-guard grade-ядра — денилист из 7 имён, а не allowlist, как обещает | #1437 |
+| REV-5-04 | Guard architecture.md проверяет только рёбра графа — таблица модулей дрейфует безнаказанно | #1437 |
+| QA-1-03 | Лимит памяти проверяется только против поддельного модуля resource — реального прогона нет | #1441 |
+| QA-2-06 | Жёсткий Control+A в редакторе: e2e-набор чинён под Linux, у контрибьютора на macOS ломается молча по смыслу | #1443 |
 | AUD-1-01 | Контракт-тест фасада не замораживает приватные реэкспорты, которые сам объявляет замороженными | #1439 |
 | QA-2-05 | Ассерты по обеим локалям опираются на неверную посылку — язык UI детерминированно русский | #1435 |
 | QA-2-07 | Property-набор может исчезнуть молча: нет guard'а на hypothesis, в отличие от e2e и песочницы | #1435 |
