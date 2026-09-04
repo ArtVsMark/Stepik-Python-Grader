@@ -276,3 +276,50 @@ class TestTheUiLanguageOfTheStandIsRussian:
         """
         assert ui_text("grade.run_lost").strip()
         assert ui_text("grade.run_lost", "en").strip()
+
+
+class TestKeyboardModifiersArePortable:
+    """Модификатор клавиатуры в e2e не привязан к одной платформе.
+
+    Находка `QA-2-06` (issue #1004): в сценарии редактора стояло `Control+A`.
+    Набор чинился под Linux, а на macOS «выделить всё» — это `Meta+A`, тогда
+    как `Control+A` там переводит курсор в начало строки: набранный следом
+    текст дописался бы к старому вместо замены. У контрибьютора на другой
+    платформе такой тест ломается по смыслу, и понять причину по красному
+    ассерту нельзя.
+
+    Проверка сделана сторожем, а не разовой правкой: `Control+` пишется
+    рефлекторно, и следующий сценарий вернул бы его. Playwright разрешает
+    `ControlOrMeta` сам, поэтому у портируемой записи нет цены.
+    """
+
+    def test_no_platform_bound_modifier_in_e2e_sources(self) -> None:
+        """Ни один e2e-файл не жмёт `Control+`/`Meta+` напрямую."""
+        offenders: dict[str, list[str]] = {}
+        for path in sorted((pathlib.Path(e2e_conftest.__file__).parent).glob("*.py")):
+            found = [
+                f"строка {number}: {line.strip()}"
+                for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1)
+                if ('"Control+' in line or '"Meta+' in line) and "ControlOrMeta" not in line
+            ]
+            if found:
+                offenders[path.name] = found
+
+        assert not offenders, (
+            "модификатор привязан к платформе — на macOS сценарий сломается по "
+            "смыслу (issue #1004, находка `QA-2-06`). Используйте `ControlOrMeta`:\n"
+            + "\n".join(f"  {name}: {'; '.join(lines)}" for name, lines in offenders.items())
+        )
+
+    def test_the_guard_reads_the_e2e_sources(self) -> None:
+        """Guard-the-guard: файлы найдены и прочитаны.
+
+        Пустая выборка не находит нарушений ни в каком дереве — включая то, где
+        они есть.
+        """
+        sources = list((pathlib.Path(e2e_conftest.__file__).parent).glob("*.py"))
+
+        assert len(sources) > 3, sources
+        assert any("ControlOrMeta" in path.read_text(encoding="utf-8") for path in sources), (
+            "портируемого модификатора нет ни в одном файле — проверка смотрит не туда"
+        )
