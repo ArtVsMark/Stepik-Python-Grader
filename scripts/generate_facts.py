@@ -69,6 +69,7 @@ REPO = "ArtVsMark/Stepik-Python-Grader"
 
 _TEST_FUNCTION_RE = re.compile(r"^\s*(?:async\s+)?def\s+test_", re.MULTILINE)
 _MATRIX_VERSION_RE = re.compile(r"^\s*python-version:\s*\[([^\]]+)\]", re.MULTILINE)
+_MATRIX_OS_RE = re.compile(r"^\s*os:\s*\[([^\]]+)\]", re.MULTILINE)
 _EXPERIMENTAL_RE = re.compile(r'python-version:\s*"([^"]+)",\s*experimental:\s*true')
 
 
@@ -88,20 +89,37 @@ def count_test_modules(root: pathlib.Path) -> int:
     return len(list((root / "tests").rglob("test_*.py")))
 
 
-def python_versions(root: pathlib.Path) -> dict[str, list[str]]:
-    """Версии Python из матрицы: обязательные и экспериментальные.
+def _matrix_list(text: str, pattern: re.Pattern[str]) -> list[str]:
+    """Список из матрицы: ``["a", "b"]`` → ``["a", "b"]``."""
+    matched = pattern.search(text)
+    if not matched:
+        return []
+    return [item.strip().strip("\"'") for item in matched.group(1).split(",") if item.strip()]
 
-    Экспериментальных нет в правилах ветки по устройству — они идут под
+
+def python_versions(root: pathlib.Path) -> dict[str, list[str]]:
+    """Версии Python и операционные системы из матрицы.
+
+    Экспериментальных версий нет в правилах ветки по устройству — они идут под
     ``continue-on-error`` и мерж не блокируют, поэтому единственный источник —
     сама матрица.
+
+    ``os`` добавлен по просьбе витрины (issue #1448) и по той же причине, что и
+    остальные ключи: число операционных систем она добывала **регулярным
+    выражением по именам наших джобов**, то есть держала знание о нашем формате
+    имён в своём коде. Переименуй мы комбинацию — у соседа молча изменилось бы
+    число, и не упало бы ничего.
+
+    Из ``checks_per_pr.names`` вывести нельзя: там ВСЕ проверки на изменение, а
+    операционные системы показываются по обязательным — разные множества, и
+    ответ вышел бы на другой вопрос.
     """
     text = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    supported: list[str] = []
-    matched = _MATRIX_VERSION_RE.search(text)
-    if matched:
-        supported = [item.strip().strip("\"'") for item in matched.group(1).split(",")]
-    experimental = sorted(set(_EXPERIMENTAL_RE.findall(text)))
-    return {"supported": [v for v in supported if v], "experimental": experimental}
+    return {
+        "supported": _matrix_list(text, _MATRIX_VERSION_RE),
+        "experimental": sorted(set(_EXPERIMENTAL_RE.findall(text))),
+        "os": _matrix_list(text, _MATRIX_OS_RE),
+    }
 
 
 def _head_commit(root: pathlib.Path) -> str:
@@ -161,6 +179,12 @@ def build_facts(root: pathlib.Path | None = None) -> dict[str, object]:
     base = root if root is not None else _ROOT
     facts: dict[str, object] = {
         "schema": SCHEMA,
+        "schema_of": (
+            "формат ЭТОГО файла — факты проекта для соседних (generate_facts.py). "
+            "Не версия проекта, не его выпуск и не чужая схема: в этой экосистеме "
+            "их уже четыре (выгрузка правил, ответ потребителя, сводка, факты), "
+            "ключ у всех один, предметы разные — правило 164"
+        ),
         "_": (
             "Факты этого проекта для соседних. schema — версия ФОРМАТА файла, "
             "не версия проекта и не его выпуск. Ключа нет — значит не измеряли: "
