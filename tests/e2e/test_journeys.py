@@ -241,7 +241,12 @@ def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_
     assert page.locator("#editor-dirty").is_hidden()
 
     editor_content.click()
-    page.keyboard.press("Control+A")
+    # issue #1004, находка `QA-2-06`: модификатор портируемый, а не Control.
+    # На macOS «выделить всё» — это Meta+A, а Control+A там переводит курсор в
+    # начало строки (emacs-биндинг): набранный следом текст дописался бы к
+    # старому вместо замены. Набор чинился под Linux, и у контрибьютора на
+    # macOS ломался по смыслу — «ControlOrMeta» разрешается платформой сам.
+    page.keyboard.press("ControlOrMeta+A")
     page.keyboard.type("print(int(input()) + 1)\n")  # correct code, in the editable window
 
     # issue #297: editing shows the unsaved-changes indicator.
@@ -366,7 +371,7 @@ def _type_sandbox_code(page: Any, code: str) -> None:
     ровно ``code``.
     """
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.press("Control+a")
+    page.keyboard.press("ControlOrMeta+a")
     page.keyboard.press("Delete")
     for i, line in enumerate(code.split("\n")):
         if i:
@@ -512,7 +517,7 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
     page.click('[data-section="sandbox"]')
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.press("Control+a")
+    page.keyboard.press("ControlOrMeta+a")
     page.keyboard.press("Delete")
     page.keyboard.type("1 / 0")
     page.click("#sandbox-run")
