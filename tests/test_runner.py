@@ -255,7 +255,7 @@ def test_local_runner_reports_peak_memory_of_a_hungry_solution(
     outcome = LocalRunner().run(spec)
 
     assert outcome.timed_out is False
-    assert outcome.returncode == 0, outcome.stderr
+    assert outcome.returncode == 0, outcome.stderr.decode("utf-8", "replace")
     assert outcome.peak_memory_mb > 0.0, "нулевой пик у живого процесса — это потерянный замер"
     assert outcome.peak_memory_mb > 20.0, (
         "24 МБ, занятые решением, обязаны попасть в пик, а не потеряться в округлении"
@@ -984,3 +984,129 @@ def test_missing_psutil_is_not_silent(tmp_path: pathlib.Path, monkeypatch) -> No
 
     with pytest.warns(UserWarning, match="psutil не установлен"):
         LocalRunner().run(RunSpec(path=solution, stdin=b"", timeout=15.0, measure_memory=True))
+
+
+# ---------------------------------------------------------------------------
+# Лимит памяти проверяется НАСТОЯЩИМ прогоном (issue #1004, находка `QA-1-03`)
+#
+# Всё выше в этом файле гоняется против поддельного ``resource``: проверено, что
+# ``prlimit`` позван с такими-то аргументами. Это проверка согласованности кода
+# с моделью операционной системы, и ошибка в самой модели изнутри набора
+# невидима по построению — правило 170 каталога. Настоящий вопрос («решение,
+# просящее больше лимита, действительно не доезжает до конца») не задавал никто.
+# ---------------------------------------------------------------------------
+
+#: Лимит для прогона и заведомо больший запрос. Разрыв взят кратным, а не
+#: впритык: RLIMIT_AS считает адресное пространство целиком — интерпретатор,
+#: разделяемые библиотеки, арену аллокатора, — и запрос «чуть выше лимита»
+#: зависел бы от сборки Python на конкретной машине.
+_MEMORY_CAP_MB = 128
+_GREEDY_MB = 512
+
+
+def _prlimit_available() -> bool:
+    """Есть ли на этой платформе то, чем ставится лимит.
+
+    Условие — возможность, а не имя ОС: пропуск по ``sys.platform`` объявлял бы
+    Linux единственным местом, где механизм работает, тогда как предмет —
+    наличие ``resource.prlimit``. На Linux оно есть всегда, поэтому пропуска там
+    не случается, и это отдельно проверяется тестом ниже.
+    """
+    from stepik_grader.core import runner
+
+    return runner.resource is not None and hasattr(runner.resource, "prlimit")
+
+
+def _greedy_solution(folder: pathlib.Path) -> pathlib.Path:
+    """Решение, которое просит заведомо больше лимита."""
+    path = folder / "greedy.py"
+    path.write_text(
+        "chunk = bytearray(1024 * 1024)\n"
+        "held = []\n"
+        f"for _ in range({_GREEDY_MB}):\n"
+        "    held.append(bytearray(chunk))\n"
+        "print('дошло до конца')\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.mark.skipif(not _prlimit_available(), reason="на этой платформе prlimit отсутствует")
+def test_memory_cap_really_stops_a_greedy_solution(tmp_path: pathlib.Path) -> None:
+    """Решение, просящее больше лимита, не доезжает до конца.
+
+    Прогон настоящий: подделка ответила бы «prlimit позван» и на неработающем
+    лимите. Проверяется то, что увидит студент, — решение не напечатало свой
+    финальный вывод.
+    """
+    spec = RunSpec(
+        path=_greedy_solution(tmp_path),
+        stdin=None,
+        timeout=60.0,
+        measure_memory=False,
+        max_memory_mb=_MEMORY_CAP_MB,
+    )
+
+    outcome = LocalRunner().run(spec)
+
+    assert not outcome.timed_out, "прогон упёрся в таймаут, а не в лимит памяти"
+    assert outcome.returncode != 0, "решение сверх лимита завершилось успешно"
+    assert "дошло до конца" not in outcome.stdout.decode("utf-8", "replace")
+
+
+@pytest.mark.skipif(not _prlimit_available(), reason="на этой платформе prlimit отсутствует")
+def test_a_modest_solution_passes_under_the_same_cap(tmp_path: pathlib.Path) -> None:
+    """Тот же лимит не мешает обычному решению — иначе он ломал бы верные.
+
+    Без этой половины «решение упало» доказывало бы только то, что что-то
+    сломалось: лимит, слишком тесный для самого интерпретатора, дал бы такой же
+    красный на любом коде.
+    """
+    path = tmp_path / "modest.py"
+    path.write_text("held = bytearray(1024 * 1024)\nprint('дошло до конца')\n", encoding="utf-8")
+    spec = RunSpec(
+        path=path,
+        stdin=None,
+        timeout=60.0,
+        measure_memory=False,
+        max_memory_mb=_MEMORY_CAP_MB,
+    )
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.returncode == 0, outcome.stderr.decode("utf-8", "replace")
+    assert "дошло до конца" in outcome.stdout.decode("utf-8", "replace")
+
+
+@pytest.mark.skipif(not _prlimit_available(), reason="на этой платформе prlimit отсутствует")
+def test_without_a_cap_the_same_greedy_solution_finishes(tmp_path: pathlib.Path) -> None:
+    """Без лимита то же решение доезжает — значит красное выше даёт именно лимит.
+
+    Прямое доказательство причины: тот же код, та же машина, отличие одно.
+    """
+    spec = RunSpec(
+        path=_greedy_solution(tmp_path),
+        stdin=None,
+        timeout=120.0,
+        measure_memory=False,
+        max_memory_mb=None,
+    )
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.returncode == 0, outcome.stderr.decode("utf-8", "replace")
+    assert "дошло до конца" in outcome.stdout.decode("utf-8", "replace")
+
+
+def test_linux_never_skips_the_real_memory_run() -> None:
+    """На Linux пропуска быть не может — там ``prlimit`` есть всегда.
+
+    Пропуск по возможности честнее пропуска по имени ОС, но у него та же
+    опасность: условие, ставшее ложным по недосмотру, унесёт прогон в тишину.
+    Здесь оно и проверяется — «набор молча исчез» и «механизм не поддержан
+    платформой» снаружи выглядят одинаково.
+    """
+    if sys.platform != "linux":
+        pytest.skip("утверждение только про Linux")
+
+    assert _prlimit_available(), "на Linux prlimit обязан быть — прогон ушёл бы в пропуск"
