@@ -573,7 +573,7 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | ADD-5-03 | `src/stepik_grader/core/test_loader.py:205` | Формат 2 покрыт одной идеальной парой: потерянный expected_N и ведущий ноль молча выбрасывают кейсы | medium | ✅ |
 | ADD-5-01 | `tests/test_property.py:87` | Три property-теста normalize_floats остаются зелёными, если функцию заменить на тождественную | low | ◐ |
 | ADD-5-02 | `tests/test_mode_detector.py:16` | tests/test_mode_detector.py проверяет только приватный _is_safe_constant, публичный API модуля не тронут | low | ◐ |
-| ADD-5-04 | `tests/test_output_comparison.py:125` | Таблица сравнения вывода не содержит строк про обрезку по max_output_bytes и хвостовые нули float | low | ◐ |
+| ADD-5-04 | `tests/test_output_comparison.py:125` | Таблица сравнения вывода не содержит строк про обрезку по max_output_bytes и хвостовые нули float | low | ✅ |
 | ADD-5-05 | `tests/test_output_comparison.py:15` | Докстринг test_output_comparison.py обещает xfail(strict=True) на известные дефекты — маркеров в файле нет | low | ✅ |
 | ADD-5-06 | `tests/test_result.py:1` | Докстринги test_result.py и части test_grader_core.py — по-английски вопреки инварианту | low | ✅ |
 | QA-2-01 | `scripts/skip_inventory.py:155` | Инвентарь пропусков слеп к модульному pytestmark — скип целого файла невидим для гейта | low | ✅ |
@@ -1549,6 +1549,8 @@ CI-матрицы отработала одна. Ревизия фазы 4 об�
 | LNCH-1-01 | Лаунчер молча включает запись истории прогонов и не даёт её выключить | #1140 |
 | DES-1-04 | check_contrast.py проверяет наличие токена в парах, а не реальную пару текст/фон | #1276 |
 | ADD-1-01 | reference_adapter: обновление токена вне try — сетевая ошибка ломает контракт «никогда не бросает» | #1374 |
+| ADD-5-04 | Таблица сравнения вывода не содержит строк про обрезку по max_output_bytes и хвостовые нули float | #1440 |
+| ADD-5-05 | Докстринг test_output_comparison.py обещает xfail(strict=True) на известные дефекты — маркеров в файле нет | #1440 |
 | QA-2-05 | Ассерты по обеим локалям опираются на неверную посылку — язык UI детерминированно русский | #1435 |
 | QA-2-07 | Property-набор может исчезнуть молча: нет guard'а на hypothesis, в отличие от e2e и песочницы | #1435 |
 
