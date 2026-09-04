@@ -16,10 +16,17 @@ AC/WA, то есть ровно то, что увидит студент.
 дефект жив, кейс «ожидаемо падает» и не красит прогон; после фикса он начнёт
 проходить, strict превратит это в падение — сигнал снять маркер вместе с
 закрытием issue. Молчаливых ``skip``/нестрогих ``xfail`` здесь нет намеренно.
+
+**Сейчас таких кейсов нет ни одного, и это состояние, а не забытое правило.**
+Различить их читателю было нечем (issue #1004, находка `ADD-5-05`): абзац выше
+обещал маркеры, в файле не было ни одного, и «известных дефектов не осталось»
+выглядело точно так же, как «соглашение бросили». Теперь соглашение держит
+проверка: появившийся ``xfail`` обязан быть строгим и называть issue.
 """
 
 from __future__ import annotations
 
+import ast
 import pathlib
 from collections.abc import Iterator
 
@@ -646,3 +653,154 @@ def test_complete_run_has_empty_warnings(tmp_path: pathlib.Path) -> None:
     result = run_tests(task_dir / "task.py", task_dir / "tests", timeout=_TIMEOUT)
 
     assert result["warnings"] == []
+
+
+# ---------------------------------------------------------------------------
+# Таблица здесь и таблица в документации — одно и то же (issue #1004,
+# находка `ADD-5-04`). Докстринг модуля это утверждал с самого начала:
+# «расхождение между ними означает, что документация врёт». Утверждение было,
+# механизма под ним не было — и строка про обрезку по `max_output_bytes`
+# действительно жила только тестом.
+# ---------------------------------------------------------------------------
+
+_CONFIGURATION_MD = pathlib.Path(__file__).parent.parent / "docs" / "use" / "configuration.md"
+
+#: Строка пользовательской таблицы → фраза, обязанная встретиться в ЭТОМ файле.
+#:
+#: Сторона документа **выводится** из самого документа, а не переписана сюда:
+#: правится он руками и дрейфует именно он. Сторона теста объявлена — это
+#: ratchet: новая строка в доке без прогонного кейса краснеет, и автор отвечает
+#: вслух, каким тестом правило доказано.
+_DOC_ROW_TO_TEST_PHRASE = {
+    "Расхождение float за 9-м знаком": "хвост за 9-м знаком отбрасывается",
+    "Разная запись одного числа": "экспонента и десятичная — одно число",
+    "Число внутри текста": "число внутри текста тоже нормализуется",
+    "`CRLF` в файлах тестов": "def test_crlf_in_expected_file_is_forgiven",
+    "Отсутствие финального перевода строки": (
+        "def test_missing_trailing_newline_in_expected_is_forgiven"
+    ),
+    "**Пробел в конце строки**": "хвостовой пробел в выводе решения",
+    "**Пустые строки в конце вывода**": "хвостовая пустая строка незначима",
+    "Пробел в начале строки": "ведущий пробел значим — обрезается только хвост",
+    "Другой пробельный символ внутри строки": "неразрывный пробел ≠ обычный",
+    "Пустая строка в начале вывода": "пустая строка В НАЧАЛЕ значима",
+    "Целое против дробного": "целое и float — разные строки",
+    "Расхождение внутри 9 знаков": "расхождение внутри 9 знаков — ошибка",
+    "**Знаков меньше, чем требует ожидание**": "решение не выполнило требование «до сотых»",
+    "Запятая как десятичный разделитель": "запятая как десятичный разделитель не понимается",
+    "Разные юникод-формы одной буквы": "def test_unicode_is_compared_without_nfc_normalization",
+    "Вывод, обрезанный по `max_output_bytes`": "def test_truncated_output_says_so",
+}
+
+
+def _documented_comparison_rows() -> list[str]:
+    """Первая колонка обеих таблиц «Что прощается» / «Что не прощается».
+
+    Разбор останавливается на любом заголовке: ниже по документу лежит таблица
+    диагностики с той же формой, и без этого она попадала бы в выборку.
+    """
+    rows: list[str] = []
+    current: str | None = None
+    for line in _CONFIGURATION_MD.read_text(encoding="utf-8").split("\n"):
+        if line.startswith("#"):
+            current = (
+                line if line.startswith(("### Что прощается", "### Что не прощается")) else None
+            )
+            continue
+        if current is None or not line.startswith("| ") or line.startswith(("|---", "| Что ")):
+            continue
+        rows.append(line.split("|")[1].strip())
+    return rows
+
+
+def test_every_documented_rule_is_proved_by_a_case_here() -> None:
+    """Строка пользовательской таблицы доказана прогонным кейсом этого файла."""
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    undeclared = [
+        row for row in _documented_comparison_rows() if row not in _DOC_ROW_TO_TEST_PHRASE
+    ]
+    unproved = [row for row, phrase in _DOC_ROW_TO_TEST_PHRASE.items() if phrase not in source]
+
+    assert not undeclared and not unproved, (
+        "таблица в docs/use/configuration.md разошлась с прогонными кейсами "
+        "(issue #1004, находка `ADD-5-04`).\n"
+        f"  строка доки без объявленного кейса: {', '.join(undeclared) or '—'}\n"
+        f"  объявленный кейс не найден в этом файле: {', '.join(unproved) or '—'}"
+    )
+
+
+def test_no_declaration_outlives_its_documented_row() -> None:
+    """Строку из доки убрали — объявление уходит вместе с ней.
+
+    Иначе список только растёт и следующая строка проезжает под чужим,
+    недействительным объяснением.
+    """
+    documented = set(_documented_comparison_rows())
+    stale = sorted(set(_DOC_ROW_TO_TEST_PHRASE) - documented)
+
+    assert not stale, f"объявление пережило строку документации: {', '.join(stale)}"
+
+
+def test_no_anchor_matches_only_its_own_declaration() -> None:
+    """Якорь обязан встретиться ВНЕ таблицы соответствия.
+
+    Первая редакция объявляла два якоря по догадке (``trailing_blank``,
+    ``leading_blank``), и они находились ровно в одном месте — в самом
+    объявлении. Проверка «фраза есть в файле» на таких якорях выполняется
+    всегда: сторож сверял объявление с самим собой и был зелёным по
+    построению — тот же класс, что и правило, обеспеченное только текстом.
+    """
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    start = source.index("_DOC_ROW_TO_TEST_PHRASE = {")
+    body = source[:start] + source[source.index("\n}\n", start) :]
+    only_in_declaration = [
+        phrase for phrase in _DOC_ROW_TO_TEST_PHRASE.values() if phrase not in body
+    ]
+
+    assert not only_in_declaration, (
+        "якорь встречается только в объявлении — сверять его с самим собой "
+        f"бессмысленно: {', '.join(only_in_declaration)}"
+    )
+
+
+def test_the_documentation_tables_are_actually_read() -> None:
+    """Guard-the-guard: таблицы прочитались.
+
+    Пустой разбор совпал бы с пустым ожиданием, и обе проверки выше зеленели бы
+    на любом документе — включая тот, где таблиц не осталось вовсе.
+    """
+    rows = _documented_comparison_rows()
+
+    assert len(rows) > 10, rows
+    assert "Пробел в начале строки" in rows
+
+
+def test_expected_failures_stay_strict_and_named() -> None:
+    """Появившийся ``xfail`` обязан быть строгим и называть issue.
+
+    Нестрогий ``xfail`` — это молчаливый пропуск под другим именем: кейс не
+    краснеет ни пока дефект жив, ни после того, как он починен, то есть
+    маркер некому снять. А ``xfail`` без номера задачи не даёт ответить, чего
+    он ждёт и когда его убирать.
+
+    Разбор идёт по дереву, а не поиском подстроки: первая редакция сканировала
+    текст и нашла собственную строку поиска — сторож упал на самом себе.
+    """
+    tree = ast.parse(pathlib.Path(__file__).read_text(encoding="utf-8"))
+    markers = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "xfail"
+    ]
+
+    for marker in markers:
+        where = f"строка {marker.lineno}"
+        strict = next((kw for kw in marker.keywords if kw.arg == "strict"), None)
+        assert strict is not None and getattr(strict.value, "value", False) is True, (
+            f"нестрогий xfail — это молчаливый пропуск ({where})"
+        )
+        reason = next((kw for kw in marker.keywords if kw.arg == "reason"), None)
+        text = getattr(getattr(reason, "value", None), "value", "")
+        assert "#" in str(text), f"xfail без ссылки на issue ({where})"
