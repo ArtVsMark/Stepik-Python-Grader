@@ -611,7 +611,7 @@
       "    d = {[1, 2]: 'list'}",
       "except TypeError as e:",
       "    print(e)",
-      "# → unhashable type: 'list'",
+      "# → ? текст TypeError зависит от версии: 3.14 добавил «cannot use 'list' as a dict key»",
       "pair_count = {}",
       "pairs = [(1, 2), (3, 4), (1, 2)]",
       "for p in pairs:",
