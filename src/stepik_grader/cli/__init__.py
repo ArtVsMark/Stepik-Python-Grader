@@ -7,10 +7,12 @@
 Compatibility facade (issue #117/#119): `stepik_grader.cli` остаётся
 единственной точкой доступа для entrypoint (`stepik-grader`), `grader.py`
 и существующих monkeypatch-тестов. Парсинг/options helpers вынесены в
-leaf-модуль `cli/options.py` и реэкспортированы здесь ниже — вызовы внутри
-этого модуля (`main()` и др.) продолжают резолвить их как global-имена
-`cli`-namespace, поэтому `monkeypatch.setattr(cli, "_build_arg_parser", ...)`
-по-прежнему работает.
+leaf-модуль `cli/options.py`. Публичные имена импортируются сюда, приватные
+зовутся ЧЕРЕЗ МОДУЛЬ (`options._build_arg_parser(...)`, issue #903): реэкспорт
+приватного закреплял бы его как де-факто публичный API пакета — символ уже не
+переименовать, не сверив фасад, то есть архитектурную поверхность начинают
+диктовать тесты. Подмену это не ломает: имя резолвится в момент вызова, и
+`monkeypatch.setattr(options, "_build_arg_parser", ...)` виден отсюда.
 
 Non-interactive запуск (обе формы равнозначны: console script после
 `pip install` и запуск модулем из исходников):
@@ -52,47 +54,23 @@ from stepik_grader import config
 # issue #120: mode handlers — вынесены в leaf-модуль cli/commands.py; получают
 # зависимости через CliContext (cli/context.py), а не читают module globals
 # этого файла напрямую (см. docstring выше и _build_cli_context() ниже).
-from stepik_grader.cli import commands, interactive
+from stepik_grader.cli import commands, interactive, options, rendering
 from stepik_grader.cli.context import CliContext
 from stepik_grader.cli.exit_codes import ExitCode
 
-# issue #121 Phase 2: интерактивное меню/профили — вынесены в leaf-модуль
-# cli/interactive.py. _ask_number/_BENCH_PROFILES/_MICRO_PROFILES нигде не
-# патчатся напрямую через cli.X — реэкспорт нужен только для facade-доступа
-# (grader.py импортирует _BENCH_PROFILES/_MICRO_PROFILES) и обратной
-# совместимости.
-from stepik_grader.cli.interactive import (  # noqa: F401
-    _BENCH_PROFILES,
-    _MICRO_PROFILES,
-    _ask_number,
-)
-
-# issue #119: parsing/options helpers — вынесены в leaf-модуль cli/options.py,
-# реэкспортированы здесь для backward compatibility фасада (см. docstring выше).
+# issue #119: parsing/options helpers — вынесены в leaf-модуль cli/options.py.
+# Публичные имена берутся напрямую, приватные — через модуль `options`
+# (issue #903): реэкспорт приватного закрепляет его как де-факто публичный API
+# пакета, и тогда архитектурную поверхность диктуют тесты. Вызов через модуль
+# сохраняет и подмену: `monkeypatch.setattr(options, "_build_arg_parser", …)`
+# видна отсюда, потому что имя резолвится в момент вызова.
 from stepik_grader.cli.options import (
-    _build_arg_parser,
-    _force_utf8_stdio,
-    _resolve_record_history,
-    _resolve_record_stats,
-    _resolve_use_cache,
-    _resolve_verbosity,
     apply_launch_profile,
     peek_lang,
     validate_output_format,
     validate_serve_arguments,
 )
 from stepik_grader.cli.prompts import EXPLICIT_YES
-
-# issue #121 Phase 1: pure rendering helpers — вынесены в leaf-модуль
-# cli/rendering.py, реэкспортированы здесь для backward compatibility фасада.
-# _rows_to_csv/_rows_to_markdown не используются напрямую в этом файле (только
-# внутри rendering.py собственным _print_tabular) — реэкспорт нужен только для
-# facade-доступа (cli._rows_to_csv), которым пользуются тесты.
-from stepik_grader.cli.rendering import (  # noqa: F401
-    _print_tabular,
-    _rows_to_csv,
-    _rows_to_markdown,
-)
 from stepik_grader.config import CONFIG
 from stepik_grader.core import stats
 from stepik_grader.core.cache import GraderCache
@@ -461,7 +439,7 @@ def _build_cli_context() -> CliContext:
         preflight_solution=preflight_solution,
         run_microbench_mode=run_microbench_mode,
         resolve_test_dir_from_input=_resolve_test_dir_from_input,
-        print_tabular=_print_tabular,
+        print_tabular=rendering._print_tabular,
         pick_path_via_dialog=_pick_path_via_dialog,
         ask_bench_profile=_ask_bench_profile,
         ask_micro_profile=_ask_micro_profile,
@@ -699,12 +677,12 @@ def main(argv: list[str] | None = None) -> ExitCode:
     явный список используется в тестах, чтобы не зависеть от sys.argv
     (который во время pytest содержит аргументы самого pytest).
     """
-    _force_utf8_stdio()
+    options._force_utf8_stdio()
 
     # issue #997 (INS-5-03): язык нужен ДО сборки парсера — иначе тексты справки
     # уже зафиксированы, и `--lang en --help` печатает русскую справку, то есть
     # самая первая поверхность игнорирует выбор языка.
-    parser = _build_arg_parser(peek_lang(argv))
+    parser = options._build_arg_parser(peek_lang(argv))
     args = parser.parse_args(argv)
 
     # issue #993: источник конфигурации фиксируется до всего остального —
@@ -1009,7 +987,7 @@ def main(argv: list[str] | None = None) -> ExitCode:
                 # выключал историю пунктом 7 и получал её обратно при первом же
                 # `--serve`. Теперь резолвер один на все поверхности, а дефолт
                 # веба передаётся параметром.
-                record_history=_resolve_record_history(args, default=True),
+                record_history=options._resolve_record_history(args, default=True),
                 # issue #1131 (LNCH-2-05): выбранный язык доезжает до страницы.
                 # Раньше `--lang en --serve` переводил только сообщения API, а
                 # интерфейс открывался на русском — флаг молча действовал
@@ -1051,18 +1029,18 @@ def main(argv: list[str] | None = None) -> ExitCode:
         _interactive_menu()
         return ExitCode.OK
 
-    record_stats = _resolve_record_stats(args)
-    record_history = _resolve_record_history(args)
+    record_stats = options._resolve_record_stats(args)
+    record_history = options._resolve_record_history(args)
     record_lint = args.lint  # разовый флаг режимов 1/2 (issue #349), без config-дефолта
     ai_hints = args.ai_hints  # разовый флаг AI-подсказок режимов 1–4 (issue #435/#542)
 
     if args.mode == 1:
         if not args.file:
             args.file = _resolve_cli_path_or_error(parser, args, want_dir=False, flag="--file")
-        verbose = _resolve_verbosity(args, default=True)
+        verbose = options._resolve_verbosity(args, default=True)
         # Режим 1 — один файл; инкрементальность (issue #71) неприменима,
         # поэтому кэш под --watch автоматически не включаем.
-        use_cache = _resolve_use_cache(args, incremental=False)
+        use_cache = options._resolve_use_cache(args, incremental=False)
         return _dispatch_with_watch(
             args.file,
             lambda: _run_mode_1(
@@ -1080,10 +1058,10 @@ def main(argv: list[str] | None = None) -> ExitCode:
     elif args.mode == 2:
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
-        verbose = _resolve_verbosity(args, default=False)
+        verbose = options._resolve_verbosity(args, default=False)
         # issue #71: под --watch кэш включается по умолчанию — на событие
         # перезапускается только изменённый файл, остальные строки берутся из кэша.
-        use_cache = _resolve_use_cache(args, incremental=args.watch)
+        use_cache = options._resolve_use_cache(args, incremental=args.watch)
         return _dispatch_with_watch(
             args.dir,
             lambda: _run_mode_2(

@@ -585,11 +585,13 @@ def test_package_facades_do_not_reexport_privates() -> None:
     Приватный ПОДМОДУЛЬ (``core/sandbox/_linux.py``) — не реэкспорт имени:
     пакет собирает свои реализации, наружу они не торчат.
 
-    ``stepik_grader.cli`` — известное исключение (issue #903): та же болезнь, но
-    ~90 обращений в тестах, чинится отдельной задачей. Список сокращается, а не
-    растёт: новый пакет в нём появляться не должен.
+    Долга здесь больше нет: ``stepik_grader.cli`` был последним исключением и
+    закрыт в issue #903 — приватное зовётся через свой модуль
+    (``options._build_arg_parser``), и late-binding это не ломает. Множество
+    остаётся пустым намеренно: пустой список исключений — сильное утверждение,
+    а его отсутствие превратило бы правило в «действует там, где вспомнили».
     """
-    known_debt = {"stepik_grader.cli"}
+    known_debt: set[str] = set()
     modules = {_module_name(p) for p in _iter_module_files()}
     violations: dict[str, list[str]] = {}
     for path in _iter_module_files():
