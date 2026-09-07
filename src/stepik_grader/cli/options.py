@@ -342,6 +342,16 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         action="store_true",
         help=t["cli_help_init_vscode"],
     )
+    # issue #1072 (находка STR-3-05): каталог задачи умел создавать только
+    # загрузчик, то есть попробовать грейдер на своей задаче было нельзя без
+    # аккаунта Stepik, OAuth-приложения и сети. Формат открытый — теперь его
+    # заполняет и локальная команда.
+    parser.add_argument(
+        "--init-task",
+        type=pathlib.Path,
+        metavar="NAME",
+        help=t["cli_help_init_task"],
+    )
     parser.add_argument(
         "--import-reference",
         type=pathlib.Path,
