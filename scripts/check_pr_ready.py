@@ -78,6 +78,7 @@ __all__ = [
     "branch_is_stale",
     "check_names",
     "default_fetch",
+    "eternal_wait",
     "evaluate",
     "job_names",
     "latest_by_name",
@@ -533,6 +534,11 @@ def evaluate(
     if missing:
         reasons.append("не создано проверок из эталонного набора: " + ", ".join(missing))
 
+    # issue #1420: отдельная причина, а не «ветка не готова к мержу». Первая
+    # называет, что чинить, вторая отправляет искать это самому.
+    if stuck := eternal_wait(pull, listed):
+        reasons.append(stuck)
+
     completed = sum(1 for run in listed if run.get("status") == "completed")
     return Verdict(
         ready=not reasons,
@@ -541,6 +547,40 @@ def evaluate(
         completed=completed,
         missing=missing,
         warnings=warnings,
+    )
+
+
+def eternal_wait(pull: dict[str, Any], listed: list[dict[str, Any]]) -> str | None:
+    """Различить «проверки ещё идут» и «ждём проверку, которой не будет» (issue #1420).
+
+    Правило каталога 168: имя обязательной проверки держит ВНЕШНЯЯ настройка
+    репозитория — её не видит ревью, не ломает переименование и не проверяет ни
+    один прогон. Разъезд двух сторон производит не красное, а **ожидание**, и
+    снаружи оно неотличимо от «проверки ещё идут». Класс поломки —
+    самоблокировка: требуемое условие достижимо только после слияния, то есть
+    чинится снятием защиты.
+
+    Признак ищется по ``mergeable_state``, а не по цвету проверок, потому что
+    цвет здесь как раз в порядке: всё завершено, всё зелено, а слияние
+    заблокировано. Значит защита ждёт имя, которого в дереве нет.
+
+    Args:
+        pull: тело PR.
+        listed: check-run'ы головы, по одному последнему на имя.
+
+    Returns:
+        Строку-объяснение либо ``None``, если это обычное ожидание.
+    """
+    if str(pull.get("mergeable_state")) != "blocked" or not listed:
+        return None
+    if any(run.get("status") != "completed" for run in listed):
+        return None
+    if any(run.get("conclusion") not in _OK_CONCLUSIONS for run in listed):
+        return None
+    return (
+        "вечное ожидание: все проверки завершены и зелены, а слияние заблокировано — "
+        "защита ветки ждёт имя, которого в дереве нет. Сверить список обязательных с "
+        "ci.yml: python scripts/check_branch_protection.py --tree-only"
     )
 
 
