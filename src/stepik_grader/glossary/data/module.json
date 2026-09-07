@@ -493,12 +493,12 @@
     "examples": [
       "from enum import Enum",
       "class Color(Enum):",
-      "RED = 1; GREEN = 2",
+      "    RED = 1; GREEN = 2",
       "Color.RED.name # → 'RED'",
       "Color.RED.value # → 1",
       "Color(1).name # → 'RED'",
       "for c in Color:",
-      "print(c.name, c.value) # RED 1, GREEN 2"
+      "    print(c.name, c.value) # RED 1, GREEN 2"
     ],
     "related": [
       "enum",
@@ -1042,11 +1042,11 @@
       "from dataclasses import dataclass",
       "@dataclass",
       "class Circle:",
-      "radius: float",
-      "def __post_init__(self):",
-      "if self.radius < 0:",
-      "raise ValueError('radius < 0')",
-      "self.area = 3.14 * self.radius ** 2",
+      "    radius: float",
+      "    def __post_init__(self):",
+      "        if self.radius < 0:",
+      "            raise ValueError('radius < 0')",
+      "        self.area = 3.14 * self.radius ** 2",
       "c = Circle(3.0)",
       "c.area # → 28.26",
       "# Circle(-1) # → ValueError"
@@ -1718,13 +1718,14 @@
     ],
     "examples": [
       "from contextlib import closing",
-      "from urllib.request import urlopen",
-      "with closing(urlopen('http://example.com')) as page:",
-      "data = page.read()  # page.close() вызовется автоматически",
+      "# Сетевой пример — только для чтения, запускать в песочнице не нужно:",
+      "# from urllib.request import urlopen",
+      "# with closing(urlopen('http://example.com')) as page:",
+      "#     data = page.read()  # page.close() вызовется автоматически",
       "class Res:",
-      "def close(self): print('closed')",
+      "    def close(self): print('closed')",
       "with closing(Res()) as r:",
-      "pass # → closed"
+      "    pass # → closed"
     ],
     "related": [
       "contextlib.aclosing",
@@ -2237,11 +2238,11 @@
       "from dataclasses import dataclass, fields",
       "@dataclass",
       "class Pt:",
-      "x: int; y: int = 0",
+      "    x: int; y: int = 0",
       "for f in fields(Pt):",
-      "print(f.name, f.type) # x int, y int",
-      "fields(Pt)[0].name # → 'x'",
-      "fields(Pt)[1].default # → 0"
+      "    print(f.name, f.type)  # → ? две строки: «x <class 'int'>» и «y <class 'int'>»",
+      "print(fields(Pt)[0].name) # → x",
+      "print(fields(Pt)[1].default) # → 0"
     ],
     "related": [
       "field",
@@ -3674,18 +3675,18 @@
     "examples": [
       "from functools import wraps",
       "def my_decorator(func):",
-      "@wraps(func)",
-      "def wrapper(*args, **kwargs):",
-      "return func(*args, **kwargs)",
-      "return wrapper",
+      "    @wraps(func)",
+      "    def wrapper(*args, **kwargs):",
+      "        return func(*args, **kwargs)",
+      "    return wrapper",
       "@my_decorator",
       "def greet(name):",
-      "\"\"\"Say hello.\"\"\"",
-      "return f'Hello, {name}'",
+      "    \"\"\"Say hello.\"\"\"",
+      "    return f'Hello, {name}'",
       "print(greet.__name__)  # → greet",
       "print(greet.__doc__)  # → Say hello.",
-      "print(greet('Alice'))  # → Hello, Alice!",
-      "print(greet.__wrapped__)  # → <function greet>"
+      "print(greet('Alice'))  # → Hello, Alice",
+      "print(greet.__wrapped__)  # → ? repr функции содержит адрес"
     ],
     "related": [
       "functools.update_wrapper",
@@ -4182,12 +4183,12 @@
     "examples": [
       "from enum import IntEnum",
       "class Prio(IntEnum):",
-      "LOW = 1; MED = 2; HIGH = 3",
+      "    LOW = 1; MED = 2; HIGH = 3",
       "Prio.HIGH > Prio.LOW # → True",
       "Prio.MED + 1 # → 3",
       "from enum import StrEnum",
       "class Status(StrEnum):",
-      "OK = 'ok'; ERR = 'error'",
+      "    OK = 'ok'; ERR = 'error'",
       "Status.OK == 'ok' # → True",
       "f'status: {Status.ERR}' # → 'status: error'"
     ],
@@ -6359,13 +6360,13 @@
       "module"
     ],
     "examples": [
-      "import os",
-      "with os.scandir('/tmp') as it:",
-      "for entry in it:",
-      "if entry.is_file():",
-      "print(entry.name, entry.stat().st_size)",
-      "elif entry.is_dir():",
-      "print(entry.name + '/')"
+      "import os, tempfile",
+      "with os.scandir(tempfile.gettempdir()) as it:",
+      "    for entry in it:",
+      "        if entry.is_file():",
+      "            print(entry.name, entry.stat().st_size)  # → ? имя и размер файла",
+      "        elif entry.is_dir():",
+      "            print(entry.name + '/')  # → ? имя вложенного каталога"
     ],
     "related": [
       "os.listdir",
@@ -6696,12 +6697,12 @@
     "examples": [
       "import os",
       "for root, dirs, files in os.walk('.'):",
-      "print(root)  # → текущая папка",
+      "    print(root)  # → текущая папка",
       "all_py = []",
       "for root, dirs, files in os.walk('.'):",
-      "for f in files:",
-      "if f.endswith('.py'):",
-      "all_py.append(os.path.join(root, f))  # → все .py файлы рекурсивно",
+      "    for f in files:",
+      "        if f.endswith('.py'):",
+      "            all_py.append(os.path.join(root, f))  # → все .py файлы рекурсивно",
       "total = sum(len(files) for _, _, files in os.walk('.'))  # → общее число файлов",
       "print(total)  # → кол-во файлов"
     ],
@@ -8997,9 +8998,9 @@
       "lock = threading.Lock()",
       "counter = 0",
       "def increment():",
-      "global counter",
-      "with lock:          # автоматический release",
-      "counter += 1",
+      "    global counter",
+      "    with lock:          # автоматический release",
+      "        counter += 1",
       "threads = [threading.Thread(target=increment) for _ in range(100)]",
       "for t in threads: t.start()",
       "for t in threads: t.join()",
@@ -9042,10 +9043,10 @@
       "import threading",
       "rlock = threading.RLock()",
       "def recursive(n):",
-      "with rlock:",
-      "if n > 0:",
-      "recursive(n - 1)  # Lock здесь бы заблокировал",
-      "print(n)",
+      "    with rlock:",
+      "        if n > 0:",
+      "            recursive(n - 1)  # Lock здесь бы заблокировал",
+      "        print(n)",
       "recursive(3)"
     ],
     "related": [
@@ -9314,7 +9315,7 @@
       "from enum import Enum, unique",
       "@unique",
       "class Status(Enum):",
-      "ACTIVE = 1; INACTIVE = 2",
+      "    ACTIVE = 1; INACTIVE = 2",
       "# @unique",
       "# class Bad(Enum):",
       "#     A = 1; B = 1  # → ValueError!",
