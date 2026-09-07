@@ -118,6 +118,25 @@ _REPAIRED_BY_HAND = (
     "final",
     "generic-t",
     "namedtuple",
+    # Партия 2 — короткие карточки с несколькими открывателями блока.
+    "delattr",
+    "locals",
+    ".name-.value",
+    "__post_init__",
+    "contextlib.closing",
+    "dataclasses.fields",
+    "functools.wraps",
+    "intenum-strenum",
+    "os-scandir",
+    "os.walk",
+    "threading-lock",
+    "threading-rlock",
+    "unique",
+    "match-case",
+    "zip-strict-true",
+    "classvar",
+    "literal-v1-v2",
+    "typeddict",
 )
 
 

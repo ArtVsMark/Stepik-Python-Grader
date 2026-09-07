@@ -75,6 +75,7 @@ __all__ = [
     "EXIT_OK",
     "EXIT_UNKNOWN",
     "EXPECTED_CHECKS",
+    "PLAIN_JOBS",
     "PROTECTED_BRANCH",
     "REQUIRED_RULES",
     "check_ci_jobs",
@@ -114,7 +115,11 @@ REQUIRED_RULES: tuple[str, ...] = ("deletion", "non_fast_forward")
 #: Джобы, чьё имя входит в ``EXPECTED_CHECKS`` как есть (без матрицы). Матричные
 #: комбинации складываются из имени джоба и значений, поэтому текстовым поиском
 #: не проверяются — их расхождение ловит сверка с ruleset выше.
-_PLAIN_JOBS: tuple[str, ...] = ("docs-guardrails", "static", "supply-chain", "sandbox-linux", "e2e")
+#:
+#: Публично, потому что тот же состав нужен агрегатору (`ci_aggregate.py`):
+#: два списка обязательных проверок разъехались бы молча, а «выведено из
+#: дерева» превратилось бы во вторую копию (правило 171).
+PLAIN_JOBS: tuple[str, ...] = ("docs-guardrails", "static", "supply-chain", "sandbox-linux", "e2e")
 
 _CI_WORKFLOW = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "ci.yml"
 
@@ -215,7 +220,7 @@ def check_ci_jobs(text: str) -> list[str]:
     """
     return [
         f"джоб {job!r} объявлен обязательным, но в ci.yml такого имени нет"
-        for job in _PLAIN_JOBS
+        for job in PLAIN_JOBS
         if f"\n  {job}:" not in text
     ]
 
