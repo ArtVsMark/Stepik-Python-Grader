@@ -14,6 +14,7 @@ import types
 import pytest
 
 from stepik_grader import cli
+from stepik_grader.cli import options
 
 
 def _args(cache: bool | None) -> argparse.Namespace:
@@ -21,19 +22,19 @@ def _args(cache: bool | None) -> argparse.Namespace:
 
 
 def test_explicit_cache_wins_over_incremental() -> None:
-    assert cli._resolve_use_cache(_args(True), incremental=True) is True
-    assert cli._resolve_use_cache(_args(True), incremental=False) is True
+    assert options._resolve_use_cache(_args(True), incremental=True) is True
+    assert options._resolve_use_cache(_args(True), incremental=False) is True
 
 
 def test_explicit_no_cache_wins_even_under_watch() -> None:
     """--no-cache (args.cache=False) отключает кэш даже под инкрементальным watch."""
-    assert cli._resolve_use_cache(_args(False), incremental=True) is False
-    assert cli._resolve_use_cache(_args(False), incremental=False) is False
+    assert options._resolve_use_cache(_args(False), incremental=True) is False
+    assert options._resolve_use_cache(_args(False), incremental=False) is False
 
 
 def test_incremental_enables_cache_when_unset() -> None:
     """Флаг не задан + incremental=True (--watch --mode 2) → кэш включён."""
-    assert cli._resolve_use_cache(_args(None), incremental=True) is True
+    assert options._resolve_use_cache(_args(None), incremental=True) is True
 
 
 def test_unset_non_incremental_reads_config(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -43,17 +44,17 @@ def test_unset_non_incremental_reads_config(monkeypatch: pytest.MonkeyPatch) -> 
     там же, а не на facade `cli` (facade больше не держит своей копии имени).
     """
     monkeypatch.setattr(
-        cli.options,
+        options,
         "CONFIG",
         types.SimpleNamespace(use_cache=True, record_stats=False, record_history=False),
     )
-    assert cli._resolve_use_cache(_args(None), incremental=False) is True
+    assert options._resolve_use_cache(_args(None), incremental=False) is True
     monkeypatch.setattr(
-        cli.options,
+        options,
         "CONFIG",
         types.SimpleNamespace(use_cache=False, record_stats=False, record_history=False),
     )
-    assert cli._resolve_use_cache(_args(None), incremental=False) is False
+    assert options._resolve_use_cache(_args(None), incremental=False) is False
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +128,7 @@ def test_main_watch_mode1_does_not_auto_enable_cache(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(cli, "_run_mode_1", fake_run_mode_1)
     monkeypatch.setattr(cli, "_watch_and_rerun", lambda path, rerun: rerun())
     monkeypatch.setattr(
-        cli.options,
+        options,
         "CONFIG",
         types.SimpleNamespace(use_cache=False, record_stats=False, record_history=False),
     )

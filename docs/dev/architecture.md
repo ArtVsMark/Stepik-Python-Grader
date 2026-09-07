@@ -145,6 +145,7 @@ web/statement_adapter.py ──→  core/html_sanitizer.py, core/diag_log.py  (�
 web/usage_adapter.py   ──→  core/usage_export.py  (журнал прогонов для GET /api/v1/usage; роутер в core не ходит — ARCH-07)
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli/__init__.py  (тонкий фасад)
 grader.py              ──→  core/runner.py  (Runner/RunSpec/RunOutcome/LocalRunner — точка расширения целиком в фасаде, рядом с set_runner)
+grader.py              ──→  cli/interactive.py  (приватные _BENCH_PROFILES/_MICRO_PROFILES/_ask_number берутся из своего модуля: фасад пакета приватного не реэкспортирует)
 core/grader_core.py    ──→  core/microbench_runner.py, core/normalizers.py, core/runner.py
 core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
 core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py

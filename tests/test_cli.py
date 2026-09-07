@@ -594,7 +594,7 @@ class TestForceUtf8Stdio:
         out, err = _FakeStream("cp1251"), _FakeStream("cp1251")
         monkeypatch.setattr(sys, "stdout", out)
         monkeypatch.setattr(sys, "stderr", err)
-        cli._force_utf8_stdio()
+        cli.options._force_utf8_stdio()
         assert out.reconfigured == {"encoding": "utf-8", "errors": "replace"}
         assert err.reconfigured == {"encoding": "utf-8", "errors": "replace"}
 
@@ -603,7 +603,7 @@ class TestForceUtf8Stdio:
         out = _FakeStream("utf-8")
         monkeypatch.setattr(sys, "stdout", out)
         monkeypatch.setattr(sys, "stderr", _FakeStream("UTF-8"))
-        cli._force_utf8_stdio()
+        cli.options._force_utf8_stdio()
         assert out.reconfigured is None
 
     def test_stream_without_reconfigure_is_noop(self, monkeypatch) -> None:
@@ -614,12 +614,12 @@ class TestForceUtf8Stdio:
 
         monkeypatch.setattr(sys, "stdout", _Bare())
         monkeypatch.setattr(sys, "stderr", _Bare())
-        cli._force_utf8_stdio()  # не должно бросить AttributeError
+        cli.options._force_utf8_stdio()  # не должно бросить AttributeError
 
     def test_main_calls_force_utf8(self, monkeypatch) -> None:
         """main() вызывает _force_utf8_stdio до разбора аргументов."""
         called = []
-        monkeypatch.setattr(cli, "_force_utf8_stdio", lambda: called.append(True))
+        monkeypatch.setattr(cli.options, "_force_utf8_stdio", lambda: called.append(True))
         monkeypatch.setattr(cli, "_interactive_menu", lambda: None)
         cli.main([])
         assert called == [True]
@@ -1291,13 +1291,20 @@ class TestStatsFlags:
 class TestFacadeNamespaceContract:
     """Регрессия на late-binding резолюцию имён safe-extraction кандидатов.
 
-    Покрывает именно те helpers, которые issue #117 называет safe candidates
-    для первого extraction-PR (#119): _build_arg_parser, _resolve_verbosity,
-    _resolve_use_cache, _rows_to_csv, _rows_to_markdown, _print_tabular.
+    Предмет прежний — helpers, которые issue #117 называет safe candidates для
+    первого extraction-PR (#119): `_build_arg_parser`, `_resolve_verbosity`,
+    `_resolve_use_cache`, `_rows_to_csv`, `_rows_to_markdown`, `_print_tabular`.
+    Изменился **адрес**: приватное берётся из своего модуля (`cli.options`,
+    `cli.rendering`), а не с фасада пакета (issue #903). Реэкспорт закреплял
+    приватное как де-факто публичный API — символ уже не переименовать, не
+    сверив фасад, то есть архитектурную поверхность диктовали тесты.
+
+    Late-binding при этом сохраняется, и это здесь и проверяется: вызов идёт
+    через модуль, поэтому подмена в модуле долетает до `cli.main()`.
     """
 
     def test_build_arg_parser_called_via_facade(self, monkeypatch) -> None:
-        real = cli._build_arg_parser
+        real = cli.options._build_arg_parser
         calls = []
 
         def _spy(*args, **kwargs):
@@ -1306,7 +1313,7 @@ class TestFacadeNamespaceContract:
             calls.append(True)
             return real(*args, **kwargs)
 
-        monkeypatch.setattr(cli, "_build_arg_parser", _spy)
+        monkeypatch.setattr(cli.options, "_build_arg_parser", _spy)
         cli.main(["--version"])
         assert calls == [True]
 
@@ -1314,26 +1321,26 @@ class TestFacadeNamespaceContract:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         calls = []
-        real = cli._resolve_verbosity
+        real = cli.options._resolve_verbosity
 
         def _spy(args, *, default):
             calls.append(default)
             return real(args, default=default)
 
-        monkeypatch.setattr(cli, "_resolve_verbosity", _spy)
+        monkeypatch.setattr(cli.options, "_resolve_verbosity", _spy)
         monkeypatch.setattr(cli, "_run_mode_1", lambda *a, **k: None)
         cli.main(["--mode", "1", "--file", str(sol)])
         assert calls == [True]  # mode 1 default verbosity — True
 
     def test_resolve_use_cache_called_via_facade_for_mode_2(self, monkeypatch, tmp_path) -> None:
         calls = []
-        real = cli._resolve_use_cache
+        real = cli.options._resolve_use_cache
 
         def _spy(args, *, incremental):
             calls.append(incremental)
             return real(args, incremental=incremental)
 
-        monkeypatch.setattr(cli, "_resolve_use_cache", _spy)
+        monkeypatch.setattr(cli.options, "_resolve_use_cache", _spy)
         monkeypatch.setattr(cli, "_run_mode_2", lambda *a, **k: None)
         cli.main(["--mode", "2", "--dir", str(tmp_path)])
         assert calls == [False]  # mode 2 без --watch: incremental=False
@@ -1344,26 +1351,26 @@ class TestFacadeNamespaceContract:
         (facade больше не держит своей копии имени, которую читает _print_tabular).
         """
         calls = []
-        real = cli._rows_to_csv
+        real = cli.rendering._rows_to_csv
 
         def _spy(rows, fieldnames):
             calls.append((rows, fieldnames))
             return real(rows, fieldnames)
 
         monkeypatch.setattr(cli.rendering, "_rows_to_csv", _spy)
-        cli._print_tabular("csv", [{"a": 1}], ["a"])
+        cli.rendering._print_tabular("csv", [{"a": 1}], ["a"])
         assert calls == [([{"a": 1}], ["a"])]
 
     def test_rows_to_markdown_called_via_facade_from_print_tabular(self, monkeypatch) -> None:
         calls = []
-        real = cli._rows_to_markdown
+        real = cli.rendering._rows_to_markdown
 
         def _spy(rows, fieldnames):
             calls.append((rows, fieldnames))
             return real(rows, fieldnames)
 
         monkeypatch.setattr(cli.rendering, "_rows_to_markdown", _spy)
-        cli._print_tabular("markdown", [{"a": 1}], ["a"])
+        cli.rendering._print_tabular("markdown", [{"a": 1}], ["a"])
         assert calls == [([{"a": 1}], ["a"])]
 
     def test_print_tabular_called_via_facade_for_mode_1_csv_output(
@@ -1377,13 +1384,13 @@ class TestFacadeNamespaceContract:
         (tests_dir / "expected_1.txt").write_text("5", encoding="utf-8")
 
         calls = []
-        real = cli._print_tabular
+        real = cli.rendering._print_tabular
 
         def _spy(output, rows, fieldnames):
             calls.append(output)
             return real(output, rows, fieldnames)
 
-        monkeypatch.setattr(cli, "_print_tabular", _spy)
+        monkeypatch.setattr(cli.rendering, "_print_tabular", _spy)
         cli.main(["--mode", "1", "--file", str(sol), "--output", "csv"])
         assert calls == ["csv"]
 
@@ -1879,7 +1886,7 @@ class TestMachineOutputAndMessages:
         """
         rows = [{"file": "a|b.py", "error": "Traceback:\nValueError"}]
 
-        table = cli._rows_to_markdown(rows, ["file", "error"])
+        table = cli.rendering._rows_to_markdown(rows, ["file", "error"])
 
         body = table.splitlines()[-1]
         # Границы ячеек — только « | »; экранированная «\|» внутри значения
