@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import json
 import pathlib
+import traceback
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -36,7 +37,7 @@ from stepik_grader.web.glossary_adapter import (
     record_glossary_hit,
 )
 from stepik_grader.web.http_guards import _GuardMixin, _json, _lang_from_query
-from stepik_grader.web.i18n import message_fields
+from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
 from stepik_grader.web.insights_adapter import insights_cards, progress_report
 from stepik_grader.web.navigation_adapter import read_task_tree
 from stepik_grader.web.reference_adapter import import_reference
@@ -211,7 +212,47 @@ class _ApiRoutesMixin(_GuardMixin):
         if handler is None:
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
-        getattr(self, handler)(parsed, *args)
+        try:
+            getattr(self, handler)(parsed, *args)
+        except Exception as exc:
+            # issue #922: необработанное исключение в хендлере `http.server` НЕ
+            # становится ответом. Базовый класс печатает трейсбек в лог сервера
+            # и закрывает соединение, а клиент получает разрыв — «сервер не
+            # ответил» вместо «вот что случилось». Для одностраничного
+            # интерфейса это худший исход: раздел молча остаётся в состоянии
+            # «идёт запрос», и единственный выход — перезагрузка страницы,
+            # ровно то, чего критерий приёмки подэпика требует не допускать.
+            #
+            # Рубеж НЕ заменяет обработку ошибок в хендлерах: каждая известная
+            # причина обязана иметь свой код и своё сообщение (NUL-байт —
+            # 400 выше по стеку, а не 500 здесь). Он ловит НЕизвестные, чтобы
+            # цена ошибки была «ответ 500 с текстом», а не «интерфейс завис».
+            #
+            # Если ответ уже начат, второго не будет: дописать статус поверх
+            # отправленных заголовков нельзя, и попытка испортила бы поток
+            # сильнее самой ошибки. Исключение пробрасывается — соединение
+            # закроет базовый класс, как и раньше.
+            if self._response_started:
+                raise
+            lang = args[0] if args and isinstance(args[0], str) else DEFAULT_LANG
+            self._send(
+                500,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields(
+                            "server_internal_error",
+                            lang,
+                            route=parsed.path,
+                            error=f"{type(exc).__name__}: {exc}",
+                        ),
+                    }
+                ),
+            )
+            # Причина всё равно нужна тому, кто чинит: ответ клиенту её
+            # сокращает, а лог сервера обязан сохранить полный трейсбек.
+            traceback.print_exc()
 
     def _dispatch_api_get(self, parsed: Any, lang: str) -> None:
         """Диспетчеризация GET /api/* — вызывается только после `_guard_request()`.
