@@ -17,6 +17,7 @@ import pytest
 
 from stepik_grader import cli
 from stepik_grader.cli import commands
+from stepik_grader.core import stats
 from stepik_grader.core.cache import (
     CACHE_DIR_NAME,
     GraderCache,
@@ -452,7 +453,9 @@ class TestCacheDoesNotLie:
         """CNC-1-03: попадание в кэш писалось в статистику с чужим total_time."""
         task = self._task(tmp_path)
         monkeypatch.chdir(tmp_path)
-        stats_file = tmp_path / ".grader_stats.jsonl"
+        # issue #920: журнал стал единым на пользователя — путь спрашивают
+        # у модуля, а не собирают из cwd.
+        stats_file = stats.stats_path()
 
         cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--cache", "--stats"])
         capsys.readouterr()

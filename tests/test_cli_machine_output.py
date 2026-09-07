@@ -7,6 +7,7 @@ import pathlib
 
 from stepik_grader import cli
 from stepik_grader.cli import commands
+from stepik_grader.core import stats
 
 # ---------------------------------------------------------------------------
 # Машинный вывод несёт статус прогона — issue #997 (MTX-4-04)
@@ -138,9 +139,7 @@ class TestMachineLabels:
         cli.main(["--mode", "1", "--file", str(task / "task1_1.py"), "--stats"])
         capsys.readouterr()
 
-        line = json.loads(
-            (tmp_path / ".grader_stats.jsonl").read_text(encoding="utf-8").splitlines()[-1]
-        )
+        line = json.loads(stats.stats_path().read_text(encoding="utf-8").splitlines()[-1])
         assert line["isolation"] == "none"
 
     def test_isolation_label_follows_sandbox_backend(self, monkeypatch):
