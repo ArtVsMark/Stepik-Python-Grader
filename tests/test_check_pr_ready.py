@@ -786,3 +786,64 @@ def test_verdict_warnings_default_to_empty(module: ModuleType) -> None:
     verdict = module.Verdict(ready=True, reasons=[], total_checks=0, completed=0, missing=[])
 
     assert verdict.warnings == []
+
+
+# --- «вечное ожидание» ищется по mergeable_state, а не по цвету (issue #1420) -----
+
+
+def _check(name: str, conclusion: str = "success", status: str = "completed") -> dict[str, Any]:
+    return {"name": name, "status": status, "conclusion": conclusion}
+
+
+def test_all_green_but_blocked_is_named_eternal_wait(module: ModuleType) -> None:
+    """Всё завершено, всё зелено, слияние заблокировано — ждём несуществующее имя.
+
+    Правило каталога 168: имя обязательной проверки держит внешняя настройка
+    репозитория. Разъезд с деревом даёт не красное, а ожидание, неотличимое от
+    «проверки ещё идут», — и чинится снятием защиты, то есть поломка гейта
+    оплачивается его отключением.
+    """
+    stuck = module.eternal_wait({"mergeable_state": "blocked"}, [_check("static"), _check("e2e")])
+
+    assert stuck is not None
+    assert "вечное ожидание" in stuck
+    assert "check_branch_protection" in stuck
+
+
+def test_a_running_check_is_ordinary_waiting(module: ModuleType) -> None:
+    """Пока что-то идёт — это обычное ожидание, и звать человека незачем."""
+    listed = [_check("static"), _check("e2e", conclusion="", status="in_progress")]
+
+    assert module.eternal_wait({"mergeable_state": "blocked"}, listed) is None
+
+
+def test_a_red_check_is_not_eternal_wait(module: ModuleType) -> None:
+    """Красная проверка объясняет блокировку сама — вторая причина только шумит."""
+    listed = [_check("static", conclusion="failure")]
+
+    assert module.eternal_wait({"mergeable_state": "blocked"}, listed) is None
+
+
+def test_an_empty_list_is_not_eternal_wait(module: ModuleType) -> None:
+    """Пустой список — «не стартовало»; про это уже есть своя причина."""
+    assert module.eternal_wait({"mergeable_state": "blocked"}, []) is None
+
+
+def test_a_clean_state_is_not_eternal_wait(module: ModuleType) -> None:
+    """Готовый к мержу PR ничего не ждёт — иначе гейт краснел бы на верном ответе."""
+    assert module.eternal_wait({"mergeable_state": "clean"}, [_check("static")]) is None
+
+
+def test_the_verdict_names_eternal_wait_separately(module: ModuleType) -> None:
+    """В вердикте это отдельная причина, а не «ветка не готова к мержу».
+
+    Первая называет, что чинить; вторая отправляет искать это самому.
+    """
+    verdict = module.evaluate(
+        {"state": "open", "mergeable_state": "blocked", "labels": [], "body": "Closes #1"},
+        {"workflow_runs": [{"name": "CI", "status": "completed", "conclusion": "success"}]},
+        {"check_runs": [_check("static")]},
+        set(),
+    )
+
+    assert any("вечное ожидание" in reason for reason in verdict.reasons)
