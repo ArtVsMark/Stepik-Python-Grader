@@ -26,6 +26,7 @@ import contextlib
 import json
 import re
 import sys
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -83,11 +84,40 @@ def _infer_kind(ext: dict[str, Any]) -> str:
 
 
 def _split_examples(raw: Any) -> list[str]:
-    """Строку примеров (строки через ``\\n``) разбить в список непустых строк."""
+    """Строку примеров разбить в список строк, СОХРАНИВ отступы блоков.
+
+    Отступ здесь — не оформление, а синтаксис. Прежняя редакция срезала его у
+    каждой строки по отдельности (``ln.strip()``), и пример вида::
+
+        class A:
+            x = 1
+
+    приезжал как ``class A:`` и ``x = 1`` — то есть кодом быть переставал:
+    ``IndentationError`` при любом запуске. Замер на текущей базе: **97
+    карточек из 1349** открывали блок двоеточием и не имели ни одной строки с
+    отступом; ровно это число независимо насчитала витрина (issue #1450,
+    правило ``example-indent``).
+
+    Поэтому срезается **общий** отступ блока, а не отступ каждой строки:
+    ``textwrap.dedent`` убирает лишний уровень, пришедший из вёрстки, и
+    оставляет относительные — те, что и делают код кодом.
+
+    Пустые строки режутся только по КРАЯМ. Внутри примера пустая строка
+    разделяет части и на запуск не влияет, но её потеря склеивает разнородные
+    куски в один нечитаемый.
+    """
     if not raw:
         return []
     text = raw if isinstance(raw, str) else "\n".join(str(item) for item in raw)
-    return [line for line in (ln.strip() for ln in text.split("\n")) if line]
+    # Хвостовые пробелы мешают dedent: строка из одних пробелов считается им
+    # значимой и обнуляет общий отступ всего блока.
+    lines = [line.rstrip() for line in text.split("\n")]
+    body = textwrap.dedent("\n".join(lines)).split("\n")
+    while body and not body[0].strip():
+        body.pop(0)
+    while body and not body[-1].strip():
+        body.pop()
+    return body
 
 
 def _norm_version(raw: Any) -> str:

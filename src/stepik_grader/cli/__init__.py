@@ -951,6 +951,20 @@ def main(argv: list[str] | None = None) -> ExitCode:
         print(_t("vscode_written" if written else "vscode_exists", path=path))
         return ExitCode.OK
 
+    if args.init_task is not None:
+        # issue #1072: существующий каталог не перезатирается — как у
+        # --init-vscode. Отказ уходит с ненулевым кодом: «ничего не сделал» и
+        # «сделал» обязаны различаться и для скрипта, а не только на глаз.
+        from stepik_grader.core.task_scaffold import create_task_dir
+
+        try:
+            solution = create_task_dir(args.init_task)
+        except FileExistsError:
+            print(_t("init_task_exists", path=args.init_task))
+            return ExitCode.FAILURES
+        print(_t("init_task_created", path=args.init_task, solution=solution))
+        return ExitCode.OK
+
     if args.import_reference:
         # issue #55: закреплённое решение Stepik + топовые как task{N}_{100+}.py.
         import requests
