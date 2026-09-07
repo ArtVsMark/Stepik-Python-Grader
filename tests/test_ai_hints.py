@@ -428,3 +428,79 @@ class TestReasoningModelPayload:
         assert payload["max_tokens"] == 222
         assert payload["temperature"] == 0.2
         assert "max_completion_tokens" not in payload
+
+
+class TestSendCodeSwitch:
+    """MET-1-06: выключатель отправки кода — выбор там, где его не было.
+
+    Полный исходник решения уходил провайдеру всегда, а докстринг модуля
+    утверждал обратное («не голый код»). Пользователю при этом не врали: диалог
+    согласия и `SECURITY.md` называют отправку кода прямо. Неправдой была
+    строка для разработчика — и отсутствие выбора для того, кому код важнее
+    подсказки.
+    """
+
+    def test_code_goes_into_the_prompt_by_default(self) -> None:
+        """Умолчание не меняется: так канал работал всегда, и так обещано."""
+        ctx = ai_hints.FailureContext(verdict="WA", code="print(секрет)")
+
+        assert "print(секрет)" in ai_hints._build_user_prompt(ctx, send_code=True)
+
+    def test_the_switch_removes_the_code_and_keeps_the_rest(self) -> None:
+        """Выключенный код не уносит подсказку: вердикт, diff и трейсбек остаются.
+
+        Иначе настройка выключала бы не приватность, а сам канал — и ею никто
+        не пользовался бы.
+        """
+        ctx = ai_hints.FailureContext(
+            verdict="WA",
+            code="print(секрет)",
+            diff="- 1\n+ 2",
+            error="ZeroDivisionError: division by zero",
+        )
+
+        prompt = ai_hints._build_user_prompt(ctx, send_code=False)
+
+        assert "print(секрет)" not in prompt
+        assert "- 1" in prompt
+        assert "ZeroDivisionError" in prompt
+
+    def test_grounding_is_not_the_code_and_survives(self) -> None:
+        """Заземление карточками — ПРОИЗВОДНОЕ от кода, а не код.
+
+        Это тексты наших карточек по концептам решения; убрать и их значило бы
+        выключить подсказку целиком вместо приватности.
+        """
+        ctx = ai_hints.FailureContext(
+            verdict="WA",
+            code="print(секрет)",
+            grounding="list.append(): добавляет элемент в конец",
+        )
+
+        prompt = ai_hints._build_user_prompt(ctx, send_code=False)
+
+        assert "секрет" not in prompt
+        assert "list.append()" in prompt
+
+    def test_a_config_without_the_field_keeps_the_old_behaviour(self) -> None:
+        """Конфиг приезжает из чужого pyproject.toml: нет поля — «как раньше».
+
+        Отсутствие настройки не должно читаться как отказ отправлять: иначе
+        обновление грейдера молча обеднило бы подсказки у всех.
+        """
+
+        class _NoField:
+            pass
+
+        assert ai_hints.send_code(_NoField()) is True
+
+    def test_the_switch_reaches_the_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Проверяется отправленное, а не собранное: между ними и терялся бы выбор."""
+        import json as _json
+
+        ctx = ai_hints.FailureContext(verdict="WA", code="print(секрет)")
+        calls = _patch_post(monkeypatch, _ok)
+        ai_hints.explain_failure(ctx, _cfg(ai_send_code=False))
+
+        payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
+        assert "секрет" not in payload["messages"][1]["content"]

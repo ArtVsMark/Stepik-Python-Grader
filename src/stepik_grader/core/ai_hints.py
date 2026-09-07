@@ -16,8 +16,16 @@
   ``diag_log.register_secret`` (редактируется в логах). По умолчанию в сеть
   ничего не уходит.
 - **Заземление против галлюцинаций (§5).** В промпт кладём вердикт,
-  ``failure_kind``, diff и текст релевантной карточки (не голый код); ответ
+  ``failure_kind``, diff, текст релевантной карточки — и **код решения**; ответ
   помечен как AI-generated и ограничен по длине.
+
+  Здесь стояло «не голый код», и это было неправдой: код уходил провайдеру
+  всегда (issue #920, ``MET-1-06``). Пользователю при этом не врали — диалог
+  согласия и `SECURITY.md` называют отправку кода прямо, — но разработчик,
+  читавший модуль, получал обратное. Строка исправлена, а выбор отдан
+  настройке :data:`~stepik_grader.config.GraderConfig.ai_send_code`: код в
+  промпте по умолчанию остаётся (без него подсказка вырождается в общие слова),
+  а тот, кому код важнее подсказки, выключает его одной строкой конфига.
 """
 
 from __future__ import annotations
@@ -41,6 +49,7 @@ __all__ = [
     "explain_failure",
     "explain_failure_detailed",
     "is_configured",
+    "send_code",
 ]
 
 _log = get_logger("ai_hints")
@@ -156,6 +165,21 @@ def is_configured(config: object) -> bool:
     return bool(getattr(config, "ai_base_url", None) and getattr(config, "ai_model", None))
 
 
+def send_code(config: object) -> bool:
+    """Класть ли исходник решения в промпт (issue #920, ``MET-1-06``).
+
+    По умолчанию ``True`` — так канал работал всегда, и именно это называют
+    диалог согласия («AI-подсказка отправит ваш код и его ввод-вывод») и
+    `SECURITY.md`. Обещания продукта настройка не меняет: она добавляет выбор
+    там, где его не было.
+
+    Читается через ``getattr`` с дефолтом, как и остальные поля канала: конфиг
+    приезжает из чужого ``pyproject.toml``, и отсутствующее поле означает
+    «как раньше», а не отказ.
+    """
+    return bool(getattr(config, "ai_send_code", True))
+
+
 def env_name_is_allowed(env_name: str) -> bool:
     """Разрешено ли читать ключ из переменной с таким именем (issue #812).
 
@@ -258,8 +282,20 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
 
 
-def _build_user_prompt(ctx: FailureContext) -> str:
-    """Собрать заземляющий user-промпт из контекста (только непустые секции)."""
+def _build_user_prompt(ctx: FailureContext, *, send_code: bool = True) -> str:
+    """Собрать заземляющий user-промпт из контекста (только непустые секции).
+
+    Args:
+        ctx: заземляющий контекст падения.
+        send_code: класть ли в промпт исходник решения (issue #920,
+            ``MET-1-06``). ``False`` оставляет всё остальное — вердикт, diff,
+            трейсбек, карточки: подсказка становится беднее, но не исчезает.
+
+    Заземление карточками глоссария (``ctx.grounding``) остаётся и при
+    ``send_code=False``: это ПРОИЗВОДНОЕ от кода — названия концептов и тексты
+    наших карточек, — а не сам код. Убрать и его значило бы выключить
+    подсказку целиком, а не приватность.
+    """
     parts: list[str] = [f"Вердикт: {ctx.verdict}"]
     if ctx.failure_kind:
         parts.append(f"Тип падения: {ctx.failure_kind}")
@@ -276,7 +312,7 @@ def _build_user_prompt(ctx: FailureContext) -> str:
         parts.append(f"Справка (карточка):\n{_clip(ctx.card_text, 800)}")
     if ctx.grounding:
         parts.append(f"Релевантные карточки глоссария:\n{_clip(ctx.grounding, 1200)}")
-    if ctx.code:
+    if ctx.code and send_code:
         parts.append(f"Код решения:\n{_clip(ctx.code, 1500)}")
     return "\n\n".join(parts)
 
@@ -382,7 +418,10 @@ def explain_failure_detailed(ctx: FailureContext, config: object) -> AiHintOutco
     system = _system_prompt(config, ctx.lang)
     messages = [
         {"role": "system", "content": system},
-        {"role": "user", "content": _build_user_prompt(ctx)},
+        {
+            "role": "user",
+            "content": _build_user_prompt(ctx, send_code=send_code(config)),
+        },
     ]
     text, reason = _post_chat(config, messages, _resolve_key(config))
     if not text:
