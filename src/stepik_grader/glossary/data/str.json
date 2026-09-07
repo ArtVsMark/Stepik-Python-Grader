@@ -617,9 +617,9 @@
     "examples": [
       "s = 'hello'",
       "try:",
-      "s[0] = 'H'",
+      "    s[0] = 'H'",
       "except TypeError as e:",
-      "print(e)",
+      "    print(e)",
       "# → 'str' object does not support item assignment",
       "a = 'hello'",
       "b = 'hello'",
@@ -634,7 +634,7 @@
       "# → True (принудительное интернирование)",
       "s2 = s.replace('h', 'H')",
       "print(s, s2)",
-      "# → 'hello' 'Hello' (оригинал не изменился)"
+      "# → hello Hello (оригинал не изменился)"
     ],
     "related": [
       "is-is-not",

@@ -204,9 +204,11 @@
     ],
     "examples": [
       "from pathlib import Path",
-      "p = Path('/tmp')",
-      "list(p.rglob('*.cfg')) # → все .cfg рекурсивно",
-      "list(p.rglob('*')) # → всё содержимое дерева"
+      "import tempfile",
+      "p = Path(tempfile.mkdtemp())  # свой каталог, а не /tmp целиком: rglob обойдёт ВСЁ дерево",
+      "(p / 'conf').mkdir(); (p / 'conf' / 'app.cfg').touch()",
+      "[x.name for x in p.rglob('*.cfg')] # → ['app.cfg'] — все .cfg рекурсивно",
+      "sorted(x.name for x in p.rglob('*')) # → ['app.cfg', 'conf'] — всё содержимое дерева"
     ],
     "related": [
       "path.glob"
