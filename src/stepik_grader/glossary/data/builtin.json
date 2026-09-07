@@ -400,15 +400,15 @@
     ],
     "examples": [
       "class A:",
-      "x = 1",
-      "def __init__(self): self.y = 2",
+      "    x = 1",
+      "    def __init__(self): self.y = 2",
       "a = A()",
       "delattr(a,'y')",
       "print(hasattr(a,'y'))  # → False",
       "delattr(A,'x')",
       "print(hasattr(A,'x'))  # → False",
       "try:",
-      "delattr(a,'z')",
+      "    delattr(a,'z')",
       "except AttributeError as e: print(e)"
     ],
     "related": [
@@ -1236,15 +1236,15 @@
     ],
     "examples": [
       "def f():",
-      "x = 10; y = 20",
-      "return locals()",
+      "    x = 10; y = 20",
+      "    return locals()",
       "print(f())  # → {'x':10,'y':20}",
       "def g(a, b):",
-      "c = a+b",
-      "print('c' in locals())  # → True",
-      "return locals()",
+      "    c = a+b",
+      "    print('c' in locals())  # → True",
+      "    return locals()",
       "print(g(1,2))  # → {'a':1,'b':2,'c':3}",
-      "print(type(locals()))  # → dict"
+      "print(type(locals()))  # → <class 'dict'>"
     ],
     "related": [
       "globals",
