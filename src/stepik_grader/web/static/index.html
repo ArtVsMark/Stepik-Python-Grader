@@ -653,7 +653,13 @@
              data-i18n-placeholder="feedback.step_url_placeholder">
     </div>
 
-    <details class="feedback-preview">
+    <!-- issue #920 (ADD-4-02): `open` не украшение. Контракт приватности —
+         «сначала покажи, что уйдёт, потом отправляй», — а свёрнутый по
+         умолчанию блок перекладывает показ на любопытство пользователя: не
+         нажал — не увидел, и обещание выполнено только формально. Раскрытый
+         блок закрывается одним кликом, свёрнутый требует его, чтобы обещание
+         сработало. -->
+    <details class="feedback-preview" open>
       <summary data-i18n="feedback.preview_summary">Показать, что уйдёт в форму</summary>
       <div id="feedback-preview-body" class="feedback-preview-body"></div>
     </details>
