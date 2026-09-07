@@ -89,6 +89,7 @@ Stepik-Python-Grader/
 │           ├── tests_writer.py       # Запись Format 1/3 тест-кейсов на диск (leaf)
 │           ├── test_source_fetcher.py # Скачивание тестов из ZIP/GitHub → Format 3
 │           ├── step_content.py       # Разбор Stepik API-контента и URL шага (leaf)
+│           ├── task_scaffold.py  # Каталог задачи без Stepik (--init-task): решение + tests/
 │           ├── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 │           ├── i18n.py           # Загрузка JSON-локалей меню/CLI
 │           ├── locales/          # JSON-локали меню/CLI: en.json, ru.json (читает i18n.py)
