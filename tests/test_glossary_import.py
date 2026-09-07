@@ -7,6 +7,7 @@ inline-фикстуру HTML (без зависимости от внешнег�
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 from pathlib import Path
@@ -105,8 +106,11 @@ def test_builtin_call_is_function_with_split_examples() -> None:
     assert card.kind == "function"
     assert card.id == "input"  # не исключение — регистр не меняется
     assert card.syntax == "input([prompt]) -> str"
-    # examples: строка через \n → список непустых строк (пустые отброшены)
-    assert card.examples == ["# name = input()", "# age = int(input())"]
+    # examples: строка через \n → список строк с сохранёнными отступами.
+    # Пустая строка ВНУТРИ примера остаётся (issue #1450): раньше отбрасывалась
+    # любая, а вместе с ней уезжал и отступ тела блока — пример переставал
+    # компилироваться. Режутся теперь только пустые строки по краям.
+    assert card.examples == ["# name = input()", "", "# age = int(input())"]
 
 
 def test_conditional_group_is_construct_with_version() -> None:
@@ -155,3 +159,69 @@ def test_bundled_base_matches_importer_output() -> None:
     assert len(provider) >= 500
     assert provider.get("recursionerror") is not None
     assert provider.get("input") is not None
+
+
+# --- отступ примера — синтаксис, а не оформление (issue #1450) --------------------
+#
+# Прежняя редакция `_split_examples` срезала отступ у КАЖДОЙ строки
+# (`ln.strip()`), и многострочный пример переставал быть кодом: 90 карточек
+# комплектной базы не компилируются именно так. Столько же независимо насчитала
+# витрина правилом `example-compiles`.
+
+
+def test_block_body_keeps_its_indent() -> None:
+    """Тело блока остаётся с отступом — иначе пример не компилируется."""
+    lines = mod._split_examples("for x in range(3):\n    print(x)")
+
+    assert lines == ["for x in range(3):", "    print(x)"]
+    ast.parse("\n".join(lines))
+
+
+def test_a_flattened_block_would_not_compile() -> None:
+    """Красная сторона того же: без отступа это IndentationError.
+
+    Тест держит не форму вывода, а причину, по которой она такая: пример без
+    отступа пользователь копирует в «Песочницу» и решает, что ошибся он.
+    """
+    with pytest.raises(IndentationError):
+        ast.parse("for x in range(3):\nprint(x)")
+
+
+def test_common_indent_of_the_whole_block_is_removed() -> None:
+    """Лишний уровень из вёрстки снимается, относительные отступы остаются."""
+    assert mod._split_examples("    class A:\n        x = 1") == ["class A:", "    x = 1"]
+
+
+def test_blank_lines_inside_the_example_survive() -> None:
+    """Внутри примера пустая строка разделяет части — склейка делает его нечитаемым."""
+    assert mod._split_examples("a = 1\n\nb = 2") == ["a = 1", "", "b = 2"]
+
+
+def test_blank_lines_are_trimmed_only_at_the_edges() -> None:
+    """А по краям — режутся: ведущая пустая строка ничего не разделяет."""
+    assert mod._split_examples("\n\nx = 1\n\n") == ["x = 1"]
+
+
+def test_a_line_of_spaces_does_not_zero_the_common_indent() -> None:
+    """Строка из одних пробелов для dedent значима и обнулила бы отступ всего блока."""
+    assert mod._split_examples("    if x:\n   \n        y = 1") == ["if x:", "", "    y = 1"]
+
+
+def test_tabs_are_kept_as_they_came() -> None:
+    """Табуляцию не переводим в пробелы: это чужие данные, а не наш стиль."""
+    assert mod._split_examples("def f():\n\treturn 1") == ["def f():", "\treturn 1"]
+
+
+def test_single_line_examples_are_unchanged() -> None:
+    """Однострочники ведут себя как раньше — правка не должна их трогать."""
+    assert mod._split_examples("# name = input()\n# age = int(input())") == [
+        "# name = input()",
+        "# age = int(input())",
+    ]
+
+
+def test_an_empty_value_stays_an_empty_list() -> None:
+    """Пустое значение — по-прежнему пустой список, а не список из пустой строки."""
+    assert mod._split_examples("") == []
+    assert mod._split_examples(None) == []
+    assert mod._split_examples("\n\n") == []
