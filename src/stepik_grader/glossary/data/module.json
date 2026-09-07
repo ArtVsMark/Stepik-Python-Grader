@@ -14216,11 +14216,16 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance(b'x', abc.ByteString))   # → True",
-      "print(isinstance(bytearray(b'x'), abc.ByteString))   # → True",
-      "print(isinstance(memoryview(b'x'), abc.ByteString))   # → False",
-      "print(isinstance('x', abc.ByteString))   # → False",
-      "print(isinstance(b'x', (bytes, bytearray, memoryview)))   # → True"
+      "# ByteString объявлен устаревшим в 3.12 и УДАЛЁН в 3.14: обращаться к нему нельзя.",
+      "print(hasattr(abc, 'ByteString'))   # → ? True до 3.14, False начиная с 3.14",
+      "# Замена — проверка по конкретным типам:",
+      "print(isinstance(b'x', (bytes, bytearray, memoryview)))   # → True",
+      "print(isinstance(bytearray(b'x'), (bytes, bytearray, memoryview)))   # → True",
+      "print(isinstance(memoryview(b'x'), (bytes, bytearray, memoryview)))   # → True",
+      "print(isinstance('x', (bytes, bytearray, memoryview)))   # → False",
+      "# Либо abc.Buffer (появился в 3.12) — он про поддержку буферного протокола:",
+      "print(isinstance(b'x', abc.Buffer))   # → True",
+      "print(isinstance('x', abc.Buffer))   # → False"
     ],
     "related": [
       "collections.abc.Buffer",
