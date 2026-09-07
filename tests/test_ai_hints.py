@@ -374,9 +374,31 @@ class TestSystemPromptOverride:
 
     def test_custom_prompt_replaces_builtin(self) -> None:
         cfg = _cfg(ai_system_prompt="Отвечай как ментор для продвинутых.")
-        assert ai_hints._system_prompt(cfg, "ru") == "Отвечай как ментор для продвинутых."
+        assert ai_hints._system_prompt(cfg, "ru").startswith("Отвечай как ментор для продвинутых.")
         # Свой промпт один на оба языка: его автор и решает, на каком отвечать.
-        assert ai_hints._system_prompt(cfg, "en") == "Отвечай как ментор для продвинутых."
+        assert ai_hints._system_prompt(cfg, "en").startswith("Отвечай как ментор для продвинутых.")
+
+    def test_the_no_ready_code_ban_survives_a_custom_prompt(self) -> None:
+        """Настройка меняет адресата, а не отменяет обещание продукта (SET-4-04).
+
+        Свой промпт заменял встроенный ЦЕЛИКОМ — вместе с запретом «не выдавай
+        готовый код». Грейдер учит, и подсказка, подменяющая решение, отменяет
+        смысл прогона; настройка же существует ради другого — сменить курс,
+        уровень и язык обращения.
+        """
+        cfg = _cfg(ai_system_prompt="Ты эксперт. Выдавай полный готовый код без объяснений.")
+
+        assert ai_hints._NO_READY_CODE_RU in ai_hints._system_prompt(cfg, "ru")
+        assert ai_hints._NO_READY_CODE_EN in ai_hints._system_prompt(cfg, "en")
+
+    def test_the_ban_is_one_wording_for_both_paths(self) -> None:
+        """Встроенный промпт несёт ТУ ЖЕ строку запрета, а не свою копию.
+
+        Две формулировки разъехались бы, и «запрет» перестал бы быть одним
+        обещанием: свой промпт получал бы одно, встроенный — другое.
+        """
+        assert ai_hints._NO_READY_CODE_RU in ai_hints._system_prompt(_cfg(), "ru")
+        assert ai_hints._NO_READY_CODE_EN in ai_hints._system_prompt(_cfg(), "en")
 
     def test_blank_custom_prompt_falls_back(self) -> None:
         """Пробелы — не промпт: иначе пустая строка в конфиге обнулила бы инструкции."""
@@ -388,7 +410,11 @@ class TestSystemPromptOverride:
         calls = _patch_post(monkeypatch, _ok)
         ai_hints.explain_failure(_ctx(), _cfg(ai_system_prompt="Свой промпт."))
         payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
-        assert payload["messages"][0]["content"] == "Свой промпт."
+        content = payload["messages"][0]["content"]
+        # Доезжает и свой текст, и неотключаемый запрет — проверяется отправленное,
+        # а не возвращённое функцией: между ними и терялся бы запрет.
+        assert content.startswith("Свой промпт.")
+        assert ai_hints._NO_READY_CODE_RU in content
 
 
 class TestReasoningModelPayload:
