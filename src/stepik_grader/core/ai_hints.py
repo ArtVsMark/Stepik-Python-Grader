@@ -87,20 +87,25 @@ AI_MARKER_EN = "🤖 AI hint (AI-generated, may be wrong)"
 # от простыни, если провайдер проигнорировал max_tokens.
 _MAX_HINT_CHARS = 1200
 
+#: Запрет, который переживает ЛЮБОЙ пользовательский промпт (issue #920,
+#: ``SET-4-04``). Хранится отдельной константой и подставляется в встроенные
+#: промпты, чтобы формулировка была одна: разъехавшись, запрет в своём промпте
+#: и запрет во встроенном перестали бы быть одним обещанием.
+_NO_READY_CODE_RU = "НЕ выдавай готовый код целиком — подскажи направление исправления."
+_NO_READY_CODE_EN = "Do NOT output a full solution — point at the fix."
+
 _SYSTEM_RU = (
     "Ты — дружелюбный помощник-репетитор по Python для новичка на курсе "
     "«Поколение Python». Объясни КОРОТКО (2–4 предложения), ПОЧЕМУ решение не "
     "прошло тест, опираясь ТОЛЬКО на приведённый контекст (вердикт, вид ошибки, "
     "diff ожидаемого/полученного, трейсбек, карточку). НЕ выдумывай фактов, "
-    "которых нет в контексте. НЕ выдавай готовый код целиком — подскажи "
-    "направление исправления. Отвечай по-русски."
+    f"которых нет в контексте. {_NO_READY_CODE_RU} Отвечай по-русски."
 )
 _SYSTEM_EN = (
     "You are a friendly Python tutor for a beginner. Explain BRIEFLY (2-4 "
     "sentences) WHY the solution failed the test, grounded ONLY in the provided "
     "context (verdict, failure kind, expected/actual diff, traceback, card). Do "
-    "NOT invent facts absent from the context. Do NOT output a full solution — "
-    "point at the fix. Answer in English."
+    f"NOT invent facts absent from the context. {_NO_READY_CODE_EN} Answer in English."
 )
 
 
@@ -208,10 +213,25 @@ def _system_prompt(config: object, lang: str) -> str:
 
     Свой промпт — один на оба языка: если пользователь его задал, он и решает,
     на каком языке отвечать модели.
+
+    **Но запрет «не выдавай готовый код» пережить настройку обязан** (issue #920,
+    ``SET-4-04``). Настройка существует, чтобы сменить АДРЕСАТА — курс, уровень,
+    язык, — а не чтобы разрешить выдачу решений: грейдер учит, и подсказка,
+    подменяющая решение, отменяет смысл прогона. Поэтому запрет дописывается к
+    своему промпту, а не заменяется им.
+
+    Аудит предлагал убрать саму настройку. Это вернуло бы ``VIS-N2``, ради
+    которого её и завели: встроенный текст называет конкретный курс, и другой
+    аудитории он не годится. Убирается не настройка, а её способность снять
+    обещание продукта.
+
+    Язык запрета берётся из ``lang`` — того же, на котором спрашивают модель;
+    свой промпт при этом может быть на любом.
     """
     custom = str(getattr(config, "ai_system_prompt", "") or "").strip()
     if custom:
-        return custom
+        ban = _NO_READY_CODE_EN if lang == "en" else _NO_READY_CODE_RU
+        return f"{custom}\n\n{ban}"
     return _SYSTEM_EN if lang == "en" else _SYSTEM_RU
 
 
