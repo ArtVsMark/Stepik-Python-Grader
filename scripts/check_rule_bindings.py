@@ -75,6 +75,7 @@ __all__ = [
     "neighbour_holds",
     "proposal_drift",
     "reachable_gates",
+    "unfinished_rule_work",
     "unheld_count",
     "version_subjects",
 ]
@@ -632,6 +633,38 @@ def absence_claims(data: dict[str, Any], *, root: Path | None = None) -> list[st
     return problems
 
 
+def unfinished_rule_work(
+    data: dict[str, Any], catalogue: Path | None = None
+) -> tuple[str, str, str]:
+    """Три числа незакрытой работы по правилам (правило 177 каталога).
+
+    Порядок разбора проигрывает продуктовой работе всегда по одной причине: у
+    задачи есть заказчик, а у разбора правил его нет. Правило без механизма
+    ничего не ломает сегодня, поэтому откладывается не решением, а отсутствием
+    решения — и «действует, но ничем» остаётся ЗЕЛЁНЫМ во всех отчётах.
+
+    Поэтому числа печатаются **всегда**, а не когда ненулевые: «0 · 0 · 0» —
+    это состояние, а не пустота. И печатаются первыми: заслон называет, а не
+    запрещает, но названное нельзя не увидеть.
+
+    «Без ответа» требует клона каталога — без него честный ответ «не спрошено»,
+    а не ноль: не знать и знать ноль это разное.
+    """
+    rules = data.get("rules") or {}
+    unreviewed = sum(
+        1 for raw in rules.values() if isinstance(raw, dict) and raw.get("status") == "unreviewed"
+    )
+    unheld, _ = unheld_count(data)
+    if catalogue is None:
+        unanswered = "не спрошено (нужен клон каталога)"
+    else:
+        try:
+            unanswered = str(len(_export_ids(catalogue) - set(rules)))
+        except (FileNotFoundError, json.JSONDecodeError):
+            unanswered = "не прочитано"
+    return unanswered, str(unreviewed), str(unheld)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Вернуть 0, если ответ проекта сходится с контрактом; иначе 1."""
     reconfigure = getattr(sys.stdout, "reconfigure", None)
@@ -652,6 +685,15 @@ def main(argv: list[str] | None = None) -> int:
     except json.JSONDecodeError as exc:
         print(f"FAIL: .rules/bindings.json не разбирается ({exc}).")
         return 1
+
+    # Правило 177: три числа незакрытой работы идут ПЕРВЫМ, что видит проект, —
+    # до находок и до списка новых правил. Иначе разбор правил проигрывает
+    # продуктовой работе молча: у неё есть заказчик, у него нет.
+    unanswered, unreviewed, unheld_now = unfinished_rule_work(data, args.catalogue)
+    print(
+        f"Незакрытая работа по правилам: без ответа {unanswered} · "
+        f"не рассмотрено {unreviewed} · держится ничем {unheld_now}"
+    )
 
     problems = binding_violations(data)
     problems.extend(version_subjects())

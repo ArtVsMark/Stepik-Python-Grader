@@ -77,6 +77,7 @@ def test_matrix_versions_are_split_by_experimental(
     assert facts.python_versions(root) == {
         "supported": ["3.12", "3.13"],
         "experimental": ["3.14"],
+        "os": ["ubuntu-latest"],
     }
 
 
@@ -133,3 +134,71 @@ def test_the_file_is_written_as_utf8_json(
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["tests"] == {"functions": 4, "modules": 2}
     assert "\\u" not in out.read_text(encoding="utf-8")
+
+
+class TestOperatingSystemsComeFromTheMatrix:
+    """Список ОС выводится из матрицы, а не переписан рядом (issue #1448).
+
+    Витрина показывала «3 OS», добывая число **регулярным выражением по именам
+    наших джобов**: знание о нашем формате имён жило в её коде. Переименуй мы
+    комбинацию — у соседа молча изменилось бы число, и не упало бы ничего.
+    Ровно тот класс связанности, который убрали для тестов, версий и проверок.
+    """
+
+    def test_the_os_list_is_taken_from_the_matrix(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Три ОС в матрице — три в фактах, в том же порядке."""
+        root = _project(
+            tmp_path,
+            matrix=(
+                '        os: ["ubuntu-latest", "windows-latest", "macos-latest"]\n'
+                '        python-version: ["3.12"]\n'
+            ),
+        )
+
+        found = facts.python_versions(root)
+
+        assert found["os"] == ["ubuntu-latest", "windows-latest", "macos-latest"]
+
+    def test_a_changed_matrix_changes_the_answer(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Убрали ОС из матрицы — ответ изменился.
+
+        Guard-the-guard против константы: список, переписанный рядом, ответил бы
+        то же самое на любой матрице.
+        """
+        root = _project(
+            tmp_path,
+            matrix='        os: ["ubuntu-latest"]\n        python-version: ["3.12"]\n',
+        )
+
+        assert facts.python_versions(root)["os"] == ["ubuntu-latest"]
+
+    def test_a_matrix_without_os_gives_an_empty_list(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Ключа в матрице нет — пусто, а не выдумано.
+
+        Пустой список честнее догадки: «не измеряли» витрина отличит сама.
+        """
+        root = _project(tmp_path, matrix='        python-version: ["3.12"]\n')
+
+        assert facts.python_versions(root)["os"] == []
+
+    def test_the_schema_field_says_what_it_versions(
+        self, facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Рядом со ``schema`` стоит ``schema_of`` — чего эта версия (правило 164).
+
+        В экосистеме четыре разных ``schema``, и витрина уже обожглась: держала
+        в своём ответе чужой номер, файл при этом оставался валиден.
+        """
+        root = _project(tmp_path)
+        monkeypatch.setattr(facts, "_checks_per_pr", lambda _root: None)
+
+        built = facts.build_facts(root)
+
+        assert "schema_of" in built
+        assert "ЭТОГО файла" in str(built["schema_of"])

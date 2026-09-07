@@ -801,3 +801,81 @@ class TestShellNamesAreAscii:
         )
 
         assert _MODULE.non_ascii_shell_names({"x.yml": source}) == []
+
+
+class TestCancellingGroupsNameTheHead:
+    """Группа отмены называет голову, а не только изменение (правило 179).
+
+    Для события ``pull_request`` ``github.ref`` — это ``refs/pull/N/merge``, один
+    ref у всех коммитов PR. События площадки доставляются не в том порядке, в
+    каком сделаны коммиты, поэтому вытеснить может более новый: последнее слово
+    остаётся за прогоном на устаревшем коммите, а на актуальном обязательной
+    проверки нет вовсе — и создать её нечем, новый прогон рождается только от
+    нового события.
+    """
+
+    def test_the_repository_is_clean(self) -> None:
+        """Приёмка: ни одна отменяющая группа не забыла голову."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(errors)
+
+        assert errors == []
+
+    def test_a_group_without_the_head_is_rejected(self) -> None:
+        """Тот самый дефект: отменяем по ref, а он один на все коммиты."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {"new.yml": "concurrency:\n  group: x-${{ github.ref }}\n  cancel-in-progress: true\n"},
+        )
+
+        assert len(errors) == 1
+        assert "не называет голову" in errors[0]
+
+    def test_a_group_with_the_head_passes(self) -> None:
+        """Голова названа — предмета нет; отмену при этом не выключали."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {
+                "new.yml": "concurrency:\n  group: x-${{ github.event.pull_request.head.sha }}\n"
+                "  cancel-in-progress: true\n"
+            },
+        )
+
+        assert errors == []
+
+    def test_a_group_that_does_not_cancel_is_not_the_subject(self) -> None:
+        """Без отмены вытеснить нечего — требовать головы значило бы краснеть зря."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {
+                "new.yml": "concurrency:\n  group: x-${{ github.ref }}\n"
+                "  cancel-in-progress: false\n"
+            },
+        )
+
+        assert errors == []
+
+    def test_a_declaration_that_outlived_the_cancellation_is_rejected(self) -> None:
+        """Обратная половина: отмену убрали, исключение осталось.
+
+        Иначе следующая группа проедет под чужой, уже недействительной причиной.
+        """
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {
+                "rules-digest.yml": "concurrency:\n  group: rules-digest\n"
+                "  cancel-in-progress: false\n"
+            },
+        )
+
+        assert len(errors) == 1
+        assert "больше не" in errors[0]
+
+    def test_every_exception_names_a_reason(self) -> None:
+        """Объявление без причины — разрешение без основания."""
+        for name, reason in _MODULE._GROUPS_WITHOUT_A_HEAD.items():
+            assert len(reason.split()) >= 10, name
