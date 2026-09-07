@@ -1,7 +1,7 @@
 """Гейт защиты ``main`` (issue #1296).
 
 Проверка сверяет ruleset с тем, что проект утверждает публично: список обходов
-пуст, обязательных проверок ровно одиннадцать, ветка обязана быть свежей.
+пуст, обязательных проверок ровно столько, сколько объявлено, ветка обязана быть свежей.
 Тесты гоняют разбор на фикстурах — в сеть не ходит ни один из них: предмет
 проверки здесь логика сверки, а не доступность GitHub.
 """
@@ -142,9 +142,47 @@ def test_real_workflow_declares_every_plain_job() -> None:
 
 
 def test_expected_checks_match_documented_count() -> None:
-    """Одиннадцать — число, которым свод и витрина оперируют вслух."""
-    assert len(guard.EXPECTED_CHECKS) == 11
-    assert len(set(guard.EXPECTED_CHECKS)) == 11
+    """Двенадцать — число, которым свод и витрина оперируют вслух.
+
+    Одиннадцать из них — имена джобов и ячеек матрицы, то есть то самое, чего
+    правило 168 не велит держать в обязательных; двенадцатое — постоянное имя
+    агрегатора, которое их заменит. Состояние переходное и объявлено таковым
+    (issue #1420), а не подразумевается.
+    """
+    assert len(guard.EXPECTED_CHECKS) == 12
+    assert len(set(guard.EXPECTED_CHECKS)) == 12
+
+
+def test_the_aggregate_is_declared_required() -> None:
+    """Постоянное имя объявлено обязательным — первый шаг перехода сделан."""
+    assert guard.AGGREGATE_CHECK in guard.EXPECTED_CHECKS
+
+
+def test_the_aggregate_is_not_looked_for_in_ci_yml() -> None:
+    """Агрегатор живёт в своём workflow, и искать его в чужом файле нельзя.
+
+    Иначе гейт краснел бы на верном ответе — а такой гейт снимают первой же
+    правкой.
+    """
+    assert guard.AGGREGATE_CHECK not in guard.PLAIN_JOBS
+
+
+def test_a_renamed_aggregate_job_is_a_finding() -> None:
+    """Опечатка в постоянном имени даёт не красное, а вечное ожидание.
+
+    Поэтому она ловится дешёвым признаком до слияния: имя обязано существовать
+    в своём workflow. Гейт прогнан на том, что обязан отвергать (правило 140).
+    """
+    workflow = _ROOT / ".github" / "workflows" / "ci-complete.yml"
+    original = workflow.read_text(encoding="utf-8")
+    ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    try:
+        workflow.write_text(original.replace("\n  ci-complete:", "\n  ci-done:"), encoding="utf-8")
+        problems = guard.check_ci_jobs(ci)
+    finally:
+        workflow.write_text(original, encoding="utf-8")
+
+    assert any("ci-complete" in problem for problem in problems)
 
 
 def test_fixture_is_not_mutated_between_cases() -> None:

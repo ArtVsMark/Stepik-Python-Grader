@@ -68,14 +68,21 @@ from stepik_grader.cli import (
     __version__,
     _ask_bench_profile,
     _ask_micro_profile,
-    _ask_number,
-    _BENCH_PROFILES,
     _interactive_menu,
-    _MICRO_PROFILES,
     _print_menu,
     _resolve_test_dir_from_input,
     main,
     run_cli,
+)
+
+# issue #903: приватное берётся из своего модуля, а не с фасада пакета —
+# реэкспорт закреплял бы его как де-факто публичный API `stepik_grader.cli`.
+# Здесь это обратная совместимость `grader.py`: имена в его `__all__` не входят,
+# но исторически были видны, и молча их убирать не за чем.
+from stepik_grader.cli.interactive import (
+    _BENCH_PROFILES,
+    _MICRO_PROFILES,
+    _ask_number,
 )
 
 __all__ = [

@@ -71,6 +71,7 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
+    "AGGREGATE_CHECK",
     "EXIT_FAIL",
     "EXIT_OK",
     "EXIT_UNKNOWN",
@@ -92,10 +93,23 @@ EXIT_UNKNOWN = 2
 
 PROTECTED_BRANCH = "main"
 
-#: Одиннадцать обязательных проверок, дословно как в ruleset. Экспериментальные
-#: 3.14 сюда НЕ входят намеренно: они под ``continue-on-error`` и блокировать
-#: мерж не должны.
+#: Обязательные проверки, дословно как в ruleset. Экспериментальные 3.14 сюда
+#: НЕ входят намеренно: они под ``continue-on-error`` и блокировать мерж не
+#: должны.
+#:
+#: **Состояние переходное, и это объявлено, а не подразумевается** (issue #1420).
+#: Одиннадцать из двенадцати — имена джобов и ячеек матрицы, то есть ровно то,
+#: чего правило 168 не велит держать в обязательных: их держит ВНЕШНЯЯ настройка
+#: репозитория, и переименование ячейки даёт не красное, а вечное ожидание.
+#: Двенадцатое, :data:`AGGREGATE_CHECK`, — постоянное имя, которое их заменит.
+#:
+#: Порядок перехода менять нельзя: агрегатор появился (#1456) → владелец добавил
+#: его в обязательные, ничего не убирая (сделано) → несколько PR мержатся при
+#: нём → и только потом одиннадцать имён уходят отсюда и из ruleset. Обратный
+#: порядок оставляет защиту без проверок либо отправляет PR в вечное ожидание,
+#: которое чинится снятием защиты.
 EXPECTED_CHECKS: tuple[str, ...] = (
+    "ci-complete",
     "docs-guardrails",
     "static",
     "supply-chain",
@@ -120,6 +134,16 @@ REQUIRED_RULES: tuple[str, ...] = ("deletion", "non_fast_forward")
 #: два списка обязательных проверок разъехались бы молча, а «выведено из
 #: дерева» превратилось бы во вторую копию (правило 171).
 PLAIN_JOBS: tuple[str, ...] = ("docs-guardrails", "static", "supply-chain", "sandbox-linux", "e2e")
+
+#: Постоянное имя агрегатора и файл, в котором оно живёт. Отдельно от
+#: :data:`PLAIN_JOBS` намеренно: те джобы лежат в ``ci.yml``, а этот — в своём
+#: workflow, и искать его в чужом файле значило бы краснеть на верном ответе.
+#: Агрегатор в ``PLAIN_JOBS`` не входит ещё и потому, что оттуда состав берёт
+#: `ci_aggregate.py`, — попав туда, вердикт ждал бы сам себя вечно.
+AGGREGATE_CHECK = "ci-complete"
+_AGGREGATE_WORKFLOW = (
+    pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "ci-complete.yml"
+)
 
 _CI_WORKFLOW = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "ci.yml"
 
@@ -218,11 +242,29 @@ def check_ci_jobs(text: str) -> list[str]:
     Returns:
         Расхождения по-русски; пустой список — все имена на месте.
     """
-    return [
+    problems = [
         f"джоб {job!r} объявлен обязательным, но в ci.yml такого имени нет"
         for job in PLAIN_JOBS
         if f"\n  {job}:" not in text
     ]
+    # Агрегатор живёт в своём файле, но проверяется тем же дешёвым признаком:
+    # его имя — единственное, что однажды останется в настройке защиты, и
+    # опечатка в нём даёт не красное, а вечное ожидание.
+    if AGGREGATE_CHECK in EXPECTED_CHECKS:
+        try:
+            aggregate = _AGGREGATE_WORKFLOW.read_text(encoding="utf-8")
+        except OSError:
+            problems.append(
+                f"{AGGREGATE_CHECK!r} объявлен обязательным, а "
+                f"{_AGGREGATE_WORKFLOW.name} не читается"
+            )
+        else:
+            if f"\n  {AGGREGATE_CHECK}:" not in aggregate:
+                problems.append(
+                    f"джоб {AGGREGATE_CHECK!r} объявлен обязательным, но в "
+                    f"{_AGGREGATE_WORKFLOW.name} такого имени нет"
+                )
+    return problems
 
 
 #: Блок ``matrix:`` джоба ``test`` — до первого ключа того же уровня.
