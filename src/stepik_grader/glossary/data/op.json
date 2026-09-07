@@ -1874,18 +1874,18 @@
     ],
     "examples": [
       "match \"quit\":",
-      "case \"quit\": print(\"выход\")   # → выход",
-      "case \"help\": print(\"помощь\")  # → помощь",
-      "case _:      print(\"неизвестно\")",
+      "    case \"quit\": print(\"выход\")   # → выход",
+      "    case \"help\": print(\"помощь\")  # → помощь",
+      "    case _:      print(\"неизвестно\")",
       "point = (0, 1)",
       "match point:",
-      "case (0, 0): print(\"начало\")",
-      "case (0, y): print(f\"ось Y, y={y}\")  # → ось Y, y=1",
-      "case (x, y) if x == y: print(\"диагональ\")",
-      "case _: print(\"общий\")",
+      "    case (0, 0): print(\"начало\")",
+      "    case (0, y): print(f\"ось Y, y={y}\")  # → ось Y, y=1",
+      "    case (x, y) if x == y: print(\"диагональ\")",
+      "    case _: print(\"общий\")",
       "match 42:",
-      "case int(n) if n > 10: print(f\"большое {n}\")  # → большое 42",
-      "case _: print(\"другое\")"
+      "    case int(n) if n > 10: print(f\"большое {n}\")  # → большое 42",
+      "    case _: print(\"другое\")"
     ],
     "related": [
       "if-elif-else",
@@ -3108,9 +3108,9 @@
       "print(list(zip([1,2],[\"a\",\"b\"])))      # → [(1, 'a'), (2, 'b')]",
       "print(list(zip([1,2,3],[\"a\",\"b\"])))    # → [(1, 'a'), (2, 'b')]  (3 потеряна)",
       "try:",
-      "list(zip([1,2,3],[\"a\",\"b\"], strict=True))",
+      "    list(zip([1,2,3],[\"a\",\"b\"], strict=True))",
       "except ValueError as e:",
-      "print(\"ValueError:\", e)  # → ValueError: zip() has arguments...",
+      "    print(\"ValueError:\", e)  # → ValueError: zip() argument 2 is shorter than argument 1",
       "print(list(zip([1,2],[\"a\",\"b\"], strict=True)))  # → [(1, 'a'), (2, 'b')]"
     ],
     "related": [
