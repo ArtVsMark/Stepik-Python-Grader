@@ -86,3 +86,48 @@ def test_budget_is_not_wider_than_reality() -> None:
         f"бюджет {guard.BUDGET} против фактических {len(broken)}: опустите бюджет, "
         "иначе он молча разрешает будущую поломку."
     )
+
+
+# --- разобранная руками партия не должна вернуться (issue #1454) ------------------
+
+
+#: Карточки, чьи отступы восстановлены руками. Проверяются поимённо, а не только
+#: числом: храповик ловит РОСТ, но не подмену — снизить его можно и починив
+#: другие карточки, пока эти снова уехали бы плоским импортом.
+_REPAIRED_BY_HAND = (
+    "callable",
+    "dir",
+    "getattr",
+    "hasattr",
+    "hash",
+    "setattr",
+    "vars",
+    "auto",
+    "dataclass-order-true",
+    "dataclasses.replace",
+    "enum",
+    "field",
+    "flag-intflag",
+    "functools.total_ordering",
+    "re.finditer",
+    "итерация-и-сравнение-enum",
+    "os",
+    "битовые-операции",
+    "системы-счисления",
+    "тройные-кавычки",
+    "final",
+    "generic-t",
+    "namedtuple",
+)
+
+
+def test_hand_repaired_cards_still_compile() -> None:
+    """Двадцать три разобранные карточки собираются в валидный Python.
+
+    Автоматом это не делалось: эвристика «после двоеточия уровень +1» из блока
+    никогда не выходит и сворачивает пример в лестницу вложенности, которую
+    `ast.parse` принимает, — приёмка вышла слабее чинимого дефекта.
+    """
+    broken = {name for name, _ in guard.broken_examples()}
+
+    assert not (broken & set(_REPAIRED_BY_HAND))
