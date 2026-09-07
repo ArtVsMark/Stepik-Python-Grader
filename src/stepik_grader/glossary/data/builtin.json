@@ -279,7 +279,7 @@
       "print(callable(42))       # → False",
       "print(callable(lambda: 0))  # → True",
       "class A:",
-      "def __call__(self): pass",
+      "    def __call__(self): pass",
       "print(callable(A()))  # → True"
     ],
     "related": [
@@ -400,15 +400,15 @@
     ],
     "examples": [
       "class A:",
-      "x = 1",
-      "def __init__(self): self.y = 2",
+      "    x = 1",
+      "    def __init__(self): self.y = 2",
       "a = A()",
       "delattr(a,'y')",
       "print(hasattr(a,'y'))  # → False",
       "delattr(A,'x')",
       "print(hasattr(A,'x'))  # → False",
       "try:",
-      "delattr(a,'z')",
+      "    delattr(a,'z')",
       "except AttributeError as e: print(e)"
     ],
     "related": [
@@ -489,14 +489,14 @@
       "builtin"
     ],
     "examples": [
-      "print(dir([]))[:5]  # → первые 5 атрибутов списка",
+      "print(dir([])[:5])  # → ? первые пять атрибутов списка (состав зависит от версии Python)",
       "print('append' in dir([]))  # → True",
       "class A:",
-      "x = 1",
-      "def f(self): pass",
+      "    x = 1",
+      "    def f(self): pass",
       "print('x' in dir(A))  # → True",
       "print('f' in dir(A))  # → True",
-      "print(type(dir([])))  # → list"
+      "print(type(dir([])))  # → <class 'list'>"
     ],
     "related": [
       "vars",
@@ -751,7 +751,7 @@
     ],
     "examples": [
       "class A:",
-      "x = 42",
+      "    x = 42",
       "a = A()",
       "print(getattr(a,'x'))  # → 42",
       "print(getattr(a,'y',None))  # → None",
@@ -840,7 +840,7 @@
     ],
     "examples": [
       "class A:",
-      "x = 1",
+      "    x = 1",
       "a = A()",
       "print(hasattr(a,'x'))  # → True",
       "print(hasattr(a,'y'))  # → False",
@@ -884,11 +884,11 @@
     ],
     "examples": [
       "print(hash(42))      # → 42",
-      "print(hash('hello')) # → число",
-      "print(hash((1,2,3))) # → число",
+      "print(hash('hello')) # → ? хеш строки солится PYTHONHASHSEED и меняется от запуска",
+      "print(hash((1,2,3))) # → ? хеш кортежа считается из хешей элементов",
       "try:",
-      "hash([1,2,3])  # → TypeError: unhashable type: 'list'",
-      "except TypeError as e: print(e)",
+      "    hash([1,2,3])  # список нехешируем — будет TypeError",
+      "except TypeError as e: print(e)  # → unhashable type: 'list'",
       "print(hash(42) == hash(42.0))  # → True (равные объекты)"
     ],
     "related": [
@@ -1236,15 +1236,15 @@
     ],
     "examples": [
       "def f():",
-      "x = 10; y = 20",
-      "return locals()",
+      "    x = 10; y = 20",
+      "    return locals()",
       "print(f())  # → {'x':10,'y':20}",
       "def g(a, b):",
-      "c = a+b",
-      "print('c' in locals())  # → True",
-      "return locals()",
+      "    c = a+b",
+      "    print('c' in locals())  # → True",
+      "    return locals()",
       "print(g(1,2))  # → {'a':1,'b':2,'c':3}",
-      "print(type(locals()))  # → dict"
+      "print(type(locals()))  # → <class 'dict'>"
     ],
     "related": [
       "globals",
@@ -1885,7 +1885,7 @@
       "setattr(a,'x',42)",
       "print(a.x)  # → 42",
       "for name,val in [('p',1),('q',2)]:",
-      "setattr(a,name,val)",
+      "    setattr(a,name,val)",
       "print(a.p, a.q)  # → 1 2",
       "setattr(a,'lst',[])",
       "a.lst.append(1)",
@@ -2053,11 +2053,11 @@
     ],
     "examples": [
       "class A:",
-      "def __init__(self): self.x=1; self.y=2",
+      "    def __init__(self): self.x=1; self.y=2",
       "a=A()",
       "print(vars(a))  # → {'x':1,'y':2}",
       "print('x' in vars(a))  # → True",
-      "print(vars(int))['__add__']  # → метод int.__add__",
+      "print(vars(int)['__add__'])  # → ? слот-обёртка int.__add__ (repr содержит адрес)",
       "print(type(vars()))  # → dict",
       "print('print' in vars(__builtins__) if isinstance(vars(__builtins__),dict) else True)"
     ],
