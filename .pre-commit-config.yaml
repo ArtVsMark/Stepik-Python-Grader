@@ -71,6 +71,13 @@ repos:
         pass_filenames: false
         files: '^src/stepik_grader/glossary/data/.*\.json$'
 
+      - id: check-glossary-docs-links
+        name: ссылки карточек ведут к описываемому имени
+        entry: python scripts/check_glossary_docs_links.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/glossary/data/.*\.json$'
+
       - id: check-locale-guardrails
         name: полнота локалей ru/en
         entry: python scripts/check_locale_guardrails.py
