@@ -622,11 +622,23 @@
       "exc"
     ],
     "examples": [
+      "import os",
+      "import tempfile",
+      "from pathlib import Path",
+      "# Права — свойство ОС И пользователя. Под администратором (а в контейнере",
+      "# процесс часто идёт от root) запись разрешена даже в файл «только для чтения»,",
+      "# поэтому ожидания здесь помечены средозависимыми: карточка показывает ФОРМУ",
+      "# обработки, а не гарантированный исход. Прежний пример читал '/etc/shadow' —",
+      "# файла с таким именем нет ни на Windows, ни на macOS.",
+      "path = Path(tempfile.mkdtemp()) / 'readonly.txt'",
+      "path.write_text('данные', encoding='utf-8')",
+      "os.chmod(path, 0o444)",
       "try:",
-      "with open('/etc/shadow') as f:",
-      "pass",
+      "    with open(path, 'w', encoding='utf-8') as f:",
+      "        f.write('перезапись')",
+      "    print('запись разрешена — у процесса права администратора')  # → ?",
       "except PermissionError:",
-      "print('нет прав на чтение')"
+      "    print('нет прав на запись')  # → ?"
     ],
     "related": [
       "oserror",

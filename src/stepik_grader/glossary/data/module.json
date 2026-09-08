@@ -245,14 +245,23 @@
       "module"
     ],
     "examples": [
+      "import tempfile",
       "from pathlib import Path",
-      "p = Path('/tmp')",
-      "for item in p.iterdir():",
-      "print(item.name, item.is_dir())",
-      "# Фильтрация:",
-      "files = [x for x in p.iterdir() if x.is_file()]",
-      "dirs = [x for x in p.iterdir() if x.is_dir()]",
-      "len(list(p.iterdir())) >= 0 # → True"
+      "# Временная папка вместо '/tmp': её нет на Windows, и содержимое системной",
+      "# временной папки в любом случае не воспроизводимо от запуска к запуску.",
+      "base = Path(tempfile.mkdtemp())",
+      "(base / 'a.txt').write_text('a', encoding='utf-8')",
+      "(base / 'b.log').write_text('b', encoding='utf-8')",
+      "(base / 'sub').mkdir()",
+      "# Обход содержимого — не рекурсивный: только прямые дети",
+      "print(sorted((p.name, p.is_dir()) for p in base.iterdir()))",
+      "# → [('a.txt', False), ('b.log', False), ('sub', True)]",
+      "# Фильтрация",
+      "files = [p for p in base.iterdir() if p.is_file()]",
+      "dirs = [p for p in base.iterdir() if p.is_dir()]",
+      "print(len(files), len(dirs))  # → 2 1",
+      "# Рекурсивный обход — это уже rglob, а не iterdir",
+      "print(sorted(p.name for p in base.rglob('*.txt')))  # → ['a.txt']"
     ],
     "related": [
       "path.glob",
