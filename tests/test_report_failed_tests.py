@@ -221,3 +221,84 @@ def test_exhausted_quota_says_wait(tmp_path: pathlib.Path, monkeypatch: pytest.M
     assert reporter.main(["--dir", str(tmp_path), "--pr", "1", "--apply"]) == (
         reporter.gh_rest.EXIT_WAIT
     )
+
+
+# --- сообщение доезжает целиком (issue #1514) ------------------------------------
+
+#: Падение, у которого диагноз лежит НИЖЕ заголовка — как у теста очереди
+#: SQLite: после #924 туда доносится stderr упавшего воркера.
+_MULTILINE_CASE = (
+    '<testcase classname="tests.test_missing_queue_sqlite" name="test_concurrent">'
+    '<failure message="AssertionError: воркеры завершились с ненулевым кодом:&#10;'
+    'воркер 2: код 1&#10;sqlite3.OperationalError: database is locked&quot;">'
+    "трассировка</failure></testcase>"
+)
+
+
+def test_the_headline_is_still_the_first_line(tmp_path: pathlib.Path) -> None:
+    """Заголовок не поменялся — сводка по-прежнему читается одной строкой."""
+    _report(tmp_path, "test-results-windows-latest-3.12.xml", _MULTILINE_CASE)
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert failure.message == "AssertionError: воркеры завершились с ненулевым кодом:"
+
+
+def test_the_rest_of_the_message_is_kept(tmp_path: pathlib.Path) -> None:
+    """А остальное больше не выбрасывается — ради него сообщение и писали.
+
+    Прежде сводка обрывалась на двоеточии, и живой случай (PR #1506) остался
+    без диагноза во второй раз подряд: логи Actions облачной сессии недоступны
+    (403), то есть комментарий — единственный носитель ответа.
+    """
+    _report(tmp_path, "test-results-windows-latest-3.12.xml", _MULTILINE_CASE)
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert "воркер 2: код 1" in failure.details
+    assert "sqlite3.OperationalError: database is locked" in failure.details
+
+
+def test_a_single_line_message_has_no_details(tmp_path: pathlib.Path) -> None:
+    """`assert 1 != 2` умещается в заголовок — блоку взяться неоткуда."""
+    _report(tmp_path, "test-results-macos-latest-3.13.xml", _FAILING_CASE)
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert failure.details == ()
+
+
+def test_the_details_are_folded_not_spread(tmp_path: pathlib.Path) -> None:
+    """Блок свёрнут: десяток трассировок иначе превратит сводку в простыню."""
+    _report(tmp_path, "test-results-windows-latest-3.12.xml", _MULTILINE_CASE)
+
+    text = reporter.render(reporter.collect(tmp_path))
+
+    assert "<details><summary>сообщение целиком</summary>" in text
+    assert "database is locked" in text
+
+
+def test_a_single_line_failure_renders_without_a_block(tmp_path: pathlib.Path) -> None:
+    """Обратная сторона: там, где показывать нечего, блок не рисуется."""
+    _report(tmp_path, "test-results-macos-latest-3.13.xml", _FAILING_CASE)
+
+    text = reporter.render(reporter.collect(tmp_path))
+
+    assert "<details>" not in text
+
+
+def test_a_very_long_message_is_cut_with_a_count() -> None:
+    """Глубина ограничена, и обрезка названа числом, а не молчанием.
+
+    Молчаливая обрезка читается как «это всё» — та же ошибка, от которой уже
+    защищён список упавших тестов.
+    """
+    long_tail = tuple(f"строка {i}" for i in range(200))
+    failure = reporter.Failure(
+        "ubuntu-latest-3.12", "tests/t.py::x", "failure", "AssertionError", long_tail
+    )
+
+    text = reporter.render([failure])
+
+    assert "…и ещё" in text
+    assert "строка 199" not in text
