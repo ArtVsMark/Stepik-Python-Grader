@@ -38,9 +38,15 @@ def test_main_smoke_prints_summary_without_cards(capsys: pytest.CaptureFixture[s
 
 
 def _total_missing(output: str) -> int:
-    """Число пробелов из строки «total N/M covered, K missing»."""
+    """Число пробелов из строки «total N/M covered (P%), K missing».
+
+    Разбор с конца, а не по подстроке «covered, »: доля в строке появилась
+    вместе с честным процентом (issue #919, `DATA-1-01`), и привязка к точной
+    формулировке ломала тест на каждой правке формата — при том, что вопрос у
+    него один и тот же, «сколько пробелов».
+    """
     line = next(ln for ln in output.splitlines() if ln.strip().startswith("total"))
-    return int(line.split("covered, ")[1].split(" missing")[0])
+    return int(line.rsplit(",", 1)[1].split("missing")[0].strip())
 
 
 def test_main_with_cards_reduces_reported_missing(capsys: pytest.CaptureFixture[str]) -> None:
@@ -173,6 +179,38 @@ def test_module_run_is_quiet(tmp_path: pathlib.Path) -> None:
 
     assert result.returncode == 0, result.stderr
     assert "RuntimeWarning" not in result.stderr
+
+
+def test_module_run_survives_a_non_utf8_console(tmp_path: pathlib.Path) -> None:
+    """Сводка печатается и там, где консоль не знает кириллицы (issue #919).
+
+    Windows-консоль работает в cp1251/cp866, и печать символов вне этой
+    кодировки роняет процесс `UnicodeEncodeError`. Сводка покрытия стала
+    русской — и `python -m …coverage` упал на всех трёх windows-джобах, хотя
+    сам подсчёт был верен: сломалась не арифметика, а вывод.
+
+    Кодировка навязывается через `PYTHONIOENCODING`: это тот же механизм, что
+    выбирает её на настоящей windows-консоли, и он воспроизводит отказ на
+    любой ОС — иначе проверка существовала бы только в CI одной платформы.
+    """
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    result = subprocess.run(
+        [sys.executable, "-m", "stepik_grader.glossary.coverage"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=tmp_path,
+        timeout=60,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "UnicodeEncodeError" not in result.stderr
 
 
 def test_main_invalid_cards_path_exits_with_error(tmp_path: pathlib.Path) -> None:
