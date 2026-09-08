@@ -2087,7 +2087,7 @@
     },
     "syntax": "from pathlib import Path\np = Path('/some/path')",
     "status": "ready",
-    "docs_url": "https://docs.python.org/3/library/functions.html#open",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path",
     "version": "",
     "section": "Файлы и I_O",
     "subcat": "pathlib",
