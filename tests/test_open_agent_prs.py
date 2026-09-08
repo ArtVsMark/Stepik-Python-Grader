@@ -338,6 +338,10 @@ class TestDeclinedBranchIsSkipped:
                 return _compare(3, _MESSAGE)
             if "state=closed" in path:
                 return SimpleNamespace(data=closed)
+            if path.endswith("/labels"):
+                # Метка согласия ставится сразу при открытии (issue #1325) —
+                # к предмету этого теста отношения не имеет, но запрос делает.
+                return SimpleNamespace(data={})
             raise AssertionError(f"неожиданный запрос: {path}")
 
         return _request
