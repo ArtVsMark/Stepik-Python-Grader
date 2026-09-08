@@ -443,6 +443,60 @@ def _next_solution_filename(folder: pathlib.Path) -> str:
     return f"{prefix}_{max_n + 1}.py"
 
 
+#: Сколько раз пробуем занять следующее свободное имя, прежде чем сдаться.
+#: Каждая неудача означает, что имя перехватил параллельный запрос, то есть
+#: попытки тратятся ровно на число соперников. Восьми хватает с запасом:
+#: сохранение — действие руками, а не поток; предел здесь не для нагрузки, а
+#: чтобы не было бесконечного цикла, если ФС отдаёт `FileExistsError` по
+#: причине, которой мы не ждём (issue #922).
+_NEW_FILE_ATTEMPTS = 8
+
+
+def _create_new_solution(folder: pathlib.Path, code: str) -> pathlib.Path | None:
+    """Создать НОВЫЙ файл решения так, чтобы соседа нельзя было затереть.
+
+    Гонка была в разрыве между «узнать свободное имя» и «записать по нему»:
+    `_next_solution_filename` смотрит на папку, а запись шла отдельным шагом.
+    Восемь одновременных сохранений давали восемь ответов ``ok: true``, четыре
+    файла на диске и четыре молча потерянных решения — измерено, не
+    предположено (issue #922, находка ``RUN-3-02``).
+
+    Разрыв закрывается режимом ``"x"``: он создаёт файл и падает
+    ``FileExistsError``, если тот уже есть, — то есть проверка и захват имени
+    происходят одним системным вызовом. Проигравший не переписывает чужое, а
+    спрашивает следующее имя.
+
+    Блокировки здесь не нужны: имя, занятое эксклюзивным созданием, никто
+    другой занять уже не может, а межпроцессный лок пришлось бы держать и
+    снимать — и он не переживал бы падение процесса.
+
+    Args:
+        folder: папка, в которой заводится файл (существует, проверено выше).
+        code: текст решения.
+
+    Returns:
+        Путь созданного файла либо ``None``, если свободное имя не удалось
+        занять за :data:`_NEW_FILE_ATTEMPTS` попыток. Два исхода разделены
+        намеренно: «все имена перехватили» и «запись не удалась» — разные
+        причины, и человеку про них надо сказать разное.
+
+    Raises:
+        OSError: запись не удалась (нет прав, кончилось место) — вызывающая
+            сторона превращает это в ``{"ok": False, …}``, как и раньше.
+    """
+    for _ in range(_NEW_FILE_ATTEMPTS):
+        target = folder / _next_solution_filename(folder)
+        try:
+            # newline не задаём — как у `write_text`, чтобы перевод строк на
+            # Windows остался прежним.
+            with target.open("x", encoding=CONFIG.encoding) as handle:
+                handle.write(code)
+        except FileExistsError:
+            continue
+        return target
+    return None
+
+
 def save_solution(
     folder: pathlib.Path,
     path: pathlib.Path | None,
@@ -467,12 +521,33 @@ def save_solution(
     возвращается ``{"ok": False, "conflict": True, ...}``. Фронтенд решает,
     перезаписывать ли (повторный вызов без ``expected_mtime``). Для нового
     файла (``path is None``) проверка не применяется — там нечего затирать.
+
+    Новый файл создаётся атомарно (issue #922, ``RUN-3-02``): имя занимается
+    тем же вызовом, что и создание, поэтому параллельные сохранения не
+    получают одно имя на всех. Перезапись СУЩЕСТВУЮЩЕГО файла атомарной не
+    становится — там окно между проверкой ``mtime`` и записью остаётся, и
+    закрывает его не блокировка, а сам optimistic lock: ожидаемый ``mtime``
+    приходит от того, кто файл читал, и разошедшийся вернёт ``conflict``.
     """
     folder_p = folder.expanduser()
     if not folder_p.is_dir():
         return {"ok": False, **message_fields("folder_not_found", lang, path=str(folder))}
-    target = path.expanduser() if path else folder_p / _next_solution_filename(folder_p)
-    if expected_mtime is not None and path is not None and target.is_file():
+    if path is None:
+        # Новый файл заводится атомарно — см. `_create_new_solution`. Проверка
+        # `expected_mtime` к этой ветке не относится: затирать нечего.
+        try:
+            created = _create_new_solution(folder_p, code)
+        except OSError as exc:
+            return {"ok": False, **message_fields("file_save_failed", lang, error=str(exc))}
+        if created is None:
+            return {
+                "ok": False,
+                **message_fields("new_file_name_taken", lang, path=str(folder_p)),
+            }
+        return {"ok": True, "path": str(created), "mtime": created.stat().st_mtime}
+
+    target = path.expanduser()
+    if expected_mtime is not None and target.is_file():
         actual_mtime = target.stat().st_mtime
         # Допуск 1 мс: mtime проходит через JSON float round-trip, а точность
         # st_mtime разнится по ФС (NTFS ~100нс, некоторые FS — секунды) —
