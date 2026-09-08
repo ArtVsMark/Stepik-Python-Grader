@@ -481,6 +481,126 @@ function renderTermCards(terms) {
     .join("");
 }
 
+// issue #922 (FE-2-08 · FE-3-02): списки выбора работают с клавиатуры.
+//
+// Списки решений, карточек глоссария и правил рисовались как `<li>` с
+// обработчиком клика — и всё. Ни `tabindex`, ни роли, ни клавиш: до выбора
+// решения нельзя было добраться вообще, а значит и до проверки. Это не
+// неудобство, а недоступность основного пути.
+//
+// Механизм один на все три списка намеренно. Три копии одного паттерна
+// разъезжаются — и разъезжаться будут молча, потому что заметить это можно
+// только клавиатурой, а мышью всё выглядит одинаково.
+//
+// Паттерн — listbox из WAI-ARIA APG: контейнеру `role="listbox"`, пунктам
+// `role="option"` с `aria-selected`, и roving tabindex — в поток табуляции
+// входит РОВНО ОДИН пункт (выбранный, иначе первый). Иначе список из сорока
+// карточек становится сорока остановками Tab, и пройти шапку насквозь
+// невозможно.
+//
+// Стрелки выбирают сразу («follow focus»), как и положено одиночному listbox:
+// перемещение по такому списку и есть выбор, а требовать Enter поверх стрелки
+// значит заставлять клавиатуру делать два действия там, где мышь делает одно.
+
+//: Контейнер, чей `onActivate` выполняется прямо сейчас. Ровно по нему
+//: `wireChoiceList` узнаёт, что перерисовка — следствие выбора, и возвращает
+//: фокус в список. Модульный, а не локальный: ставит его один вызов, читает
+//: следующий, вложенный.
+let _choiceActivating = null;
+
+/** Пункты списка, годные для выбора (пустое состояние — не пункт). */
+function _choiceItems(el, itemSelector) {
+  return Array.from(el.querySelectorAll(itemSelector));
+}
+
+/** Расставить роли, `aria-selected` и roving tabindex по текущей разметке. */
+function _syncChoiceRoles(el, itemSelector) {
+  el.setAttribute("role", "listbox");
+  const items = _choiceItems(el, itemSelector);
+  const selected = items.find(li => li.classList.contains("selected"));
+  const stop = selected || items[0];
+  items.forEach(li => {
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", li.classList.contains("selected") ? "true" : "false");
+    li.tabIndex = li === stop ? 0 : -1;
+  });
+  return items;
+}
+
+/**
+ * Сделать список выбора управляемым с клавиатуры (issue #922).
+ *
+ * Зовётся ПОСЛЕ каждой перерисовки списка — там же, где раньше навешивались
+ * клики: `innerHTML` пересоздаёт узлы, и старые слушатели уходят вместе с ними.
+ *
+ * @param {Element|null} el — контейнер `<ul>`
+ * @param {string} itemSelector — селектор пунктов, напр. `li[data-file]`
+ * @param {(item: Element) => void} onActivate — что делать с выбранным пунктом
+ */
+function wireChoiceList(el, itemSelector, onActivate) {
+  if (!el) return;
+  const items = _syncChoiceRoles(el, itemSelector);
+
+  // Фокус после перерисовки. Выбор пункта перерисовывает список целиком, узел
+  // с фокусом исчезает, и фокус падает на <body> — дальше стрелки некому
+  // обрабатывать, и навигация обрывается на первой же.
+  //
+  // Условие взято НЕ из событий фокуса, и это стоило отдельного замера в
+  // браузере: `focusout` при удалении узла приходит с `isConnected === true` и
+  // `relatedTarget === null`, то есть неотличим от «пользователь ушёл сам».
+  // Зато у нас есть точное знание: перерисовка случилась ВНУТРИ нашего же
+  // `onActivate`. По нему и решаем.
+  if (_choiceActivating === el) {
+    const stop = items.find(li => li.tabIndex === 0);
+    if (stop) stop.focus();
+  }
+
+  const activate = item => {
+    if (!item) return;
+    const outer = _choiceActivating;
+    _choiceActivating = el;
+    try {
+      onActivate(item);
+    } finally {
+      _choiceActivating = outer;
+    }
+  };
+
+  // Слушатели вешаются на КОНТЕЙНЕР и ровно один раз. Пункты пересоздаются
+  // вместе с `innerHTML`, а контейнер — нет: навесить на него слушатель при
+  // каждой перерисовке значило бы получить их столько, сколько было
+  // перерисовок, и один Enter выполнял бы выбор десять раз. Ошибку поймал не
+  // тест, а разбор собственной правки, поэтому признак записан в разметку —
+  // его видно в DevTools, а не только в голове у автора.
+  if (el.dataset.choiceWired === "1") return;
+  el.dataset.choiceWired = "1";
+
+  el.addEventListener("click", event => {
+    const item = event.target.closest(itemSelector);
+    if (item && el.contains(item)) activate(item);
+  });
+
+  el.addEventListener("keydown", event => {
+    const current = event.target.closest(itemSelector);
+    if (!current) return;
+    const list = _choiceItems(el, itemSelector);
+    const at = list.indexOf(current);
+    let next = null;
+    if (event.key === "ArrowDown") next = list[Math.min(at + 1, list.length - 1)];
+    else if (event.key === "ArrowUp") next = list[Math.max(at - 1, 0)];
+    else if (event.key === "Home") next = list[0];
+    else if (event.key === "End") next = list[list.length - 1];
+    else if (event.key === "Enter" || event.key === " ") next = current;
+    else return;
+    // Пробел прокручивает страницу, стрелки — тоже: внутри списка это не то,
+    // чего просил пользователь.
+    event.preventDefault();
+    if (next !== current) next.focus();
+    activate(next);
+  });
+
+}
+
 function renderTermsInto(el, terms, emptyMsg) {
   if (!el || terms === null) return; // null = ошибка сети, список не трогаем
   el.innerHTML = terms.length
@@ -962,4 +1082,5 @@ export {
   tOr,
   toast,
   tp,
+  wireChoiceList,
 };
