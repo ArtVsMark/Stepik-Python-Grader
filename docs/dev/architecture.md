@@ -103,6 +103,7 @@
 | `core/step_content.py` | Domain (leaf) | Извлечение данных из ответов Stepik API: `parse_stepik_step_url`, `extract_python_code`, `extract_submission_code`, `extract_function_name`. Чистые `dict/str -> данные`, без сети/ФС |
 | `core/i18n.py` | Infrastructure / Utilities (leaf) | `load_locale_messages(lang)` — JSON-локали `core/locales/<lang>.json`; аддитивный путь поверх статического `_MESSAGES` в `cli/__init__.py` — новые сообщения через JSON, без переписывания существующих; graceful degradation на отсутствующий/битый файл |
 | `core/diag_log.py` | Infrastructure / Diagnostics (leaf) | Opt-in диагностическое логирование сети/OAuth с редакцией секретов: `configure_diagnostics`/`get_logger`/`register_secret`; подключён в `cli/__init__`, `downloader`, `diagnostic_stepik`, `core/stepik_client`, `core/oauth_flow`; только stdlib (`logging`/`re`/`pathlib`) |
+| `core/doctor.py` | Application-facing helper | Прогон всех проверок окружения одной командой: сводка человеку и отчёт для issue с общей редакцией секретов. Своего реестра не заводит — берёт `core/diagnostics.py`, иначе `--doctor` и точка сбоя начнут отвечать по-разному |
 | `core/diagnostics.py` | Application-facing helper | Движок проверок окружения: каждая проверка — данные (что проверяю, как узнал, что делать), движок ничего не печатает и не чинит; CLI-диагностика и веб берут текст из одного реестра |
 | `core/feedback.py` | Core / Feedback | Канал обратной связи: `FeedbackKind`/`collect_environment`/`collect_commit`/`prepare_issue`/`scrub_paths` — сборка prefilled-URL к GitHub Issue Forms (`.github/ISSUE_TEMPLATE/*.yml`) с редакцией секретов, сворачиванием домашнего пути в `~` и укладыванием в лимит длины URL. Единственное проектное ребро — на leaf `core/diag_log.py`; версию читает через `importlib.metadata`, чтобы не появилось ребро `core → cli`. Ничего не отправляет и не открывает: браузер вызывает CLI/web-слой по явному подтверждению пользователя. Потребители — `cli/interactive.py` (пункт меню «Обратная связь») и `web/feedback_adapter.py` |
 | `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` |
@@ -238,6 +239,7 @@ launcher.py            ──→  core/user_settings.py  (память окна 
 launcher.py            ──→  core/settings_resolver.py  (вкладка «Дополнительно»: состав контролов, происхождение значения и запись — из ядра, чтобы состав вкладки проверялся тестом, а не глазами на машине с дисплеем)
 launcher.py            (в остальном stdlib + tkinter/subprocess — поднимает --serve отдельным процессом; ядро грейдера в процесс окна не тянет)
 diagnostic_stepik.py ──→  core/stepik_client.py
+cli/__init__.py     ──→  core/doctor.py       (`--doctor`: отчёт об окружении до сбоя, а не только после)
 diagnostic_stepik.py ──→  core/diagnostics.py  (реестр проверок окружения: причина сбоя и отчёт берут текст из одного места)
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 downloader.py        ──→  core/oauth_flow.py
