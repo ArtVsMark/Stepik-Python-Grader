@@ -116,7 +116,7 @@
       "print(any(x<0 for x in [1,-1,3]))  # → True",
       "print(any(x==5 for x in range(10)))  # → True",
       "# ленивое вычисление — остановится на первом True",
-      "print(any(x > 100 for x in range(10**6)))  # → False"
+      "print(any(x > 100 for x in range(10**6)))  # → True"
     ],
     "related": [
       "all"
@@ -1009,13 +1009,17 @@
     ],
     "examples": [
       "x = 42",
-      "print(id(x))  # → большое целое число",
       "y = x",
-      "print(id(x) == id(y))  # → True (один объект)",
-      "print(id(42) == id(42))  # → True (интернирование)",
-      "print(id([]) == id([]))  # → False (разные объекты)",
+      "print(id(x) == id(y))  # → True (одно и то же имя, один объект)",
+      "print(id(42) == id(42))  # → True (маленькие целые интернированы)",
       "a = 'hello'; b = 'hello'",
-      "print(id(a) == id(b))  # → True (интернирование строк)"
+      "print(id(a) == id(b))  # → True (интернирование строк)",
+      "# Ловушка: id([]) == id([]) даёт True, и это НЕ значит «один объект».",
+      "# Первый список освобождается сразу после вычисления id, и второй получает",
+      "# тот же адрес. Сравнивать так нельзя — объекты должны быть ЖИВЫ:",
+      "first, second = [], []",
+      "print(id(first) == id(second))  # → False (два живых списка — разные объекты)",
+      "print(first is second)  # → False (is сравнивает по id, но держит ссылки)"
     ],
     "related": [
       "is-is-not",

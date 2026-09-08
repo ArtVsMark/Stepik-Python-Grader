@@ -4071,10 +4071,17 @@
     ],
     "examples": [
       "import signal",
-      "try:",
-      "    raise signal.ItimerError",
-      "except signal.ItimerError as e:",
-      "    print(type(e).__name__)   # → ItimerError"
+      "# signal.ItimerError есть только на Unix: setitimer/getitimer в Windows нет",
+      "# вовсе, поэтому пример проверяет наличие, а не полагается на него.",
+      "ItimerError = getattr(signal, 'ItimerError', None)",
+      "print(ItimerError is not None)  # → ?",
+      "if ItimerError is not None:",
+      "    try:",
+      "        raise ItimerError",
+      "    except ItimerError as e:",
+      "        # Имя класса — itimer_error, а не ItimerError: в signal он объявлен",
+      "        # под C-именем, и `signal.ItimerError` лишь ссылка на него.",
+      "        print(type(e).__name__)  # → ?"
     ],
     "related": [
       "oserror",
