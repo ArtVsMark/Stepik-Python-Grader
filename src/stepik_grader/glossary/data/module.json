@@ -4809,7 +4809,7 @@
       "print(math.acos(0))    # → 1.5707... (π/2)",
       "print(math.acos(-1))   # → 3.1415... (π)",
       "print(math.acos(0.5))  # → 1.0471... (π/3)",
-      "print(math.degrees(math.acos(0.5)))  # → 60.0",
+      "print(math.degrees(math.acos(0.5)))  # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
       "print(math.degrees(math.acos(0)))  # → 90.0"
     ],
     "related": [
@@ -4852,7 +4852,7 @@
       "print(math.asin(1))    # → 1.5707... (π/2)",
       "print(math.asin(-1))   # → -1.5707...",
       "print(math.asin(0.5))  # → 0.5235... (π/6)",
-      "print(math.degrees(math.asin(0.5)))  # → 30.0",
+      "print(math.degrees(math.asin(0.5)))  # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
       "print(round(math.asin(math.sqrt(2)/2),4))  # → 0.7854 (π/4)"
     ],
     "related": [
@@ -5065,7 +5065,7 @@
       "import math",
       "print(math.cos(0))            # → 1.0",
       "print(math.cos(math.pi))      # → -1.0",
-      "print(math.cos(math.pi/2))    # → 6.12e-17 ≈ 0",
+      "print(math.cos(math.pi/2))    # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
       "print(round(math.cos(math.pi/3), 2))  # → 0.5",
       "print(math.cos(math.pi/4))    # → 0.7071...",
       "print(math.cos(-math.pi))     # → -1.0"
@@ -5109,8 +5109,13 @@
       "print(math.degrees(math.pi/2))    # → 90.0",
       "print(math.degrees(2*math.pi))    # → 360.0",
       "print(math.degrees(0))            # → 0.0",
-      "print(math.degrees(math.pi/6))    # → 30.0",
-      "print(math.degrees(math.pi/4))    # → 45.0"
+      "print(math.degrees(math.pi/4))    # → 45.0",
+      "# Не ровно 30.0! math.pi/6 не представим в double точно, и ошибка видна в ответе.",
+      "# помечено средозависимым: карточка учит НАЛИЧИЮ погрешности, а не её цифрам.",
+      "print(math.degrees(math.pi/6))    # → ?  (29.999999999999996 на Linux/x86-64; хвост зависит от libm)",
+      "# Сравнивать такие значения нужно с допуском, а не на равенство:",
+      "print(math.isclose(math.degrees(math.pi/6), 30.0))  # → True",
+      "print(round(math.degrees(math.pi/6), 10))  # → 30.0"
     ],
     "related": [
       "math.radians",
@@ -5193,7 +5198,7 @@
       "print(math.exp(2))   # → 7.389...",
       "print(math.exp(-1))  # → 0.3678...",
       "print(math.exp(10))  # → 22026.465...",
-      "print(math.exp(math.log(5)))  # → 5.0"
+      "print(math.exp(math.log(5)))  # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)"
     ],
     "related": [
       "math.log",
@@ -5234,7 +5239,7 @@
       "print(math.fabs(-5.0))  # → 5.0",
       "print(math.fabs(3.14))  # → 3.14",
       "print(math.fabs(-0.0))  # → 0.0",
-      "print(type(math.fabs(-3)))  # → float (в отличие от abs)",
+      "print(type(math.fabs(-3)))  # → <class 'float'> (abs(-3) вернул бы int)",
       "print(math.fabs(-1e100))  # → 1e+100",
       "print(math.fabs(0))  # → 0.0"
     ],
@@ -5357,12 +5362,21 @@
     ],
     "examples": [
       "import math",
-      "print(sum([0.1]*10))         # → 0.9999999999999999",
-      "print(math.fsum([0.1]*10))   # → 1.0",
-      "print(math.fsum([1e100, 1, -1e100]))  # → 1.0",
-      "print(sum([1e100, 1, -1e100]))        # → 0.0 (неточно!)",
-      "print(math.fsum([0.1, 0.2, 0.3]))    # → 0.6",
-      "print(sum([0.1, 0.2, 0.3]))          # → 0.6000000000000001"
+      "# Классическая иллюстрация «sum накапливает ошибку» с Python 3.12 больше НЕ",
+      "# работает: встроенная sum() для float считает компенсированной суммой",
+      "# (алгоритм Нейманна), поэтому оба ответа точны.",
+      "print(sum([0.1] * 10))         # → 1.0",
+      "print(math.fsum([0.1] * 10))   # → 1.0",
+      "print(sum([0.1, 0.2, 0.3]))       # → 0.6",
+      "print(math.fsum([0.1, 0.2, 0.3]))  # → 0.6",
+      "# Разница между sum и fsum зависит от версии: компенсация во встроенной sum",
+      "# крепнет от релиза к релизу. Этот случай на 3.12/3.13 даёт 0.0, на 3.14 — 1.0,",
+      "print(sum([1e100, 1, -1e100]))        # → ?  (0.0 на 3.12/3.13, 1.0 на 3.14)",
+      "print(math.fsum([1e100, 1, -1e100]))  # → 1.0 (fsum считает точно)",
+      "# поэтому ожидание помечено средозависимым. А fsum точен на любой версии:",
+      "print(sum([1, 1e100, -1e100, 1]))        # → 1.0 (порядок слагаемых меняет ответ)",
+      "# Устойчивая иллюстрация: здесь sum теряет единицу на ВСЕХ версиях, fsum — нет.",
+      "print(math.fsum([1, 1e100, -1e100, 1]))  # → 2.0"
     ],
     "related": [
       "sum",
@@ -5528,7 +5542,7 @@
     "examples": [
       "import math",
       "print(math.isclose(0.1+0.2, 0.3))  # → True",
-      "print(math.isclose(1.0, 1.0000001))  # → True",
+      "print(math.isclose(1.0, 1.0000001))  # → False (rel_tol по умолчанию 1e-09, а разница 1e-07)",
       "print(math.isclose(1.0, 1.001))  # → False",
       "print(math.isclose(1.0, 1.001, rel_tol=0.01))  # → True",
       "print(math.isclose(0.0, 0.0))  # → True",
@@ -6123,7 +6137,7 @@
       "import math",
       "print(math.sin(0))            # → 0.0",
       "print(math.sin(math.pi/2))    # → 1.0",
-      "print(math.sin(math.pi))      # → 1.22e-16 ≈ 0",
+      "print(math.sin(math.pi))      # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
       "print(round(math.sin(math.pi/6), 2))  # → 0.5",
       "print(math.sin(math.pi/4))    # → 0.7071...",
       "print(math.sin(-math.pi/2))   # → -1.0"
@@ -6208,10 +6222,10 @@
     "examples": [
       "import math",
       "print(math.tan(0))             # → 0.0",
-      "print(math.tan(math.pi/4))    # → 1.0",
+      "print(math.tan(math.pi/4))    # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
       "print(round(math.tan(math.pi/6), 4))  # → 0.5774",
-      "print(math.tan(math.pi))      # → -1.22e-16 ≈ 0",
-      "print(math.tan(-math.pi/4))   # → -1.0",
+      "print(math.tan(math.pi))      # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
+      "print(math.tan(-math.pi/4))   # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
       "print(round(math.tan(1), 4))  # → 1.5574"
     ],
     "related": [
@@ -6253,9 +6267,9 @@
       "print(math.tau)  # → 6.283185307179586",
       "print(math.tau == 2 * math.pi)  # → True",
       "print(math.tau / 4)  # → 1.5707... (π/2)",
-      "print(math.sin(math.tau))  # → -2.44e-16 ≈ 0",
+      "print(math.sin(math.tau))  # → ?  (значение зависит от системной libm — карточка учит наличию погрешности, а не её цифрам)",
       "print(math.cos(math.tau))  # → 1.0",
-      "print(math.tau * 5)  # → 31.416..."
+      "print(math.tau * 5)  # → 31.41592653589793"
     ],
     "related": [
       "math.pi",
@@ -12636,11 +12650,18 @@
     ],
     "examples": [
       "import math",
-      "print(math.fma(2, 3, 4))   # → 10.0",
-      "print(math.fma(2.5, 4, -1))   # → 9.0",
-      "print(math.fma(0.5, 10, 3))   # → 8.0",
-      "print(math.fma(0.1, 0.1, -0.01) < 0.1 * 0.1 - 0.01)   # → True",
-      "print(type(math.fma(2, 3, 4)))   # → <class 'float'>"
+      "# math.fma появилась в Python 3.13. На более ранних версиях того же результата",
+      "# в большинстве случаев даёт x*y+z — но НЕ всегда: смысл fma в том, что",
+      "# умножение и сложение выполняются с одним округлением вместо двух.",
+      "fma = getattr(math, 'fma', lambda x, y, z: float(x * y + z))",
+      "print(fma(2, 3, 4))      # → 10.0",
+      "print(fma(2.5, 4, -1))   # → 9.0",
+      "print(fma(0.5, 10, 3))   # → 8.0",
+      "print(type(fma(2, 3, 4)))  # → <class 'float'>",
+      "# Вот та самая разница в одном округлении. На 3.13+ она видна, на 3.12",
+      "# подстановка выше даёт ровно то же выражение, что и справа.",
+      "print(fma(0.1, 0.1, -0.01) <= 0.1 * 0.1 - 0.01)  # → ?  (аппаратный fma и порядок округления зависят от платформы)",
+      "print(hasattr(math, 'fma'))  # → ?  (появилась в Python 3.13)"
     ],
     "related": [
       "math.sumprod",
