@@ -879,3 +879,54 @@ class TestCancellingGroupsNameTheHead:
         """Объявление без причины — разрешение без основания."""
         for name, reason in _MODULE._GROUPS_WITHOUT_A_HEAD.items():
             assert len(reason.split()) >= 10, name
+
+
+class TestFailuresAreNamed:
+    """Красный джоб называет упавший тест, а не код возврата (issue #1500)."""
+
+    #: Обе стороны канала на месте — эталон, от которого отнимают по одной.
+    _WHOLE = (
+        "jobs:\n"
+        "  e2e:\n"
+        "    steps:\n"
+        "      - run: pytest tests/e2e/ --junitxml=test-results-e2e.xml\n"
+        "  report-failures:\n"
+        "    needs: [test, e2e]\n"
+        "    if: ${{ needs.test.result == 'failure' || needs.e2e.result == 'failure' }}\n"
+    )
+
+    def test_e2e_without_a_report_is_caught(self) -> None:
+        """Без ``--junitxml`` разбирать красный e2e нечем: логи Actions — 403."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(
+            errors, source=self._WHOLE.replace(" --junitxml=test-results-e2e.xml", "")
+        )
+
+        assert any("--junitxml" in error for error in errors), errors
+
+    def test_reporter_deaf_to_e2e_is_caught(self) -> None:
+        """Отчёт, о котором сводку не разбудили, лежит в недоступном артефакте."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(
+            errors, source=self._WHOLE.replace(" || needs.e2e.result == 'failure'", "")
+        )
+
+        assert any("report-failures" in error for error in errors), errors
+
+    def test_both_ends_present_passes(self) -> None:
+        """Канал целиком — отчёт пишется и сводка на него просыпается."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(errors, source=self._WHOLE)
+
+        assert errors == []
+
+    def test_real_ci_names_its_failures(self) -> None:
+        """Guard-the-guard: настоящий ci.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(errors)
+
+        assert errors == []

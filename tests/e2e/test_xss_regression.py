@@ -78,7 +78,7 @@ def test_payload_in_solution_output_is_escaped(page: Any, e2e_server: str, tmp_p
     page.click("#run")
 
     page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
-    page.click('td.file-cell[data-toggle="0"]')
+    page.click('button.row-toggle[data-toggle="0"]')
     page.click('tr.case-row[data-row="0"][data-case="0"]')
     page.wait_for_selector("#restab-detail:not([hidden])", timeout=_TIMEOUT_MS)
 

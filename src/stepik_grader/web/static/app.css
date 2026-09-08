@@ -463,8 +463,23 @@ a.btn { text-decoration: none; }
 .plain-editor:focus { outline: none; }
 .plain-editor-note { margin: 0; padding: var(--space-2) var(--space-3); }
 
-.data-table .file-cell { cursor: pointer; }
-.data-table .file-cell:hover { text-decoration: underline; }
+/* issue #922 (FE-3-02): раскрытие строки и выбор кейса — кнопки, а не
+   кликабельные ячейки. Кнопка даёт клавиатуру и роль даром; вид остаётся
+   прежним — «как текст в таблице», иначе правка доступности выглядела бы
+   сменой оформления. */
+.row-toggle,
+.case-pick {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row-toggle:hover,
+.case-pick:hover { text-decoration: underline; }
 .verdict-similar { color: var(--color-success); font-weight: 600; }
 .verdict-slower  { color: var(--color-warning); font-weight: 600; }
 .verdict-faster  { color: var(--color-primary); font-weight: 600; }

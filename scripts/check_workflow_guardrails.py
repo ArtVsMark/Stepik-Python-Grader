@@ -317,6 +317,46 @@ def check_coverage_gate_is_explicit(errors: list[str], source: str | None = None
     print(f"ci.yml: гейт покрытия задан явно (--cov-fail-under={threshold}).")
 
 
+def check_failures_are_named(errors: list[str], source: str | None = None) -> None:
+    """Каждый джоб, чьё падение разбирают, оставляет junit-отчёт и будит сводку.
+
+    issue #1500: сводка упавших тестов (#1382) собиралась только по матрице
+    ``test``. У ``e2e`` не было ни ``--junitxml``, ни строки в ``needs``
+    джоба ``report-failures`` — красный браузерный прогон сообщал ровно
+    ``Process completed with exit code 1``. Именно там это дороже всего:
+    падение матрицы обычно воспроизводится локально, падение ``e2e`` — нет
+    (замер на PR #1480: на раннере красный, на той же голове локально
+    128 passed).
+
+    Проверяются оба конца канала. Одного мало: отчёт без пробуждения сводки
+    лежит в артефакте, который облачной сессии недоступен (403), а
+    пробуждение без отчёта даёт сводку «ни один тест не назвал себя упавшим».
+    """
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — канал диагностики не проверен")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    e2e = "\n".join(extract_job(source, "e2e"))
+    if "--junitxml=" not in e2e:
+        errors.append(
+            "ci.yml: у джоба e2e нет --junitxml. Без отчёта его падение "
+            "называется только кодом возврата, а логи Actions облачной сессии "
+            "недоступны (403) — разбирать красный e2e будет нечем."
+        )
+
+    reporter = "\n".join(extract_job(source, "report-failures"))
+    if "needs.e2e.result" not in reporter:
+        errors.append(
+            "ci.yml: report-failures не просыпается на красном e2e. При зелёной "
+            "матрице джоб пропускается, и сводка не публикуется вовсе."
+        )
+
+    if not errors:
+        print("ci.yml: падение матрицы и e2e называет упавший тест в PR.")
+
+
 def check_release_publishes_verified_assets(errors: list[str], source: str | None = None) -> None:
     """Релиз падает при пропаже ассетов и проверяет содержимое колеса.
 
@@ -878,6 +918,7 @@ def main() -> int:
     check_release_notes_are_translated(errors)
     check_ci_listens_to_ready_for_review(errors)
     check_coverage_gate_is_explicit(errors)
+    check_failures_are_named(errors)
     check_release_publishes_verified_assets(errors)
     check_every_job_has_a_timeout(errors)
     check_queue_mover_uses_its_own_token(errors)
