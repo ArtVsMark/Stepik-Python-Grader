@@ -344,6 +344,7 @@
   "no_test_cases_loaded": "No test cases were loaded",
   "nudge_enable_history": "💡 Some tests failed. Enable run-history recording (menu item 7) — the “Learn” section will collect your frequent mistakes.",
   "nudge_success_streak": "🎉 Successful runs in a row: {count}! Enable run-history recording (menu item 7) — the “Learn” section will start tracking your streak and breakdowns. Data stays local and offline.",
+  "new_file_name_taken": "Could not pick a free file name in {path}: the nearest ones are taken. Try saving again.",
   "output_invalid_utf8": "Output contains non-UTF-8 bytes (the “�” character marks a replaced invalid byte). The solution likely prints raw bytes (sys.stdout.buffer.write) or uses a wrong encoding — emit text as UTF-8.",
   "path_dialog_hint": "  (press Enter with no input to open a file/folder picker, if available)",
   "path_not_found": "Path not found: {path}",

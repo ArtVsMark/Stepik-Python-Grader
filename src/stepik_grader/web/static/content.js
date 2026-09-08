@@ -13,6 +13,7 @@ import {
   t,
   tOr,
   tp,
+  wireChoiceList,
 } from "./core.js";
 
 function openGlossaryForSelectedCase() {
@@ -349,9 +350,7 @@ function renderGlossaryList() {
       return '<li data-id="' + esc(c.id) + '" class="' + sel + draft + '">' + esc(c.title) + "</li>";
     })
     .join("");
-  el.querySelectorAll("li[data-id]").forEach(li =>
-    li.addEventListener("click", () => selectGlossaryCard(li.dataset.id))
-  );
+  wireChoiceList(el, "li[data-id]", li => selectGlossaryCard(li.dataset.id));
 }
 
 function renderGlossaryMissing() {
@@ -568,9 +567,7 @@ function renderRulesList() {
         esc(c.id) + "</span> " + esc(c.title) + badge + "</li>";
     })
     .join("");
-  el.querySelectorAll("li[data-rule]").forEach(li =>
-    li.addEventListener("click", () => selectRuleCard(li.dataset.rule))
-  );
+  wireChoiceList(el, "li[data-rule]", li => selectRuleCard(li.dataset.rule));
 }
 
 function selectRuleCard(code, opts = {}) {
