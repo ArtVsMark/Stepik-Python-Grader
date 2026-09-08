@@ -258,23 +258,49 @@ class _ApiRoutesMixin(_GuardMixin):
             if confined is None:
                 return
             path = confined
-            if mode == "bench":
-                reference = (qs.get("reference") or [""])[0].strip() or None
-                repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
-                data = grade_benchmark(
-                    path,
-                    repeats=repeats,
-                    reference=reference,
-                    lang=lang,
-                    workspace=self.server.workspace,
+            # issue #922 (ARCH-2-02): синхронный грейд занимает место в ОБЩЕМ
+            # учёте прогонов. Прежде этот путь job'у не заводил и потому в учёт
+            # не попадал вовсе: десять вкладок поднимали десять подпроцессов
+            # Python при любом значении `max_active_runs` — настройка была, а
+            # половина трафика шла мимо неё.
+            #
+            # Отмена и TTL так не чинятся и чиниться здесь не должны: HTTP-запрос
+            # держится открытым всю длительность прогона, отменять нечего, а
+            # результат никуда не складывается. Для отмены есть асинхронный
+            # путь, и находка называет три разных свойства, а не одно.
+            try:
+                with runs.sync_slot():
+                    if mode == "bench":
+                        reference = (qs.get("reference") or [""])[0].strip() or None
+                        repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
+                        data = grade_benchmark(
+                            path,
+                            repeats=repeats,
+                            reference=reference,
+                            lang=lang,
+                            workspace=self.server.workspace,
+                        )
+                    elif mode == "microbench":
+                        number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
+                        data = grade_microbench(
+                            path, number=number, lang=lang, workspace=self.server.workspace
+                        )
+                    else:
+                        data = grade_path(path, lang=lang, workspace=self.server.workspace)
+            except runs.TooManyRunsError as exc:
+                # Тот же код и то же сообщение, что у асинхронного пути: для
+                # пользователя это одна и та же причина отказа.
+                self._send(
+                    429,
+                    "application/json; charset=utf-8",
+                    _json(
+                        {
+                            "kind": "error",
+                            **message_fields("too_many_runs", lang, limit=exc.limit),
+                        }
+                    ),
                 )
-            elif mode == "microbench":
-                number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
-                data = grade_microbench(
-                    path, number=number, lang=lang, workspace=self.server.workspace
-                )
-            else:
-                data = grade_path(path, lang=lang, workspace=self.server.workspace)
+                return
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _get_glossary(self, parsed: Any, lang: str) -> None:

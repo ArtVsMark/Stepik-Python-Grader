@@ -14,11 +14,80 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
+import pathlib
+import sys
+import warnings
+from collections.abc import Iterator
 from typing import Any
 
-__all__ = ["_print_tabular", "_rows_to_csv", "_rows_to_markdown"]
+__all__ = ["_print_tabular", "_rows_to_csv", "_rows_to_markdown", "human_warnings"]
+
+#: Корень пакета — по нему отличаем СВОИ предупреждения от чужих (issue #1466).
+_PACKAGE_ROOT = str(pathlib.Path(__file__).resolve().parent.parent)
+
+
+def _is_ours(filename: str) -> bool:
+    """Предупреждение испущено нашим кодом, а не сторонней библиотекой."""
+    try:
+        return str(pathlib.Path(filename).resolve()).startswith(_PACKAGE_ROOT)
+    except (OSError, ValueError):
+        return False
+
+
+@contextlib.contextmanager
+def human_warnings() -> Iterator[None]:
+    """Печатать НАШИ предупреждения как обращение к человеку (issue #1466).
+
+    Загрузчик набора сообщает о неполном наборе через ``warnings.warn``, и это
+    не недосмотр: ``warnings`` здесь ещё и транспорт — ядро ловит их и кладёт
+    в машиночитаемый ключ ``warnings`` вывода ``--output json``, чтобы CI
+    отличал полный прогон от урезанного (#935). Менять транспорт нельзя, не
+    потеряв эту половину.
+
+    Менять надо ПОКАЗ. Стандартный ``showwarning`` печатает четыре строки, из
+    которых пользователю адресована одна::
+
+        /…/src/stepik_grader/core/grader_core.py:789: UserWarning: <текст>
+          test_cases = load_test_cases(test_dir)
+
+    Остальное — про наши внутренности: путь в ``src/``, номер строки, имя
+    категории, кусок нашего кода. На учебной поверхности это тот же дефект,
+    что и весь подэпик #917: студент приходит сюда, уже не понимая, что
+    происходит, видит путь в чужие исходники и решает, что сломался грейдер, а
+    не его набор тестов.
+
+    ЧУЖИЕ предупреждения печатаются как раньше. ``DeprecationWarning`` из
+    сторонней библиотеки без файла и строки диагностировать нечем, а выдавать
+    его за наше обращение к пользователю — прямая ложь об источнике.
+    """
+    previous = warnings.showwarning
+
+    def show(
+        message: Warning | str,
+        category: type[Warning],
+        filename: str,
+        lineno: int,
+        file: Any = None,
+        line: str | None = None,
+    ) -> None:
+        if category is UserWarning and _is_ours(filename):
+            # В stderr, а не в stdout: `--output json` пишет в stdout, и
+            # человекочитаемая строка сделала бы его неразбираемым.
+            print(f"⚠️  {message}", file=sys.stderr)
+            return
+        previous(message, category, filename, lineno, file, line)
+
+    warnings.showwarning = show
+    try:
+        yield
+    finally:
+        # Возврат обязателен и в `finally`: перекрытие глобальное, и утечка из
+        # CLI изменила бы поведение всего, что запускается следом в том же
+        # процессе, — включая набор тестов.
+        warnings.showwarning = previous
 
 
 def _rows_to_csv(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:

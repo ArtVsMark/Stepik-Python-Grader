@@ -22,11 +22,13 @@ MVP без новых зависимостей: реестр job'ов — module
 
 from __future__ import annotations
 
+import contextlib
 import pathlib
 import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
@@ -45,7 +47,15 @@ from stepik_grader.web.viewmodels import (
     history_db_path_if_enabled,
 )
 
-__all__ = ["Job", "TooManyRunsError", "cancel_job", "get_job", "shutdown_jobs", "submit_job"]
+__all__ = [
+    "Job",
+    "TooManyRunsError",
+    "cancel_job",
+    "get_job",
+    "shutdown_jobs",
+    "submit_job",
+    "sync_slot",
+]
 
 # issue #831 (DEV-12): диагностический логгер web-слоя. До него падение
 # job'а оставляло в логе только строки запросов, а само место сбоя нигде не
@@ -253,14 +263,58 @@ class TooManyRunsError(RuntimeError):
         self.limit = limit
 
 
+#: Сколько СИНХРОННЫХ грейдов (``GET /api/grade``) идёт прямо сейчас.
+#:
+#: issue #922 (``ARCH-2-02``): этот путь не заводит job'у и потому не попадал в
+#: учёт вовсе — лимит одновременных прогонов его не видел, и наоборот. Десять
+#: вкладок с синхронным грейдом поднимали десять подпроцессов Python при любом
+#: значении ``max_active_runs``: настройка была, а половина трафика шла мимо
+#: неё. Счётчик общий с реестром именно поэтому — лимит один на сервер, а не
+#: один на способ запуска.
+_SYNC_ACTIVE = 0
+
+
 def _count_active_locked() -> int:
-    """Число нетерминальных (``queued``/``running``) job'ов в реестре.
+    """Число активных прогонов: нетерминальные job'ы плюс синхронные.
 
     Вызывать под ``_JOBS_LOCK``. Чтение ``job.status`` без ``job.lock`` — тот же
     грязно-читающий приём, что и ``_sweep_expired_locked`` (атрибут-строка
     читается атомарно; off-by-one на границе running↔done безвреден для
     эвристического лимита back-pressure)."""
-    return sum(1 for j in _JOBS.values() if j.status in ("queued", "running"))
+    return sum(1 for j in _JOBS.values() if j.status in ("queued", "running")) + _SYNC_ACTIVE
+
+
+@contextlib.contextmanager
+def sync_slot() -> Iterator[None]:
+    """Место в общем учёте прогонов на время СИНХРОННОГО грейда (issue #922).
+
+    Синхронный ``GET /api/grade`` держит HTTP-запрос открытым всю длительность
+    прогона и job'у не заводит. Отмены и TTL у него быть не может по природе —
+    отменять нечего, а результат никуда не складывается; асинхронный путь
+    (``POST /api/v1/runs``) остаётся единственным, где отмена есть. А вот
+    back-pressure к его природе отношения не имеет: подпроцессы Python он
+    поднимает такие же, и не считать их — значит не считать половину нагрузки.
+
+    Raises:
+        TooManyRunsError: активных прогонов уже не меньше
+            ``CONFIG.max_active_runs`` — вызывающая сторона отвечает ``429``,
+            тем же кодом и тем же сообщением, что и асинхронный путь.
+    """
+    global _SYNC_ACTIVE
+    with _JOBS_LOCK:
+        _sweep_expired_locked()
+        if _count_active_locked() >= max(1, CONFIG.max_active_runs):
+            raise TooManyRunsError(CONFIG.max_active_runs)
+        _SYNC_ACTIVE += 1
+    try:
+        yield
+    finally:
+        # Освобождение под тем же локом и в `finally`: выброс из грейда не
+        # должен оставлять слот занятым навсегда — иначе одна ошибка тихо
+        # уменьшала бы лимит до нуля, и сервер переставал бы принимать
+        # прогоны без единого сообщения о причине.
+        with _JOBS_LOCK:
+            _SYNC_ACTIVE -= 1
 
 
 def submit_job(
