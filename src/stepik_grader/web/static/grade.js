@@ -2,7 +2,7 @@
 import { openGlossaryForSelectedCase } from "./content.js";
 import { initNavigation, syncFromPath } from "./navigation.js";
 import { refreshStatementButton, resetStatement } from "./statement.js";
-import { $, SECTIONS, codeBlock, cycleTheme, errorSummary, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, stripAnsi, t, toast, tp } from "./core.js";
+import { $, SECTIONS, codeBlock, cycleTheme, errorSummary, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, stripAnsi, t, toast, tp, wireChoiceList } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
 // как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
@@ -493,9 +493,8 @@ function renderSolutionsList() {
       return '<li data-file="' + esc(f) + '" class="' + sel + '">' + esc(name) + "</li>";
     })
     .join("");
-  el.querySelectorAll("li[data-file]").forEach(li =>
-    li.addEventListener("click", () => selectSolutionFile(li.dataset.file))
-  );
+  // issue #922: клик и клавиатура — один механизм, см. `wireChoiceList`.
+  wireChoiceList(el, "li[data-file]", li => selectSolutionFile(li.dataset.file));
 }
 
 async function selectSolutionFile(fullPath) {
