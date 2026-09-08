@@ -14,6 +14,7 @@ import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -302,3 +303,125 @@ def test_save_missing_queue_also_refuses_newer_schema(tmp_path: Path) -> None:
 
     with pytest.raises(GlossaryError, match="более новой версией"):
         save_missing_queue(db_path, [_entry("b")])
+
+
+# ---------------------------------------------------------------------------
+# issue #924 — гонка на СОЗДАНИИ очереди: несколько процессов пишут в базу,
+# которой ещё нет. Найдено при разборе «флейка на Windows»: оказалось, что это
+# не нестабильность теста, а потеря данных, воспроизводимая и на Linux.
+# ---------------------------------------------------------------------------
+
+
+def test_concurrent_creation_of_a_missing_queue_loses_nothing(tmp_path: Path) -> None:
+    """Четыре процесса создают ОДНУ несуществующую очередь — и ничего не теряют.
+
+    Отличие от соседнего acceptance-теста ровно одно: базы заранее нет. Этого
+    хватало, чтобы `_ensure_queue_db` увидел файл соседа ещё без SQLite-магии,
+    счёл его чужим форматом и увёл в карантин — из-под открытого дескриптора.
+    Сосед получал `disk I/O error`, добавки пропадали.
+
+    До правки отказ воспроизводился в двух третях прогонов НА LINUX, то есть
+    «флейк на windows-раннере» был лишь тем местом, где его наконец заметили.
+    """
+    db_path = tmp_path / "q.db"  # ФАЙЛА НЕТ — в этом вся разница
+
+    procs, per = 4, 15
+    running = [
+        subprocess.Popen(
+            [sys.executable, "-c", _WORKER, str(db_path), str(worker_id), str(per)],
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        for worker_id in range(procs)
+    ]
+    failures: list[str] = []
+    for worker_id, proc in enumerate(running):
+        _, stderr = proc.communicate(timeout=120)
+        if proc.returncode != 0:
+            failures.append(f"воркер {worker_id}: код {proc.returncode}\n{(stderr or '').strip()}")
+
+    assert not failures, "воркеры завершились с ненулевым кодом:\n" + "\n".join(failures)
+
+    quarantined = sorted(p.name for p in tmp_path.iterdir() if ".corrupt" in p.name)
+    assert not quarantined, f"живую базу увели в карантин: {quarantined}"
+
+    concepts = {e.concept for e in load_missing_queue(db_path)}
+    expected = {f"w{w}.c{i}" for w in range(procs) for i in range(per)}
+    assert concepts == expected, f"потеряны добавки: {sorted(expected - concepts)}"
+
+
+def test_garbage_is_still_quarantined(tmp_path: Path) -> None:
+    """Граница с другой стороны: настоящий мусор по-прежнему уезжает в карантин.
+
+    Решение «спросить sqlite3» не должно превратиться в «пропускать всё»:
+    файл, который sqlite открыть не может, обязан быть распознан как чужой
+    формат, а не утащить за собой запись.
+    """
+    db_path = tmp_path / "q.db"
+    db_path.write_bytes(b"\x8a\xff\xfe not a database and not JSON")
+
+    append_missing_entries(db_path, [_entry("b")])
+
+    assert [p.name for p in tmp_path.iterdir() if ".corrupt" in p.name] == ["q.db.corrupt"]
+    assert {e.concept for e in load_missing_queue(db_path)} == {"b"}
+
+
+def test_a_locked_file_is_not_mistaken_for_a_foreign_format(tmp_path: Path) -> None:
+    """«Сейчас не открыть» — не «это не база» (issue #924, windows-джоб).
+
+    На Windows файл, который другой процесс держит открытым, недоступен для
+    чтения целиком: `sqlite3` отвечает `OSError`, а не `DatabaseError`.
+    Считать такой отказ приговором содержимому значит удалить живую базу
+    соседа ровно там, где ОС просила подождать — и именно так падал
+    `windows-latest-3.12`, пока на Linux пересечение дескрипторов проходило
+    молча.
+
+    Отказ подставляется, а не воспроизводится настоящей блокировкой: она есть
+    только на Windows, и проверка существовала бы в одном CI-джобе из девяти.
+    """
+    db_path = tmp_path / "q.db"
+    save_missing_queue(db_path, [_entry("до")])
+    original = db_path.read_bytes()
+
+    def _busy(*_args: object, **_kwargs: object) -> None:
+        raise OSError(13, "файл занят другим процессом")
+
+    with mock.patch("sqlite3.connect", side_effect=_busy):
+        from stepik_grader.glossary import json_provider
+
+        assert json_provider._sqlite_accepts(db_path) is True
+
+    # Главное: файл не тронут — ни удаления, ни карантина.
+    assert db_path.read_bytes() == original
+    assert not [p for p in tmp_path.iterdir() if ".corrupt" in p.name]
+
+
+def test_a_broken_file_is_still_rejected(tmp_path: Path) -> None:
+    """Граница с другой стороны: `DatabaseError` по-прежнему значит «чужой формат».
+
+    Иначе снисходительность к `OSError` превратилась бы в «пропускать всё», и
+    мусор поехал бы дальше по коду вместо карантина.
+    """
+    from stepik_grader.glossary import json_provider
+
+    path = tmp_path / "q.db"
+    path.write_bytes(b"\x8a\xff\xfe not a database")
+
+    assert json_provider._sqlite_accepts(path) is False
+
+
+def test_an_empty_file_is_not_mistaken_for_a_foreign_format(tmp_path: Path) -> None:
+    """Пустой файл — это база на полпути к созданию, а не мусор.
+
+    `sqlite3` создаёт файл при открытии соединения, а заголовок пишет только
+    первой транзакцией: между этими моментами файл существует с нулевой длиной.
+    """
+    db_path = tmp_path / "q.db"
+    db_path.touch()
+
+    append_missing_entries(db_path, [_entry("a")])
+
+    assert not [p for p in tmp_path.iterdir() if ".corrupt" in p.name]
+    assert {e.concept for e in load_missing_queue(db_path)} == {"a"}
