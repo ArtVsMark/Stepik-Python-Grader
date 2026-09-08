@@ -230,7 +230,7 @@ def test_exhausted_quota_says_wait(tmp_path: pathlib.Path, monkeypatch: pytest.M
 _MULTILINE_CASE = (
     '<testcase classname="tests.test_missing_queue_sqlite" name="test_concurrent">'
     '<failure message="AssertionError: воркеры завершились с ненулевым кодом:&#10;'
-    'воркер 2: код 1&#10;sqlite3.OperationalError: database is locked&quot;">'
+    'воркер 2: код 1&#10;sqlite3.OperationalError: database is locked">'
     "трассировка</failure></testcase>"
 )
 

@@ -930,3 +930,89 @@ class TestFailuresAreNamed:
         _MODULE.check_failures_are_named(errors)
 
         assert errors == []
+
+
+class TestUploadsDoNotVeto:
+    """Сбой выгрузки артефакта не выносит вердикт по джобу (issue #1509)."""
+
+    #: Шаг выгрузки в исправном виде — с разрешением упасть.
+    _HEALTHY = (
+        "jobs:\n"
+        "  test:\n"
+        "    steps:\n"
+        "      - name: Run tests\n"
+        "        run: pytest -q\n"
+        "      - name: Upload test results\n"
+        "        if: always()\n"
+        "        continue-on-error: true\n"
+        "        uses: actions/upload-artifact@v7.0.1\n"
+        "        with:\n"
+        "          name: test-results\n"
+    )
+
+    def test_upload_that_can_veto_is_caught(self) -> None:
+        """Выгрузка без разрешения упасть валит джоб при зелёных тестах."""
+        errors: list[str] = []
+
+        _MODULE.check_uploads_do_not_veto(
+            errors, source=self._HEALTHY.replace("        continue-on-error: true\n", "")
+        )
+
+        assert any("Upload test results" in error for error in errors), errors
+
+    def test_healthy_upload_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_uploads_do_not_veto(errors, source=self._HEALTHY)
+
+        assert errors == []
+
+    def test_the_verdict_step_is_left_alone(self) -> None:
+        """Проверяются производители артефактов, а не тесты рядом с ними.
+
+        ``Run tests`` в том же джобе идёт без ``continue-on-error`` и обязан
+        таким остаться: вердикт — это он. Guard, требующий разрешения падать от
+        всех шагов подряд, разрешил бы красным тестам молчать.
+        """
+        assert _MODULE.uploads_that_veto(self._HEALTHY) == []
+
+    def test_a_download_is_not_a_producer(self) -> None:
+        """Скачивание под правило не подпадает — у него своя защита."""
+        source = (
+            "jobs:\n"
+            "  report:\n"
+            "    steps:\n"
+            "      - name: Download reports\n"
+            "        uses: actions/download-artifact@v8.0.1\n"
+        )
+
+        assert _MODULE.uploads_that_veto(source) == []
+
+    def test_every_upload_is_seen_not_just_the_first(self) -> None:
+        """Шагов выгрузки в ci.yml пять, и назвать нужно каждый.
+
+        Разбор по шагам — не «есть ли в файле хоть одно разрешение упасть»:
+        одно на весь файл читалось бы как защита всех пяти.
+        """
+        two_bad = (
+            "jobs:\n"
+            "  test:\n"
+            "    steps:\n"
+            "      - name: Upload one\n"
+            "        uses: actions/upload-artifact@v7.0.1\n"
+            "      - name: Upload two\n"
+            "        continue-on-error: true\n"
+            "        uses: actions/upload-artifact@v7.0.1\n"
+            "      - name: Upload three\n"
+            "        uses: actions/upload-artifact@v7.0.1\n"
+        )
+
+        assert _MODULE.uploads_that_veto(two_bad) == ["Upload one", "Upload three"]
+
+    def test_real_ci_does_not_let_an_upload_veto(self) -> None:
+        """Guard-the-guard: настоящий ci.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_uploads_do_not_veto(errors)
+
+        assert errors == []
