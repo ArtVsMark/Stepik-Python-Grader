@@ -471,7 +471,7 @@
     "insights.kind_runtime_error": "Ошибка выполнения",
     "insights.kind_runtime_error_hint": "Решение упало с исключением, которое не удалось опознать по имени. Полный traceback — в отчёте о прогоне: смотрите последнюю строку и номер строки своего файла.",
     "toast.close_aria": "Закрыть уведомление",
-    "sandbox.cancel_failed": "Не удалось отменить прогон — попробуйте ещё раз"
+    "run.cancel_failed": "Не удалось отменить прогон — попробуйте ещё раз"
   },
   "en": {
     "a11y.skip_to_content": "Skip to content",
@@ -945,6 +945,6 @@
     "insights.kind_runtime_error": "Runtime error",
     "insights.kind_runtime_error_hint": "The solution crashed with an exception whose name could not be recognised. The full traceback is in the run report: look at its last line and at the line number in your own file.",
     "toast.close_aria": "Dismiss notification",
-    "sandbox.cancel_failed": "Could not cancel the run — try again"
+    "run.cancel_failed": "Could not cancel the run — try again"
   }
 }

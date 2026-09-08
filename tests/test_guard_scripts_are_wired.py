@@ -85,6 +85,11 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "правило 089: оригинал не ссылается на свою витрину",
     ),
+    "check_glossary_docs_links.py": (
+        ".github/workflows/ci.yml",
+        "предмет — адреса документации в карточках: проверяется на каждый PR, "
+        "как и прочие гарды содержимого репозитория",
+    ),
     "check_glossary_examples.py": (
         ".github/workflows/ci.yml",
         "предмет — файлы базы глоссария: проверяется на каждый PR, как и прочие "

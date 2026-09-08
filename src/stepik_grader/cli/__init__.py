@@ -665,6 +665,12 @@ def _confirm_purge(preview: PurgePreview, task_key: str | None) -> bool:
 def main(argv: list[str] | None = None) -> ExitCode:
     """Точка входа CLI: argparse для non-interactive режимов, иначе меню.
 
+    Тонкая обёртка над :func:`_run`: на время всего прогона наши предупреждения
+    печатаются как обращение к человеку, а не как трассировка Python (issue
+    #1466). Обёртка, а не `with` внутри тела, — чтобы перекрытие покрывало
+    ВСЕ ветки, включая ранние выходы (`--version`, ошибки разбора аргументов)
+    и интерактивное меню.
+
     stepik-grader                                             — интерактивное меню
     stepik-grader --version                                   — версия и выход
     stepik-grader --mode 1 --file path/to/task.py             — проверить один файл
@@ -672,6 +678,13 @@ def main(argv: list[str] | None = None) -> ExitCode:
     stepik-grader --mode 3 --dir path/to/folder --repeats 15  — бенчмарк
     stepik-grader --mode 4 --dir path/to/folder --number 1000 — micro-bench
     stepik-grader --mode 1 --file task.py --output json       — машиночитаемый вывод
+    """
+    with rendering.human_warnings():
+        return _run(argv)
+
+
+def _run(argv: list[str] | None = None) -> ExitCode:
+    """Тело точки входа CLI — разбор аргументов и выбор режима (см. :func:`main`).
 
     argv=None (по умолчанию) читает sys.argv[1:], как обычный CLI;
     явный список используется в тестах, чтобы не зависеть от sys.argv
