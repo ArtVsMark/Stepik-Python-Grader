@@ -143,7 +143,7 @@ async function cancelSandboxRun() {
     const resp = await fetch("/api/v1/runs/" + runId + "/cancel", { method: "POST" });
     if (resp.ok) return; // прогон свернётся сам — кнопку снимет _finishSandboxUI
     const data = await resp.json().catch(() => ({}));
-    toast(data.message || t("sandbox.cancel_failed"), "error");
+    toast(data.message || t("run.cancel_failed"), "error");
   } catch (e) {
     toast(t("common.request_error_detail", { detail: String(e) }), "error");
   }
