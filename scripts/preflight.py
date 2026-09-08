@@ -87,6 +87,7 @@ __all__ = [
     "logs_dir",
     "main",
     "owner_name",
+    "owner_trailer_misplaced",
     "read_stamp",
     "stamp_is_current",
     "stamp_path",
@@ -408,7 +409,51 @@ def commits_without_owner(log: str, owner: str) -> list[str]:
     """
     if not owner:
         return []
-    lost: list[str] = []
+    return [short for short, _ in _lost_commits(log, owner)]
+
+
+def owner_trailer_misplaced(log: str, owner: str) -> list[str]:
+    """Коммиты, где строка про соавтора есть, но стоит НЕ последним абзацем.
+
+    Отдельный исход, потому что чинится он иначе (issue #1472). ``git merge``
+    при конфликте сохраняет в сообщении блок комментариев::
+
+        Merge origin/main into agent/...
+
+        Co-Authored-By: Artem Markitanov <...>
+
+        # Conflicts:
+        #	docs/use/configuration.md
+
+    ``--amend --trailer`` дописывает трейлер перед этим блоком, а не после:
+    комментарии вырезает только редактор при интерактивном коммите, и после
+    ``--amend -m``/``-F`` они остаются. Последним абзацем оказывается
+    ``# Conflicts:``, а трейлер по определению — часть последнего абзаца.
+
+    Итог до этой правки был худшим из возможных: гейт печатал совет, совет
+    выполнялся дословно, и гейт падал СНОВА с тем же текстом — «трейлера нет»
+    и «трейлер есть, но не в том абзаце» выглядели одинаково.
+
+    Args:
+        log: вывод ``git log`` в формате ``%h%x1f%an%x1f%B%x1e``.
+        owner: имя владельца проекта.
+
+    Returns:
+        Короткие хеши — подмножество :func:`commits_without_owner`.
+    """
+    return [short for short, misplaced in _lost_commits(log, owner) if misplaced]
+
+
+def _lost_commits(log: str, owner: str) -> list[tuple[str, bool]]:
+    """Пары ``(хеш, трейлер есть, но не в хвостовом абзаце)``.
+
+    Один разбор на оба вопроса: «человека нет вовсе» и «человек назван мимо
+    трейлерного блока» — это одно и то же чтение сообщения, и расходиться они
+    не должны.
+    """
+    if not owner:
+        return []
+    lost: list[tuple[str, bool]] = []
     for record in log.split("\x1e"):
         if not record.strip():
             continue
@@ -422,15 +467,18 @@ def commits_without_owner(log: str, owner: str) -> list[str]:
         # любую строку, начинающуюся с «co-authored», — то есть прозаическое
         # упоминание в теле сообщения удовлетворяло гейт, и он зеленел на
         # коммите без настоящего трейлера.
-        trailers = [
-            line
-            for line in _trailer_block(message)
-            if line.lower().lstrip().startswith("co-authored")
-        ]
-        if any(owner.casefold() in line.casefold() for line in trailers):
+        if _names_owner(_trailer_block(message), owner):
             continue
-        lost.append(short)
+        lost.append((short, _names_owner(message.splitlines(), owner)))
     return lost
+
+
+def _names_owner(lines: list[str], owner: str) -> bool:
+    """Есть ли среди строк ``Co-Authored-By`` с именем владельца."""
+    return any(
+        line.lower().lstrip().startswith("co-authored") and owner.casefold() in line.casefold()
+        for line in lines
+    )
 
 
 _TRAILER_LINE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:\s")
@@ -461,6 +509,11 @@ def check_commit_authorship(git: GitRunner = _git) -> Check:
 
     Чинится трейлером, а не переписыванием авторства:
     ``git commit --amend --trailer "Co-Authored-By: ..."``.
+
+    Исходов у провала два, и совет у них разный (issue #1472): трейлера может
+    не быть вовсе, а может быть — но не последним абзацем, куда его загоняет
+    блок ``# Conflicts:`` от ``git merge``. Во втором случае ``--trailer``
+    не помогает и повторяется бесконечно, поэтому исход называется прямо.
     """
     owner = owner_name()
     title = "автор участвует в коммитах"
@@ -470,6 +523,22 @@ def check_commit_authorship(git: GitRunner = _git) -> Check:
     lost = commits_without_owner(log, owner)
     if not lost:
         return Check(name=title, ok=True, detail=f"{owner} не потерян в коммитах ветки")
+    misplaced = owner_trailer_misplaced(log, owner)
+    if misplaced:
+        return Check(
+            name=title,
+            ok=False,
+            detail=(
+                f"трейлер есть, но после него идёт другой абзац — и потому это не "
+                f"трейлер: {', '.join(misplaced)}"
+            ),
+            hint=(
+                "так бывает после merge с конфликтом: git оставил в сообщении блок "
+                "«# Conflicts:», и он стал последним абзацем. Дописать трейлер мало — "
+                "перепишите сообщение целиком без этого блока: "
+                "git commit --amend -F <файл с сообщением>"
+            ),
+        )
     return Check(
         name=title,
         ok=False,
