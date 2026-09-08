@@ -40,7 +40,7 @@ def test_mode2_folder_grading_shows_table_and_detail_tab(
     assert row_badge.text_content().strip() == "OK"
 
     # Expand the row, then open the case's detail tab.
-    page.click('td.file-cell[data-toggle="0"]')
+    page.click('button.row-toggle[data-toggle="0"]')
     page.click('tr.case-row[data-row="0"][data-case="0"]')
 
     page.wait_for_selector("#restab-detail:not([hidden])", timeout=_TIMEOUT_MS)
@@ -667,7 +667,7 @@ def test_ai_hint_button_consent_and_graceful_skip(
     page.click("#run")
 
     page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
-    page.click('td.file-cell[data-toggle="0"]')
+    page.click('button.row-toggle[data-toggle="0"]')
     page.click('tr.case-row[data-row="0"][data-case="0"]')
     page.wait_for_selector("#restab-detail:not([hidden])", timeout=_TIMEOUT_MS)
 

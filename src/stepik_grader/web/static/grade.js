@@ -1062,7 +1062,13 @@ function renderTests(rows) {
     '<th scope="col">' + esc(t("grade.col_memory")) + '</th></tr></thead><tbody>';
   rows.forEach((row, i) => {
     h +=
-      '<tr><td class="file-cell mono" data-toggle="' + i + '">' + esc(row.file) + '</td>' +
+      // issue #922 (FE-3-02): раскрытие — КНОПКА, а не кликабельная ячейка.
+      // Кнопка бесплатно даёт остановку табуляции, Enter/Пробел и роль, о
+      // которой можно сообщить скринридеру; `<td>` с обработчиком клика не
+      // даёт ничего из этого, и список кейсов был недостижим без мыши.
+      '<tr><td class="file-cell mono"><button type="button" class="row-toggle" ' +
+      'data-toggle="' + i + '" aria-expanded="false" aria-controls="c' + i + '">' +
+      esc(row.file) + '</button></td>' +
       '<td class="mono">' + (row.passed ?? 0) + "/" + (row.total ?? 0) + "</td>" +
       "<td>" + renderVerdict(row.status) + "</td>" +
       '<td class="mono">' + (row.total_time ?? "—") + "</td>" +
@@ -1075,8 +1081,8 @@ function renderTests(rows) {
   });
   $("#out").innerHTML = h + "</tbody></table></div>";
   $("#out")
-    .querySelectorAll("[data-toggle]")
-    .forEach(td => td.addEventListener("click", () => toggleRow(Number(td.dataset.toggle))));
+    .querySelectorAll("button[data-toggle]")
+    .forEach(btn => btn.addEventListener("click", () => toggleRow(Number(btn.dataset.toggle), btn)));
   wireCaseRowClicks();
 }
 
@@ -1087,9 +1093,17 @@ function casesHtml(rowIndex, cases) {
     cases
       .map((c, j) => {
         const sel = state.selectedRow === rowIndex && state.selectedCase === j ? " selected" : "";
+        // issue #922 (FE-3-02): выбор кейса тоже кнопкой. Строка таблицы с
+        // `tabindex` семантику таблицы ломает, а кнопка внутри ячейки — нет:
+        // разметка остаётся таблицей, а выбор становится обычным действием.
+        // `aria-current` вместо `aria-selected`: последний вне `role="grid"`
+        // не значит ничего.
+        const current = sel ? ' aria-current="true"' : "";
         return (
           '<tr class="case-row' + sel + '" data-row="' + rowIndex + '" data-case="' + j + '">' +
-          "<td>#" + c.n + " " + renderVerdict(c.verdict) + "</td>" +
+          '<td><button type="button" class="case-pick" data-row="' + rowIndex +
+          '" data-case="' + j + '"' + current + ">#" + c.n + " " +
+          renderVerdict(c.verdict) + "</button></td>" +
           '<td class="mono">' + c.time + " s</td></tr>"
         );
       })
@@ -1099,16 +1113,30 @@ function casesHtml(rowIndex, cases) {
 }
 
 function wireCaseRowClicks() {
-  $("#out")
+  const out = $("#out");
+  // Клик по всей строке остаётся: мышью так удобнее, и отнимать это незачем.
+  out
     .querySelectorAll("tr.case-row")
     .forEach(tr =>
       tr.addEventListener("click", () => selectCase(Number(tr.dataset.row), Number(tr.dataset.case)))
     );
+  // Кнопка внутри строки гасит всплытие: иначе один клик выбирал бы кейс
+  // дважды и дважды перерисовывал панель разбора.
+  out.querySelectorAll("button.case-pick").forEach(btn =>
+    btn.addEventListener("click", event => {
+      event.stopPropagation();
+      selectCase(Number(btn.dataset.row), Number(btn.dataset.case));
+    })
+  );
 }
 
-function toggleRow(i) {
+function toggleRow(i, btn) {
   const el = $("#c" + i);
-  el.classList.toggle("is-open");
+  const open = el.classList.toggle("is-open");
+  // issue #922: состояние сворачивания видно не только глазами. Без
+  // `aria-expanded` скринридер читает кнопку одинаково в обоих состояниях, и
+  // человек не знает, раскрыл он строку или свернул.
+  if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
 function selectCase(rowIndex, caseIndex) {
@@ -1123,11 +1151,20 @@ function selectCase(rowIndex, caseIndex) {
 
 function highlightSelectedCaseRow() {
   document.querySelectorAll("tr.case-row.selected").forEach(tr => tr.classList.remove("selected"));
+  // issue #922: пометка для скринридера снимается тем же заходом, что и
+  // подсветка. Разъедься они — и «выбранным» числилось бы два кейса: один
+  // видимо, другой на слух.
+  document
+    .querySelectorAll("button.case-pick[aria-current]")
+    .forEach(btn => btn.removeAttribute("aria-current"));
   if (state.selectedRow == null) return;
   const sel = document.querySelector(
     'tr.case-row[data-row="' + state.selectedRow + '"][data-case="' + state.selectedCase + '"]'
   );
-  if (sel) sel.classList.add("selected");
+  if (!sel) return;
+  sel.classList.add("selected");
+  const pick = sel.querySelector("button.case-pick");
+  if (pick) pick.setAttribute("aria-current", "true");
 }
 
 function toggleExplain() {
