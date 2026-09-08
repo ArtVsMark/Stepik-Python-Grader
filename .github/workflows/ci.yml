@@ -739,10 +739,27 @@ jobs:
       # (#420/#558). Без него любая поломка окружения (не разрешившийся extra,
       # несовместимая версия, сбой кеша браузеров) превращала весь набор в
       # «N skipped» с кодом 0, и job оставался зелёным, ничего не проверив.
+      # issue #1500: `--junitxml` тем же именем-образцом `test-results-*`, что и
+      # у матрицы. Разбор в `scripts/report_failed_tests.py` идёт по маске и об
+      # источнике отчёта ничего не знает, поэтому джоб входит в сводку даром.
+      # Без отчёта красный `e2e` сообщал ровно `Process completed with exit
+      # code 1` — на единственной поверхности, где падение не воспроизводится
+      # чтением кода.
       - name: Run e2e tests
         env:
           STEPIK_REQUIRE_E2E_TESTS: "1"
-        run: pytest tests/e2e/ -v --no-cov
+        run: pytest tests/e2e/ -v --no-cov --junitxml=test-results-e2e.xml
+
+      # `if: always()` — ради красного случая отчёт и нужен: выгрузка «только
+      # при успехе» оставляет без следа ровно тот прогон, который разбирают.
+      - name: Upload e2e test results (#1500)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-e2e
+          path: test-results-e2e.xml
+          if-no-files-found: ignore
+          retention-days: 14
   # issue #1382: облачная сессия не читает ни логи джоба, ни артефакты прогона —
   # оба живут в скоупе `actions`, на который прокси отвечает 403. То есть
   # junit-отчёт (#1378) отвечает «какой тест упал» только владельцу, у которого
@@ -753,10 +770,16 @@ jobs:
   # комментарий, гонялись бы за ним наперегонки. Здесь же они уже закончились, и
   # сводка собирается со всех сразу.
   report-failures:
-    needs: [test]
+    needs: [test, e2e]
     # Только на PR и только при падении: зелёный прогон вопросов не вызывает, а
     # на `push` в main комментировать нечего.
-    if: ${{ always() && github.event_name == 'pull_request' && needs.test.result == 'failure' }}
+    #
+    # issue #1500: падение ЛЮБОГО из двух, а не только матрицы. Прежнее условие
+    # оставляло красный `e2e` при зелёной матрице вовсе без сводки — а это
+    # единственный джоб, чьё падение нельзя разобрать локально.
+    if: >-
+      ${{ always() && github.event_name == 'pull_request'
+      && (needs.test.result == 'failure' || needs.e2e.result == 'failure') }}
     timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
