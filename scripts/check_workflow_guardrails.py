@@ -60,11 +60,13 @@ __all__ = [
     "check_release_pipeline",
     "check_release_publishes_verified_assets",
     "check_run_blocks_are_valid_shell",
+    "check_uploads_do_not_veto",
     "extract_job",
     "jobs_without_timeout",
     "main",
     "pinning_mismatches",
     "run_scripts",
+    "uploads_that_veto",
 ]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -85,6 +87,18 @@ VERIFY_JOB = "verify"
 
 # Job внутри `jobs:` — строка с двумя пробелами отступа и двоеточием на конце.
 _JOB_HEADER_RE = re.compile(r"^  (?P<name>[a-zA-Z0-9_-]+):\s*$")
+
+#: Начало шага: шесть пробелов и дефис (``- name:``/``- uses:``).
+_STEP_START_RE = re.compile(r"^ {6}- \S")
+
+#: Имя шага — из ``- name:``, если оно у шага есть.
+_STEP_NAME_RE = re.compile(r"^ {6}- name:\s*(?P<name>.+?)\s*$")
+
+#: Выгрузка артефакта: имя действия без версии — она закрепляется отдельно.
+_UPLOAD_RE = re.compile(r"^\s*uses:\s*actions/upload-artifact", re.MULTILINE)
+
+#: Разрешение шагу упасть, не роняя джоб.
+_PASS_RE = re.compile(r"^\s*continue-on-error:\s*true\s*$", re.MULTILINE)
 
 #: Чекаут кода из самого изменения: голова PR по ref или sha.
 _HEAD_REF_RE = re.compile(r"ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.(ref|sha)")
@@ -315,6 +329,128 @@ def check_coverage_gate_is_explicit(errors: list[str], source: str | None = None
         return
 
     print(f"ci.yml: гейт покрытия задан явно (--cov-fail-under={threshold}).")
+
+
+def check_failures_are_named(errors: list[str], source: str | None = None) -> None:
+    """Каждый джоб, чьё падение разбирают, оставляет junit-отчёт и будит сводку.
+
+    issue #1500: сводка упавших тестов (#1382) собиралась только по матрице
+    ``test``. У ``e2e`` не было ни ``--junitxml``, ни строки в ``needs``
+    джоба ``report-failures`` — красный браузерный прогон сообщал ровно
+    ``Process completed with exit code 1``. Именно там это дороже всего:
+    падение матрицы обычно воспроизводится локально, падение ``e2e`` — нет
+    (замер на PR #1480: на раннере красный, на той же голове локально
+    128 passed).
+
+    Проверяются оба конца канала. Одного мало: отчёт без пробуждения сводки
+    лежит в артефакте, который облачной сессии недоступен (403), а
+    пробуждение без отчёта даёт сводку «ни один тест не назвал себя упавшим».
+    """
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — канал диагностики не проверен")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    e2e = "\n".join(extract_job(source, "e2e"))
+    if "--junitxml=" not in e2e:
+        errors.append(
+            "ci.yml: у джоба e2e нет --junitxml. Без отчёта его падение "
+            "называется только кодом возврата, а логи Actions облачной сессии "
+            "недоступны (403) — разбирать красный e2e будет нечем."
+        )
+
+    reporter = "\n".join(extract_job(source, "report-failures"))
+    if "needs.e2e.result" not in reporter:
+        errors.append(
+            "ci.yml: report-failures не просыпается на красном e2e. При зелёной "
+            "матрице джоб пропускается, и сводка не публикуется вовсе."
+        )
+
+    if not errors:
+        print("ci.yml: падение матрицы и e2e называет упавший тест в PR.")
+
+
+def _steps(source: str) -> list[list[str]]:
+    """Разбить workflow на шаги: список строк каждого ``- name:``/``- uses:``."""
+    steps: list[list[str]] = []
+    current: list[str] = []
+    for line in source.splitlines():
+        if _STEP_START_RE.match(line):
+            if current:
+                steps.append(current)
+            current = [line]
+        elif current:
+            # Шаг кончился, когда пошёл текст с отступом мельче тела шага.
+            if line.strip() and not line.startswith(" " * 8):
+                steps.append(current)
+                current = []
+            else:
+                current.append(line)
+    if current:
+        steps.append(current)
+    return steps
+
+
+def _step_name(step: list[str]) -> str:
+    """Имя шага для сообщения: из ``- name:``, иначе из ``uses:``."""
+    for line in step:
+        match = _STEP_NAME_RE.match(line)
+        if match:
+            return match.group("name").strip()
+    return step[0].strip().lstrip("- ")
+
+
+def uploads_that_veto(source: str) -> list[str]:
+    """Шаги выгрузки артефактов, чей сбой валит джоб целиком."""
+    veto: list[str] = []
+    for step in _steps(source):
+        text = "\n".join(step)
+        if _UPLOAD_RE.search(text) is None:
+            continue
+        if _PASS_RE.search(text) is None:
+            veto.append(_step_name(step))
+    return veto
+
+
+def check_uploads_do_not_veto(errors: list[str], source: str | None = None) -> None:
+    """Сбой выгрузки артефакта не выносит вердикт по джобу.
+
+    issue #1509: выгружаются здесь только отчёты — junit матрицы и ``e2e``,
+    слагаемые ``coverage combine``, ``coverage.xml`` для бейджа. Ни один из них
+    не является вердиктом, и **потребители это уже знают**: ``report-failures``
+    и ``coverage-combine`` скачивают их с ``continue-on-error``, а
+    ``combine_coverage.py`` отвечает на недостачу ``::warning:: degraded``
+    (#559). Не хватало второй стороны — у производителей защиты не было ни у
+    одного.
+
+    Цена асимметрии измерена 08.09.2026: два красных ``main`` за час при
+    зелёном шаге ``Run tests``, каждый раз ровно один не доехавший артефакт из
+    четырнадцати. Красная ``main`` замораживает очередь мержа, а перезапуск
+    прогона облачной сессии недоступен (403 на ``actions:write``), то есть
+    разблокировка упирается в клик человека.
+
+    Проверяются производители, а не потребители: недостача уже описана как
+    законный случай, и вопрос ровно в том, валит ли она джоб.
+    """
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — выгрузка артефактов не проверена")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    veto = uploads_that_veto(source)
+    if veto:
+        errors.append(
+            "ci.yml: сбой выгрузки артефакта валит джоб у шагов: "
+            + ", ".join(f"«{name}»" for name in veto)
+            + ". Нужен continue-on-error: true — артефакт несёт диагностику, "
+            "а не вердикт, и все его потребители уже переживают его отсутствие "
+            "(issue #1509)."
+        )
+        return
+
+    print("ci.yml: сбой выгрузки артефакта не красит джоб.")
 
 
 def check_release_publishes_verified_assets(errors: list[str], source: str | None = None) -> None:
@@ -878,6 +1014,8 @@ def main() -> int:
     check_release_notes_are_translated(errors)
     check_ci_listens_to_ready_for_review(errors)
     check_coverage_gate_is_explicit(errors)
+    check_failures_are_named(errors)
+    check_uploads_do_not_veto(errors)
     check_release_publishes_verified_assets(errors)
     check_every_job_has_a_timeout(errors)
     check_queue_mover_uses_its_own_token(errors)
