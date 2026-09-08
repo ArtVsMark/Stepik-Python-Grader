@@ -231,7 +231,11 @@ def _known_glossary_terms() -> set[str]:
     terms = _TERMS_CACHE.get_or_load(
         f"store:{p}",
         [p],
-        lambda: JsonGlossaryProvider.load(p).known_terms(),
+        # issue #919 (DATA-1-04): здесь вопрос «есть ли уже такая карточка»,
+        # а не «покрыт ли пробел» — поэтому заготовки СЧИТАЮТСЯ. Начатую
+        # карточку заводить в очередь пополнения повторно незачем; в покрытии
+        # она не участвует, и это разные вопросы к одному набору.
+        lambda: JsonGlossaryProvider.load(p).known_terms(include_unfinished=True),
         on_error=GlossaryError,
     )
     return terms if terms is not None else set()
