@@ -257,14 +257,14 @@ function scheduleCheckTerms() {
   checkTermsTimer = setTimeout(loadCheckTerms, 400);
 }
 
-function mountEditor() {
+async function mountEditor() {
   const mount = document.getElementById("solution-editor");
   // issue #805 (DESW-07): `tabindex="0"` в разметке держит контейнер
   // достижимым, пока редактор не смонтирован. После монтирования фокус берёт
   // на себя contenteditable самого CodeMirror, и оставленный атрибут добавляет
   // в обход клавиатурой лишнюю пустую остановку перед редактором.
   mount.removeAttribute("tabindex");
-  cmView = makeEditor(mount, () => {
+  cmView = await makeEditor(mount, () => {
     updateRunButtonState();
     updateDirtyIndicator(); // issue #297
     scheduleCheckTerms(); // issue #323: обновить панель под новый код
