@@ -24,7 +24,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import pathlib
+import sys
 from dataclasses import dataclass
 from datetime import date
 
@@ -223,6 +225,18 @@ def build_coverage_report(
     }
     python_version = inventory[0].python_version if inventory else ""
     return CoverageReport(categories=categories, python_version=python_version)
+
+
+# issue #1394 (и красный windows-джоб на issue #919): консоль Windows работает в
+# cp1251/cp866, и печать символов вне этой кодировки роняет процесс
+# `UnicodeEncodeError`. Сводка покрытия стала русской (issue #919, DATA-1-01) —
+# и `python -m stepik_grader.glossary.coverage` начал падать на всех трёх
+# windows-джобах, хотя сам подсчёт был верен. Тот же приём, что в скриптах
+# гейтов: поток перенастраивается один раз при импорте, а не оборачивается
+# try/except на каждой печати.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 
 def _print(text: str) -> None:
