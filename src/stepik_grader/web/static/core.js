@@ -1,11 +1,29 @@
 // core.js — общие примитивы, состояние, редактор, нав-хаб (issue #426).
-import {
-  EditorState,
-  EditorView, lineNumbers, keymap, placeholder as cmPlaceholder,
-  defaultKeymap, history, historyKeymap, indentWithTab,
-  syntaxHighlighting, HighlightStyle, indentOnInput,
-  python, tags,
-} from "/static/vendor/codemirror-bundle@6.mjs";
+// issue #922 (FE-3-05): бандл CodeMirror загружается ЛЕНИВО и его пропажа
+// больше не роняет приложение.
+//
+// Раньше здесь стоял статический `import` — а `core.js` импортируют все
+// остальные модули. Значит один недостающий файл редактора останавливал
+// выполнение всего: боковое меню оставалось на экране (оно в статическом
+// HTML), но не реагировало ни на что — ни глоссарий, ни правила, ни навигация.
+// Причём молча: ни сообщения на странице, ни подсказки, что делать.
+//
+// Редактор нужен ровно двум разделам, и его отсутствие обязано стоить ровно
+// этих двух разделов, а не всей страницы.
+const _CODEMIRROR_URL = "/static/vendor/codemirror-bundle@6.mjs";
+
+let _cmPromise = null;
+
+/** Загрузить бандл один раз; ``null`` — не удалось (страница остаётся живой). */
+function _codeMirror() {
+  if (_cmPromise === null) {
+    _cmPromise = import(_CODEMIRROR_URL).catch(err => {
+      console.warn("CodeMirror не загрузился, редактор будет упрощённым:", err);
+      return null;
+    });
+  }
+  return _cmPromise;
+}
 
 // issue #426 — реестр ленивых загрузчиков разделов. Каждый feature-модуль
 // регистрирует свой хук при импорте; setSection() лишь дёргает его по имени
@@ -311,7 +329,63 @@ function setSection(section, { syncHash = true } = {}) {
 // контрастом ≥4.5:1 к фону редактора (--color-surface, проверяет
 // scripts/check_contrast.py). Токены-теги и HighlightStyle экспортируются
 // пересобранным бандлом (static/vendor/VERSIONS.md).
-const themeHighlightStyle = HighlightStyle.define([
+/**
+ * Минимальный редактор на ``<textarea>`` — запасной путь (issue #922).
+ *
+ * Повторяет ровно тот кусочек интерфейса ``EditorView``, которым пользуется
+ * приложение: ``state.doc.toString()``/``.length``, ``dispatch({changes})`` и
+ * ``focus()``. Не «редактор попроще», а гарантия, что код всё ещё можно
+ * ввести, проверить и отправить, когда подсветки и нумерации строк нет.
+ */
+function _plainEditor(mount, onChange, label) {
+  const area = document.createElement("textarea");
+  area.className = "plain-editor";
+  area.setAttribute("aria-label", label || t("editor.default_label"));
+  if (mount.dataset.placeholder) area.placeholder = mount.dataset.placeholder;
+  mount.appendChild(area);
+
+  // Почему это сказано вслух: молчаливая замена выглядела бы как «редактор
+  // сломался и стал хуже», а человеку надо знать, что пропало и что делать.
+  const note = document.createElement("p");
+  note.className = "hint plain-editor-note";
+  note.setAttribute("role", "status");
+  note.textContent = t("editor.plain_fallback");
+  mount.appendChild(note);
+
+  if (onChange) area.addEventListener("input", onChange);
+  return {
+    state: {
+      get doc() {
+        return { toString: () => area.value, length: area.value.length };
+      },
+    },
+    dispatch: tr => {
+      const insert = (tr && tr.changes && tr.changes.insert) || "";
+      area.value = insert;
+      if (onChange) onChange();
+    },
+    focus: () => area.focus(),
+  };
+}
+
+async function makeEditor(mount, onChange, label) {
+  const cm = await _codeMirror();
+  if (cm === null) return _plainEditor(mount, onChange, label);
+
+  const {
+    EditorView, lineNumbers, keymap, placeholder: cmPlaceholder,
+    defaultKeymap, history, historyKeymap, indentWithTab,
+    syntaxHighlighting, HighlightStyle, indentOnInput,
+    python, tags,
+  } = cm;
+
+  // issue #425: подсветка синтаксиса на CSS-переменных темы (--cm-*), а не на
+  // светлом defaultHighlightStyle из бандла (keyword давал ~1.85:1 на тёмном
+  // фоне — код был нечитаем). Все --cm-* заданы в app.css для light и dark с
+  // контрастом ≥4.5:1 к фону редактора (--color-surface, проверяет
+  // scripts/check_contrast.py). Токены-теги и HighlightStyle экспортируются
+  // пересобранным бандлом (static/vendor/VERSIONS.md).
+  const themeHighlightStyle = HighlightStyle.define([
   { tag: tags.keyword, color: "var(--cm-keyword)" },
   { tag: [tags.atom, tags.bool, tags.null, tags.number], color: "var(--cm-literal)" },
   {
@@ -336,11 +410,6 @@ const themeHighlightStyle = HighlightStyle.define([
   { tag: tags.link, textDecoration: "underline" },
 ]);
 
-// Фабрика CodeMirror-редактора: общий theme/набор расширений для редактора
-// режима 1 и песочницы (issue #317). onChange (опц.) — колбэк на docChanged.
-// label (issue #409) — доступное имя для .cm-content (скринридеры, WCAG 4.1.2):
-// нативный <label for=…> не достаёт до contenteditable-узла CodeMirror.
-function makeEditor(mount, onChange, label) {
   const theme = EditorView.theme({
     "&": { color: "var(--color-text)", backgroundColor: "transparent" },
     ".cm-content": {
