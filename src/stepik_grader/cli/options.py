@@ -246,6 +246,11 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         help=t["cli_help_stats_summary"],
     )
     parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help=t["cli_help_doctor"],
+    )
+    parser.add_argument(
         "--history",
         action=argparse.BooleanOptionalAction,
         default=None,
