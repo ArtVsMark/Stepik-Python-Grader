@@ -243,6 +243,9 @@ class TestMain:
     ) -> None:
         module = _load_module()
         monkeypatch.setattr(module.gh_rest, "list_pulls", lambda *_a, **_k: [])
+        # issue #1497: закрытые PR читаются вторым запросом. Без заглушки тест
+        # ушёл бы в сеть — и упал бы именно этим, а не тем, что проверяет.
+        monkeypatch.setattr(module.gh_rest, "declined_heads", lambda *_a, **_k: set())
         monkeypatch.setattr(module, "branch_names", lambda *_a, **_k: ["main"])
 
         assert module.main([]) == 0
@@ -281,6 +284,7 @@ class TestMain:
     ) -> None:
         module = _load_module()
         monkeypatch.setattr(module.gh_rest, "list_pulls", lambda *_a, **_k: [])
+        monkeypatch.setattr(module.gh_rest, "declined_heads", lambda *_a, **_k: set())
         monkeypatch.setattr(
             module, "branch_names", lambda *_a, **_k: ["agent/первая", "agent/вторая"]
         )
