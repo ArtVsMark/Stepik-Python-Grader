@@ -20,7 +20,7 @@ import pytest
 from stepik_grader import cli, config
 from stepik_grader.cli import options
 from stepik_grader.core import history_recording as cli_history_recording
-from stepik_grader.core import user_settings
+from stepik_grader.core import stats, user_settings
 
 # Ссылка на настоящую функцию диалога ДО того, как autouse-фикстура её
 # подменит — нужна тестам, проверяющим саму graceful-деградацию (issue #79).
@@ -1229,7 +1229,7 @@ class TestStatsFlags:
         assert "No data" in out
 
     def test_stats_summary_with_data_prints_table(self, monkeypatch, capsys, tmp_path) -> None:
-        stats_path = tmp_path / ".grader_stats.jsonl"
+        stats_path = stats.stats_path()
         real = cli.stats.read_summary
         cli.stats.record_run(1, {"AC": 1}, 0.5, stats_path=stats_path)
         monkeypatch.setattr(cli.stats, "read_summary", lambda: real(stats_path=stats_path))
@@ -1573,7 +1573,10 @@ class TestPurgeHistoryFlag:
         db_path = default_history_db_path()
         for task in ("alpha", "alpha", "beta"):
             record_run(2, [], db_path=db_path, task_key=task, solution_name="s.py")
-        (work / ".grader_stats.jsonl").write_text('{"a":1}\n{"b":2}\n', encoding="utf-8")
+        # issue #920: журнал один на пользователя, и путь известен модулю.
+        journal = stats.stats_path()
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        journal.write_text('{"a":1}\n{"b":2}\n', encoding="utf-8")
         return db_path
 
     def test_purge_all_removes_history_and_stats(self, tmp_path, monkeypatch, capsys) -> None:
@@ -1588,7 +1591,7 @@ class TestPurgeHistoryFlag:
         cli.main(["--purge-history"])
 
         assert not db.exists()
-        assert not (tmp_path / ".grader_stats.jsonl").exists()
+        assert not stats.stats_path().exists()
         assert not list(db.parent.glob(".grader_history.db*"))  # включая -wal/-shm
         assert "3" in capsys.readouterr().out  # три прогона
 
@@ -1600,7 +1603,7 @@ class TestPurgeHistoryFlag:
         cli.main(["--purge-history", "alpha"])
 
         assert db_path.is_file()
-        assert (tmp_path / ".grader_stats.jsonl").is_file()
+        assert stats.stats_path().is_file()
         assert "alpha" in capsys.readouterr().out
 
     def test_purge_on_clean_workdir_is_not_an_error(self, tmp_path, monkeypatch, capsys) -> None:
