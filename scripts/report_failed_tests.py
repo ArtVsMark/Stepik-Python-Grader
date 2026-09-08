@@ -62,6 +62,11 @@ MARKER = "<!-- ci-failures -->"
 #: Сколько упавших тестов называется поимённо. Остальные — числом.
 _DEFAULT_LIMIT = 25
 
+#: Сколько строк остатка сообщения показывается под одним тестом (issue #1514).
+#: Комментарий GitHub ограничен 65536 символами, и сводка уже режет список по
+#: `_DEFAULT_LIMIT`; здесь второй предел — по глубине, а не по числу пунктов.
+_DETAIL_LINES = 30
+
 #: Имя файла отчёта: `test-results-<os>-<python>.xml` (см. `ci.yml`).
 _REPORT_GLOB = "test-results-*.xml"
 _REPORT_PREFIX = "test-results-"
@@ -75,13 +80,15 @@ class Failure:
         job: комбинация матрицы, из имени файла отчёта.
         test: путь до теста в форме, пригодной для `pytest ...`.
         kind: `failure` (упал) или `error` (сломался на фикстуре/сборе).
-        message: первая содержательная строка сообщения.
+        message: первая содержательная строка сообщения — заголовок.
+        details: остальные строки сообщения; пусто, если их нет (issue #1514).
     """
 
     job: str
     test: str
     kind: str
     message: str
+    details: tuple[str, ...] = ()
 
 
 def _job_name(path: pathlib.Path) -> str:
@@ -97,6 +104,59 @@ def _first_line(text: str | None) -> str:
         if stripped:
             return stripped
     return "без сообщения"
+
+
+def _rest_of_message(text: str | None) -> list[str]:
+    """Строки сообщения ПОСЛЕ заголовка — то, ради чего его и писали.
+
+    issue #1514: заголовка хватает обычному падению (``assert 3 == 4`` умещается
+    в строку), но не тому, где диагноз положили ниже намеренно. Живой случай —
+    ``test_concurrent_cross_process_appends_lose_nothing``: после #924 туда
+    доносится ``stderr`` упавшего воркера, и сводка печатала ровно
+    «воркеры завершились с ненулевым кодом:», обрывая текст на двоеточии.
+
+    Это не косметика: логи Actions и содержимое артефактов облачной сессии
+    недоступны (403), то есть комментарий — единственный носитель ответа.
+    """
+    lines = (text or "").splitlines()
+    seen_head = False
+    tail: list[str] = []
+    for line in lines:
+        if not seen_head:
+            if line.strip():
+                seen_head = True
+            continue
+        tail.append(line.rstrip())
+    while tail and not tail[0].strip():
+        tail.pop(0)
+    while tail and not tail[-1].strip():
+        tail.pop()
+    return tail
+
+
+def _details_block(details: Sequence[str]) -> list[str]:
+    """Свёрнутый блок с остатком сообщения; нет остатка — нет и блока.
+
+    Свёрнутый, а не развёрнутый: у обычного падения остаток — хвост traceback,
+    и десяток таких превратил бы сводку в простыню, из-за которой её перестанут
+    читать. Развернуть — один клик, и он делается тогда, когда заголовка не
+    хватило.
+    """
+    if not details:
+        return []
+    shown = list(details[:_DETAIL_LINES])
+    if len(details) > _DETAIL_LINES:
+        shown.append(f"…и ещё {len(details) - _DETAIL_LINES} строк(и).")
+    return [
+        "",
+        "  <details><summary>сообщение целиком</summary>",
+        "",
+        "  ```",
+        *(f"  {line}" for line in shown),
+        "  ```",
+        "",
+        "  </details>",
+    ]
 
 
 def _test_id(case: ET.Element) -> str:
@@ -135,8 +195,11 @@ def parse_report(path: pathlib.Path) -> list[Failure]:
             node = case.find(kind)
             if node is None:
                 continue
-            message = _first_line(node.get("message") or node.text)
-            failures.append(Failure(job, _test_id(case), kind, message))
+            raw = node.get("message") or node.text
+            message = _first_line(raw)
+            failures.append(
+                Failure(job, _test_id(case), kind, message, tuple(_rest_of_message(raw)))
+            )
             break
     return failures
 
@@ -170,6 +233,7 @@ def render(
         ]
         for item in items[:limit]:
             lines.append(f"- `{item.job}` — `{item.test}`  \n  {item.kind}: {item.message}")
+            lines.extend(_details_block(item.details))
         if len(items) > limit:
             lines += ["", f"…и ещё {len(items) - limit}. Полный список — в артефакте прогона."]
     if run_url:
