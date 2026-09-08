@@ -72,9 +72,9 @@ from stepik_grader.cli.options import (
 )
 from stepik_grader.cli.prompts import EXPLICIT_YES
 from stepik_grader.config import CONFIG
-from stepik_grader.core import stats
+from stepik_grader.core import doctor, stats
 from stepik_grader.core.cache import GraderCache
-from stepik_grader.core.diag_log import configure_diagnostics
+from stepik_grader.core.diag_log import DIAGNOSTICS_DIR, configure_diagnostics
 from stepik_grader.core.grader_core import (
     preflight_solution,
     resolve_test_dir,
@@ -208,6 +208,45 @@ def _cache_queue_summary() -> dict[str, int]:
         return GraderCache().queue_summary()
     except OSError:
         return {"tasks": 0, "stale": 0}
+
+
+def _run_doctor(args: argparse.Namespace) -> ExitCode:
+    """``--doctor``: прогнать проверки окружения, показать сводку, сохранить отчёт.
+
+    Отчёт об окружении раньше существовал только внутри диагностики Stepik и
+    только когда та падала (issue #982). Между тем файл для issue ценен и до
+    сбоя: «у меня не скачивается задача» без него превращается в переписку с
+    уточнениями. Совет «сходите запустите диагностику» отправлял пользователя
+    туда, где инструмент требует ввода и лезет в сеть.
+
+    Реестр проверок ОДИН на всех: команда ничего своего не спрашивает, поэтому
+    её ответ и ответ точки сбоя не могут разойтись формулировками.
+    """
+    secrets_path = pathlib.Path(getattr(args, "secrets", None) or "secrets.json")
+    findings = doctor.collect(secrets_path)
+
+    print(_t("doctor_header"))
+    for finding in findings:
+        print(
+            _t(
+                "diag_check_line",
+                status=str(finding.status),
+                subject=_t(finding.check.subject),
+                detail=_t(finding.outcome.detail, **finding.outcome.params),
+            )
+        )
+
+    code = doctor.exit_code(findings)
+    if code == 0:
+        print(_t("doctor_all_good"))
+
+    # Отчёт пишется ВСЕГДА, а не только при провале: пользователь зовёт команду
+    # тогда, когда собирается приложить файл к issue, и «всё хорошо, файла нет»
+    # заставило бы ломать окружение ради отчёта.
+    report_path = doctor.save_report(DIAGNOSTICS_DIR, doctor.build_report(findings, _t))
+    print(_t("doctor_report_path", path=report_path.resolve()))
+
+    return ExitCode.FAILURES if code else ExitCode.OK
 
 
 def _run_usage_command(args: argparse.Namespace) -> ExitCode:
@@ -854,6 +893,9 @@ def _run(argv: list[str] | None = None) -> ExitCode:
 
     if args.command == "usage":
         return _run_usage_command(args)
+
+    if args.doctor:
+        return _run_doctor(args)
 
     if args.stats_summary:
         summary = stats.read_summary()
