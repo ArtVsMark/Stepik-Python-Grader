@@ -202,3 +202,162 @@ class TestOperatingSystemsComeFromTheMatrix:
 
         assert "schema_of" in built
         assert "ЭТОГО файла" in str(built["schema_of"])
+
+
+def _bindings(root: pathlib.Path, rules: dict[str, dict[str, str]]) -> pathlib.Path:
+    """Ответ потребителя каталогу: правила со статусом и механизмом."""
+    path = root / ".rules" / "bindings.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"schema": "1.1", "rules": rules}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _coverage_xml(path: pathlib.Path, line_rate: str) -> pathlib.Path:
+    """Минимальный Cobertura-отчёт: корню достаточно ``line-rate``."""
+    path.write_text(
+        f'<?xml version="1.0" ?><coverage line-rate="{line_rate}"></coverage>',
+        encoding="utf-8",
+    )
+    return path
+
+
+class TestRuleBindings:
+    """Доли «чем держится правило» — третий блок карточки проекта (issue #1505)."""
+
+    def test_active_rules_are_counted_by_mechanism(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        _bindings(
+            tmp_path,
+            {
+                "001": {"status": "active", "mechanism": "gate"},
+                "002": {"status": "active", "mechanism": "gate"},
+                "003": {"status": "active", "mechanism": "document"},
+            },
+        )
+
+        assert facts.count_rule_bindings(tmp_path) == {
+            "total": 3,
+            "gate": 2,
+            "document": 1,
+        }
+
+    def test_an_inactive_rule_is_counted_by_status(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """У отклонённого механизма нет по определению — вопрос без ответа.
+
+        Дефис в статусе становится подчёркиванием: ключ читают как имя поля.
+        """
+        _bindings(
+            tmp_path,
+            {
+                "001": {"status": "active", "mechanism": "gate"},
+                "002": {"status": "not-applicable", "why": "предмета нет"},
+                "003": {"status": "rejected", "why": "не наш случай"},
+            },
+        )
+
+        counts = facts.count_rule_bindings(tmp_path)
+
+        assert counts["not_applicable"] == 1
+        assert counts["rejected"] == 1
+        assert "not-applicable" not in counts
+
+    def test_an_unknown_mechanism_is_counted_too(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Словарь механизмов ведёт каталог, и он растёт.
+
+        Жёсткий список ключей в коде отстал бы молча: новая доля просто не
+        попала бы в файл, а сумма долей продолжила бы сходиться с ``total``
+        только потому, что о пропущенной никто не знает.
+        """
+        _bindings(
+            tmp_path,
+            {
+                "001": {"status": "active", "mechanism": "gate"},
+                "002": {"status": "active", "mechanism": "code"},
+            },
+        )
+
+        assert facts.count_rule_bindings(tmp_path)["code"] == 1
+
+    def test_an_active_rule_without_a_mechanism_is_held_by_nothing(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Действующее правило без механизма — принятое на словах."""
+        _bindings(tmp_path, {"001": {"status": "active"}})
+
+        assert facts.count_rule_bindings(tmp_path) == {"total": 1, "none": 1}
+
+    def test_the_parts_add_up_to_the_total(self, facts: ModuleType, tmp_path: pathlib.Path) -> None:
+        """Каждое правило попадает ровно в одну долю — иначе картина врёт."""
+        _bindings(
+            tmp_path,
+            {
+                "001": {"status": "active", "mechanism": "gate"},
+                "002": {"status": "active", "mechanism": "pipeline"},
+                "003": {"status": "not-applicable"},
+                "004": {"status": "active"},
+            },
+        )
+
+        counts = facts.count_rule_bindings(tmp_path)
+
+        assert sum(value for key, value in counts.items() if key != "total") == counts["total"]
+
+    def test_a_missing_file_is_not_zero(self, facts: ModuleType, tmp_path: pathlib.Path) -> None:
+        """Нет файла — ключа не будет вовсе, а не ``total: 0``."""
+        assert facts.count_rule_bindings(tmp_path) is None
+
+    def test_the_real_bindings_are_counted(self, facts: ModuleType) -> None:
+        """Guard-the-guard: собственный файл проекта читается и сходится."""
+        counts = facts.count_rule_bindings(pathlib.Path(__file__).parent.parent)
+
+        assert counts is not None
+        assert counts["total"] > 0
+        assert sum(value for key, value in counts.items() if key != "total") == counts["total"]
+
+
+class TestCoveragePercent:
+    """Число покрытия соседям — сравнивают его, а не смотрят (issue #1505)."""
+
+    def test_the_percent_comes_from_the_report(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        assert facts.coverage_percent(_coverage_xml(tmp_path / "coverage.xml", "0.9237")) == 92.4
+
+    def test_an_unreadable_report_is_not_zero(
+        self, facts: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Ноль читался бы как «ничего не покрыто» — точная ложь."""
+        assert facts.coverage_percent(tmp_path / "нет-такого.xml") is None
+
+    def test_the_key_is_absent_unless_the_report_is_offered(
+        self, facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Отчёт есть всегда, в том числе после деградации.
+
+        Поэтому решает не наличие файла, а вызывающая сторона: она одна знает,
+        полны ли данные. Не передали — ключа нет.
+        """
+        root = _project(tmp_path)
+        monkeypatch.setattr(facts, "_checks_per_pr", lambda _root: None)
+
+        assert "coverage_percent" not in facts.build_facts(root)
+
+    def test_the_offered_report_reaches_the_facts(
+        self, facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        root = _project(tmp_path)
+        monkeypatch.setattr(facts, "_checks_per_pr", lambda _root: None)
+
+        built = facts.build_facts(
+            root, coverage_xml=_coverage_xml(tmp_path / "coverage.xml", "0.883")
+        )
+
+        assert built["coverage_percent"] == 88.3
