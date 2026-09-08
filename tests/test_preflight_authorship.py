@@ -161,6 +161,66 @@ class TestCommitsWithoutOwner:
         assert module.commits_without_owner(log, "") == []
 
 
+class TestMisplacedTrailer:
+    """Трейлер есть, но не последним абзацем — отдельный исход (issue #1472).
+
+    Разница не косметическая: «трейлера нет» чинится ``--amend --trailer``, а
+    «трейлер не в том абзаце» этой командой НЕ чинится — она допишет строку
+    туда же, перед чужим последним абзацем, и гейт упадёт снова тем же текстом.
+    Проверка обязана отличать эти два случая, иначе её совет уводит по кругу.
+    """
+
+    #: Ровно то, что оставляет `git merge` при конфликте: блок комментариев
+    #: после трейлера. Его вырезает только редактор, а `--amend -m`/`-F` — нет.
+    _AFTER_MERGE = (
+        f"Merge origin/main into agent/x\n\nCo-Authored-By: {_OWNER} <{_MAIL}>\n\n"
+        "# Conflicts:\n#\tdocs/use/configuration.md\n"
+    )
+
+    def test_a_trailer_after_which_a_paragraph_follows_is_not_a_trailer(
+        self, module: ModuleType
+    ) -> None:
+        """Гейт по-прежнему краснеет: строка есть, а трейлера нет."""
+        log = _record("aaa9999", "Claude", self._AFTER_MERGE)
+
+        assert module.commits_without_owner(log, _OWNER) == ["aaa9999"]
+
+    def test_this_outcome_is_named_separately(self, module: ModuleType) -> None:
+        """И называется отдельно — иначе совет будет неверным."""
+        log = _record("aaa9999", "Claude", self._AFTER_MERGE)
+
+        assert module.owner_trailer_misplaced(log, _OWNER) == ["aaa9999"]
+
+    def test_a_commit_with_no_owner_at_all_is_not_this_outcome(self, module: ModuleType) -> None:
+        """Обычная потеря автора остаётся обычной: там совет как раз работает."""
+        log = _record("bbb8888", "Claude", "feat: без человека\n")
+
+        assert module.commits_without_owner(log, _OWNER) == ["bbb8888"]
+        assert module.owner_trailer_misplaced(log, _OWNER) == []
+
+    def test_someone_else_named_below_is_not_the_owner(self, module: ModuleType) -> None:
+        """Соавтор-инструмент вне блока владельца не заменяет."""
+        log = _record(
+            "ccc7777",
+            "Claude",
+            "feat: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n# Conflicts:\n#\ta.py\n",
+        )
+
+        assert module.commits_without_owner(log, _OWNER) == ["ccc7777"]
+        assert module.owner_trailer_misplaced(log, _OWNER) == []
+
+    def test_a_proper_trailer_stays_green(self, module: ModuleType) -> None:
+        """Без хвостового абзаца тот же коммит зелёный — граница проверена с обеих сторон."""
+        log = _record(
+            "ddd6666",
+            "Claude",
+            f"Merge origin/main into agent/x\n\nCo-Authored-By: {_OWNER} <{_MAIL}>\n",
+        )
+
+        assert module.commits_without_owner(log, _OWNER) == []
+        assert module.owner_trailer_misplaced(log, _OWNER) == []
+
+
 class TestCheckOnRealRepo:
     """Проверка целиком — на настоящих коммитах временного репозитория."""
 
@@ -187,6 +247,32 @@ class TestCheckOnRealRepo:
         )
 
         assert gate.check_commit_authorship().ok
+
+    def test_the_advice_changes_when_the_trailer_is_merely_misplaced(
+        self, gate: ModuleType, repo: pathlib.Path
+    ) -> None:
+        """Совет обязан отличаться, иначе он уводит по кругу (issue #1472).
+
+        Гейт запускается ровно против того, что обязан отклонить: настоящий
+        коммит с трейлером ПЕРЕД блоком «# Conflicts:» — так его оставляет
+        `git merge`, и так его сохраняет `--amend --trailer`.
+        """
+        (repo / "module.py").write_text("x = 1\n", encoding="utf-8")
+        _git(repo, "add", "-A")
+        _git(
+            repo,
+            "commit",
+            "-m",
+            f"Merge origin/main into agent/x\n\nCo-Authored-By: {_OWNER} <{_MAIL}>\n\n"
+            "# Conflicts:\n#\tmodule.py",
+            "--cleanup=verbatim",
+        )
+
+        check = gate.check_commit_authorship()
+
+        assert not check.ok
+        assert "# Conflicts:" in check.hint
+        assert "--trailer" not in check.hint
 
     def test_branch_without_commits_is_green(self, gate: ModuleType, repo: pathlib.Path) -> None:
         """Коммитов ещё нет — терять нечего, гейт не мешает работать."""
