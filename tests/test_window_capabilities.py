@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+import subprocess
 import sys
 from types import ModuleType
 
@@ -146,18 +147,37 @@ def test_a_broken_probe_does_not_hide_the_others(monkeypatch: pytest.MonkeyPatch
 
 
 def _fake_build(root: pathlib.Path, name: str, revision: str, version: str) -> pathlib.Path:
-    """Каталог билда с исполняемым файлом, который печатает заданную версию.
+    """Каталог билда с файлом на месте бинаря; версию отдаёт подменённый запуск.
 
     Имя каталога — ровно то, которого ждёт playwright; содержимое — чужое.
     Это и есть подстановка, рекомендованная в `docs/agent/environments.md`.
+
+    Файл создаётся пустым, а версию возвращает подмена ``subprocess.run``
+    (см. :func:`_answering_binaries`). Первая редакция клала сюда shell-скрипт
+    и делала его исполняемым — на windows-джобах CI это падало во всех трёх
+    ячейках сразу: ``#!/bin/sh`` там не запускается, и проба честно отвечала
+    «версию не прочитал». Проверять надо разбор ответа, а не умение ОС
+    исполнить подделку.
+
+    Версия запоминается на файле — подмена читает её по пути, поэтому в одном
+    тесте могут соседствовать билды с разными версиями.
     """
     binary_name = "headless_shell" if "headless" in name else "chrome"
     build = root / f"{name.replace('-', '_')}-{revision}"
     (build / "chrome-linux").mkdir(parents=True)
     binary = build / "chrome-linux" / binary_name
-    binary.write_text(f'#!/bin/sh\necho "Chromium {version} "\n', encoding="utf-8")
-    binary.chmod(0o755)
+    binary.write_text(version, encoding="utf-8")
     return build
+
+
+def _answering_binaries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Подменить запуск: «бинарь» отвечает той версией, что записана в нём."""
+
+    def _run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        version = pathlib.Path(argv[0]).read_text(encoding="utf-8").strip()
+        return subprocess.CompletedProcess(argv, 0, f"Chromium {version} \n", "")
+
+    monkeypatch.setattr(_MODULE.subprocess, "run", _run)
 
 
 def _wanted_builds() -> dict[str, tuple[str, str]]:
@@ -173,8 +193,11 @@ def _wanted_builds() -> dict[str, tuple[str, str]]:
     }
 
 
-def test_the_version_is_asked_of_the_binary(tmp_path: pathlib.Path) -> None:
+def test_the_version_is_asked_of_the_binary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
     """Версию говорит сам бинарь — имя каталога о содержимом не свидетельствует."""
+    _answering_binaries(monkeypatch)
     build = _fake_build(tmp_path, "chromium", "1", "151.0.7922.34")
 
     assert _MODULE.installed_browser_version(build) == "151.0.7922.34"
@@ -196,6 +219,7 @@ def test_a_substituted_build_is_not_reported_as_ready(
     месте» — то есть подтверждала среду, которой нет. Зелёный e2e после такого
     ответа читался как проверенная поверхность.
     """
+    _answering_binaries(monkeypatch)
     pytest.importorskip("playwright")
     for name, (revision, expected) in _wanted_builds().items():
         assert expected, "в реестре playwright нет browserVersion — сверять нечем"
@@ -218,6 +242,7 @@ def test_the_substitution_names_both_versions(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
     """Без обеих версий сообщение не даёт решить, чему верить."""
+    _answering_binaries(monkeypatch)
     pytest.importorskip("playwright")
     wanted = _wanted_builds()
     for name, (revision, _expected) in wanted.items():
@@ -240,6 +265,7 @@ def test_a_matching_build_is_not_called_a_substitution(
     Проверка, поднимающая тревогу на верной среде, — та же беда, что и молчание
     на неверной: её снимут первой же правкой.
     """
+    _answering_binaries(monkeypatch)
     pytest.importorskip("playwright")
     for name, (revision, expected) in _wanted_builds().items():
         _fake_build(tmp_path, name, revision, expected)
