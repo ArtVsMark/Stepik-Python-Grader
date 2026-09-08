@@ -38,9 +38,15 @@ def test_main_smoke_prints_summary_without_cards(capsys: pytest.CaptureFixture[s
 
 
 def _total_missing(output: str) -> int:
-    """Число пробелов из строки «total N/M covered, K missing»."""
+    """Число пробелов из строки «total N/M covered (P%), K missing».
+
+    Разбор с конца, а не по подстроке «covered, »: доля в строке появилась
+    вместе с честным процентом (issue #919, `DATA-1-01`), и привязка к точной
+    формулировке ломала тест на каждой правке формата — при том, что вопрос у
+    него один и тот же, «сколько пробелов».
+    """
     line = next(ln for ln in output.splitlines() if ln.strip().startswith("total"))
-    return int(line.split("covered, ")[1].split(" missing")[0])
+    return int(line.rsplit(",", 1)[1].split("missing")[0].strip())
 
 
 def test_main_with_cards_reduces_reported_missing(capsys: pytest.CaptureFixture[str]) -> None:

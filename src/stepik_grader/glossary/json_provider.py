@@ -180,10 +180,32 @@ class JsonGlossaryProvider:
         needle = tag.strip().lower()
         return [card for card in self._cards if needle in {t.lower() for t in card.tags}]
 
-    def known_terms(self) -> set[str]:
-        """Все search-термины базы — для подавления дублей в детекторе."""
+    #: Статусы, при которых карточка считается ЗАКОНЧЕННОЙ (issue #919,
+    #: находка ``DATA-1-04``). `new` и `draft` — заготовки: у них может не быть
+    #: ни описания, ни примеров, и засчитывать их в покрытие значит объявлять
+    #: работу сделанной ровно там, где она только начата. `exported` — та же
+    #: готовая карточка, уже уехавшая в витрину.
+    _COMPLETE_STATUSES: frozenset[str] = frozenset({"ready", "exported"})
+
+    def known_terms(self, *, include_unfinished: bool = False) -> set[str]:
+        """Search-термины ЗАКОНЧЕННЫХ карточек — для покрытия и подавления дублей.
+
+        Черновик не отвечает на вопрос студента, поэтому и не закрывает
+        пробел: покрытие, посчитанное вместе с заготовками, показывает не
+        сделанное, а запланированное. На момент правки в базе черновиков нет
+        вовсе — дефект спящий, и тем он опаснее: первая же заготовка молча
+        поднимет показатель.
+
+        Args:
+            include_unfinished: считать и заготовки (``new``/``draft``). Нужно
+                там, где вопрос стоит «есть ли вообще такая карточка» —
+                например, чтобы не заводить в очередь пополнения дубль того,
+                что уже начали писать.
+        """
         terms: set[str] = set()
         for card in self._cards:
+            if not include_unfinished and card.status not in self._COMPLETE_STATUSES:
+                continue
             terms.update(card.search_terms)
         return terms
 
