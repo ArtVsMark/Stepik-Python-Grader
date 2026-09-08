@@ -121,6 +121,7 @@ __all__ = [
     "compare",
     "create_issue",
     "create_pull",
+    "declined_heads",
     "disable_auto_merge",
     "edit_pull",
     "enable_auto_merge",
@@ -818,6 +819,38 @@ def merged_pulls(
     merged = [item for item in items if isinstance(item, dict) and item.get("merged_at")]
     merged.sort(key=lambda item: str(item.get("merged_at")), reverse=True)
     return merged[:limit]
+
+
+def declined_heads(repo: str = DEFAULT_REPO, **kwargs: Any) -> set[str]:
+    """Ветки, чей PR закрыли БЕЗ слияния (issue #1497).
+
+    Закрытие — решение человека, а не состояние графа, и открывать такую
+    ветку заново значит переспорить его молча. Ветка, пережившая squash-мерж,
+    из ``ahead_by`` не выводится вовсе: squash не делает её коммиты предками
+    базы, поэтому «впереди на N» верно для неё навсегда.
+
+    Слитый PR сюда не попадает намеренно: ветку законно переиспользуют под
+    следующую задачу, и её новые коммиты обязаны получить свой PR.
+
+    Один запрос: список закрытых приходит страницей, и различает две судьбы
+    поле ``merged_at``.
+
+    Args:
+        repo: владелец/репозиторий.
+
+    Returns:
+        Имена голов с закрытым несмерженным PR.
+    """
+    query = urllib.parse.urlencode(
+        {"state": "closed", "per_page": 100, "sort": "updated", "direction": "desc"}
+    )
+    data = _get(f"repos/{repo}/pulls?{query}", **kwargs)
+    items = data if isinstance(data, list) else []
+    return {
+        str(item.get("head", {}).get("ref", ""))
+        for item in items
+        if isinstance(item, dict) and not item.get("merged_at") and item.get("head", {}).get("ref")
+    }
 
 
 def pull(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
