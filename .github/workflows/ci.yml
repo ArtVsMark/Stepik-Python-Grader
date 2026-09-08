@@ -431,6 +431,17 @@ jobs:
       # носитель ответа не сохранялся.
       - name: Upload test results (#1378)
         if: always()
+        # issue #1509: несостоявшаяся выгрузка НЕ выносит вердикт по джобу.
+        # Отсутствие диагностического артефакта проект уже считает законным
+        # случаем — и реализовал это у всех потребителей: `report-failures`
+        # скачивает `test-results-*` с `continue-on-error`, `coverage-combine`
+        # так же берёт `coverage-xml-ubuntu`, а `combine_coverage.py` отвечает
+        # на недостачу `::warning:: degraded` (#559). Не хватало ровно этой,
+        # второй стороны: сбой artifact-сервиса валил джоб при зелёных тестах.
+        # Замер 08.09.2026 — два красных `main` за час, каждый раз ровно один
+        # не доехавший артефакт из четырнадцати, шаг `Run tests` зелёный, и
+        # каждый раз замороженная очередь мержа при готовом PR рядом.
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
@@ -453,6 +464,8 @@ jobs:
 
       - name: Upload coverage data (issue #283)
         if: matrix.python-version == '3.12' && matrix.experimental == false
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ matrix.os }}
@@ -471,6 +484,10 @@ jobs:
           matrix.os == 'ubuntu-latest' &&
           matrix.python-version == '3.12' &&
           matrix.experimental == false
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        # Потребитель этого артефакта (`coverage-combine`) уже скачивает его с
+        # `continue-on-error`, то есть готов к его отсутствию.
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-xml-ubuntu
@@ -766,6 +783,8 @@ jobs:
       # при успехе» оставляет без следа ровно тот прогон, который разбирают.
       - name: Upload e2e test results (#1500)
         if: always()
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results-e2e
@@ -889,6 +908,8 @@ jobs:
         run: mv .coverage .coverage.sandbox-linux
 
       - name: Upload coverage data (#420)
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-sandbox-linux
