@@ -94,7 +94,7 @@ def require(tool: str, root: pathlib.Path | None = None) -> None:
         f"(requires-python в pyproject.toml).\n"
         f"  Это среда, а не поломка скрипта: под неподходящим интерпретатором "
         f"часть проверок молча не выполняется, а часть падает разбором.\n"
-        f"  Чем починить:  python3.12 -m venv .venv && .venv/bin/pip install -e \".[dev]\"\n"
+        f'  Чем починить:  python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"\n'
         f"  Дальше звать через .venv/bin/python, а не через системный python3.",
         file=sys.stderr,
     )

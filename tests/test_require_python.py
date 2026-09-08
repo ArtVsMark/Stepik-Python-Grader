@@ -43,7 +43,7 @@ def require_python() -> ModuleType:
 def _project(root: pathlib.Path, requires: str | None = '">=3.12"') -> pathlib.Path:
     """Корень проекта с ``pyproject.toml``; ``None`` — файл без требования."""
     line = f"requires-python = {requires}\n" if requires is not None else ""
-    (root / "pyproject.toml").write_text(f"[project]\nname = \"x\"\n{line}", encoding="utf-8")
+    (root / "pyproject.toml").write_text(f'[project]\nname = "x"\n{line}', encoding="utf-8")
     return root
 
 
