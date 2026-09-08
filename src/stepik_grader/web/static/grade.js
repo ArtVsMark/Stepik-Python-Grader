@@ -956,11 +956,32 @@ function updateProgressBar(done, total) {
   if (fill) fill.style.width = pct + "%";
 }
 
-function cancelActiveRun() {
-  if (!state.activeRunId) return;
+// issue #922 (FE-2-03): отмена, которую можно повторить.
+//
+// Прежде ответ сервера глушился целиком (`.catch(() => {})`), а кнопка гасла
+// сразу и навсегда. Неудачная отмена — 404 (прогон уже свернулся), 409, обрыв
+// сети — оставляла пользователя в тупике: прогон идёт, кнопка мертва, нажать
+// ещё раз нечем, и выход один — перезагрузка страницы. Именно этого требует не
+// допускать первый критерий приёмки подэпика.
+//
+// Тот же путь в «Песочнице» (`cancelSandboxRun`) починен давно и работает
+// правильно; здесь повторяется ровно он — включая проверку «прогон всё ещё
+// тот же»: пока запрос летел, прогон мог завершиться и смениться следующим, и
+// разблокировать кнопку тогда значило бы предложить отменить не то.
+async function cancelActiveRun() {
+  const runId = state.activeRunId;
+  if (!runId) return;
   const cancelBtn = $("#cancel-run");
   cancelBtn.disabled = true;
-  fetch("/api/v1/runs/" + state.activeRunId + "/cancel", { method: "POST" }).catch(() => {});
+  try {
+    const resp = await fetch("/api/v1/runs/" + runId + "/cancel", { method: "POST" });
+    if (resp.ok) return; // прогон свернётся сам — кнопку снимет цикл опроса
+    const data = await resp.json().catch(() => ({}));
+    toast(data.message || t("run.cancel_failed"), "error");
+  } catch (e) {
+    toast(t("common.request_error_detail", { detail: String(e) }), "error");
+  }
+  if (state.activeRunId === runId) cancelBtn.disabled = false;
 }
 
 // -- Песочница: запуск произвольного кода со stdin (issue #317) ---------------
