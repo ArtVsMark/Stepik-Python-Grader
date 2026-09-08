@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import pathlib
 import platform
 import threading
@@ -38,7 +39,15 @@ from typing import Any
 
 from stepik_grader.atomic_io import atomic_write_text
 
-__all__ = ["STATS_FILE_NAME", "purge_stats", "read_summary", "record_run", "stats_path"]
+__all__ = [
+    "STATS_FILE_NAME",
+    "find_existing_stats_file",
+    "purge_stats",
+    "read_summary",
+    "record_run",
+    "stats_path",
+    "user_stats_path",
+]
 
 STATS_FILE_NAME = ".grader_stats.jsonl"
 _MAX_BYTES = 1 * 1024 * 1024  # 1 MiB — ротация (оставить новую половину строк)
@@ -54,8 +63,75 @@ _SCHEMA_VERSION = 1
 _WRITE_LOCK = threading.Lock()
 
 
+#: Единый пользовательский журнал — один на человека, а не на папку (issue #920,
+#: ``SEC-3-04``). Каталог тот же, где уже лежат база истории (#818) и настройки
+#: (#1186): пользовательские данные инструмента живут в одном месте.
+_USER_STATS_DIR = ".stepik-grader"
+_USER_STATS_FILE = "stats.jsonl"
+
+#: Аварийный переключатель пути. Нужен там, где менять конфиг нельзя или
+#: опасно — CI, контейнеры и, главное, СОБСТВЕННЫЙ набор тестов: пока журнал
+#: лежал в ``cwd``, тесты попадали в свой «естественно», через ``chdir`` в
+#: ``tmp_path``; с единым пользовательским файлом такой изоляции уже мало, и
+#: прогон писал бы (а ``purge_stats`` — удалял) реальные данные в домашней
+#: папке. Ровно этот урок стоил данных при переезде истории (#818).
+_ENV_STATS_FILE = "STEPIK_GRADER_STATS_FILE"
+
+
+def user_stats_path() -> pathlib.Path:
+    """Единый журнал прогонов пользователя — ``~/.stepik-grader/stats.jsonl``."""
+    return pathlib.Path.home() / _USER_STATS_DIR / _USER_STATS_FILE
+
+
+def find_existing_stats_file(start: pathlib.Path | None = None) -> pathlib.Path | None:
+    """Ближайший существующий ``.grader_stats.jsonl`` от ``start`` вверх.
+
+    Ради обратной совместимости: у тех, кто уже накопил журнал в рабочей папке,
+    он обязан продолжать пополняться, а не осиротеть при обновлении.
+
+    Обход ограничен строго ВНУТРЕННОСТЬЮ домашней папки — сама ``home`` в
+    цепочку не входит. Без границы поиск доходил бы до корня диска и цеплял
+    посторонний журнал, а файл в корне ``home`` перехватывал бы любой запуск,
+    где бы он ни происходил. Граница та же, что у истории (#818), и по той же
+    причине.
+    """
+    current = (start or pathlib.Path.cwd()).resolve()
+    home = pathlib.Path.home().resolve()
+    if home in current.parents:
+        chain = [current, *(folder for folder in current.parents if home in folder.parents)]
+    else:
+        chain = [current]
+    for folder in chain:
+        candidate = folder / STATS_FILE_NAME
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _default_path() -> pathlib.Path:
-    return pathlib.Path.cwd() / STATS_FILE_NAME
+    """Куда писать журнал прогонов (issue #920, ``SEC-3-04``).
+
+    Порядок:
+
+    0. ``STEPIK_GRADER_STATS_FILE`` — аварийный переключатель.
+    1. Существующий ``.grader_stats.jsonl`` рядом или выше по дереву — чтобы
+       накопленное продолжало пополняться после обновления.
+    2. ``~/.stepik-grader/stats.jsonl`` — единый журнал пользователя.
+
+    Зачем изменено: журнал лежал строго в ``pathlib.Path.cwd()``, а
+    рекомендованный сценарий — запуск из папки задачи. Значит на каждую задачу
+    заводился свой файл, а ``purge_stats`` («удалить мои данные») убирал ровно
+    один из них — остальные оставались лежать по всем папкам, где студент
+    когда-либо запускал грейдер. Обещание очистки выполнялось для текущей папки
+    и молча не выполнялось для остальных.
+    """
+    override = os.environ.get(_ENV_STATS_FILE, "").strip()
+    if override:
+        return pathlib.Path(override).expanduser()
+    existing = find_existing_stats_file()
+    if existing is not None:
+        return existing
+    return user_stats_path()
 
 
 def stats_path(path: pathlib.Path | None = None) -> pathlib.Path:
@@ -149,6 +225,12 @@ def record_run(
         entry["isolation"] = isolation
     try:
         with _WRITE_LOCK:
+            # issue #920: журнал переехал в `~/.stepik-grader/`, и на чистой
+            # машине этого каталога ещё нет. Без создания родителя запись тихо
+            # проваливалась бы в `except OSError` — то есть на новой машине
+            # статистика не велась бы вовсе, и молча. Каталог создаётся только
+            # при реальной записи: `stats` и `--purge-stats` его не плодят.
+            path.parent.mkdir(parents=True, exist_ok=True)
             _rotate_if_needed(path)
             # issue #793 (FST-03): если предыдущая запись оборвалась без
             # завершающего перевода строки (крэш ровно посреди write), append

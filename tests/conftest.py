@@ -230,6 +230,25 @@ def _history_db_safety_net(tmp_path_factory: pytest.TempPathFactory) -> Iterator
 
 
 @pytest.fixture(scope="session", autouse=True)
+def _stats_file_safety_net(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """То же для журнала прогонов: изоляция держится и МЕЖДУ тестами (issue #920).
+
+    Журнал стал единым (``~/.stepik-grader/stats.jsonl``), то есть попал в ту
+    же категорию, что база истории и настройки: без подмены прогон набора писал
+    бы в домашнюю папку разработчика, а тесты ``purge_stats`` — удаляли оттуда.
+    Причина отдельной сессионной страховки та же, что у истории (#1169):
+    per-test изоляция откатывается на границе теста, а поток веб-пула этот
+    момент застаёт.
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv(
+            "STEPIK_GRADER_STATS_FILE",
+            str(tmp_path_factory.mktemp("stats-safety-net") / "stats.jsonl"),
+        )
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
 def _user_settings_safety_net(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     """То же для файла настроек: изоляция держится и МЕЖДУ тестами (issue #948).
 
@@ -259,6 +278,24 @@ def _isolate_user_settings(tmp_path_factory: pytest.TempPathFactory, monkeypatch
     monkeypatch.setenv(
         user_settings.SETTINGS_ENV_VAR,
         str(tmp_path_factory.mktemp("settings-isolated") / "settings.json"),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_stats_file(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
+    """Ни один тест не пишет в РЕАЛЬНЫЙ журнал прогонов пользователя (issue #920).
+
+    Пока журнал лежал в ``cwd``, тесты попадали в свой «естественно», через
+    ``monkeypatch.chdir(tmp_path)``; с единым пользовательским файлом такой
+    изоляции стало недостаточно — ровно как у истории при переезде в #818, и
+    там это стоило данных разработчика.
+
+    Переменная окружения, а не подмена функции: её видит и грейдер, запущенный
+    подпроцессом. Тесты, проверяющие сам резолв пути, снимают её сами.
+    """
+    monkeypatch.setenv(
+        "STEPIK_GRADER_STATS_FILE",
+        str(tmp_path_factory.mktemp("stats-isolated") / "stats.jsonl"),
     )
 
 
