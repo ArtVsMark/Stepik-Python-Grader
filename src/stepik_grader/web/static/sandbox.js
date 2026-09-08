@@ -3,12 +3,16 @@ import { $, esc, explainFailureWithAi, fetchCodeTerms, makeEditor, registerSecti
 import { showTracePlayer } from "./trace-player.js";
 
 let sandboxView = null; // issue #317: отдельный редактор песочницы
+let _sandboxMounting = false; // issue #922: монтирование стало асинхронным
 
 let sandboxTermsTimer = null;
-function mountSandboxEditor() {
-  if (sandboxView) return;
+async function mountSandboxEditor() {
+  // Признак «уже монтируем» ставится ДО await: загрузка бандла асинхронна, и
+  // два быстрых захода в раздел иначе завели бы два редактора в одном узле.
+  if (sandboxView || _sandboxMounting) return;
+  _sandboxMounting = true;
   const mount = document.getElementById("sandbox-editor");
-  sandboxView = makeEditor(mount, () => {
+  sandboxView = await makeEditor(mount, () => {
     clearTimeout(sandboxTermsTimer);
     sandboxTermsTimer = setTimeout(loadCodeTerms, 400);
   }, t("editor.sandbox_label"));
@@ -143,7 +147,7 @@ async function cancelSandboxRun() {
     const resp = await fetch("/api/v1/runs/" + runId + "/cancel", { method: "POST" });
     if (resp.ok) return; // прогон свернётся сам — кнопку снимет _finishSandboxUI
     const data = await resp.json().catch(() => ({}));
-    toast(data.message || t("sandbox.cancel_failed"), "error");
+    toast(data.message || t("run.cancel_failed"), "error");
   } catch (e) {
     toast(t("common.request_error_detail", { detail: String(e) }), "error");
   }

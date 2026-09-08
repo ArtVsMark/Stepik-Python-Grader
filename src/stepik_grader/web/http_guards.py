@@ -30,6 +30,7 @@ __all__ = [
     "_json",
     "_lang_from_query",
     "_resolve_within_root",
+    "path_is_usable",
 ]
 
 # issue #242 (F-03): the server only binds to loopback, but a page open in the
@@ -64,6 +65,27 @@ def _resolve_within_root(
     if confine and not resolved.is_relative_to(workspace):
         return None
     return resolved
+
+
+def path_is_usable(raw: str) -> str:
+    """Причина, по которой строку нельзя отдавать файловой системе; ``""`` — можно.
+
+    Проверка идёт ДО ``Path.resolve()`` и НЕ зависит от конфайнмента (issue
+    #922, находка ``RUN-3-04``). NUL-байт в пути роняет системный вызов
+    ``ValueError``-ом, а необработанное исключение в хендлере ``http.server``
+    не превращается в ответ: соединение закрывается молча, и клиент видит
+    «сервер оборвал связь» вместо причины.
+
+    Независимость от ``confine`` здесь принципиальна: с
+    ``--no-root-confinement`` резолв идёт без единой проверки, то есть режим,
+    задуманный как «доступ к любому пути», случайно оказался и режимом
+    «падение без ответа».
+    """
+    if "\x00" in raw:
+        # Байт не показываем как есть: он невидим в интерфейсе и в логе, и
+        # сообщение выглядело бы как «путь недопустим: путь».
+        return "NUL-байт (\\x00)"
+    return ""
 
 
 def _lang_from_query(parsed: Any) -> str:
@@ -106,7 +128,13 @@ class _GuardMixin(BaseHTTPRequestHandler):
         "style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'"
     )
 
+    #: Ответ уже начат — второй ответ поверх первого испортил бы поток
+    #: (issue #922). Ставится в :meth:`_send`, читается последним рубежом в
+    #: ``api_routes._dispatch``.
+    _response_started = False
+
     def _send(self, code: int, ctype: str, body: bytes) -> None:
+        self._response_started = True
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
@@ -135,6 +163,19 @@ class _GuardMixin(BaseHTTPRequestHandler):
         (которые остаются агностичны к политике конфайнмента). ``lang`` —
         локаль сообщения 403 (issue #264).
         """
+        unusable = path_is_usable(raw)
+        if unusable:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields("path_not_usable", lang, reason=unusable),
+                    }
+                ),
+            )
+            return None
         resolved = _resolve_within_root(self.server.workspace, raw, confine=self.server.confine)
         if resolved is None:
             self._send(

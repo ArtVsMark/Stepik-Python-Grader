@@ -13,30 +13,24 @@
 # сюда не попадают вовсе: их примеры не исполняются, а `unverifiable` вердиктом
 # не считается. Четырнадцать таких строк отсюда убраны — они уже ничего не
 # держали.
+#
+# issue #919 (ADD-3-02…ADD-3-05): пятнадцать строк убраны разбором, а не
+# правкой списка. Среди них четыре находки аудита, названные поимённо:
+# `any` обещал False там, где Python печатает True; `id` учил, что
+# `id([]) == id([])` даёт False (даёт True — первый список успевает
+# освободиться); `signal.ItimerError.__name__` — не `ItimerError`, а
+# `itimer_error`; карточки `math` округляли ответ и прятали погрешность double.
+# Дописывать сюда по-прежнему нельзя — ради этого ratchet и стоит.
 __import__
 _incompleteinputerror
-any
 bytearray.resize
 collections.counter
 complex.from_number
 enum.global_enum
 float.from_number
 globals
-id
 io.Reader
 io.Writer
-math.acos
-math.asin
-math.cos
-math.degrees
-math.exp
-math.fabs
-math.fma
-math.fsum
-math.isclose
-math.sin
-math.tan
-math.tau
 ordereddict
 os.WIFSIGNALED
 os.WIFSTOPPED
@@ -152,7 +146,6 @@ re.patternerror
 reduce
 set
 shutil.execerror
-signal.itimererror
 sorted-с-key
 string.capwords
 sys.getsizeof

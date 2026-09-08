@@ -444,6 +444,25 @@ a.btn { text-decoration: none; }
    здесь ничего не изменил бы (проверено в браузере), а отдельная ступень
    «мельче xs» ради одной подписи в системе не нужна. */
 .data-table .task-key { font-family: var(--font-mono); font-size: 0.9em; color: var(--color-text-muted); }
+/* issue #922 (FE-3-05): запасное поле ввода, когда бандл редактора не
+   загрузился. Вид — как у редактора, чтобы разница читалась как «нет
+   подсветки», а не как «страница сломалась». */
+.plain-editor {
+  width: 100%;
+  min-height: 240px;
+  box-sizing: border-box;
+  background: transparent;
+  border: 0;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+.plain-editor:focus { outline: none; }
+.plain-editor-note { margin: 0; padding: var(--space-2) var(--space-3); }
+
 /* issue #922 (FE-3-02): раскрытие строки и выбор кейса — кнопки, а не
    кликабельные ячейки. Кнопка даёт клавиатуру и роль даром; вид остаётся
    прежним — «как текст в таблице», иначе правка доступности выглядела бы
