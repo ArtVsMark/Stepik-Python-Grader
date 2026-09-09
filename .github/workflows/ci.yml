@@ -818,19 +818,29 @@ jobs:
   # сводка собирается со всех сразу.
   report-failures:
     needs: [test, e2e]
-    # Только на PR и только при падении: зелёный прогон вопросов не вызывает, а
-    # на `push` в main комментировать нечего.
+    # Только при падении: зелёный прогон вопросов не вызывает.
     #
     # issue #1500: падение ЛЮБОГО из двух, а не только матрицы. Прежнее условие
     # оставляло красный `e2e` при зелёной матрице вовсе без сводки — а это
     # единственный джоб, чьё падение нельзя разобрать локально.
+    #
+    # issue #1519: и на `push` в main тоже. Прежде условие отсекало всё, кроме
+    # pull request, с объяснением «на push комментировать нечего» — а
+    # комментировать есть что и куда: у коммита свои комментарии, тем же REST и
+    # тем же токеном. Цена прежнего вывода измерена:
+    # красная база замораживает очередь, чинить её надо зная, ЧТО упало, а
+    # логи и артефакты облачной сессии закрыты (403). Разорвать круг было
+    # нечем — новый прогон main рождается только новым мержем, которого
+    # заморозка и не даёт.
     if: >-
-      ${{ always() && github.event_name == 'pull_request'
+      ${{ always()
       && (needs.test.result == 'failure' || needs.e2e.result == 'failure') }}
     timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # `contents: write` — ради комментария к коммиту: он живёт в скоупе
+      # содержимого, а не в `pull-requests`, и на чтении отвечает 403.
+      contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -852,11 +862,25 @@ jobs:
         continue-on-error: true
 
       - name: Name the failed tests in the pull request
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
           python scripts/report_failed_tests.py --dir test-reports
           --pr ${{ github.event.number }}
+          --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      # issue #1519: у push в main адресата-PR нет — сводка уходит комментарием
+      # к коммиту. Шаг отдельный, а не ветвление внутри одной команды: два
+      # разных адресата и два разных набора прав, и `if` здесь читается, а
+      # выражение в аргументе — нет.
+      - name: Name the failed tests on the commit
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/report_failed_tests.py --dir test-reports
+          --commit ${{ github.sha }}
           --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           --apply
 
