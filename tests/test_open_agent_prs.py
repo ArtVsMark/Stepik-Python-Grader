@@ -58,6 +58,32 @@ class TestBranchSelection:
 
         assert module.branches_without_pull(["agent/one"], {"agent/one"}) == []
 
+    def test_branch_whose_pull_was_closed_is_skipped(self) -> None:
+        """issue #1497: закрытие PR — решение человека, а не состояние графа.
+
+        Ветка, пережившая squash-мерж, остаётся «впереди на N коммитов»
+        навсегда: squash не делает её коммиты предками базы. Замер по
+        `agent/glossary-examples-compile-batch5` — десять PR подряд, каждые
+        пятнадцать минут, и каждый предлагал откатить смерженное после неё.
+        """
+        module = _load_module()
+
+        chosen = module.branches_without_pull(
+            ["agent/призрак", "agent/живая"], set(), "agent/", {"agent/призрак"}
+        )
+
+        assert chosen == ["agent/живая"]
+
+    def test_a_merged_pull_does_not_bar_the_branch(self) -> None:
+        """Слитый PR запретом не является: ветку законно переиспользуют.
+
+        Граница с другой стороны — без неё правило превратилось бы в
+        «однажды сработавшая ветка больше не работает никогда».
+        """
+        module = _load_module()
+
+        assert module.branches_without_pull(["agent/one"], set(), "agent/", set()) == ["agent/one"]
+
 
 class TestTitleAndBody:
     def test_first_line_is_the_title(self) -> None:
@@ -218,6 +244,9 @@ class TestMain:
     ) -> None:
         module = _load_module()
         monkeypatch.setattr(module.gh_rest, "list_pulls", lambda *_a, **_k: [])
+        # issue #1497: закрытые PR читаются вторым запросом. Без заглушки тест
+        # ушёл бы в сеть — и упал бы именно этим, а не тем, что проверяет.
+        monkeypatch.setattr(module.gh_rest, "declined_heads", lambda *_a, **_k: set())
         monkeypatch.setattr(module, "branch_names", lambda *_a, **_k: ["main"])
 
         assert module.main([]) == 0
@@ -256,6 +285,7 @@ class TestMain:
     ) -> None:
         module = _load_module()
         monkeypatch.setattr(module.gh_rest, "list_pulls", lambda *_a, **_k: [])
+        monkeypatch.setattr(module.gh_rest, "declined_heads", lambda *_a, **_k: set())
         monkeypatch.setattr(
             module, "branch_names", lambda *_a, **_k: ["agent/первая", "agent/вторая"]
         )
