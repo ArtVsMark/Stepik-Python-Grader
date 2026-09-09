@@ -121,6 +121,15 @@ EXPECTED_CHECKS: tuple[str, ...] = (
     "test (windows-latest, 3.13, false)",
     "test (macos-latest, 3.12, false)",
     "test (macos-latest, 3.13, false)",
+    # issue #1529: 3.14 перестала быть предрелизной ещё в прошлом цикле, и её
+    # ячейки вышли из-под `continue-on-error`. Здесь они заявлены обязательными
+    # ДО того, как владелец добавит три имени в ruleset: заявление — предмет
+    # ревью, а сверка с площадкой ниже назовёт расхождение вслух. Обратный
+    # порядок (сперва ruleset) отправил бы PR ждать проверку, которой в дереве
+    # ещё нет.
+    "test (ubuntu-latest, 3.14, false)",
+    "test (windows-latest, 3.14, false)",
+    "test (macos-latest, 3.14, false)",
 )
 
 #: Правила, без которых защита декоративна.
@@ -273,7 +282,7 @@ _MATRIX_RE = re.compile(r"^      matrix:\n(.*?)(?=^    [a-z]|^  [a-z])", re.M | 
 #: Список значений одного измерения: ``os: ["a", "b"]``.
 _AXIS_RE = re.compile(r"^        ([\w-]+):\s*\[(.+?)\]\s*$", re.M)
 
-#: Добавленная комбинация: ``- {os: "x", python-version: "3.14", experimental: true}``.
+#: Добавленная комбинация: ``- {os: "x", python-version: "3.15", experimental: true}``.
 _INCLUDE_RE = re.compile(r"^\s*-\s*\{(.+?)\}\s*$", re.M)
 
 
