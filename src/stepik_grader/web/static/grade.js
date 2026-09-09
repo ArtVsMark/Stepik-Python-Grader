@@ -25,6 +25,9 @@ const VERDICT_BADGE = {
   // issue #729: решение не допущено к замеру (не прошло тесты) — это не сбой
   // замера, а «нечего мерить», поэтому нейтральный бейдж, а не красный ERR.
   SKIPPED: "badge badge-neutral",
+  // issue #1517: вывод обрезан по потолку — проверять нечем. Красный: для
+  // студента это провал кейса, а не предупреждение.
+  OLE: "badge badge-error",
   SANDBOX_VIOLATION: "badge badge-error",
   "NO TESTS": "badge badge-neutral",
   SIMILAR: "verdict-similar",
