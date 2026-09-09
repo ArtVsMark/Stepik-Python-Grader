@@ -140,19 +140,30 @@ class TestMatrixIsTheSameForEveryEvent:
         block = _job_block(ci_yml, "test")
         assert os_name in block
 
-    @pytest.mark.parametrize("version", ["3.12", "3.13"])
-    def test_both_supported_versions_run(self, ci_yml: str, version: str) -> None:
+    @pytest.mark.parametrize("version", ["3.12", "3.13", "3.14"])
+    def test_every_supported_version_runs(self, ci_yml: str, version: str) -> None:
+        """issue #454: версия, обещанная `requires-python`, покрывается матрицей.
+
+        3.14 стоит здесь наравне с остальными с тех пор, как вышла из
+        предрелиза (issue #1529): под `continue-on-error` она год пропускала
+        падения на полноценной поддерживаемой версии.
+        """
         block = _job_block(ci_yml, "test")
         assert f'"{version}"' in block
 
-    def test_experimental_314_still_covered(self, ci_yml: str) -> None:
-        """issue #454: 3.14 обещана `requires-python` и покрывается на трёх ОС."""
-        block = _job_block(ci_yml, "test")
-        assert '"3.14"' in block
-        assert block.count('python-version: "3.14"') == 3
+    def test_the_prerelease_cell_covers_three_os(self, ci_yml: str) -> None:
+        """Предрелизная версия следующего цикла идёт на всех трёх ОС.
 
-    def test_experimental_314_does_not_block(self, ci_yml: str) -> None:
-        """Экспериментальные комбинации не должны ронять мерж."""
+        Номер здесь не называется намеренно: какая версия предрелизная — вопрос
+        к чужому календарю, и имя в тесте устаревало бы вместе с флагом. Что
+        флаг не пережил выход версии, сверяет `check_experimental_python.py`.
+        """
+        block = _job_block(ci_yml, "test")
+
+        assert block.count("experimental: true}") == 3
+
+    def test_the_prerelease_cell_does_not_block(self, ci_yml: str) -> None:
+        """Предрелизная комбинация не должна ронять мерж."""
         block = _job_block(ci_yml, "test")
         assert "continue-on-error" in block
 

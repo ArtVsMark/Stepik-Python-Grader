@@ -27,6 +27,10 @@ Actions этого ограничения нет: PR, созданный с PAT 
   теоретический случай, а гарантированный;
 * **ветка без коммитов сверх базы пропускается** — PR из нуля изменений создать
   можно, и он будет вечно висеть красным;
+* **ветка с уже закрытым PR пропускается** (issue #1497) — закрытие это решение
+  человека. Squash-мерж не делает коммиты ветки предками ``main``, поэтому у
+  пережившей мерж ветки ``ahead_by`` положителен навсегда, и без этого правила
+  обход открывал на неё PR каждые пятнадцать минут: замерено десять подряд;
 * **трейлеры в тело PR не уезжают** — авторство подставляет харнесс в коммит, а
   в теле PR стоит строка из ``.claude/settings.json``, чтобы источник был один.
 
@@ -84,13 +88,45 @@ def branches_without_pull(
     branches: list[str],
     open_heads: set[str],
     prefix: str = DEFAULT_PREFIX,
+    declined_heads: set[str] | None = None,
 ) -> list[str]:
-    """Ветки с нужным префиксом, у которых открытого PR ещё нет.
+    """Ветки с нужным префиксом, на которые PR открывать законно.
 
     Отдельная функция, потому что это и есть вся логика выбора: остальное —
     сеть. Проверяется на подделанных списках, без обращения к GitHub.
+
+    Отсеиваются две категории. Открытый PR — идемпотентность: скрипт зовётся и
+    по пушу, и по расписанию. ``declined_heads`` — **закрытый и не слитый** PR
+    на ту же голову (issue #1497): это решение человека, и открывать ветку
+    заново значит переспорить его молча.
+
+    Второе правило выросло из замера: ветка ``agent/…-batch5`` уехала в
+    ``main`` squash-мержем, осталась жива — удалить её из облачной сессии
+    нечем, прокси отвечает 403 — и обход открывал на неё PR каждые
+    пятнадцать минут. Десять PR подряд, каждый занимал раннеры и каждый
+    предлагал откатить всё, что смержено после ветки: squash не делает её
+    коммиты предками ``main``, поэтому ``ahead_by`` остаётся положительным
+    навсегда.
+
+    Слитый PR запретом **не** является: ветку законно переиспользуют, и новые
+    коммиты обязаны получить свой PR. Снимается запрет удалением ветки — тем
+    же действием, которое и так закрывает вопрос по существу.
+
+    Args:
+        branches: имена веток репозитория.
+        open_heads: головы, у которых уже есть открытый PR.
+        prefix: префикс агентских веток.
+        declined_heads: головы с закрытым несмерженным PR.
+
+    Returns:
+        Имена веток, отсортированные по алфавиту.
     """
-    return sorted(name for name in branches if name.startswith(prefix) and name not in open_heads)
+    declined = declined_heads or set()
+    return sorted(
+        name
+        for name in branches
+        if name.startswith(prefix) and name not in open_heads and name not in declined
+    )
 
 
 def declined_number(pulls: object) -> int | None:
@@ -246,7 +282,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         open_heads = {pull.branch for pull in gh_rest.list_pulls(args.repo)}
-        pending = branches_without_pull(branch_names(args.repo), open_heads, args.prefix)
+        declined = gh_rest.declined_heads(args.repo)
+        pending = branches_without_pull(branch_names(args.repo), open_heads, args.prefix, declined)
     except gh_rest.RateLimited as exc:
         # Квота — «ждать», а не «сломалось»: повтор её не лечит, а отодвигает
         # сброс (правило 058).
@@ -258,6 +295,10 @@ def main(argv: list[str] | None = None) -> int:
         # их различать. Раньше здесь стоял тот же код, что у находки.
         print(f"::warning::не удалось прочитать состояние репозитория: {exc}", file=sys.stderr)
         return 2
+
+    skipped = sorted(name for name in declined if name.startswith(args.prefix))
+    for name in skipped:
+        print(f"{name}: PR на эту голову уже закрывали — пропущена (issue #1497)")
 
     if not pending:
         print(f"Веток {args.prefix}** без открытого PR нет.")
