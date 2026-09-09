@@ -47,6 +47,12 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "запись уезжает в CHANGELOG и на PyPI — проверяется на каждый PR",
     ),
+    "check_catalogue_trails.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "issue #1424: предмет — следы каталога в наше дерево, читается из клона "
+        "чужого репозитория; расписание, а не прогон на каждый PR. Правит след "
+        "владелец дерева, поэтому находка предупреждение, а не отказ",
+    ),
     "check_container_closure.py": (
         ".github/workflows/tracker-guardrails.yml",
         "правило 121: предмет — состояние трекера, поэтому расписание, а не прогон "
