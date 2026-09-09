@@ -40,7 +40,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -49,13 +51,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gh_rest
 
 __all__ = [
+    "BLOCKER_LABEL",
     "CONFLICT_LABEL",
+    "FREEZE_LABEL",
     "HOLD_LABEL",
     "LABEL",
     "Outcome",
     "apply_default_consent",
+    "apply_freeze",
+    "base_is_red",
     "disable_for",
     "enable_for_labelled",
+    "freeze_decision",
     "labels_of",
     "main",
     "pulls_awaiting_auto_merge",
@@ -72,6 +79,20 @@ _HOLD_DESCRIPTION = "Не отдавать автоматике: не стави
 #: Метка конфликта из очереди мержа: такому PR согласие не выдаётся — сперва
 #: слияние вручную (issue #1313).
 CONFLICT_LABEL = "needs-rebase"
+
+#: Метка заморозки: «база сломана, очередь стоит» (issue #1510).
+#:
+#: ОТДЕЛЬНАЯ от :data:`HOLD_LABEL`, и это главное решение задачи. `hold`
+#: означает решение ЧЕЛОВЕКА («этот PR автоматике не отдавать»); заморозка —
+#: состояние КОНВЕЙЕРА, которое механизм ставит и снимает сам. Переиспользуй
+#: он `hold`, и однажды снял бы вашу метку по зелёной базе, приняв её за свою:
+#: по состоянию PR эти две причины неразличимы.
+FREEZE_LABEL = "queue-frozen"
+_FREEZE_COLOR = "5319e7"
+_FREEZE_DESCRIPTION = "Заморозка конвейера: база красная, согласие вернётся само"
+
+#: Метка чинящего PR: он и есть исключение из заморозки (issue #1326).
+BLOCKER_LABEL = "blocker"
 
 _CONSENT_COLOR = "0e8a16"
 _CONSENT_DESCRIPTION = "Согласие смержить без автора: авто-мерж включится, как позеленеет"
@@ -186,12 +207,123 @@ def apply_default_consent(
         if CONFLICT_LABEL in labels:
             outcome.say(f"PR #{number}: стоит «{CONFLICT_LABEL}» — сначала слияние вручную")
             continue
+        if FREEZE_LABEL in labels:
+            # issue #1510: заморожен красной базой. Без этой ветки умолчание
+            # возвращало бы согласие тем, у кого заморозка его только что
+            # сняла, — два механизма на одном проходе спорили бы друг с другом.
+            outcome.say(f"PR #{number}: стоит «{FREEZE_LABEL}» — база красная, согласие ждёт")
+            continue
         if LABEL in labels:
             continue
         if not dry_run:
             gh_rest.add_labels(repo, number, [LABEL], **kwargs)
         outcome.touched.append(number)
         outcome.say(f"PR #{number}: согласие проставлено по умолчанию")
+    return outcome
+
+
+def base_is_red(repo: str = gh_rest.DEFAULT_REPO, **kwargs: Any) -> bool:
+    """Красен ли последний ЗАВЕРШЁННЫЙ прогон базы.
+
+    Идущий прогон цвета не даёт — он ещё ничего не решил, и замораживать по
+    нему значило бы останавливать очередь на каждом пуше. Прогонов нет вовсе —
+    не красная: гейт, краснеющий на отсутствии данных, обходят.
+    """
+    runs = gh_rest.main_run(repo, **kwargs)
+    listed = [run for run in runs.get("workflow_runs", []) if isinstance(run, dict)]
+    done = [run for run in listed if run.get("status") == "completed"]
+    return bool(done) and done[0].get("conclusion") not in ("success", "neutral", "skipped")
+
+
+def freeze_decision(labels: Iterable[str], *, base_red: bool) -> str:
+    """Что делать с меткой заморозки у этого PR: ``set`` · ``clear`` · ``keep``.
+
+    Чистая функция — вся логика решения здесь, а сеть снаружи: заморозка
+    трогает каждый открытый PR, и проверять её на подделанных метках дешевле,
+    чем на живом трекере.
+
+    Правила ровно три:
+
+    * база красная и PR не чинит её — ``set``: пока база сломана, проверки
+      остальных всё равно прошли бы на ней;
+    * база красная, но на PR стоит :data:`BLOCKER_LABEL` — ``clear``: он и есть
+      исключение, ради которого очередь двигается;
+    * база зелёная — ``clear``: заморозка снимается ТЕМ ЖЕ механизмом, что и
+      поставил. Метка, которую ставит автомат, а снимает человек, — это
+      заморозка навсегда: через сутки никто не вспомнит, чья она.
+
+    ``keep`` возвращается, когда менять нечего — метки уже в нужном состоянии.
+    """
+    present = FREEZE_LABEL in set(labels)
+    wanted = base_red and BLOCKER_LABEL not in set(labels)
+    if wanted and not present:
+        return "set"
+    if not wanted and present:
+        return "clear"
+    return "keep"
+
+
+def apply_freeze(
+    repo: str = gh_rest.DEFAULT_REPO,
+    *,
+    dry_run: bool = False,
+    **kwargs: Any,
+) -> Outcome:
+    """Привести метки заморозки в соответствие цвету базы (issue #1510).
+
+    Правило «красная база замораживает очередь» существовало и **исполнялось
+    наполовину**: ``move_merge_queue.py`` переставал двигать ветки, но PR с уже
+    включённым авто-мержем уезжал мимо — обновлять его для этого не нужно.
+    Замер 08.09.2026: ``main`` покраснела в 15:24, PR #1480 смержился в 15:42 —
+    восемнадцать минут внутри заморозки, без метки ``blocker`` и не будучи
+    чинящим.
+
+    Метка не только помечает, но и **выключает согласие**: сама по себе она
+    ничего не остановила бы, а вместе со снятием ``merge-when-green`` и
+    авто-мержа — останавливает.
+    """
+    outcome = Outcome()
+    # Цвет базы спрашивается напрямую (`main_run`), а не через `merge_queue`:
+    # тому нужны список PR, их файлы и приоритеты — работа ради вопроса,
+    # который решается одним прогоном. Дешевле по квоте и не тянет за собой
+    # порядок очереди, до которого заморозке дела нет.
+    base_red = base_is_red(repo, **kwargs)
+    pulls = gh_rest.request("GET", f"repos/{repo}/pulls?state=open&per_page=100", **kwargs).data
+    items = [item for item in (pulls if isinstance(pulls, list) else []) if isinstance(item, dict)]
+    if not items:
+        outcome.say("открытых PR нет — замораживать нечего")
+        return outcome
+
+    if not dry_run:
+        gh_rest.ensure_label(
+            repo, FREEZE_LABEL, color=_FREEZE_COLOR, description=_FREEZE_DESCRIPTION, **kwargs
+        )
+
+    for item in items:
+        number = int(item.get("number", 0))
+        if not number:
+            continue
+        labels = labels_of(item)
+        decision = freeze_decision(labels, base_red=base_red)
+        if decision == "keep":
+            continue
+        if decision == "set":
+            if not dry_run:
+                gh_rest.add_labels(repo, number, [FREEZE_LABEL], **kwargs)
+                # Метка без снятия согласия — просто надпись: авто-мерж,
+                # включённый раньше, увёз бы PR ровно так же.
+                if LABEL in labels:
+                    gh_rest.remove_label(repo, number, LABEL, **kwargs)
+                with contextlib.suppress(gh_rest.GitHubError):
+                    gh_rest.disable_auto_merge(repo, number, **kwargs)
+            outcome.touched.append(number)
+            outcome.say(f"PR #{number}: база красная — заморожен, согласие снято")
+            continue
+        if not dry_run:
+            gh_rest.remove_label(repo, number, FREEZE_LABEL, **kwargs)
+        outcome.touched.append(number)
+        reason = "чинит базу" if BLOCKER_LABEL in set(labels) else "база зелёная"
+        outcome.say(f"PR #{number}: {reason} — заморозка снята")
     return outcome
 
 
@@ -301,7 +433,18 @@ def main(argv: list[str] | None = None) -> int:
             # включить авто-мерж помеченным. Порядок именно такой: иначе PR,
             # получивший метку на этом же проходе, ждал бы следующего.
             outcome = Outcome()
+            # issue #1510: заморозка — первой. Она снимает согласие у тех, кого
+            # держит красная база, а умолчание ниже их пропускает по метке.
+            # Обратный порядок означал бы, что PR получает согласие и теряет
+            # его в том же проходе, — лишний шум в отчёте и лишние записи в
+            # истории PR.
             if not args.no_default_consent:
+                # `--no-default-consent` означает «не размечать» — заморозка
+                # тоже разметка, и под этим флагом она не идёт: иначе флаг
+                # выключал бы одну расстановку меток и оставлял другую.
+                frozen = apply_freeze(args.repo, dry_run=args.dry_run)
+                outcome.touched.extend(frozen.touched)
+                outcome.lines.extend(frozen.lines)
                 marked = apply_default_consent(args.repo, dry_run=args.dry_run)
                 outcome.touched.extend(marked.touched)
                 outcome.lines.extend(marked.lines)
