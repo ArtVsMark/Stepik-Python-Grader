@@ -64,6 +64,10 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
+from typing import TypeVar
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _require_python
 
 __all__ = [
     "Check",
@@ -160,7 +164,17 @@ def _git_launch_timeout_s() -> float:
     return value if value > 0 else _GIT_LAUNCH_TIMEOUT_S
 
 
-def _run_guarded[T](call: Callable[[], T]) -> T | None:
+# issue #1507: параметр типа объявлен по-старому, а не синтаксисом PEP 695
+# (`def _run_guarded[T](...)`), И ЭТО НАМЕРЕННО. Разбор файла идёт целиком и
+# ДО исполнения, поэтому одна 3.12-конструкция превращала запуск гейта под
+# неподходящим интерпретатором в `SyntaxError: expected '('` — сообщение про
+# номер строки вместо сообщения про среду. Гейт, который не умеет объяснить
+# собственный отказ, обходят как сломанный: человек чинит скрипт, а не среду.
+# Ради этой возможности здесь и держится TypeVar.
+_T = TypeVar("_T")
+
+
+def _run_guarded(call: Callable[[], _T]) -> _T | None:  # noqa: UP047 (см. комментарий выше)
     """Выполнить ``call`` с дедлайном, покрывающим и ЗАПУСК процесса (issue #1149).
 
     ``timeout=`` у ``subprocess`` покрывает ожидание уже стартовавшего процесса,
@@ -176,7 +190,7 @@ def _run_guarded[T](call: Callable[[], T]) -> T | None:
     Returns:
         Результат вызова или ``None``, если он не уложился в дедлайн.
     """
-    outcome: list[T | BaseException] = []
+    outcome: list[_T | BaseException] = []
 
     def _worker() -> None:
         try:
@@ -1108,6 +1122,12 @@ def main(argv: list[str] | None = None) -> int:
     """Прогнать гигиену ветки и (по умолчанию) весь набор проверок CI."""
     # Раньше любой печати, включая справку argparse: описание флагов русское.
     _force_utf8_stdio()
+    # issue #1507: и раньше любой работы. Гейт, отработавший под версией,
+    # которой нет ни в `requires-python`, ни в матрице CI, отвечает не на тот
+    # вопрос, который ему задали. Проверка живёт здесь, а не на уровне модуля:
+    # набор импортирует этот файл как библиотеку, и `SystemExit` при импорте
+    # убил бы сбор тестов вместо того, чтобы остановить один запуск.
+    _require_python.require("preflight.py")
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

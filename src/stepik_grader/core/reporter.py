@@ -237,6 +237,10 @@ _STATUS_COLORS: dict[str, str] = {
     "RE": "red",
     "ERROR": "red",
     "CANCELLED": "yellow",
+    # issue #1517: вывод перерос потолок и урезан. Красный, как WA: проверка
+    # не состоялась, и решение к дальнейшим кейсам не допущено — это не
+    # «медленно» (TLE) и не отмена человеком (CANCELLED).
+    "OLE": "red",
     "SANDBOX_VIOLATION": "red",
     "NO TESTS": "yellow",
 }
