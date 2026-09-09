@@ -50,10 +50,10 @@ def _rule(rule_id: str, *trail: dict[str, Any]) -> dict[str, Any]:
     return {"id": rule_id, "trails": list(trail)}
 
 
-def _tree(tmp_path: Path, **docs: str) -> Path:
-    """Дерево с документами: ключ — имя файла с `__` вместо `/`."""
+def _tree(tmp_path: Path, docs: dict[str, str]) -> Path:
+    """Дерево с документами: ключ — путь как он записан в следе каталога."""
     for name, text in docs.items():
-        path = tmp_path / name.replace("__", "/")
+        path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
     return tmp_path
@@ -64,7 +64,7 @@ def _tree(tmp_path: Path, **docs: str) -> Path:
 
 def test_a_renamed_section_is_a_broken_trail(trails: ModuleType, tmp_path: Path) -> None:
     """Ровно тот случай, ради которого механизм и заведён."""
-    root = _tree(tmp_path, CLAUDE__md="# Свод\n\n## Очередь работ\n\nтекст\n")
+    root = _tree(tmp_path, {"CLAUDE.md": "# Свод\n\n## Очередь работ\n\nтекст\n"})
     export = _export(
         _rule("052", {"repo": trails.PROJECT, "doc": "CLAUDE.md", "section": "Очередь мержа"})
     )
@@ -78,7 +78,7 @@ def test_a_renamed_section_is_a_broken_trail(trails: ModuleType, tmp_path: Path)
 
 def test_a_moved_file_is_a_broken_trail(trails: ModuleType, tmp_path: Path) -> None:
     """Переезд в src-layout оставил в каталоге адреса прежнего дерева."""
-    root = _tree(tmp_path, README__md="# Пусто\n")
+    root = _tree(tmp_path, {"README.md": "# Пусто\n"})
     export = _export(_rule("110", {"repo": trails.PROJECT, "doc": "core/tracer.py"}))
 
     broken = trails.broken_trails(export, root=root)
@@ -95,7 +95,7 @@ def test_a_shortened_section_still_resolves(trails: ModuleType, tmp_path: Path) 
     """
     root = _tree(
         tmp_path,
-        CLAUDE__md="# Свод\n\n## Комплексный issue ведёт чек-лист находок\n\nтекст\n",
+        {"CLAUDE.md": "# Свод\n\n## Комплексный issue ведёт чек-лист находок\n\nтекст\n"},
     )
     export = _export(
         _rule(
@@ -113,7 +113,7 @@ def test_a_shortened_section_still_resolves(trails: ModuleType, tmp_path: Path) 
 
 def test_a_trail_without_a_section_needs_only_the_file(trails: ModuleType, tmp_path: Path) -> None:
     """Форма «документ без раздела» проверяется существованием документа."""
-    root = _tree(tmp_path, docs__agent__multiagent__md="# Волны\n")
+    root = _tree(tmp_path, {"docs/agent/multiagent.md": "# Волны\n"})
     export = _export(_rule("015", {"repo": trails.PROJECT, "doc": "docs/agent/multiagent.md"}))
 
     assert trails.broken_trails(export, root=root) == []
