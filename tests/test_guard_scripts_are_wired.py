@@ -47,6 +47,18 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         ".github/workflows/ci.yml",
         "запись уезжает в CHANGELOG и на PyPI — проверяется на каждый PR",
     ),
+    "check_catalogue_trails.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "issue #1424: предмет — следы каталога в наше дерево, читается из клона "
+        "чужого репозитория; расписание, а не прогон на каждый PR. Правит след "
+        "владелец дерева, поэтому находка предупреждение, а не отказ",
+    ),
+    "check_experimental_python.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "issue #1529: предмет — чужой календарь (манифест раннера), обращение в "
+        "сеть; расписание, а не прогон на каждый PR. И находка тут не про наш "
+        "код: версия вышла без нас, а починка задевает ещё и ruleset",
+    ),
     "check_container_closure.py": (
         ".github/workflows/tracker-guardrails.yml",
         "правило 121: предмет — состояние трекера, поэтому расписание, а не прогон "
