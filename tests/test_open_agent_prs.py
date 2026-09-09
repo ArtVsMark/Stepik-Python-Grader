@@ -14,6 +14,7 @@ import importlib.util
 import json
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -268,3 +269,126 @@ class TestMain:
 
         assert module.main([]) == 0
         assert "PR #9 открыт" in capsys.readouterr().out
+
+
+class TestDeclinedNumber:
+    """Закрытый PR на голову — вынесенное решение, а не состояние графа (#1497)."""
+
+    def test_a_closed_unmerged_pull_is_a_verdict(self) -> None:
+        module = _load_module()
+
+        assert module.declined_number([{"number": 1484, "merged_at": None}]) == 1484
+
+    def test_a_merged_pull_is_not_a_ban(self) -> None:
+        """Ветку законно переиспользуют — новые коммиты обязаны получить свой PR.
+
+        Иначе запрет превратился бы в глушилку: после первого же успешного
+        мержа ветка навсегда осталась бы без права на следующий PR.
+        """
+        module = _load_module()
+
+        assert (
+            module.declined_number([{"number": 1485, "merged_at": "2026-09-08T10:00:00Z"}]) is None
+        )
+
+    def test_the_latest_verdict_wins(self) -> None:
+        """У ветки с историей важен последний ответ, а не первый."""
+        module = _load_module()
+
+        pulls = [
+            {"number": 1484, "merged_at": None},
+            {"number": 1496, "merged_at": None},
+            {"number": 1490, "merged_at": None},
+        ]
+
+        assert module.declined_number(pulls) == 1496
+
+    def test_a_merged_one_among_declined_does_not_hide_them(self) -> None:
+        """Смерженный сосед не отменяет закрытых: считаются только вторые."""
+        module = _load_module()
+
+        pulls = [
+            {"number": 1485, "merged_at": "2026-09-08T10:00:00Z"},
+            {"number": 1496, "merged_at": None},
+        ]
+
+        assert module.declined_number(pulls) == 1496
+
+    def test_no_pulls_is_not_a_ban(self) -> None:
+        module = _load_module()
+
+        assert module.declined_number([]) is None
+
+    def test_a_non_list_answer_is_not_a_ban(self) -> None:
+        """Ответ не той формы не должен запрещать работу молча."""
+        module = _load_module()
+
+        assert module.declined_number({"message": "Not Found"}) is None
+
+
+class TestDeclinedBranchIsSkipped:
+    """Приёмка #1497: обход не переспаривает закрытие молча."""
+
+    @staticmethod
+    def _answers(module: Any, closed: list[dict[str, Any]]) -> Any:
+        """Подделка `request`: сравнение и список закрытых PR по URL."""
+
+        def _request(_method: str, path: str, **_kwargs: Any) -> Any:
+            if "/compare/" in path:
+                return _compare(3, _MESSAGE)
+            if "state=closed" in path:
+                return SimpleNamespace(data=closed)
+            if path.endswith("/labels"):
+                # Метка согласия ставится сразу при открытии (issue #1325) —
+                # к предмету этого теста отношения не имеет, но запрос делает.
+                return SimpleNamespace(data={})
+            raise AssertionError(f"неожиданный запрос: {path}")
+
+        return _request
+
+    def test_a_branch_with_a_declined_pull_gets_no_new_one(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Тот самый случай: семь PR подряд по одной ветке (#1484…#1496)."""
+        module = _load_module()
+        monkeypatch.setattr(
+            module.gh_rest, "request", self._answers(module, [{"number": 1496, "merged_at": None}])
+        )
+
+        def _explode(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("PR на закрытую голову открываться не должен")
+
+        monkeypatch.setattr(module.gh_rest, "create_pull", _explode)
+
+        report = module.open_for_branch("agent/glossary-examples-compile-batch5")
+
+        assert "#1496" in report
+        assert "пропущена" in report
+
+    def test_the_report_says_how_to_lift_the_ban(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Запрет без выхода читается как поломка обхода."""
+        module = _load_module()
+        monkeypatch.setattr(
+            module.gh_rest, "request", self._answers(module, [{"number": 1496, "merged_at": None}])
+        )
+
+        report = module.open_for_branch("agent/ветка")
+
+        assert "удалением ветки" in report
+
+    def test_a_branch_with_only_merged_pulls_still_gets_one(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Переиспользованная ветка не должна остаться без PR навсегда."""
+        module = _load_module()
+        monkeypatch.setattr(
+            module.gh_rest,
+            "request",
+            self._answers(module, [{"number": 1485, "merged_at": "2026-09-08T10:00:00Z"}]),
+        )
+        monkeypatch.setattr(module.gh_rest, "create_pull", lambda *_a, **_k: {"number": 90})
+        monkeypatch.setattr(module.gh_rest, "enable_auto_merge", lambda *_a, **_k: {})
+
+        report = module.open_for_branch("agent/ветка")
+
+        assert "#90 открыт" in report

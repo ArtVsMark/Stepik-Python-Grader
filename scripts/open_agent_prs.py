@@ -54,6 +54,7 @@ __all__ = [
     "attribution_line",
     "branch_names",
     "branches_without_pull",
+    "declined_number",
     "describing_message",
     "main",
     "open_for_branch",
@@ -90,6 +91,30 @@ def branches_without_pull(
     сеть. Проверяется на подделанных списках, без обращения к GitHub.
     """
     return sorted(name for name in branches if name.startswith(prefix) and name not in open_heads)
+
+
+def declined_number(pulls: object) -> int | None:
+    """Номер закрытого и НЕ смерженного PR на эту голову; иначе ``None``.
+
+    issue #1497: закрытие PR — решение человека, а не состояние графа. Ветка
+    закрывалась осознанно, и открыть её снова означает переспорить это решение
+    молча — что обход и делал семь раз подряд по одной ветке
+    (`agent/glossary-examples-compile-batch5`, PR #1484…#1496).
+
+    Смерженный PR запретом НЕ является: ветку законно переиспользуют под
+    следующую задачу, и новые коммиты обязаны получить свой PR. Различает их
+    поле ``merged_at`` — у закрытого без слияния оно пустое.
+
+    Берётся самый свежий по номеру: у ветки с длинной историей закрытых PR
+    важен последний вердикт, а не первый.
+    """
+    items = pulls if isinstance(pulls, list) else []
+    declined = [
+        int(item.get("number", 0))
+        for item in items
+        if isinstance(item, dict) and not item.get("merged_at") and item.get("number")
+    ]
+    return max(declined) if declined else None
 
 
 def title_and_body(message: str, attribution: str = "") -> tuple[str, str]:
@@ -159,6 +184,22 @@ def open_for_branch(
     data = payload if isinstance(payload, dict) else {}
     if not data.get("ahead_by"):
         return f"{branch}: нет коммитов сверх {base} — пропущена"
+
+    # issue #1497: `ahead_by` этого не ловит и поймать не может. Squash-мерж не
+    # делает коммиты ветки предками `main` — он создаёт новый коммит с их
+    # содержимым, поэтому для `compare` ветка навсегда остаётся «впереди на N»,
+    # сколько бы её содержимого ни уехало в базу. Спрашиваем не граф, а
+    # человека: закрытый PR на эту голову — уже вынесенное решение.
+    owner = repo.split("/", 1)[0]
+    closed = gh_rest.request(
+        "GET", f"/repos/{repo}/pulls?head={owner}:{branch}&state=closed&per_page=100", **kwargs
+    ).data
+    declined = declined_number(closed)
+    if declined is not None:
+        return (
+            f"{branch}: PR #{declined} на эту голову закрыли не смержив — "
+            "пропущена. Снять запрет можно удалением ветки"
+        )
 
     title, body = title_and_body(describing_message(data.get("commits")), attribution)
     if not title:

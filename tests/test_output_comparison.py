@@ -508,11 +508,18 @@ def test_testblock_code_block_with_indent_still_runs_as_function(
 
 
 def test_truncated_output_says_so(tmp_path: pathlib.Path, monkeypatch) -> None:
-    """WA от обрезки вывода несёт причину, а не выглядит обычным несовпадением.
+    """Обрезка вывода называет себя, а не выглядит обычным несовпадением.
 
     issue #935 (RUN-1-02): пометка об обрезке уходила в stderr, а AC/WA-ветка
     хардкодила пустой `error` — студент искал несуществующую ошибку в своём
     коде, хотя вывод обрезал сам грейдер.
+
+    issue #1517 уточнил вердикт: `OLE` вместо `WA`. Причина, ради которой
+    заведён этот тест, осталась прежней и проверяется тем же утверждением —
+    изменилось то, ЧТО именно называется. `WA` утверждал «ответ не сошёлся»,
+    хотя сойтись ему было не с чем: обрезка оставляет неизвестным всё, что
+    решение печатало дальше. Тот же разбор вскрыл и обратный случай — когда
+    обрезанный вывод СОВПАДАЛ с ожиданием и давал `AC`.
     """
     from stepik_grader import config as config_mod
 
@@ -530,7 +537,7 @@ def test_truncated_output_says_so(tmp_path: pathlib.Path, monkeypatch) -> None:
     finally:
         config_mod.reset_config_cache()
 
-    assert result["verdict"] == "WA"
+    assert result["verdict"] == "OLE"
     assert "обрезан" in result["error"], result["error"]
 
 
@@ -804,3 +811,60 @@ def test_expected_failures_stay_strict_and_named() -> None:
         reason = next((kw for kw in marker.keywords if kw.arg == "reason"), None)
         text = getattr(getattr(reason, "value", None), "value", "")
         assert "#" in str(text), f"xfail без ссылки на issue ({where})"
+
+
+class TestOutputCapIsPartOfTheTable:
+    """Что происходит, когда решение печатает больше потолка (``ADD-5-04``).
+
+    Потолок вывода (``max_output_bytes``, issue #629) существует, чтобы решение
+    с бесконечным ``print`` не съело память проверяющего. В таблице «прощает /
+    не прощает» его не было ни строкой — и за этим пробелом обнаружился живой
+    дефект (issue #1517): обрезка отбрасывала несовпадение вместе с лишним
+    выводом, и болтливое неверное решение получало ``AC``.
+
+    Потолок здесь крошечный намеренно: печатать десять мегабайт ради проверки
+    правила незачем, а поведение от его величины не зависит.
+    """
+
+    _CAP = 64
+
+    @pytest.fixture(autouse=True)
+    def _tiny_cap(self) -> Iterator[None]:
+        config.override_config(max_output_bytes=self._CAP)
+        yield
+        config.reset_config_cache()
+
+    def test_output_over_the_cap_is_not_accepted(self, tmp_path: pathlib.Path) -> None:
+        """Верное начало не спасает: после обрезки проверять нечего.
+
+        Ровно этот вход давал ``AC`` до фикса: правильная первая строка,
+        следом полтысячи байт мусора, обрезка оставляла `['ok']` — и оно
+        совпадало с ожиданием.
+        """
+        solution = "print('ok')\nprint('x' * 500)"
+
+        assert _named(tmp_path, solution, expected=b"ok\n")["verdict"] == "OLE"
+
+    def test_the_cap_verdict_is_not_wa(self, tmp_path: pathlib.Path) -> None:
+        """Превышен ЛИМИТ, а не «ответ неверный» — как и у TLE, вердикт свой.
+
+        ``WA`` утверждал бы, что ответ не сошёлся; здесь мы его попросту не
+        дочитали, и разница видна студенту: чинить надо объём вывода, а не
+        логику.
+        """
+        case = _named(tmp_path, "print('x' * 500)", expected=b"ok\n")
+
+        assert case["verdict"] == "OLE"
+        assert "обрезан" in (case.get("error") or "")
+
+    def test_output_under_the_cap_is_untouched(self, tmp_path: pathlib.Path) -> None:
+        """Обратная сторона: потолок не трогает нормальный вывод.
+
+        Проверка, режущая всё подряд, обменяла бы ложный ``AC`` на ложный
+        ``OLE`` — то же враньё, только в другую сторону.
+        """
+        assert _named(tmp_path, "print('ok')", expected=b"ok\n")["verdict"] == "AC"
+
+    def test_a_wrong_answer_under_the_cap_is_still_wa(self, tmp_path: pathlib.Path) -> None:
+        """И несовпадение под потолком остаётся несовпадением."""
+        assert _named(tmp_path, "print('nope')", expected=b"ok\n")["verdict"] == "WA"
