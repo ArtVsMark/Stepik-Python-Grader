@@ -14,7 +14,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -415,3 +415,174 @@ def test_dry_run_marks_nothing(consent: ModuleType, monkeypatch: pytest.MonkeyPa
 
     assert repo.added == [] and repo.ensured == []
     assert outcome.touched == [9]
+
+
+class TestFreezeDecision:
+    """Красная база замораживает очередь — механизмом, а не памятью (#1510)."""
+
+    def test_a_red_base_freezes_an_ordinary_pull(self) -> None:
+        module = _load_module()
+
+        assert module.freeze_decision([], base_red=True) == "set"
+
+    def test_the_fixing_pull_is_the_exception(self) -> None:
+        """`blocker` — тот, ради кого очередь и двигается при красной базе."""
+        module = _load_module()
+
+        assert module.freeze_decision([module.BLOCKER_LABEL], base_red=True) != "set"
+
+    def test_a_green_base_lifts_the_freeze(self) -> None:
+        """Снимает ТОТ ЖЕ механизм, что и поставил.
+
+        Метка, которую ставит автомат, а снимает человек, — заморозка
+        навсегда: через сутки никто не вспомнит, чья она.
+        """
+        module = _load_module()
+
+        assert module.freeze_decision([module.FREEZE_LABEL], base_red=False) == "clear"
+
+    def test_the_fixing_pull_is_thawed_even_on_a_red_base(self) -> None:
+        """Поставили `blocker` уже замороженному — заморозка уходит сразу."""
+        module = _load_module()
+
+        labels = [module.FREEZE_LABEL, module.BLOCKER_LABEL]
+
+        assert module.freeze_decision(labels, base_red=True) == "clear"
+
+    def test_nothing_to_change_is_not_a_write(self) -> None:
+        """Идемпотентность: механизм ходит по расписанию, а не однократно."""
+        module = _load_module()
+
+        assert module.freeze_decision([module.FREEZE_LABEL], base_red=True) == "keep"
+        assert module.freeze_decision([], base_red=False) == "keep"
+
+    def test_a_human_hold_is_not_the_freeze(self) -> None:
+        """Главное разграничение задачи: две метки — две разные причины.
+
+        `hold` — решение человека, заморозка — состояние конвейера. Механизм
+        не путает их: `hold` он не ставит и не снимает вовсе, а на решение о
+        заморозке она не влияет.
+        """
+        module = _load_module()
+
+        assert module.FREEZE_LABEL != module.HOLD_LABEL
+        assert module.freeze_decision([module.HOLD_LABEL], base_red=True) == "set"
+        assert module.freeze_decision([module.HOLD_LABEL], base_red=False) == "keep"
+
+
+class TestFreezeIsEnforced:
+    """Метка не только помечает — она снимает согласие и авто-мерж."""
+
+    @staticmethod
+    def _pulls(*labels_per_pull: list[str]) -> list[dict[str, Any]]:
+        return [
+            {"number": 100 + index, "labels": [{"name": name} for name in labels]}
+            for index, labels in enumerate(labels_per_pull)
+        ]
+
+    def _wire(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        red: bool,
+        pulls: list[dict[str, Any]],
+    ) -> dict[str, list[Any]]:
+        """Подделать сеть; вернуть журнал сделанного."""
+        done: dict[str, list[Any]] = {"added": [], "removed": [], "disabled": []}
+        monkeypatch.setattr(
+            module.gh_rest,
+            "main_run",
+            lambda *_a, **_k: {
+                "workflow_runs": [
+                    {"status": "completed", "conclusion": "failure" if red else "success"}
+                ]
+            },
+        )
+        monkeypatch.setattr(
+            module.gh_rest, "request", lambda *_a, **_k: SimpleNamespace(data=pulls)
+        )
+        monkeypatch.setattr(module.gh_rest, "ensure_label", lambda *_a, **_k: None)
+        monkeypatch.setattr(
+            module.gh_rest,
+            "add_labels",
+            lambda _repo, number, names, **_k: done["added"].append((number, tuple(names))),
+        )
+        monkeypatch.setattr(
+            module.gh_rest,
+            "remove_label",
+            lambda _repo, number, name, **_k: done["removed"].append((number, name)),
+        )
+        monkeypatch.setattr(
+            module.gh_rest,
+            "disable_auto_merge",
+            lambda _repo, number, **_k: done["disabled"].append(number),
+        )
+        return done
+
+    def test_a_frozen_pull_loses_its_consent_and_auto_merge(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Иначе метка — просто надпись.
+
+        Замер, из которого выросла задача: `main` покраснела в 15:24, PR #1480
+        смержился в 15:42 — авто-мерж, включённый раньше, увёз его мимо
+        заморозки.
+        """
+        module = _load_module()
+        pulls = self._pulls([module.LABEL])
+        done = self._wire(module, monkeypatch, red=True, pulls=pulls)
+
+        module.apply_freeze()
+
+        assert done["added"] == [(100, (module.FREEZE_LABEL,))]
+        assert done["removed"] == [(100, module.LABEL)]
+        assert done["disabled"] == [100]
+
+    def test_a_green_base_thaws_without_a_human(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _load_module()
+        pulls = self._pulls([module.FREEZE_LABEL])
+        done = self._wire(module, monkeypatch, red=False, pulls=pulls)
+
+        module.apply_freeze()
+
+        assert done["removed"] == [(100, module.FREEZE_LABEL)]
+        assert done["added"] == []
+
+    def test_the_fixing_pull_is_left_alone(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """PR с `blocker` при красной базе не трогается вовсе."""
+        module = _load_module()
+        pulls = self._pulls([module.BLOCKER_LABEL, module.LABEL])
+        done = self._wire(module, monkeypatch, red=True, pulls=pulls)
+
+        module.apply_freeze()
+
+        assert done["added"] == []
+        assert done["removed"] == []
+        assert done["disabled"] == []
+
+    def test_dry_run_changes_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        module = _load_module()
+        pulls = self._pulls([module.LABEL])
+        done = self._wire(module, monkeypatch, red=True, pulls=pulls)
+
+        outcome = module.apply_freeze(dry_run=True)
+
+        assert done == {"added": [], "removed": [], "disabled": []}
+        assert outcome.touched == [100]
+
+    def test_consent_does_not_come_back_to_a_frozen_pull(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Два механизма на одном проходе не спорят друг с другом.
+
+        Умолчание #1325 ставит согласие каждому непомеченному PR. Без этой
+        ветки оно возвращало бы его тем, у кого заморозка только что сняла.
+        """
+        module = _load_module()
+        pulls = self._pulls([module.FREEZE_LABEL])
+        done = self._wire(module, monkeypatch, red=True, pulls=pulls)
+
+        module.apply_default_consent()
+
+        assert done["added"] == []
