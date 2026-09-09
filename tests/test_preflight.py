@@ -540,3 +540,73 @@ class TestWorktreeLayout:
         assert preflight.stamp_path(root) == root / ".git" / "preflight-stamp.json"
         assert preflight.lock_path(root) == root / ".git" / "preflight.lock"
         assert preflight.logs_dir(root) == root / ".git" / "preflight-logs"
+
+
+class TestPackageOrigin:
+    """Прогон говорит, ЧЕЙ код он проверяет (issue #1521)."""
+
+    def test_the_matching_tree_passes_quietly(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Обычный случай — одно дерево, и лишней строки в отчёте не нужно."""
+        module = _load_module()
+        monkeypatch.setattr(module, "package_origin", lambda: (tmp_path / "src").resolve())
+
+        check = module.check_package_is_this_tree(tmp_path)
+
+        assert check.ok
+        assert "берётся отсюда" in check.detail
+
+    def test_a_foreign_tree_is_named_with_both_paths(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Без обоих путей заметка не даёт понять, что с чем разъехалось."""
+        module = _load_module()
+        other = (tmp_path / "другой-клон" / "src").resolve()
+        monkeypatch.setattr(module, "package_origin", lambda: other)
+
+        check = module.check_package_is_this_tree(tmp_path)
+
+        assert not check.ok
+        assert str((tmp_path / "src").resolve()) in check.detail
+        assert str(other) in check.detail
+
+    def test_the_note_does_not_block_the_push(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Заметка, а не отказ: worktree для scripts/ и tests/ законен.
+
+        Гейт, краснеющий на верном приёме, снимают первой же правкой. Нужно,
+        чтобы подмену было ВИДНО до разбора, а не чтобы её запретили.
+        """
+        module = _load_module()
+        monkeypatch.setattr(module, "package_origin", lambda: (tmp_path / "чужое").resolve())
+
+        check = module.check_package_is_this_tree(tmp_path)
+
+        assert not check.ok
+        assert not check.blocking
+
+    def test_a_missing_package_is_not_an_accusation(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Пакет не установлен — проверять нечего, а не «подмена»."""
+        module = _load_module()
+        monkeypatch.setattr(module, "package_origin", lambda: None)
+
+        check = module.check_package_is_this_tree(tmp_path)
+
+        assert check.ok
+        assert not check.blocking
+
+    def test_the_origin_is_asked_of_the_interpreter(self) -> None:
+        """Ответ «что именно проверит прогон» знает только интерпретатор.
+
+        Собирать путь из корня нельзя: ``pip install -e`` ставит пакет из
+        одного клона на весь интерпретатор, и корень прогона об этом не знает.
+        """
+        module = _load_module()
+
+        origin = module.package_origin()
+
+        assert origin is None or origin.is_dir()

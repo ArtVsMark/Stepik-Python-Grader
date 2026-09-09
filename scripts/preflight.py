@@ -83,6 +83,7 @@ __all__ = [
     "check_branch_not_taken",
     "check_changelog_buffer",
     "check_commit_authorship",
+    "check_package_is_this_tree",
     "commits_without_owner",
     "fingerprint_coverage",
     "git_paths",
@@ -92,6 +93,7 @@ __all__ = [
     "main",
     "owner_name",
     "owner_trailer_misplaced",
+    "package_origin",
     "read_stamp",
     "stamp_is_current",
     "stamp_path",
@@ -1043,6 +1045,88 @@ def _run_stage(title: str, command: Sequence[str], log_dir: pathlib.Path) -> Che
     )
 
 
+def package_origin() -> pathlib.Path | None:
+    """Каталог, из которого импортируется сам пакет; ``None`` — не импортируется.
+
+    Спрашивается у интерпретатора, а не собирается из корня: ответ на вопрос
+    «что именно проверит прогон» знает только он.
+    """
+    done = _run_guarded(
+        lambda: subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import stepik_grader, pathlib;"
+                " print(pathlib.Path(stepik_grader.__file__).resolve().parent.parent)",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_GIT_LAUNCH_TIMEOUT_S,
+            check=False,
+        )
+    )
+    if done is None or done.returncode != 0:
+        return None
+    line = (done.stdout or "").strip()
+    return pathlib.Path(line) if line else None
+
+
+def check_package_is_this_tree(root: pathlib.Path | None = None) -> Check:
+    """Прогон проверяет код ЭТОГО дерева, а не соседнего (issue #1521).
+
+    ``pip install -e`` ставит пакет из одного клона на весь интерпретатор,
+    поэтому в ``git worktree`` ``import stepik_grader`` ведёт обратно в
+    основной клон. Тесты и скрипты при этом берутся из текущего дерева — и
+    прогон честно отрабатывает гибрид «мои тесты против чужого кода», ничего
+    об этом не сообщая.
+
+    Оба исхода наблюдались в один день. **Ложно-зелёный**: фикс лежал в
+    worktree, прогон показывал прежнее поведение — правка ядра не участвовала,
+    и это читалось как «фикс не работает». **Ложно-красный**: ветка, правившая
+    только ``scripts/``, упала на чужом тесте, потому что основной клон стоял
+    на третьей ветке с другим вердиктом.
+
+    Заметка, а не отказ: worktree для ``scripts/``/``tests/``/документации
+    корректен и заводится ради параллельной работы. Гейт, краснеющий на
+    законном приёме, снимают первой же правкой — здесь нужно, чтобы подмену
+    было ВИДНО до разбора, а не чтобы её запретили.
+    """
+    # Пакет живёт в src-layout, поэтому сравнивается именно `src`: корень
+    # репозитория с каталогом пакета не совпадёт никогда, и проверка вечно
+    # кричала бы о подмене.
+    base = ((root or _ROOT) / "src").resolve()
+    origin = package_origin()
+    if origin is None:
+        return Check(
+            name="пакет из этого дерева",
+            ok=True,
+            detail="пакет не импортируется — проверять нечего",
+            blocking=False,
+        )
+    if origin == base:
+        return Check(
+            name="пакет из этого дерева",
+            ok=True,
+            detail=f"код берётся отсюда: {origin}",
+            blocking=False,
+        )
+    return Check(
+        name="пакет из этого дерева",
+        ok=False,
+        detail=(
+            f"прогон идёт в {base}, а пакет импортируется из {origin} — "
+            "правки src/ здесь НЕ проверяются"
+        ),
+        hint=(
+            "правки ядра ведите в том клоне, откуда поставлен пакет; "
+            "worktree годится для scripts/, tests/ и документации"
+        ),
+        blocking=False,
+    )
+
+
 def _print_report(checks: Sequence[Check]) -> bool:
     """Напечатать отчёт; вернуть ``True``, если блокирующих провалов нет."""
     print("\nПредпушевые проверки\n" + "─" * 60)
@@ -1150,6 +1234,11 @@ def main(argv: list[str] | None = None) -> int:
     subprocess.run(["git", "fetch", "origin", "main"], cwd=_ROOT, capture_output=True, check=False)
 
     checks: list[Check] = [
+        # issue #1521: первым — «что вообще проверит прогон». Остальные ответы
+        # имеют смысл только после этого: гибрид «мои тесты против чужого
+        # кода» выглядит обычным прогоном и выдаёт вердикт про состояние,
+        # которого нет ни в одной ветке.
+        check_package_is_this_tree(),
         check_branch_not_main(),
         check_branch_fresh(),
         check_branch_not_taken(),

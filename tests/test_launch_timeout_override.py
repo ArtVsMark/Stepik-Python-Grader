@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import pathlib
 import re
@@ -194,11 +195,28 @@ class TestPreflightThreshold:
         assert time.monotonic() - started < 5, "ждали дефолт, а не значение из переменной"
 
     def test_gate_does_not_import_the_package(self) -> None:
-        """Гейт обязан работать, когда проверяемый пакет не установлен или сломан."""
-        source = _PREFLIGHT.read_text(encoding="utf-8")
+        """Гейт обязан работать, когда проверяемый пакет не установлен или сломан.
 
-        assert "from stepik_grader" not in source
-        assert "import stepik_grader" not in source
+        Смотрим дерево разбора, а не текст файла. Спросить у ОТДЕЛЬНОГО
+        интерпретатора, откуда берётся пакет (issue #1521), — приём законный:
+        подпроцесс падает сам по себе, гейт получает «не ответил» и продолжает
+        работу. Поиск подстроки не отличал бы такую строку от настоящего
+        импорта и запрещал бы упоминание имени вообще — включая проверку,
+        которая как раз и страхует от подмены проверяемого дерева.
+        """
+        tree = ast.parse(_PREFLIGHT.read_text(encoding="utf-8"))
+        imported = {
+            name.name.split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for name in node.names
+        } | {
+            (node.module or "").split(".")[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+        }
+
+        assert "stepik_grader" not in imported
 
 
 class TestCiRaisesItOnlyForExperimental:
