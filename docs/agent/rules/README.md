@@ -27,11 +27,11 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **100**.
+Всего правил, действующих здесь: **101**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | нарушение отвергается до слияния | 42 |
+| **гейт** | нарушение отвергается до слияния | 43 |
 | **конвейер** | нарушение замечает прогон, но слияние не держит | 19 |
 | **документ** | нарушение заметит человек, если читал | 39 |
 | **не объявлено** | не замечается ничем — очередь на автоматизацию | 0 |
@@ -148,3 +148,4 @@
 | [Диагностический след кладут туда, куда достаёт тот, кто чинит](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/151-the-trail-goes-where-the-fixer-can-reach.md) | `scripts/report_failed_tests.py`, `.github/workflows/ci.yml` | конвейер |
 | [Смена версии чужого контракта — повод перечитать ответы, а не только формат](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/157-a-contract-version-bump-is-a-re-read.md) | #1400 | конвейер |
 | [Факты о проекте публикует сам проект, а не считает сосед](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/174-facts-about-a-project-are-published-by-it.md) | #1411 | конвейер |
+| [Приёмка автоматической починки обязана быть строже чинимого дефекта](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/193-repair-acceptance-stronger-than-defect.md) | #1454, `scripts/check_glossary_examples.py` | гейт |
