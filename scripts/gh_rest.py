@@ -92,6 +92,11 @@ from typing import Any
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import _require_python
 
+# Разбор матрицы `ci.yml` — единственное место на весь конвейер (issue #1532).
+# Модуль намеренно без зависимостей: обратный импорт `check_branch_protection`,
+# где разбор жил раньше, замкнул бы цикл — он импортирует этот файл.
+import ci_matrix
+
 __all__ = [
     "API",
     "DEFAULT_QUOTA_FLOOR",
@@ -987,6 +992,11 @@ class QueueEntry:
     #: Чем приоритет обоснован — метка или «по готовности». Показывается в
     #: выводе: иначе порядок выглядит произвольным, как до #1326.
     priority_reason: str = "по готовности"
+    #: Красные проверки, которые слияние НЕ держат (экспериментальная ячейка
+    #: матрицы). Отдельно от `reason`, потому что печатаются отдельно: молчать
+    #: о них нельзя — падение на предрелизной версии остаётся сигналом, — но и
+    #: держать из-за них очередь нечего (issue #1532).
+    soft_red: tuple[str, ...] = ()
 
     def describe(self, position: int, total_ahead: int) -> str:
         """Строка списка: место, номер, заголовок и что с ним делать."""
@@ -1085,12 +1095,21 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
     issue_labels: dict[int, tuple[str, ...]] = {}
     for item in pulls:
         total, completed, red = summarize_checks(pull_checks(repo, item.sha, **kwargs))
+        holds, soft = blocking_red(red)
         if not total:
             waiting.append(
                 QueueEntry(item.number, item.title, False, "проверок нет — CI не стартовал")
             )
-        elif red:
-            waiting.append(QueueEntry(item.number, item.title, False, "красные: " + ", ".join(red)))
+        elif holds:
+            waiting.append(
+                QueueEntry(
+                    item.number,
+                    item.title,
+                    False,
+                    "красные: " + ", ".join(holds),
+                    soft_red=tuple(soft),
+                )
+            )
         elif completed < total:
             waiting.append(
                 QueueEntry(item.number, item.title, False, f"проверки идут ({completed}/{total})")
@@ -1107,6 +1126,7 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
                     fork=item.fork,
                     priority=rank,
                     priority_reason=why,
+                    soft_red=tuple(soft),
                 )
             )
 
@@ -1781,6 +1801,27 @@ def latest_checks_by_name(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(freshest.values())
 
 
+def blocking_red(red: list[str]) -> tuple[list[str], list[str]]:
+    """Разделить красные проверки на держащие слияние и не держащие.
+
+    Ячейка матрицы под ``continue-on-error`` (``experimental: true``) слияние
+    не держит — площадка её и не требует. Наши же скрипты считали красным всё
+    подряд и выкидывали такой PR из очереди: очередь стояла из-за предрелизной
+    версии, ради которой флаг и заводился (issue #1532).
+
+    Признак берётся у :mod:`ci_matrix` — там же, откуда его берут сверка защиты
+    и агрегатор. Своя копия здесь дала бы третье мнение о цвете PR.
+
+    Args:
+        red: Имена красных проверок.
+
+    Returns:
+        Пара ``(держат слияние, не держат)``; порядок сохраняется.
+    """
+    holds = ci_matrix.blocking_names(red)
+    return holds, [name for name in red if name not in set(holds)]
+
+
 def summarize_checks(check_runs: dict[str, Any]) -> tuple[int, int, list[str]]:
     """Сводка по check-runs: ``(всего, завершено, красные имена)``."""
     listed = check_runs.get("check_runs", []) if isinstance(check_runs, dict) else []
@@ -1925,6 +1966,16 @@ def _cmd_queue(args: argparse.Namespace) -> int:
         print("\nВ очередь не входят:")
         for entry in report.waiting:
             print(f"  #{entry.number}  {entry.title} — {entry.reason}")
+
+    # issue #1532: краснота, которая слияние не держит, очередь не
+    # останавливает — но и молчать о ней нельзя. Невидимое падение хуже
+    # блокирующего: на предрелизной версии оно и происходит, а разобрать его
+    # некому, если о нём не сказано вслух.
+    soft = [entry for entry in (*report.ready, *report.waiting) if entry.soft_red]
+    if soft:
+        print("\nУпало, но мерж не держит (экспериментальная ячейка матрицы):")
+        for entry in soft:
+            print(f"  #{entry.number}  {', '.join(entry.soft_red)}")
 
     head = report.head
     if head is None:
