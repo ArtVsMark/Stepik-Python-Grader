@@ -53,7 +53,6 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -62,6 +61,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 # транспортом, что и остальной конвейер (REST, не GraphQL).
 import contextlib
 
+import ci_matrix
 import gh_rest
 
 # issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
@@ -261,27 +261,13 @@ def check_ci_jobs(text: str) -> list[str]:
     return problems
 
 
-#: Блок ``matrix:`` джоба ``test`` — до первого ключа того же уровня.
-_MATRIX_RE = re.compile(r"^      matrix:\n(.*?)(?=^    [a-z]|^  [a-z])", re.M | re.S)
-
-#: Список значений одного измерения: ``os: ["a", "b"]``.
-_AXIS_RE = re.compile(r"^        ([\w-]+):\s*\[(.+?)\]\s*$", re.M)
-
-#: Добавленная комбинация: ``- {os: "x", python-version: "3.15", experimental: true}``.
-_INCLUDE_RE = re.compile(r"^\s*-\s*\{(.+?)\}\s*$", re.M)
-
-
 def matrix_checks(text: str) -> list[str]:
     """Имена матричных проверок, ВЫВЕДЕННЫЕ из ``ci.yml`` (правило 171).
 
-    Эталон, с которым сверяется изменение, берётся из дерева этого же
-    изменения, а не переписывается в константу руками. Копия верна ровно до
-    первой правки матрицы и расходится **молча**: ruleset и константа остаются
-    согласными друг с другом, а работы называются иначе — PR уходит в вечное
-    ожидание, и ни одна проверка при этом не краснеет.
-
-    Имя площадка складывает из имени джоба и значений в порядке объявления
-    измерений: ``test (ubuntu-latest, 3.12, false)``.
+    Разбор живёт в :mod:`ci_matrix` — том же месте, откуда его берут агрегатор
+    и очередь мержа. Здесь оставлено имя: оно публичное и на него ссылаются
+    тесты и соседи, а перенос разбора не должен требовать правки вызовов
+    (issue #1532).
 
     Args:
         text: Содержимое ``.github/workflows/ci.yml``.
@@ -289,35 +275,7 @@ def matrix_checks(text: str) -> list[str]:
     Returns:
         Имена комбинаций в порядке, в каком их порождает площадка.
     """
-    block = _MATRIX_RE.search(text)
-    if block is None:
-        return []
-    body = block.group(1)
-    axes: dict[str, list[str]] = {}
-    for name, raw in _AXIS_RE.findall(body):
-        axes[name] = [item.strip().strip("\"'") for item in raw.split(",") if item.strip()]
-    if not axes:
-        return []
-
-    order = list(axes)
-    names: list[str] = []
-    combos: list[tuple[str, ...]] = [()]
-    for axis in order:
-        combos = [(*combo, value) for combo in combos for value in axes[axis]]
-    names.extend(f"test ({', '.join(combo)})" for combo in combos)
-
-    for raw in _INCLUDE_RE.findall(body):
-        pairs = dict(
-            (
-                part.split(":", 1)[0].strip(),
-                part.split(":", 1)[1].strip().strip("\"'"),
-            )
-            for part in raw.split(",")
-            if ":" in part
-        )
-        if set(order) <= set(pairs):
-            names.append(f"test ({', '.join(pairs[axis] for axis in order)})")
-    return names
+    return ci_matrix.matrix_names(text)
 
 
 def check_matrix_names(text: str, expected: tuple[str, ...] = ()) -> list[str]:
