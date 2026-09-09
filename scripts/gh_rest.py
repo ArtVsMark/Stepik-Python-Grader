@@ -89,6 +89,9 @@ import urllib.request
 from collections.abc import Callable, Iterable
 from typing import Any
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _require_python
+
 __all__ = [
     "API",
     "DEFAULT_QUOTA_FLOOR",
@@ -2433,8 +2436,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Выполнить подкоманду; 0 — успех, 1 — ошибка, 2 — ждать сброса квоты."""
+    """Выполнить подкоманду; 0 — успех, 1 — ошибка, 2 — ждать квоту, 3 — не тот интерпретатор."""
     _force_utf8_stdio()
+    # issue #1507: этот модуль под 3.11 разбирается и работает — 3.12-синтаксиса
+    # в нём просто не оказалось. «Работает, пока везёт» неотличимо от «работает»
+    # ровно до первой конструкции новее, и тогда отказ выглядит поломкой
+    # скрипта, а не несоответствием среды. Проверка в `main()`, а не при
+    # импорте: модуль зовут как библиотеку (`check_pr_ready`, `generate_facts`,
+    # `move_merge_queue`), и `SystemExit` оттуда ронял бы чужой процесс.
+    _require_python.require("gh_rest.py")
     args = _build_parser().parse_args(argv)
     handler: Callable[[argparse.Namespace], int] = args.handler
     try:

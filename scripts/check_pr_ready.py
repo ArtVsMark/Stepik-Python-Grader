@@ -68,6 +68,7 @@ from typing import Any
 # подстраховать явно.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+import _require_python
 import check_attribution
 import gh_rest
 
@@ -678,6 +679,9 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
     """Напечатать вердикт готовности PR; 0 — можно мержить."""
     # Раньше любой печати, включая справку argparse: описание флагов русское.
     _force_utf8_stdio()
+    # issue #1507: мерж-гейт под чужим интерпретатором отвечает не на тот
+    # вопрос, который ему задали, — а его ответ решает, уедет ли изменение.
+    _require_python.require("check_pr_ready.py")
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

@@ -237,6 +237,19 @@ class RunOutcome:
     launch_error: str | None = None
     cancelled: bool = False
     sandbox_violation: str | None = None
+    truncated: bool = False
+    """Вывод обрезан по ``RunSpec.max_output_bytes`` (issue #1517).
+
+    Отдельное поле, а не пометка в ``stderr``: после обрезки сравнивать
+    **нечего** — известно лишь, что первые N байт совпали, а что было дальше,
+    не знает никто. Пока признак не доезжал до маппинга, обрезка молча
+    превращала WA в AC: решение, напечатавшее лишнее сверх потолка, теряло
+    лишнее вместе с несовпадением и проходило проверку.
+
+    ``SandboxRunner`` для того же случая выставляет
+    ``sandbox_violation="output_size"`` — он обрывает процесс, а не урезает
+    вывод; здесь процесс доработал, и урезан только результат.
+    """
 
 
 @runtime_checkable
@@ -920,6 +933,10 @@ class LocalRunner:
             # Пометка идёт в stderr, а не в stdout: stdout сравнивается с
             # ожидаемым выводом, и служебная строка ломала бы вердикт.
             stderr += _truncation_note(spec.max_output_bytes)
+        # issue #1517: признак обрезки едет во ВСЕХ трёх исходах. Он не
+        # заменяет их вердикт (TLE и CANCELLED старше), но и потеряться не
+        # должен: обрезанный вывод недостоверен независимо от того, чем
+        # кончился прогон.
         if timed_out:
             return RunOutcome(
                 stdout=stdout,
@@ -927,6 +944,7 @@ class LocalRunner:
                 timed_out=True,
                 elapsed=spec.timeout,
                 peak_memory_mb=peak_mb_result[0],
+                truncated=budget.truncated,
             )
         if cancelled:
             return RunOutcome(
@@ -935,6 +953,7 @@ class LocalRunner:
                 cancelled=True,
                 elapsed=elapsed,
                 peak_memory_mb=peak_mb_result[0],
+                truncated=budget.truncated,
             )
         return RunOutcome(
             stdout=stdout,
@@ -943,6 +962,7 @@ class LocalRunner:
             elapsed=elapsed,
             peak_memory_mb=peak_mb_result[0],
             timed_out=False,
+            truncated=budget.truncated,
         )
 
 
