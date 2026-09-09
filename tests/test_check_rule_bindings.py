@@ -38,7 +38,16 @@ _MODULE = _load_module()
 
 
 def _data(rules: dict[str, Any]) -> dict[str, Any]:
-    return {"schema": "1.1", "project": "x/y", "catalogue": "https://example", "rules": rules}
+    return {
+        "schema": "1.2",
+        # Контракт 1.2 завёл второй номер — версию выгрузки, по которой
+        # построены ответы. Без него подделка невалидна так же, как без
+        # `schema`: перечитывать ответы заставляет именно он.
+        _MODULE.ANSWERS_KEY: "1.5",
+        "project": "x/y",
+        "catalogue": "https://example",
+        "rules": rules,
+    }
 
 
 # --- состояние репозитория ----------------------------------------------------
@@ -51,7 +60,7 @@ def test_repository_answer_is_valid() -> None:
 
 def test_answer_file_exists_and_parses() -> None:
     data = json.loads(_BINDINGS.read_text(encoding="utf-8"))
-    assert data["schema"] == "1.1"
+    assert data["schema"] == "1.2"
     assert data["project"] == "ArtVsMark/Stepik-Python-Grader"
     assert data["rules"], "пустой ответ — то же самое, что отсутствие ответа"
 
@@ -284,11 +293,18 @@ def test_declared_debt_is_named_with_a_reason() -> None:
         assert "#" in reason, f"{script}: причина без адреса задачи"
 
 
-def _catalogue(root: pathlib.Path, schema: str) -> pathlib.Path:
-    """Клон каталога с заготовкой ответа — там он публикует версию контракта."""
+def _catalogue(root: pathlib.Path, schema: str, *, export: str = "1.5") -> pathlib.Path:
+    """Клон каталога: заготовка ответа и выгрузка — оба номера публикует он.
+
+    Номера двигаются порознь, поэтому и задаются порознь: `schema` — формат
+    нашего ответа, `export` — формат того, что мы читаем.
+    """
     template = root / "templates" / "bindings.json"
     template.parent.mkdir(parents=True, exist_ok=True)
     template.write_text(json.dumps({"schema": schema, "rules": {}}), encoding="utf-8")
+    rules = root / "export" / "rules.json"
+    rules.parent.mkdir(parents=True, exist_ok=True)
+    rules.write_text(json.dumps({"contracts": {"export": export}, "rules": []}), encoding="utf-8")
     return root
 
 
@@ -300,7 +316,9 @@ def test_contract_version_is_compared_with_the_publisher(tmp_path: pathlib.Path)
     не могла заметить в принципе — а текст отказа при этом утверждал «контракт
     каталога сегодня 1.0», ни разу в каталог не заглянув (issue #1400).
     """
-    problems = _MODULE.contract_drift({"schema": "1.0"}, _catalogue(tmp_path, "1.1"))
+    problems = _MODULE.contract_drift(
+        {"schema": "1.0", _MODULE.ANSWERS_KEY: "1.5"}, _catalogue(tmp_path, "1.1")
+    )
 
     assert problems, "разошедшаяся версия контракта не замечена"
     assert "1.1" in problems[0] and "1.0" in problems[0], problems
@@ -313,14 +331,53 @@ def test_a_version_bump_asks_to_re_read_the_answers(tmp_path: pathlib.Path) -> N
     остаются формально валидными. У нас 52 ответа из 153 пережили подъём 1.0 →
     1.1 нетронутыми, означая уже другое.
     """
-    problems = _MODULE.contract_drift({"schema": "1.0"}, _catalogue(tmp_path, "1.1"))
+    problems = _MODULE.contract_drift(
+        {"schema": "1.0", _MODULE.ANSWERS_KEY: "1.5"}, _catalogue(tmp_path, "1.1")
+    )
 
     assert any("ответы" in problem for problem in problems), problems
 
 
 def test_matching_versions_are_silent(tmp_path: pathlib.Path) -> None:
     """Версии сошлись — находки нет."""
-    assert _MODULE.contract_drift({"schema": "1.1"}, _catalogue(tmp_path, "1.1")) == []
+    answer = {"schema": "1.1", _MODULE.ANSWERS_KEY: "1.5"}
+
+    assert _MODULE.contract_drift(answer, _catalogue(tmp_path, "1.1")) == []
+
+
+def test_the_read_contract_has_its_own_number(tmp_path: pathlib.Path) -> None:
+    """Подъём ВЫГРУЗКИ замечается, даже когда номер самого ответа не двигался.
+
+    Это и есть смысл второго номера (issue #1424): ответы строятся по выгрузке,
+    и перечитывать их заставляет её подъём. Пока сверялся только номер ответа,
+    отставание на три подъёма выглядело согласованным состоянием.
+    """
+    answer = {"schema": "1.1", _MODULE.ANSWERS_KEY: "1.2"}
+
+    problems = _MODULE.contract_drift(answer, _catalogue(tmp_path, "1.1", export="1.5"))
+
+    assert problems, "подъём выгрузки не замечен"
+    assert "1.5" in problems[0] and "1.2" in problems[0], problems
+
+
+def test_an_answer_without_the_second_number_is_a_violation() -> None:
+    """Ответ, не назвавший версию выгрузки, сравнивать не с чем."""
+    data = _data({"001": {"status": "active", "mechanism": "document", "where": "CLAUDE.md"}})
+    del data[_MODULE.ANSWERS_KEY]
+
+    problems = _MODULE.binding_violations(data)
+
+    assert any(_MODULE.ANSWERS_KEY in problem for problem in problems), problems
+
+
+def test_an_unreadable_export_is_not_a_finding(tmp_path: pathlib.Path) -> None:
+    """Выгрузку не прочли — молчим: «нечем сверить» не равно «разошлось»."""
+    answer = {"schema": "1.1", _MODULE.ANSWERS_KEY: "1.5"}
+    catalogue = _catalogue(tmp_path, "1.1")
+    (catalogue / "export" / "rules.json").unlink()
+
+    assert _MODULE.contract_drift(answer, catalogue) == []
+    assert _MODULE.export_contract(catalogue) is None
 
 
 def test_an_unreadable_contract_is_not_a_finding(tmp_path: pathlib.Path) -> None:
@@ -329,7 +386,9 @@ def test_an_unreadable_contract_is_not_a_finding(tmp_path: pathlib.Path) -> None
     Каталога может не быть под рукой (прогон без клона), и молчание здесь
     честнее выдуманного расхождения.
     """
-    assert _MODULE.contract_drift({"schema": "1.1"}, tmp_path / "нет-клона") == []
+    answer = {"schema": "1.2", _MODULE.ANSWERS_KEY: "1.5"}
+
+    assert _MODULE.contract_drift(answer, tmp_path / "нет-клона") == []
     assert _MODULE.catalogue_schema(tmp_path / "нет-клона") is None
 
 
@@ -407,7 +466,7 @@ class TestUnheldBudget:
 
 
 def _rules_dir(
-    root: pathlib.Path, *, bindings: str = "1.1", proposals: str = "1.0", named: bool = True
+    root: pathlib.Path, *, bindings: str = "1.2", proposals: str = "1.0", named: bool = True
 ) -> pathlib.Path:
     """Корень репозитория с обоими нашими файлами ответа каталогу."""
     rules = root / ".rules"
