@@ -120,6 +120,7 @@ __all__ = [
     "branch_runs",
     "cancel_run",
     "close_issue",
+    "comment_commit",
     "comment_issue",
     "compare",
     "create_issue",
@@ -155,6 +156,7 @@ __all__ = [
     "sub_issues",
     "update_branch",
     "update_comment",
+    "update_commit_comment",
     "update_issue",
 ]
 
@@ -1593,6 +1595,36 @@ def issue_comments(repo: str, number: int, **kwargs: Any) -> list[dict[str, Any]
     """Комментарии issue или PR — автор, время, текст."""
     data = _get(f"repos/{repo}/issues/{number}/comments?per_page=100", **kwargs)
     return [item for item in (data if isinstance(data, list) else []) if isinstance(item, dict)]
+
+
+def commit_comments(repo: str, sha: str, **kwargs: Any) -> list[dict[str, Any]]:
+    """Комментарии к коммиту — отдельный ресурс, не тот же, что у issue.
+
+    Нужен там, где адресата-PR нет вовсе: у ``push`` в ``main`` красный прогон
+    некому объяснить, а комментарий коммита открыт тем же токеном (issue #1519).
+    """
+    data = _get(f"repos/{repo}/commits/{sha}/comments?per_page=100", **kwargs)
+    return [item for item in (data if isinstance(data, list) else []) if isinstance(item, dict)]
+
+
+def comment_commit(repo: str, sha: str, text: str, **kwargs: Any) -> dict[str, Any]:
+    """Оставить комментарий к коммиту (``POST /repos/{repo}/commits/{sha}/comments``)."""
+    data = request(
+        "POST", f"repos/{repo}/commits/{sha}/comments", body={"body": text}, **kwargs
+    ).data
+    return data if isinstance(data, dict) else {}
+
+
+def update_commit_comment(repo: str, comment_id: int, text: str, **kwargs: Any) -> dict[str, Any]:
+    """Переписать комментарий коммита.
+
+    Ресурс отдельный от ``issues/comments``: одинаковыми они выглядят только в
+    интерфейсе, и правка по чужому адресу отвечает ``404``.
+    """
+    data = request(
+        "PATCH", f"repos/{repo}/comments/{comment_id}", body={"body": text}, **kwargs
+    ).data
+    return data if isinstance(data, dict) else {}
 
 
 def branch_runs(
