@@ -528,8 +528,16 @@ def evaluate(
         for run in listed
         if run.get("status") == "completed" and run.get("conclusion") not in _OK_CONCLUSIONS
     ]
-    if red:
-        reasons.append("красные проверки: " + ", ".join(sorted(red)))
+    # issue #1532: экспериментальная ячейка матрицы слияние не держит — её и
+    # площадка не требует. Прежде гейт отвечал «мержить нельзя» PR, который
+    # GitHub мержит, и окно шло чинить предрелизную версию вместо работы.
+    # Молчать о ней при этом нельзя: падение остаётся сигналом, просто не
+    # стоп-краном, — поэтому оно уходит в предупреждения, а не в отказы.
+    holds, soft = gh_rest.blocking_red(sorted(red))
+    if holds:
+        reasons.append("красные проверки: " + ", ".join(holds))
+    if soft:
+        warnings.append("упало, но мерж не держит (экспериментальная ячейка): " + ", ".join(soft))
 
     missing = sorted(expected - check_names(check_runs))
     if missing:

@@ -92,6 +92,11 @@ from typing import Any
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import _require_python
 
+# Разбор матрицы `ci.yml` — единственное место на весь конвейер (issue #1532).
+# Модуль намеренно без зависимостей: обратный импорт `check_branch_protection`,
+# где разбор жил раньше, замкнул бы цикл — он импортирует этот файл.
+import ci_matrix
+
 __all__ = [
     "API",
     "DEFAULT_QUOTA_FLOOR",
@@ -120,10 +125,12 @@ __all__ = [
     "branch_runs",
     "cancel_run",
     "close_issue",
+    "comment_commit",
     "comment_issue",
     "compare",
     "create_issue",
     "create_pull",
+    "declined_heads",
     "disable_auto_merge",
     "edit_pull",
     "enable_auto_merge",
@@ -154,6 +161,7 @@ __all__ = [
     "sub_issues",
     "update_branch",
     "update_comment",
+    "update_commit_comment",
     "update_issue",
 ]
 
@@ -823,6 +831,38 @@ def merged_pulls(
     return merged[:limit]
 
 
+def declined_heads(repo: str = DEFAULT_REPO, **kwargs: Any) -> set[str]:
+    """Ветки, чей PR закрыли БЕЗ слияния (issue #1497).
+
+    Закрытие — решение человека, а не состояние графа, и открывать такую
+    ветку заново значит переспорить его молча. Ветка, пережившая squash-мерж,
+    из ``ahead_by`` не выводится вовсе: squash не делает её коммиты предками
+    базы, поэтому «впереди на N» верно для неё навсегда.
+
+    Слитый PR сюда не попадает намеренно: ветку законно переиспользуют под
+    следующую задачу, и её новые коммиты обязаны получить свой PR.
+
+    Один запрос: список закрытых приходит страницей, и различает две судьбы
+    поле ``merged_at``.
+
+    Args:
+        repo: владелец/репозиторий.
+
+    Returns:
+        Имена голов с закрытым несмерженным PR.
+    """
+    query = urllib.parse.urlencode(
+        {"state": "closed", "per_page": 100, "sort": "updated", "direction": "desc"}
+    )
+    data = _get(f"repos/{repo}/pulls?{query}", **kwargs)
+    items = data if isinstance(data, list) else []
+    return {
+        str(item.get("head", {}).get("ref", ""))
+        for item in items
+        if isinstance(item, dict) and not item.get("merged_at") and item.get("head", {}).get("ref")
+    }
+
+
 def pull(repo: str, number: int, **kwargs: Any) -> dict[str, Any]:
     """Сам PR — состояние, черновик, ``mergeable_state``, head/base."""
     data = _get(f"repos/{repo}/pulls/{number}", **kwargs)
@@ -954,6 +994,11 @@ class QueueEntry:
     #: Чем приоритет обоснован — метка или «по готовности». Показывается в
     #: выводе: иначе порядок выглядит произвольным, как до #1326.
     priority_reason: str = "по готовности"
+    #: Красные проверки, которые слияние НЕ держат (экспериментальная ячейка
+    #: матрицы). Отдельно от `reason`, потому что печатаются отдельно: молчать
+    #: о них нельзя — падение на предрелизной версии остаётся сигналом, — но и
+    #: держать из-за них очередь нечего (issue #1532).
+    soft_red: tuple[str, ...] = ()
 
     def describe(self, position: int, total_ahead: int) -> str:
         """Строка списка: место, номер, заголовок и что с ним делать."""
@@ -1052,12 +1097,21 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
     issue_labels: dict[int, tuple[str, ...]] = {}
     for item in pulls:
         total, completed, red = summarize_checks(pull_checks(repo, item.sha, **kwargs))
+        holds, soft = blocking_red(red)
         if not total:
             waiting.append(
                 QueueEntry(item.number, item.title, False, "проверок нет — CI не стартовал")
             )
-        elif red:
-            waiting.append(QueueEntry(item.number, item.title, False, "красные: " + ", ".join(red)))
+        elif holds:
+            waiting.append(
+                QueueEntry(
+                    item.number,
+                    item.title,
+                    False,
+                    "красные: " + ", ".join(holds),
+                    soft_red=tuple(soft),
+                )
+            )
         elif completed < total:
             waiting.append(
                 QueueEntry(item.number, item.title, False, f"проверки идут ({completed}/{total})")
@@ -1074,6 +1128,7 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
                     fork=item.fork,
                     priority=rank,
                     priority_reason=why,
+                    soft_red=tuple(soft),
                 )
             )
 
@@ -1562,6 +1617,36 @@ def issue_comments(repo: str, number: int, **kwargs: Any) -> list[dict[str, Any]
     return [item for item in (data if isinstance(data, list) else []) if isinstance(item, dict)]
 
 
+def commit_comments(repo: str, sha: str, **kwargs: Any) -> list[dict[str, Any]]:
+    """Комментарии к коммиту — отдельный ресурс, не тот же, что у issue.
+
+    Нужен там, где адресата-PR нет вовсе: у ``push`` в ``main`` красный прогон
+    некому объяснить, а комментарий коммита открыт тем же токеном (issue #1519).
+    """
+    data = _get(f"repos/{repo}/commits/{sha}/comments?per_page=100", **kwargs)
+    return [item for item in (data if isinstance(data, list) else []) if isinstance(item, dict)]
+
+
+def comment_commit(repo: str, sha: str, text: str, **kwargs: Any) -> dict[str, Any]:
+    """Оставить комментарий к коммиту (``POST /repos/{repo}/commits/{sha}/comments``)."""
+    data = request(
+        "POST", f"repos/{repo}/commits/{sha}/comments", body={"body": text}, **kwargs
+    ).data
+    return data if isinstance(data, dict) else {}
+
+
+def update_commit_comment(repo: str, comment_id: int, text: str, **kwargs: Any) -> dict[str, Any]:
+    """Переписать комментарий коммита.
+
+    Ресурс отдельный от ``issues/comments``: одинаковыми они выглядят только в
+    интерфейсе, и правка по чужому адресу отвечает ``404``.
+    """
+    data = request(
+        "PATCH", f"repos/{repo}/comments/{comment_id}", body={"body": text}, **kwargs
+    ).data
+    return data if isinstance(data, dict) else {}
+
+
 def branch_runs(
     repo: str = DEFAULT_REPO,
     *,
@@ -1748,6 +1833,27 @@ def latest_checks_by_name(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(freshest.values())
 
 
+def blocking_red(red: list[str]) -> tuple[list[str], list[str]]:
+    """Разделить красные проверки на держащие слияние и не держащие.
+
+    Ячейка матрицы под ``continue-on-error`` (``experimental: true``) слияние
+    не держит — площадка её и не требует. Наши же скрипты считали красным всё
+    подряд и выкидывали такой PR из очереди: очередь стояла из-за предрелизной
+    версии, ради которой флаг и заводился (issue #1532).
+
+    Признак берётся у :mod:`ci_matrix` — там же, откуда его берут сверка защиты
+    и агрегатор. Своя копия здесь дала бы третье мнение о цвете PR.
+
+    Args:
+        red: Имена красных проверок.
+
+    Returns:
+        Пара ``(держат слияние, не держат)``; порядок сохраняется.
+    """
+    holds = ci_matrix.blocking_names(red)
+    return holds, [name for name in red if name not in set(holds)]
+
+
 def summarize_checks(check_runs: dict[str, Any]) -> tuple[int, int, list[str]]:
     """Сводка по check-runs: ``(всего, завершено, красные имена)``."""
     listed = check_runs.get("check_runs", []) if isinstance(check_runs, dict) else []
@@ -1892,6 +1998,16 @@ def _cmd_queue(args: argparse.Namespace) -> int:
         print("\nВ очередь не входят:")
         for entry in report.waiting:
             print(f"  #{entry.number}  {entry.title} — {entry.reason}")
+
+    # issue #1532: краснота, которая слияние не держит, очередь не
+    # останавливает — но и молчать о ней нельзя. Невидимое падение хуже
+    # блокирующего: на предрелизной версии оно и происходит, а разобрать его
+    # некому, если о нём не сказано вслух.
+    soft = [entry for entry in (*report.ready, *report.waiting) if entry.soft_red]
+    if soft:
+        print("\nУпало, но мерж не держит (экспериментальная ячейка матрицы):")
+        for entry in soft:
+            print(f"  #{entry.number}  {', '.join(entry.soft_red)}")
 
     head = report.head
     if head is None:

@@ -20,6 +20,7 @@ import pytest
 
 from stepik_grader.glossary import (
     append_missing_entries,
+    json_provider,
     load_missing_queue,
     save_missing_queue,
 )
@@ -350,6 +351,85 @@ def test_concurrent_creation_of_a_missing_queue_loses_nothing(tmp_path: Path) ->
     concepts = {e.concept for e in load_missing_queue(db_path)}
     expected = {f"w{w}.c{i}" for w in range(procs) for i in range(per)}
     assert concepts == expected, f"потеряны добавки: {sorted(expected - concepts)}"
+
+
+def test_a_half_written_header_is_not_mistaken_for_a_stranger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Сосед, дописывающий заголовок, — не чужой формат (issue #1533).
+
+    Гонка воспроизводится ДЕТЕРМИНИРОВАННО: ждать редкого совпадения не нужно,
+    достаточно вернуть тот ответ, который sqlite законно даёт в середине чужого
+    `connect`. До починки один такой ответ был приговором — живая база уезжала
+    в `.corrupt` из-под открытого дескриптора соседа, и тот падал
+    `disk I/O error` на ближайшем `COMMIT`.
+
+    Настоящий отказ на CI пришёл с `ubuntu-latest, 3.14` — и увидели его лишь
+    потому, что ячейка перестала быть экспериментальной (#1529).
+    """
+    db_path = tmp_path / "q.db"
+    save_missing_queue(db_path, [_entry("до-гонки")])  # живая база соседа
+
+    honest = json_provider._sqlite_accepts  # захватить ДО подмены: иначе рекурсия
+    answers = iter([False])  # первый ответ — «не база», как в середине connect
+
+    def flaky_accepts(path: Path) -> bool:
+        for answer in answers:
+            return answer
+        return honest(path)
+
+    monkeypatch.setattr(json_provider, "_is_sqlite_db", lambda _path: False)
+    monkeypatch.setattr(json_provider, "_sqlite_accepts", flaky_accepts)
+
+    append_missing_entries(db_path, [_entry("после-гонки")])
+    monkeypatch.undo()  # читать результат надо честными глазами, а не подделкой
+
+    quarantined = sorted(p.name for p in tmp_path.iterdir() if ".corrupt" in p.name)
+    assert not quarantined, f"живую базу увели в карантин: {quarantined}"
+    assert {e.concept for e in load_missing_queue(db_path)} == {"до-гонки", "после-гонки"}
+
+
+def test_an_empty_file_is_never_quarantined(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ноль байт — это чужое `connect` мгновение назад, а не чужой формат.
+
+    Пустым не бывает ни legacy JSON, ни осмысленный мусор. Увести такой файл
+    значит уничтожить базу, которую сосед прямо сейчас создаёт.
+    """
+    db_path = tmp_path / "q.db"
+    db_path.touch()
+
+    monkeypatch.setattr(json_provider, "_is_sqlite_db", lambda _path: False)
+    monkeypatch.setattr(json_provider, "_sqlite_accepts", lambda _path: False)
+
+    assert json_provider._sqlite_accepts_settled(db_path) is True
+
+
+def test_a_stranger_is_still_quarantined_after_retries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Граница с другой стороны: повторы не превращают проверку в «пропускать всё».
+
+    Чужой формат не становится базой ни за какую паузу — значит после всех
+    попыток ответ обязан остаться отрицательным.
+    """
+    path = tmp_path / "q.db"
+    path.write_text("это не база и не JSON", encoding="utf-8")
+
+    monkeypatch.setattr(json_provider, "_sqlite_accepts", lambda _path: False)
+
+    assert json_provider._sqlite_accepts_settled(path) is False
+
+
+def test_the_retry_budget_is_small_on_purpose() -> None:
+    """Это «дать дописать заголовок», а не «ждать, пока починится».
+
+    Большой бюджет превратил бы проверку в задержку на каждом чужом файле —
+    цена ошибки здесь платится временем, и платить её надо копейками.
+    """
+    assert json_provider._SETTLE_ATTEMPTS <= 10
+    assert json_provider._SETTLE_ATTEMPTS * json_provider._SETTLE_DELAY_S < 0.5
 
 
 def test_garbage_is_still_quarantined(tmp_path: Path) -> None:

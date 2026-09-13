@@ -174,7 +174,7 @@ Per-release evolution — [HISTORY.md](HISTORY.md) (in Russian).
 
 ## Transparency & trust
 
-- ✅ **Automated test suite** (pytest) on a CI matrix of 3 OSes × Python 3.12/3.13 (+3.14 experimental) — the live count and coverage are in the badges at the top, never hardcoded in prose.
+- ✅ **Automated test suite** (pytest) on a CI matrix of 3 OSes × Python 3.12/3.13/3.14 (+3.15 pre-release, experimental) — the live count and coverage are in the badges at the top, never hardcoded in prose.
 - 🧠 **Strict mypy** + `ruff` (lint + format) in pre-commit and CI on every PR.
 - 🔐 **Private vulnerability reporting** + a documented threat model — [SECURITY.md](SECURITY.md).
 - 📦 **PyPI publishing via OIDC trusted publishing** — no stored token.

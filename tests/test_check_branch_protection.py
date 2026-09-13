@@ -142,15 +142,20 @@ def test_real_workflow_declares_every_plain_job() -> None:
 
 
 def test_expected_checks_match_documented_count() -> None:
-    """Двенадцать — число, которым свод и витрина оперируют вслух.
+    """Пятнадцать — число, которым свод и витрина оперируют вслух.
 
-    Одиннадцать из них — имена джобов и ячеек матрицы, то есть то самое, чего
-    правило 168 не велит держать в обязательных; двенадцатое — постоянное имя
+    Четырнадцать из них — имена джобов и ячеек матрицы, то есть то самое, чего
+    правило 168 не велит держать в обязательных; пятнадцатое — постоянное имя
     агрегатора, которое их заменит. Состояние переходное и объявлено таковым
     (issue #1420), а не подразумевается.
+
+    Прибавка на три — ячейки 3.14 (issue #1529): версия перестала быть
+    предрелизной ещё в прошлом цикле, вышла из-под `continue-on-error` и стала
+    обязательной наравне с 3.12 и 3.13. Это и есть цена того, что имя ячейки
+    несёт версию: каждый цикл релизов двигает список. Уберёт её `ci-complete`.
     """
-    assert len(guard.EXPECTED_CHECKS) == 12
-    assert len(set(guard.EXPECTED_CHECKS)) == 12
+    assert len(guard.EXPECTED_CHECKS) == 15
+    assert len(set(guard.EXPECTED_CHECKS)) == 15
 
 
 def test_the_aggregate_is_declared_required() -> None:
@@ -218,10 +223,10 @@ class TestReferenceComesFromTheTree:
         names = guard.matrix_checks(_CI.read_text(encoding="utf-8"))
 
         assert "test (ubuntu-latest, 3.12, false)" in names
-        assert "test (macos-latest, 3.14, true)" in names
+        assert "test (macos-latest, 3.15, true)" in names
 
     def test_experimental_combinations_are_not_required(self) -> None:
-        """3.14 под `continue-on-error` мерж блокировать не должна."""
+        """Предрелизная ячейка под `continue-on-error` мерж блокировать не должна."""
         declared = {name for name in guard.EXPECTED_CHECKS if name.startswith("test (")}
 
         assert not any(name.endswith(", true)") for name in declared)
@@ -234,7 +239,8 @@ class TestReferenceComesFromTheTree:
         вечное ожидание.
         """
         renamed = _CI.read_text(encoding="utf-8").replace(
-            'python-version: ["3.12", "3.13"]', 'python-version: ["3.13", "3.14"]'
+            'python-version: ["3.12", "3.13", "3.14"]',
+            'python-version: ["3.13", "3.14", "3.16"]',
         )
 
         problems = guard.check_matrix_names(renamed)

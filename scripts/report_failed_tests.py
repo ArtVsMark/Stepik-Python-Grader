@@ -249,8 +249,22 @@ def render(
 
 def _existing_comment(repo: str, number: int, **kwargs: object) -> int | None:
     """Номер прежней сводки в этом PR — по маркеру, а не по автору."""
-    for comment in gh_rest.issue_comments(repo, number, **kwargs):
-        if MARKER in (comment.get("body") or ""):
+    return _marked(gh_rest.issue_comments(repo, number, **kwargs))
+
+
+def _existing_commit_comment(repo: str, sha: str, **kwargs: object) -> int | None:
+    """Номер прежней сводки у коммита — тем же маркером (issue #1519)."""
+    return _marked(gh_rest.commit_comments(repo, sha, **kwargs))
+
+
+def _marked(comments: list[dict[str, object]]) -> int | None:
+    """Первый комментарий со скрытым маркером — общий разбор для обоих адресатов.
+
+    Ищем по маркеру, а не по автору: прогон бывает перезапущен, и вторая
+    сводка читалась бы как второе падение.
+    """
+    for comment in comments:
+        if MARKER in str(comment.get("body") or ""):
             identifier = comment.get("id")
             if isinstance(identifier, int):
                 return identifier
@@ -263,13 +277,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--dir", type=pathlib.Path, default=pathlib.Path("."))
     parser.add_argument("--repo", default=gh_rest.DEFAULT_REPO)
     parser.add_argument("--pr", type=int, help="номер pull request")
+    parser.add_argument(
+        "--commit",
+        help="sha коммита — адресат сводки там, где PR нет вовсе (push в main)",
+    )
     parser.add_argument("--run-url", help="ссылка на прогон")
     parser.add_argument("--limit", type=int, default=_DEFAULT_LIMIT)
     parser.add_argument("--apply", action="store_true", help="писать в PR, а не печатать")
     args = parser.parse_args(argv)
 
     body = render(collect(args.dir), run_url=args.run_url, limit=args.limit)
-    if not args.apply or args.pr is None:
+    if not args.apply or (args.pr is None and not args.commit):
         print(body)
         return gh_rest.EXIT_OK
 
@@ -277,13 +295,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     # разные вещи. Без этого шаг зеленел бы при отсутствии прав, то есть о
     # молчании канала не узнал бы никто — а канал здесь и есть весь смысл.
     try:
-        existing = _existing_comment(args.repo, args.pr)
-        if existing is None:
-            gh_rest.comment_issue(args.repo, args.pr, body)
-            print(f"сводка добавлена в PR #{args.pr}")
+        if args.pr is not None:
+            existing = _existing_comment(args.repo, args.pr)
+            if existing is None:
+                gh_rest.comment_issue(args.repo, args.pr, body)
+                print(f"сводка добавлена в PR #{args.pr}")
+            else:
+                gh_rest.update_comment(args.repo, existing, body)
+                print(f"сводка обновлена в PR #{args.pr} (комментарий {existing})")
         else:
-            gh_rest.update_comment(args.repo, existing, body)
-            print(f"сводка обновлена в PR #{args.pr} (комментарий {existing})")
+            # У `push` в main адресата-PR нет, а разбирать красноту всё равно
+            # кому-то придётся: комментарий коммита — тот же канал, тот же
+            # токен, тот же маркер (issue #1519).
+            existing = _existing_commit_comment(args.repo, args.commit)
+            if existing is None:
+                gh_rest.comment_commit(args.repo, args.commit, body)
+                print(f"сводка добавлена к коммиту {args.commit[:8]}")
+            else:
+                gh_rest.update_commit_comment(args.repo, existing, body)
+                print(f"сводка обновлена у коммита {args.commit[:8]} (комментарий {existing})")
     except gh_rest.RateLimited as exc:
         print(f"квота исчерпана, сводка не опубликована: {exc}", file=sys.stderr)
         return gh_rest.EXIT_WAIT

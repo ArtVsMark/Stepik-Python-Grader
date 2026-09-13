@@ -63,7 +63,12 @@ def test_expected_set_comes_from_the_real_ci_file() -> None:
 
 
 def test_experimental_combinations_never_hold_the_merge() -> None:
-    """Ячейки 3.14 идут под ``continue-on-error`` и слияние держать не должны."""
+    """Предрелизные ячейки идут под ``continue-on-error`` и слияние держать не должны.
+
+    Версия здесь не называется намеренно: какая именно предрелизная —
+    вопрос к чужому календарю, и имя в тесте устаревало бы вместе с флагом
+    (issue #1529). Признак же постоянный — суффикс ``, true)``.
+    """
     expected = _MODULE.expected_checks(_CI.read_text(encoding="utf-8"))
 
     assert not [name for name in expected if name.endswith(", true)")]

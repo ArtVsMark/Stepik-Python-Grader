@@ -54,6 +54,7 @@ for _stream in (sys.stdout, sys.stderr):
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
 import check_branch_protection  # noqa: E402 — путь к соседу добавлен строкой выше
+import ci_matrix  # noqa: E402
 import gh_rest  # noqa: E402
 
 __all__ = [
@@ -107,9 +108,7 @@ def expected_checks(text: str) -> set[str]:
     ``, true)``) в состав не входят: они не должны держать слияние — это уже
     объявлено в ``check_branch_protection`` и повторяется здесь той же меркой.
     """
-    matrix = {
-        name for name in check_branch_protection.matrix_checks(text) if name.endswith(", false)")
-    }
+    matrix = set(ci_matrix.blocking_names(ci_matrix.matrix_names(text)))
     return set(check_branch_protection.PLAIN_JOBS) | matrix
 
 

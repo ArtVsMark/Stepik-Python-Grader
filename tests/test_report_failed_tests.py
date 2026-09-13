@@ -302,3 +302,139 @@ def test_a_very_long_message_is_cut_with_a_count() -> None:
 
     assert "…и ещё" in text
     assert "строка 199" not in text
+
+
+# --- красная main тоже получает диагноз (issue #1519) --------------------------
+
+
+def test_a_push_run_comments_on_the_commit(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """У `push` в main адресата-PR нет — сводка уходит к коммиту.
+
+    Прежде здесь стояло «на push комментировать нечего», и красная база не
+    называла упавший тест ВОВСЕ: логи и артефакты облачной сессии закрыты
+    (403), а очередь мержа при этом заморожена до починки.
+    """
+    posted: list[tuple[str, str]] = []
+    monkeypatch.setattr(reporter.gh_rest, "commit_comments", lambda *a, **k: [])
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "comment_commit",
+        lambda _repo, sha, text, **k: posted.append((sha, text)),
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "comment_issue",
+        lambda *a, **k: pytest.fail("сводка ушла в issue вместо коммита"),
+    )
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef", "--apply"]) == 0
+
+    assert len(posted) == 1
+    sha, text = posted[0]
+    assert sha == "deadbeef"
+    assert reporter.MARKER in text
+
+
+def test_a_commit_summary_is_updated_not_duplicated(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Одна сводка на коммит: прогон бывает перезапущен.
+
+    Второй комментарий читался бы как второе падение — то же свойство, что и
+    у сводки в PR, и тот же скрытый маркер его обеспечивает.
+    """
+    updated: list[int] = []
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "commit_comments",
+        lambda *a, **k: [
+            {"id": 3, "body": "чужой комментарий"},
+            {"id": 5, "body": f"{reporter.MARKER}\n\nстарая сводка"},
+        ],
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "comment_commit",
+        lambda *a, **k: pytest.fail("добавлен второй комментарий вместо обновления"),
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "update_commit_comment",
+        lambda _repo, ident, _text, **k: updated.append(ident),
+    )
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef", "--apply"]) == 0
+
+    assert updated == [5], "обновлена не та сводка"
+
+
+def test_a_commit_run_without_apply_writes_nothing(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--apply` держит оба адресата одинаково."""
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("написали в GitHub без --apply")
+
+    monkeypatch.setattr(reporter.gh_rest, "comment_commit", refuse)
+    monkeypatch.setattr(reporter.gh_rest, "update_commit_comment", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef"]) == 0
+    assert reporter.MARKER in capsys.readouterr().out
+
+
+def test_a_refusal_on_the_commit_channel_is_not_silent(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Третий исход (правило 039) действует и здесь.
+
+    «Сводку опубликовали» и «GitHub не ответил» — разные вещи: канал и есть
+    весь смысл шага, и молчание о его отказе означало бы, что о нём не узнает
+    никто.
+    """
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise reporter.gh_rest.GitHubError("403 Resource not accessible by integration")
+
+    monkeypatch.setattr(reporter.gh_rest, "commit_comments", lambda *a, **k: [])
+    monkeypatch.setattr(reporter.gh_rest, "comment_commit", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef", "--apply"]) == 2
+
+
+class TestWorkflowWakesOnPush:
+    """Механизм без исполнителя — гард, который никто не зовёт (issue #1348)."""
+
+    @staticmethod
+    def _ci() -> str:
+        return (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    def test_the_job_is_no_longer_limited_to_pull_requests(self) -> None:
+        """Условие джоба больше не отсекает push в main."""
+        text = self._ci()
+        block = text[text.index("\n  report-failures:") :]
+        block = block[: block.index("\n    steps:")]
+
+        assert "github.event_name == 'pull_request'" not in block, (
+            "джоб снова просыпается только на PR — красная main опять без диагноза"
+        )
+        assert "needs.test.result == 'failure'" in block, "зелёный прогон комментировать нечего"
+
+    def test_the_commit_step_exists_and_passes_the_sha(self) -> None:
+        text = self._ci()
+
+        assert "--commit ${{ github.sha }}" in text
+
+    def test_the_job_may_write_to_contents(self) -> None:
+        """Комментарий коммита живёт в скоупе содержимого, а не pull-requests."""
+        text = self._ci()
+        block = text[text.index("\n  report-failures:") :]
+        block = block[: block.index("\n    steps:")]
+
+        assert "contents: write" in block
