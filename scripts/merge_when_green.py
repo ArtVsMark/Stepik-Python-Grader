@@ -101,18 +101,23 @@ _CONSENT_DESCRIPTION = "Согласие смержить без автора: �
 class Outcome:
     """Что механизм сделал — для отчёта и для тестов."""
 
-    __slots__ = ("lines", "touched")
+    __slots__ = ("frozen", "lines", "touched")
 
     def __init__(self) -> None:
         self.touched: list[int] = []
         self.lines: list[str] = []
+        #: Номера PR, замороженных ПОСЛЕ прохода (issue #1525). Метку читать
+        #: для этого нельзя: в `--dry-run` её никто не менял, а в боевом режиме
+        #: ответ GitHub про только что снятую метку приходит не мгновенно.
+        #: Состояние знает та фаза, которая его и установила, — она и передаёт.
+        self.frozen: set[int] = set()
 
     def say(self, line: str) -> None:
         """Добавить строку отчёта."""
         self.lines.append(line)
 
     def __repr__(self) -> str:  # pragma: no cover — диагностика в отладке
-        return f"Outcome(touched={self.touched}, lines={self.lines})"
+        return f"Outcome(touched={self.touched}, lines={self.lines}, frozen={sorted(self.frozen)})"
 
 
 def pulls_awaiting_auto_merge(items: list[dict[str, Any]]) -> list[int]:
@@ -144,10 +149,24 @@ def labels_of(item: dict[str, Any]) -> set[str]:
     }
 
 
+def _is_frozen(number: int, labels: set[str], frozen: set[int] | None) -> bool:
+    """Заморожен ли PR — по составу от фазы заморозки, иначе по метке.
+
+    ``frozen`` передаёт та фаза, которая заморозку и расставила: только она
+    знает состояние ПОСЛЕ прохода. Метка отвечает про состояние ДО него, и это
+    расхождение читалось в отчёте дословно (issue #1525).
+
+    ``None`` означает «фазы заморозки в этом проходе не было» — тогда метка
+    единственный доступный источник, и он верен: менять её было некому.
+    """
+    return number in frozen if frozen is not None else FREEZE_LABEL in labels
+
+
 def apply_default_consent(
     repo: str = gh_rest.DEFAULT_REPO,
     *,
     dry_run: bool = False,
+    frozen: set[int] | None = None,
     **kwargs: Any,
 ) -> Outcome:
     """Проставить согласие по умолчанию: метка на каждом PR, кроме исключённых.
@@ -207,11 +226,17 @@ def apply_default_consent(
         if CONFLICT_LABEL in labels:
             outcome.say(f"PR #{number}: стоит «{CONFLICT_LABEL}» — сначала слияние вручную")
             continue
-        if FREEZE_LABEL in labels:
+        if _is_frozen(number, labels, frozen):
             # issue #1510: заморожен красной базой. Без этой ветки умолчание
             # возвращало бы согласие тем, у кого заморозка его только что
             # сняла, — два механизма на одном проходе спорили бы друг с другом.
-            outcome.say(f"PR #{number}: стоит «{FREEZE_LABEL}» — база красная, согласие ждёт")
+            #
+            # issue #1525: судим по составу заморозки, а не по метке, и текст
+            # называет наблюдаемый факт. Прежняя строка утверждала «база
+            # красная» по одному лишь наличию метки — и печаталась рядом со
+            # строкой «база зелёная — заморозка снята» про тот же PR. Механизм,
+            # говорящий в одном проходе обе вещи сразу, разбору не помощник.
+            outcome.say(f"PR #{number}: заморожен ({FREEZE_LABEL}) — согласие ждёт разморозки")
             continue
         if LABEL in labels:
             continue
@@ -306,6 +331,10 @@ def apply_freeze(
         labels = labels_of(item)
         decision = freeze_decision(labels, base_red=base_red)
         if decision == "keep":
+            # «Менять нечего» — но состояние у PR есть, и следующей фазе нужно
+            # именно оно, а не список изменений (issue #1525).
+            if FREEZE_LABEL in labels:
+                outcome.frozen.add(number)
             continue
         if decision == "set":
             if not dry_run:
@@ -317,6 +346,7 @@ def apply_freeze(
                 with contextlib.suppress(gh_rest.GitHubError):
                     gh_rest.disable_auto_merge(repo, number, **kwargs)
             outcome.touched.append(number)
+            outcome.frozen.add(number)
             outcome.say(f"PR #{number}: база красная — заморожен, согласие снято")
             continue
         if not dry_run:
@@ -445,7 +475,13 @@ def main(argv: list[str] | None = None) -> int:
                 frozen = apply_freeze(args.repo, dry_run=args.dry_run)
                 outcome.touched.extend(frozen.touched)
                 outcome.lines.extend(frozen.lines)
-                marked = apply_default_consent(args.repo, dry_run=args.dry_run)
+                # issue #1525: состав заморозки едет во вторую фазу явно.
+                # Прежде она перечитывала метки и в `--dry-run` видела те, что
+                # первая фаза только что назвала снятыми, — отчёт утверждал про
+                # один PR и «база зелёная», и «база красная».
+                marked = apply_default_consent(
+                    args.repo, dry_run=args.dry_run, frozen=frozen.frozen
+                )
                 outcome.touched.extend(marked.touched)
                 outcome.lines.extend(marked.lines)
             enabled = enable_for_labelled(args.repo, label=args.label, dry_run=args.dry_run)
