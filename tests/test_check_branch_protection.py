@@ -141,21 +141,15 @@ def test_real_workflow_declares_every_plain_job() -> None:
     assert guard.check_ci_jobs(text) == []
 
 
-def test_expected_checks_match_documented_count() -> None:
-    """Пятнадцать — число, которым свод и витрина оперируют вслух.
+def test_the_required_set_is_one_permanent_name() -> None:
+    """Переход #1420 завершён: обязательная проверка одна, и имя её постоянно.
 
-    Четырнадцать из них — имена джобов и ячеек матрицы, то есть то самое, чего
-    правило 168 не велит держать в обязательных; пятнадцатое — постоянное имя
-    агрегатора, которое их заменит. Состояние переходное и объявлено таковым
-    (issue #1420), а не подразумевается.
-
-    Прибавка на три — ячейки 3.14 (issue #1529): версия перестала быть
-    предрелизной ещё в прошлом цикле, вышла из-под `continue-on-error` и стала
-    обязательной наравне с 3.12 и 3.13. Это и есть цена того, что имя ячейки
-    несёт версию: каждый цикл релизов двигает список. Уберёт её `ci-complete`.
+    Перечисление ячеек вернуло бы связь с ЧУЖИМ календарём: выход 3.14 из
+    предрелиза добавлял сюда три строки, выход 3.15 добавит ещё три и уберёт
+    другие. Каждый такой сдвиг правится в двух местах сразу — здесь и во внешней
+    настройке репозитория, — а расходятся они молча.
     """
-    assert len(guard.EXPECTED_CHECKS) == 15
-    assert len(set(guard.EXPECTED_CHECKS)) == 15
+    assert guard.EXPECTED_CHECKS == (guard.AGGREGATE_CHECK,)
 
 
 def test_the_aggregate_is_declared_required() -> None:
@@ -231,22 +225,23 @@ class TestReferenceComesFromTheTree:
 
         assert not any(name.endswith(", true)") for name in declared)
 
-    def test_a_renamed_cell_is_rejected_from_both_sides(self) -> None:
-        """Переименование ячейки видно и как лишнее, и как пропавшее.
+    def test_a_matrix_name_back_in_the_required_set_is_a_finding(self) -> None:
+        """Возвращение ячейки в обязательные — шаг назад, и он назван вслух.
 
-        Односторонняя проверка пропустила бы половину: комбинация, которой нет
-        в ruleset, — просто непроверенная, а объявленная и не порождаемая —
-        вечное ожидание.
+        После перехода #1420 состав выводит агрегатор из `ci.yml`. Имя,
+        перечисленное во внешней настройке, снова пришлось бы править дважды на
+        каждый выпуск CPython — и расходились бы эти две правки молча.
         """
-        renamed = _CI.read_text(encoding="utf-8").replace(
-            'python-version: ["3.12", "3.13", "3.14"]',
-            'python-version: ["3.13", "3.14", "3.16"]',
+        problems = guard.check_matrix_names(
+            _CI.read_text(encoding="utf-8"),
+            expected=(guard.AGGREGATE_CHECK, "test (ubuntu-latest, 3.13, false)"),
         )
 
-        problems = guard.check_matrix_names(renamed)
+        assert any("матричные имена вернулись" in problem for problem in problems)
 
-        assert any("обязательной не объявлена" in problem for problem in problems)
-        assert any("ci.yml её не порождает" in problem for problem in problems)
+    def test_the_aggregate_alone_is_clean(self) -> None:
+        """Одно постоянное имя — то состояние, ради которого переход и делался."""
+        assert guard.check_matrix_names(_CI.read_text(encoding="utf-8")) == []
 
     def test_an_unparsable_matrix_is_a_finding_not_silence(self) -> None:
         """Матрицу не разобрали — говорим об этом, а не зеленеем на пустоте.
