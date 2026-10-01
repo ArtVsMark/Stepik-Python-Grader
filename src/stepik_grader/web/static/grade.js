@@ -249,6 +249,11 @@ function restoreProfiles() {
 // ---------------------------------------------------------------------------
 let cmView = null;
 let checkTermsTimer = null; // issue #323: debounce обновления «Функции в коде»
+// Номер последнего запроса панели. Debounce не мешает двум запросам оказаться в
+// полёте одновременно (пауза в наборе дольше 400 мс), а ответы приходят в любом
+// порядке: устаревший, пришедший последним, затирал свежий — панель показывала
+// список для кода, которого в редакторе уже нет (issue #1568).
+let checkTermsSeq = 0;
 
 // issue #804: перезапуск debounce — функцией, а не мутацией `checkTermsTimer`
 // снаружи. Привязка импорта в ES-модулях доступна только на чтение, поэтому
@@ -353,6 +358,7 @@ function loadDroppedFile(file) {
 async function loadCheckTerms() {
   const el = $("#check-terms");
   if (!el) return;
+  const seq = ++checkTermsSeq;
   let body = null;
   const code = getEditorCode();
   if (code.trim()) {
@@ -364,7 +370,9 @@ async function loadCheckTerms() {
     el.innerHTML = '<li class="empty">' + esc(t("check.terms_empty")) + "</li>";
     return;
   }
-  renderTermsInto(el, await fetchCodeTerms(body), t("check.terms_none"));
+  const terms = await fetchCodeTerms(body);
+  if (seq !== checkTermsSeq) return; // пока ждали, код изменился — ответ устарел
+  renderTermsInto(el, terms, t("check.terms_none"));
 }
 
 function getEditorCode() {
