@@ -31,6 +31,10 @@ def facts() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
+    # Единственная точка, где факты ходят в git за тегами и в PyPI. Подмена по
+    # умолчанию — та же причина, что у `_checks_per_pr` ниже: без неё тест
+    # молча ходил бы в сеть, а сторож изоляции ловит это лишь на свежем раннере.
+    module._measure_release = lambda: ("v1.11.0", "1.11.7", "1.11.0")
     return module
 
 
@@ -96,6 +100,7 @@ def test_an_unmeasured_key_is_absent_not_zero(
     built = facts.build_facts(root)
 
     assert "checks_per_pr" not in built
+    assert built["none"]["checks_per_pr"], "ключ пропал без причины (договор 1.2)"
 
 
 def test_the_schema_says_what_it_versions(
@@ -348,7 +353,10 @@ class TestCoveragePercent:
         root = _project(tmp_path)
         monkeypatch.setattr(facts, "_checks_per_pr", lambda _root: None)
 
-        assert "coverage_percent" not in facts.build_facts(root)
+        built = facts.build_facts(root)
+
+        assert "coverage_percent" not in built
+        assert built["none"]["coverage_percent"], "ключ пропал без причины (договор 1.2)"
 
     def test_the_offered_report_reaches_the_facts(
         self, facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
@@ -361,3 +369,67 @@ class TestCoveragePercent:
         )
 
         assert built["coverage_percent"] == 88.3
+
+
+class TestContract12:
+    """Договор фактов 1.2 (issue #1551): по каждому показателю — значение или причина.
+
+    Требования записаны у потребителя (`.rules/facts.schema.json` витрины). Здесь
+    проверяется их суть без сети: третьего исхода — молча пропавшего ключа — нет.
+    """
+
+    _METRICS = ("version", "release", "coverage_percent", "tests", "python", "checks_per_pr")
+
+    def test_every_metric_is_a_value_or_a_reason(
+        self, facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Худший случай: ни тегов, ни площадки, ни покрытия — и всё равно всё названо."""
+        root = _project(tmp_path)
+        monkeypatch.setattr(facts, "_checks_per_pr", lambda _root: None)
+        monkeypatch.setattr(facts, "_measure_release", lambda: (None, None, None))
+
+        built = facts.build_facts(root)
+
+        for metric in self._METRICS:
+            assert (metric in built) != (metric in built.get("none", {})), metric
+
+    def test_the_required_fields_are_present(
+        self, facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """`ci` и номер формата — обязательные поля договора."""
+        root = _project(tmp_path)
+        monkeypatch.setattr(facts, "_checks_per_pr", lambda _root: None)
+
+        built = facts.build_facts(root)
+
+        assert built["schema"] == "1.2"
+        assert built["ci"] == {"workflow": "ci.yml"}
+
+    def test_release_is_the_badge_value(self, facts: ModuleType) -> None:
+        """Выпуск — то же значение, что у значка: тег и пакет в одной строке."""
+        values, reasons = facts.release_facts("v1.11.0", "1.11.7", "1.10.0")
+
+        assert values == {"release": "1.11 ≠ pypi 1.10", "version": "1.11.7"}
+        assert reasons == {}
+
+    def test_a_clone_without_tags_gives_reasons_not_numbers(self, facts: ModuleType) -> None:
+        """Нет тега — версия неполна (`0.0.N`), и правдоподобное число было бы ложью."""
+        values, reasons = facts.release_facts(None, None, None)
+
+        assert values == {}
+        assert set(reasons) == {"version", "release"}
+
+    def test_a_full_measurement_leaves_no_reasons(
+        self, facts: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Всё измерено — раздела `none` нет: причина без нужды тоже шум."""
+        root = _project(tmp_path)
+        monkeypatch.setattr(
+            facts, "_checks_per_pr", lambda _root: {"count": 1, "names": ["ci-complete"]}
+        )
+        monkeypatch.setattr(facts, "coverage_percent", lambda _xml: 91.5)
+
+        built = facts.build_facts(root, coverage_xml=tmp_path / "coverage.xml")
+
+        assert "none" not in built
+        assert built["release"] == "1.11"
