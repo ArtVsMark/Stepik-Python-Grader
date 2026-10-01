@@ -775,9 +775,32 @@ jobs:
       # готовый бинарь и сразу выходит, а OS-deps эфемерному раннеру нужны в
       # любом случае. Так работоспособность job'а не зависит от того, угадал ли
       # кеш, — он остаётся ускорением, а не условием корректности.
-      - name: Install Playwright Chromium + OS deps
+      #
+      # issue #1566: единый `playwright install --with-deps chromium` дважды за
+      # вечер повисал до таймаута шага (10 мин) — тесты не запускались, а
+      # обязательная проверка краснела. Какая половина висит, снаружи видно не
+      # было: шаг один, а логи облачной сессии недоступны. Теперь половины —
+      # отдельные шаги (их исход читается через `actions/jobs/{id}`), и у каждой
+      # до трёх попыток по 3 минуты вместо одного ожидания на десять.
+      # `--kill-after`: установщик зовёт `apt-get`, и попытка, пережившая TERM,
+      # держала бы dpkg-лок для следующей.
+      - name: Install Playwright OS deps (issue #1566)
         timeout-minutes: 10
-        run: playwright install --with-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=15 180 playwright install-deps chromium; then exit 0; fi
+            echo "::warning::зависимости ОС для Playwright: попытка $attempt не уложилась в 3 мин или упала"
+          done
+          exit 1
+
+      - name: Install Playwright Chromium (issue #1566)
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=15 180 playwright install chromium; then exit 0; fi
+            echo "::warning::браузер Playwright: попытка $attempt не уложилась в 3 мин или упала"
+          done
+          exit 1
 
       # issue #790: STEPIK_REQUIRE_E2E_TESTS=1 включает guard'ы
       # tests/e2e/test_not_silently_skipped.py — тот же приём, что у песочницы
