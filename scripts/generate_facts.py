@@ -23,9 +23,12 @@
 превращает каждое слияние в конфликт и красит ветку сдвигом числа, а не
 поломкой (правило 160). В ``main`` файла нет — он в ``.gitignore``.
 
-ЧЕГО КЛЮЧА НЕТ — ТОГО НЕ ИЗМЕРЯЛИ. ``checks_per_pr`` требует обращения к
-площадке, и при отказе ключ ОТСУТСТВУЕТ, а не выставляется нулём: ноль читался
-бы как «проверок нет». Тот же приём, что у ``portable`` в контракте каталога.
+ЗНАЧЕНИЕ ИЛИ ПРИЧИНА, ТРЕТЬЕГО НЕТ (договор фактов 1.2, issue #1551). Ноль
+отсутствия не обозначает: он читался бы как «проверок нет». Но и молча
+пропавший ключ договору больше не отвечает — витрина не отличает «забыли» от
+«не смогли». Поэтому показатель, который измерить не удалось, называется в
+разделе ``none`` вместе с причиной. Требования записаны у потребителя один раз:
+``.rules/facts.schema.json`` в ArtVsMark/ArtVsMark.
 
 Запуск::
 
@@ -37,17 +40,20 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as _datetime
+import importlib.util
 import json
 import pathlib
 import re
 import subprocess
 import sys
+from types import ModuleType
 
 for _stream in (sys.stdout, sys.stderr):
     with contextlib.suppress(AttributeError, ValueError, OSError):
         _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
+    "CI_WORKFLOW",
     "REPO",
     "SCHEMA",
     "build_facts",
@@ -57,6 +63,7 @@ __all__ = [
     "coverage_percent",
     "main",
     "python_versions",
+    "release_facts",
 ]
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -65,7 +72,11 @@ _ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: Номера разного назначения, названные одним словом, разъезжаются по чужим
 #: полям: сосед по каталогу правил уже записал версию формата выгрузки в поле
 #: версии ответа потребителя, и обе стороны остались формально валидными.
-SCHEMA = "1.0"
+SCHEMA = "1.2"
+
+#: Файл прогона CI. Статус витрина спрашивает у площадки сама: свой красный
+#: файл честно сказать о себе не может — он просто не опубликуется.
+CI_WORKFLOW = "ci.yml"
 
 REPO = "ArtVsMark/Stepik-Python-Grader"
 
@@ -190,6 +201,58 @@ def coverage_percent(coverage_xml: pathlib.Path) -> float | None:
         return None
 
 
+def _load_script(name: str) -> ModuleType:
+    """Соседний скрипт по пути: ``scripts/`` — не пакет, обычный import не сработает."""
+    path = _ROOT / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"_facts_{name}", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def release_facts(
+    tag: str | None, version: str | None, pypi_version: str | None
+) -> tuple[dict[str, str], dict[str, str]]:
+    """``version`` и ``release`` — значениями либо причинами для ``none``.
+
+    Значение выпуска — то же, что пишет значок ``release.json``: выпуск и пакет
+    сведены там в одну строку (``1.11`` или ``1.11 ≠ pypi 1.10``). Собирается
+    оно тем же кодом (``generate_release_badge.build_badge_payload``), а не
+    разбором готового значка: у значка формат оформления, и вычитывать число
+    из ``message`` значило бы разбирать вид ради содержания.
+
+    Релизного тега не видно — это клон без тегов, а не проект без выпусков:
+    версия тогда неполна (``0.0.N``), и правдоподобное число было бы точной
+    ложью. Обе строки уходят причинами.
+    """
+    if tag is None:
+        reason = "релизного тега в клоне не видно (клон без тегов) — версия неполна"
+        return {}, {"version": reason, "release": reason}
+    badge = _load_script("generate_release_badge").build_badge_payload(tag, pypi_version)
+    values = {"release": str(badge["message"])}
+    reasons: dict[str, str] = {}
+    if version:
+        values["version"] = version
+    else:
+        reasons["version"] = "версия не вычислена: git недоступен"
+    return values, reasons
+
+
+def _measure_release() -> tuple[str | None, str | None, str | None]:
+    """Входы для :func:`release_facts`: тег, версия по схеме проекта, версия на PyPI.
+
+    Единственное место, где факты ходят в git за тегами и в сеть за PyPI, —
+    поэтому тесты подменяют именно его. Определение «релизного тега» живёт в
+    ``version.py`` один раз: вторая копия маски разъехалась бы с первой.
+    """
+    version_module = _load_script("version")
+    tag = version_module.latest_release_tag()
+    version = version_module.project_version() if tag is not None else None
+    pypi = _load_script("generate_release_badge").fetch_pypi_version() if tag else None
+    return tag, version, pypi
+
+
 def _head_commit(root: pathlib.Path) -> str:
     """SHA состояния, по которому посчитаны числа; пусто — git недоступен."""
     done = subprocess.run(  # argv собран здесь, оболочка не участвует
@@ -253,8 +316,9 @@ def build_facts(
     отчёту существует всегда, в том числе после деградации (``coverage xml``
     выполняется в любом случае), поэтому судить по наличию файла нельзя.
     Признак полноты знает прогон — он же и решает, звать ли с этим аргументом.
-    Не передан — ключа ``coverage_percent`` не будет: недосчитанное число было
-    бы не пробелом, а точной ложью.
+    Не передан — вместо ``coverage_percent`` в ``none`` встаёт причина:
+    недосчитанное число было бы не пробелом, а точной ложью, а молча пропавший
+    ключ договору фактов 1.2 не отвечает.
     """
     base = root if root is not None else _ROOT
     facts: dict[str, object] = {
@@ -281,16 +345,32 @@ def build_facts(
     commit = _head_commit(base)
     if commit:
         facts["commit"] = commit
+    facts["ci"] = {"workflow": CI_WORKFLOW}
+
+    none: dict[str, str] = {}
+    values, reasons = release_facts(*_measure_release())
+    facts.update(values)
+    none.update(reasons)
+
     checks = _checks_per_pr(base)
     if checks is not None:
         facts["checks_per_pr"] = checks
+    else:
+        none["checks_per_pr"] = "площадка не ответила: квота, отказ или сеть"
     rules = count_rule_bindings(base)
     if rules is not None:
         facts["rules"] = rules
-    if coverage_xml is not None:
-        percent = coverage_percent(coverage_xml)
-        if percent is not None:
-            facts["coverage_percent"] = percent
+    percent = coverage_percent(coverage_xml) if coverage_xml is not None else None
+    if percent is not None:
+        facts["coverage_percent"] = percent
+    elif coverage_xml is None:
+        none["coverage_percent"] = (
+            "данные покрытия неполны (упала ячейка матрицы) или не собирались"
+        )
+    else:
+        none["coverage_percent"] = "отчёт покрытия не прочитан"
+    if none:
+        facts["none"] = none
     return facts
 
 
