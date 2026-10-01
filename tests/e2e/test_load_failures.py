@@ -157,3 +157,47 @@ def test_terms_panel_renders_concept_without_card(
     titles = [x.lower() for x in page.locator("#check-terms .term-card-title").all_inner_texts()]
     assert "cmath" in titles, titles
     assert "cmath.polar" in titles, titles
+
+
+def test_a_stale_terms_response_does_not_overwrite_a_fresh_one(page: Any, e2e_server: str) -> None:
+    """Ответ на прежний код, пришедший последним, панель не затирает (issue #1568).
+
+    Debounce не исключает двух запросов в полёте: пауза в наборе дольше 400 мс —
+    и уходит второй. Ответы приходят в любом порядке, и прежний код рисовал
+    пришедший последним. Так на загруженном раннере `main` краснел
+    `test_terms_panel_renders_concept_without_card`: панель показывала список для
+    `import cmath`, хотя в редакторе уже стоял `cmath.polar(1)`. Здесь порядок не
+    оставлен случаю: первый ответ задержан, пока второй не отрисован.
+    """
+    held: list[Any] = []
+
+    def route(request_route: Any) -> None:
+        if not held:
+            held.append(request_route)  # первый запрос — придержать
+            return
+        request_route.continue_()
+
+    page.route("**/api/code-terms*", route)
+    page.goto(e2e_server + "/")
+    page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click('.mode-btn[data-mode="file"]')
+    page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click("#solution-editor .cm-content")
+
+    page.keyboard.type("import cmath\n")
+    # Обработчик маршрута срабатывает только пока страница ждёт — поэтому ждём
+    # короткими шагами, пока debounce не отправит первый запрос.
+    for _ in range(_TIMEOUT_MS // 100):
+        if held:
+            break
+        page.wait_for_timeout(100)
+    assert held, "первый запрос к /api/code-terms не ушёл"
+
+    page.keyboard.type("cmath.polar(1)")
+    nocard = page.locator("#check-terms .term-card-nocard")
+    expect(nocard).to_have_count(1, timeout=_TIMEOUT_MS)
+
+    held[0].fulfill(status=200, content_type="application/json", body='{"terms": []}')
+    page.wait_for_timeout(500)  # дать устаревшему ответу шанс отрисоваться
+
+    expect(nocard).to_have_count(1)
