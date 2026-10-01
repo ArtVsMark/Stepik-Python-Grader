@@ -15,10 +15,17 @@
 котором работали. У облачного контейнера она ``Claude <noreply@anthropic.com>``,
 и это не та строка, о которой договаривались.
 
-Отсюда главное свойство этой проверки: смотреть надо **не на трейлеры в теле**
-(их платформа допишет сама), а на авторов коммитов ветки — именно они станут
-трейлерами итогового коммита. Это известно до слияния, а после — необратимо:
-``main`` защищена, force-push запрещён.
+Отсюда главное свойство этой проверки: смотреть надо на авторов коммитов
+ветки — именно они станут трейлерами итогового коммита. Это известно до
+слияния, а после — необратимо: ``main`` защищена, force-push запрещён.
+
+**И на трейлеры в теле тоже.** Squash собирает тело итогового коммита из
+сообщений коммитов ветки, и трейлер, вписанный агентом руками, уезжает в
+``main`` дословно. Прецедент — смена модели в окне: харнесс начал подсказывать
+``Claude Opus 5.5``, и ни один гейт этого бы не заметил — ``preflight`` сверял
+только присутствие владельца, а ``check_pr_ready.py`` на пути авто-мержа ветки
+``agent/**`` не вызывается вовсе. Поэтому ``--check-branch`` сверяет и авторов,
+и трейлеры, а шаг ``ci.yml`` зовёт его на каждом pull request.
 
 **Почему гейт, а не памятка.** Неверная атрибуция ничего не ломает и никого не
 будит: сборка зелёная, код верный. Обнаруживается глазами и случайно — обычно
@@ -27,7 +34,9 @@
 Запуск::
 
     python scripts/check_attribution.py --audit-main   # сколько уже испорчено
-    python scripts/check_attribution.py --check-branch # авторы коммитов ветки
+    python scripts/check_attribution.py --check-branch # авторы и трейлеры ветки
+    python scripts/check_attribution.py --check-branch --agents-only \
+        --base origin/main --head <sha>                 # режим CI: чужие подписи законны
 """
 
 from __future__ import annotations
@@ -46,6 +55,7 @@ __all__ = [
     "agreed_identities",
     "audit_history",
     "branch_identities",
+    "branch_trailer_identities",
     "is_agent",
     "main",
     "mismatched",
@@ -272,6 +282,15 @@ def branch_identities(base: str = "origin/main", head: str = "HEAD") -> set[Iden
     return found
 
 
+def branch_trailer_identities(base: str = "origin/main", head: str = "HEAD") -> set[Identity]:
+    """Соавторы из трейлеров коммитов ветки — squash перенесёт их в ``main`` дословно."""
+    log = _git("log", f"--format=%B{_RECORD}", f"{base}..{head}")
+    found: set[Identity] = set()
+    for message in log.split(_RECORD):
+        found.update(trailer_identities(message))
+    return found
+
+
 def audit_history(ref: str = "origin/main", limit: int = 0) -> list[tuple[str, Identity]]:
     """Коммиты ``ref``, несущие несогласованную **агентскую** подпись.
 
@@ -322,6 +341,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--audit-main", action="store_true", help="сколько уже испорчено в main")
     parser.add_argument("--base", default="origin/main", help="база сравнения для --check-branch")
+    parser.add_argument("--head", default="HEAD", help="голова ветки для --check-branch")
+    parser.add_argument(
+        "--agents-only",
+        action="store_true",
+        help=(
+            "сверять только агентские подписи: в CI ветку может вести dependabot или "
+            "внешний участник, и их подпись законна"
+        ),
+    )
     parser.add_argument("--ref", default="origin/main", help="ветка ревизии для --audit-main")
     parser.add_argument("--limit", type=int, default=0, help="сколько коммитов смотреть (0 — все)")
     args = parser.parse_args(argv)
@@ -337,7 +365,33 @@ def main(argv: list[str] | None = None) -> int:
 
     failed = False
     if args.check_branch:
-        wrong = mismatched(branch_identities(args.base), agreed=agreed, owner=owner)
+        wrong = mismatched(
+            branch_identities(args.base, args.head),
+            agreed=agreed,
+            owner=owner,
+            agents_only=args.agents_only,
+        )
+        # Трейлеры сверяются только агентские всегда: соавтор-человек, вписанный
+        # трейлером, законен — то же основание, что у `check_pr_ready.py`.
+        wrong_trailers = mismatched(
+            branch_trailer_identities(args.base, args.head),
+            agreed=agreed,
+            owner=owner,
+            agents_only=True,
+        )
+        if wrong_trailers:
+            failed = True
+            print("Трейлеры коммитов ветки называют агента не согласованной строкой:")
+            for identity in wrong_trailers:
+                print(f"  — Co-Authored-By: {identity}")
+            print(
+                "\nSquash перенесёт их в main дословно. Согласованная строка — из "
+                ".claude/settings.json (attribution.commit), а не из подсказки харнесса: "
+                "она меняется вместе с моделью окна. Чинится переписыванием сообщения: "
+                "git commit --amend -F <файл> (rebase при нескольких коммитах)."
+            )
+        else:
+            print("трейлеры коммитов ветки согласованы")
         if wrong:
             failed = True
             print("Авторы коммитов ветки не входят в согласованный список:")

@@ -298,3 +298,40 @@ class TestMypyMirrorsCi:
     def test_macos_too(self, module: ModuleType) -> None:
         """Правило про платформу CI, а не про Windows: macOS ведёт себя так же."""
         assert "--platform" in module._mypy_command(platform="darwin")
+
+
+class TestAgentSignature:
+    """Подпись агента сверяется до пуша — тем же скриптом, что и в CI."""
+
+    @staticmethod
+    def _done(code: int, out: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=[], returncode=code, stdout=out, stderr="")
+
+    def test_agreed_signature_passes(self, module: ModuleType) -> None:
+        """Скрипт ответил 0 — проверка зелёная."""
+        check = module.check_agent_signature(run=lambda _argv: self._done(0, "согласованы\n"))
+
+        assert check.ok
+
+    def test_the_wrong_line_is_named(self, module: ModuleType) -> None:
+        """Отказ называет строку, а не только факт расхождения."""
+        out = "Трейлеры…:\n  — Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
+
+        check = module.check_agent_signature(run=lambda _argv: self._done(1, out))
+
+        assert not check.ok
+        assert check.blocking
+        assert "Claude Opus 5.5" in check.detail
+        assert "settings.json" in check.hint
+
+    def test_the_gate_compares_against_main(self, module: ModuleType) -> None:
+        """База — та же, что у остальных проверок ветки."""
+        seen: list[list[str]] = []
+
+        def run(argv: list[str]) -> subprocess.CompletedProcess[str]:
+            seen.append(argv)
+            return self._done(0, "")
+
+        module.check_agent_signature(run=run)
+
+        assert seen[0][-3:] == ["--check-branch", "--base", "origin/main"]

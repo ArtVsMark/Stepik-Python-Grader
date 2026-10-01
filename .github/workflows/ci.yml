@@ -183,6 +183,22 @@ jobs:
       # общем файле. Чистый stdlib (json).
       - name: Contract names one source per subject (issue #1438)
         run: python scripts/check_sources_of_truth.py
+      # Подпись агента: squash переносит в `main` и авторов коммитов ветки, и
+      # трейлеры из их сообщений — дословно и необратимо (`main` защищена).
+      # `check_pr_ready.py` это сверял, но на пути авто-мержа веток `agent/**`
+      # он не вызывается вовсе, а `preflight` в облачном клоне без хука не
+      # запускается при пуше. Сменилась модель окна — харнесс стал подсказывать
+      # другую строку, и ни один гейт этого бы не заметил. Только агентские
+      # подписи (`--agents-only`): ветку может вести dependabot или внешний
+      # участник, их подпись законна. Чистый stdlib.
+      - name: Agent signature matches the agreed one (issue #1553)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --quiet --no-tags --unshallow origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          python scripts/check_attribution.py --check-branch --agents-only --base "origin/${BASE_REF}" --head "${HEAD_SHA}"
 
       # issue #1420 (правило 171): эталон обязательных проверок берётся из дерева
       # ЭТОГО ЖЕ изменения, а не из константы, переписанной руками. Копия верна
