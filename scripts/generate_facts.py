@@ -51,8 +51,10 @@ __all__ = [
     "REPO",
     "SCHEMA",
     "build_facts",
+    "count_rule_bindings",
     "count_test_functions",
     "count_test_modules",
+    "coverage_percent",
     "main",
     "python_versions",
 ]
@@ -122,6 +124,72 @@ def python_versions(root: pathlib.Path) -> dict[str, list[str]]:
     }
 
 
+def _binding_key(record: object) -> str:
+    """Куда отнести правило: чем оно держится, а неактивное — своим статусом.
+
+    Дефис в ключе JSON заменяется подчёркиванием (``not-applicable`` →
+    ``not_applicable``): ключ читают как имя поля, а не как строку.
+    """
+    if not isinstance(record, dict):
+        return "unreviewed"
+    status = str(record.get("status") or "unreviewed")
+    #: Активное правило описывается механизмом, остальные — самим статусом:
+    #: у отклонённого механизма нет по определению, и «чем держится» для него
+    #: вопрос без ответа.
+    key = str(record.get("mechanism") or "none") if status == "active" else status
+    return key.replace("-", "_")
+
+
+def count_rule_bindings(root: pathlib.Path) -> dict[str, int] | None:
+    """Доли «чем держится правило» из своего ``.rules/bindings.json``.
+
+    Ключи выводятся ПОДСЧЁТОМ, а не списком в коде: словарь механизмов ведёт
+    каталог, и он растёт — за две недели к четырём долям добавилась пятая.
+    Жёсткий перечень отстал бы молча, показав старую картину как полную.
+
+    Числа берутся из своего файла, а не из сводки каталога
+    (``badges/export/where.json``): та — ответ каталога О НАС, а витрина по
+    контракту читает то, что проект говорит О СЕБЕ. У этих ответов разные
+    владельцы и разный срок жизни.
+
+    Файла нет или он нечитаем — ``None``: ключа в фактах не будет вовсе.
+    """
+    path = root / ".rules" / "bindings.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"::warning::привязки правил не прочитаны: {exc}", file=sys.stderr)
+        return None
+    rules = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(rules, dict) or not rules:
+        return None
+    counts: dict[str, int] = {"total": len(rules)}
+    for record in rules.values():
+        key = _binding_key(record)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def coverage_percent(coverage_xml: pathlib.Path) -> float | None:
+    """Суммарный процент покрытия из Cobertura-отчёта; нечитаем — ``None``.
+
+    Считается тем же кодом, что и бейдж (``generate_coverage_badge``), а не
+    разбором самого бейджа: у значка формат оформления, и вычитывать число из
+    ``message`` значило бы разбирать вид ради содержания.
+    """
+    sys.path.insert(0, str(_ROOT / "scripts"))
+    try:
+        import generate_coverage_badge
+    except ImportError as exc:
+        print(f"::warning::покрытие не измерено: {exc}", file=sys.stderr)
+        return None
+    try:
+        return generate_coverage_badge.compute_coverage_percent(coverage_xml)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        print(f"::warning::покрытие не измерено: {exc}", file=sys.stderr)
+        return None
+
+
 def _head_commit(root: pathlib.Path) -> str:
     """SHA состояния, по которому посчитаны числа; пусто — git недоступен."""
     done = subprocess.run(  # argv собран здесь, оболочка не участвует
@@ -174,8 +242,20 @@ def _checks_per_pr(root: pathlib.Path) -> dict[str, object] | None:
     return {"count": len(names), "names": sorted(names)}
 
 
-def build_facts(root: pathlib.Path | None = None) -> dict[str, object]:
-    """Собрать факты проекта — то, что соседям иначе пришлось бы считать у себя."""
+def build_facts(
+    root: pathlib.Path | None = None,
+    *,
+    coverage_xml: pathlib.Path | None = None,
+) -> dict[str, object]:
+    """Собрать факты проекта — то, что соседям иначе пришлось бы считать у себя.
+
+    ``coverage_xml`` передаётся ТОЛЬКО когда данные покрытия полны: путь к
+    отчёту существует всегда, в том числе после деградации (``coverage xml``
+    выполняется в любом случае), поэтому судить по наличию файла нельзя.
+    Признак полноты знает прогон — он же и решает, звать ли с этим аргументом.
+    Не передан — ключа ``coverage_percent`` не будет: недосчитанное число было
+    бы не пробелом, а точной ложью.
+    """
     base = root if root is not None else _ROOT
     facts: dict[str, object] = {
         "schema": SCHEMA,
@@ -204,6 +284,13 @@ def build_facts(root: pathlib.Path | None = None) -> dict[str, object]:
     checks = _checks_per_pr(base)
     if checks is not None:
         facts["checks_per_pr"] = checks
+    rules = count_rule_bindings(base)
+    if rules is not None:
+        facts["rules"] = rules
+    if coverage_xml is not None:
+        percent = coverage_percent(coverage_xml)
+        if percent is not None:
+            facts["coverage_percent"] = percent
     return facts
 
 
@@ -217,9 +304,19 @@ def main(argv: list[str] | None = None) -> int:
         help="куда положить файл",
     )
     parser.add_argument("--root", type=pathlib.Path, default=_ROOT, help="корень проекта")
+    parser.add_argument(
+        "--coverage-xml",
+        type=pathlib.Path,
+        default=None,
+        help=(
+            "Cobertura-отчёт, из которого взять coverage_percent. Передавать "
+            "ТОЛЬКО при полных данных: отчёт пишется и после деградации, и "
+            "недосчитанное число ушло бы к соседям как настоящее"
+        ),
+    )
     args = parser.parse_args(argv)
 
-    facts = build_facts(args.root)
+    facts = build_facts(args.root, coverage_xml=args.coverage_xml)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(facts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(

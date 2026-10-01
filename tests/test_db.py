@@ -28,6 +28,57 @@ def test_connect_creates_db_and_enables_pragmas(tmp_path: Path) -> None:
         assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == db.BUSY_TIMEOUT_MS
 
 
+class TestWritersWaitLongEnough:
+    """Порог ожидания write-lock: сколько писатель стоит в очереди (issue #1546).
+
+    Без явного значения конкурентный писатель падает сразу — запись теряется
+    молча. С коротким он падает не сразу, а под нагрузкой: ровно так ночной
+    прогон `main` получил `database is locked` на четырёх писателях, хотя
+    десяти секунд хватало годами при двух.
+    """
+
+    def test_the_default_is_read_when_nothing_is_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv(db.ENV_BUSY_TIMEOUT, raising=False)
+
+        assert db.busy_timeout_ms() == db.BUSY_TIMEOUT_MS
+
+    def test_the_environment_raises_the_threshold(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """У чужой ФС свои скорости, и дефолт по нашему раннеру ей не указ."""
+        monkeypatch.setenv(db.ENV_BUSY_TIMEOUT, "45000")
+
+        assert db.busy_timeout_ms() == 45000
+
+    @pytest.mark.parametrize("junk", ["", "быстро", "0", "-1", "3.5"])
+    def test_junk_means_not_set(self, monkeypatch: pytest.MonkeyPatch, junk: str) -> None:
+        """Мусор читается как «не задано», а не как «ждать ноль».
+
+        Ноль здесь означал бы «не ждать вовсе» — ровно то поведение, ради
+        отказа от которого порог и заведён.
+        """
+        monkeypatch.setenv(db.ENV_BUSY_TIMEOUT, junk)
+
+        assert db.busy_timeout_ms() == db.BUSY_TIMEOUT_MS
+
+    def test_the_value_actually_reaches_the_connection(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Провод до самого соединения: настройка без него — обещание, а не порог."""
+        monkeypatch.setenv(db.ENV_BUSY_TIMEOUT, "12345")
+
+        with contextlib.closing(db.connect(tmp_path / "x.db")) as conn:
+            assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 12345
+
+    def test_the_default_leaves_room_for_four_writers(self) -> None:
+        """Порог назван числом, и число это — не «сколько-нибудь».
+
+        Приёмочный тест межпроцессной дозаписи гоняет четыре писателя по
+        пятнадцать транзакций; последний в очереди ждёт их все. Опустив порог
+        обратно, мы вернём падение, которое выглядит дефектом кода, а означает
+        скорость файловой системы.
+        """
+        assert db.BUSY_TIMEOUT_MS >= 30000
+
+
 def test_user_version_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "x.db"
     with contextlib.closing(db.connect(path)) as conn:

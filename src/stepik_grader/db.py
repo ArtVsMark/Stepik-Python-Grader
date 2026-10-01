@@ -27,14 +27,17 @@ Best-effort по духу (как ``core/history``/``core/cache``): вызыва
 from __future__ import annotations
 
 import contextlib
+import os
 import sqlite3
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
 __all__ = [
     "BUSY_TIMEOUT_MS",
+    "ENV_BUSY_TIMEOUT",
     "SchemaTooNewError",
     "apply_schema",
+    "busy_timeout_ms",
     "connect",
     "exclusive_transaction",
     "execute_ddl_script",
@@ -64,9 +67,45 @@ class SchemaTooNewError(sqlite3.DatabaseError):
         self.expected = expected
 
 
-# Явный busy_timeout: конкурентные писатели ЖДУТ write-lock, а не падают
-# ``sqlite3.OperationalError`` → тихая потеря записи (issue #393/#552).
-BUSY_TIMEOUT_MS = 10000
+#: Сколько писатель ЖДЁТ своей очереди за write-lock, прежде чем сдаться.
+#:
+#: Без явного значения конкурентный писатель падает ``OperationalError`` сразу —
+#: то есть запись теряется молча (issue #393/#552).
+#:
+#: ПОЧЕМУ ТРИДЦАТЬ, А НЕ ДЕСЯТЬ (issue #1546). Десяти секунд хватало, пока
+#: сценарием были два процесса пользователя — CLI и web. Приёмочный тест
+#: межпроцессной дозаписи гоняет ЧЕТЫРЕ писателя по пятнадцать транзакций, и на
+#: Windows-раннере это в десять секунд не уложилось: каждая транзакция ждёт
+#: fsync, а последний в очереди ждёт их все. Замер 13.09.2026, ночной прогон
+#: `main`: ``sqlite3.OperationalError: database is locked`` на ``BEGIN
+#: IMMEDIATE`` у воркера 2.
+#:
+#: Это не «подождать, пока починится»: таймаут ровно для того и существует —
+#: сказать, сколько писатель стоит в очереди. Прежнее значение было выбрано без
+#: замера под четырёх писателей на медленной ФС, и оно измеряло не корректность,
+#: а скорость раннера.
+#:
+#: Настраивается :data:`ENV_BUSY_TIMEOUT`: у чужого окружения ФС может быть ещё
+#: медленнее, и дефолт, подобранный по нашему раннеру, там снова окажется мал.
+BUSY_TIMEOUT_MS = 30000
+
+#: Переменная окружения, поднимающая порог ожидания. Значение — миллисекунды;
+#: мусор и неположительное читаются как «не задано».
+ENV_BUSY_TIMEOUT = "STEPIK_GRADER_SQLITE_BUSY_TIMEOUT_MS"
+
+
+def busy_timeout_ms() -> int:
+    """Порог ожидания write-lock: из окружения, иначе :data:`BUSY_TIMEOUT_MS`.
+
+    Returns:
+        Миллисекунды ожидания; всегда положительное число.
+    """
+    raw = os.environ.get(ENV_BUSY_TIMEOUT, "")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return BUSY_TIMEOUT_MS
+    return value if value > 0 else BUSY_TIMEOUT_MS
 
 
 # issue #813 (SECD-04): к каким файлам применяется приватный режим — сама БД и
@@ -123,7 +162,7 @@ def connect(
     # оставшиеся от прежних версий с широкими правами.
     restrict_to_owner(db_path)
     try:
-        conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+        conn.execute(f"PRAGMA busy_timeout={busy_timeout_ms()}")
         # Смена journal_mode в WAL невозможна, пока к БД открыты ДРУГИЕ соединения
         # (барьерная конкурентная первая инициализация) — sqlite отдаёт
         # SQLITE_BUSY, busy_timeout тут не помогает. WAL — оптимизация, а не

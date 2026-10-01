@@ -416,6 +416,43 @@ class TestPipelineOperations:
         assert red == ["b"]
 
 
+class TestBlockingRed:
+    """Не всякая краснота держит слияние (issue #1532).
+
+    Ячейка матрицы под `continue-on-error` в списке обязательных не значится,
+    и площадка такой PR мержит. Наши скрипты считали красным всё подряд — и
+    очередь вставала из-за предрелизной версии, ради которой флаг заводился.
+    """
+
+    def test_a_prerelease_cell_does_not_hold_the_merge(self, module: ModuleType) -> None:
+        holds, soft = module.blocking_red(["ci-complete", "test (ubuntu-latest, 3.15, true)"])
+
+        assert holds == ["ci-complete"]
+        assert soft == ["test (ubuntu-latest, 3.15, true)"]
+
+    def test_a_stable_cell_holds_the_merge(self, module: ModuleType) -> None:
+        holds, soft = module.blocking_red(["test (macos-latest, 3.14, false)"])
+
+        assert holds == ["test (macos-latest, 3.14, false)"]
+        assert soft == []
+
+    def test_nothing_red_splits_into_nothing(self, module: ModuleType) -> None:
+        assert module.blocking_red([]) == ([], [])
+
+    def test_the_soft_half_is_never_dropped(self, module: ModuleType) -> None:
+        """Невидимое падение хуже блокирующего: его некому разобрать.
+
+        Смысл разделения — не «замолчать», а «не останавливать очередь». Обе
+        половины возвращаются, и вторую печатает вызывающий.
+        """
+        red = ["test (ubuntu-latest, 3.15, true)", "test (macos-latest, 3.15, true)"]
+
+        holds, soft = module.blocking_red(red)
+
+        assert holds == []
+        assert soft == red, "мягкая половина обязана дойти до отчёта целиком"
+
+
 class TestCli:
     """Коды возврата: 0 — успех, 1 — ошибка, 2 — ждать сброса квоты."""
 

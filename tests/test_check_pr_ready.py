@@ -203,6 +203,43 @@ class TestFailuresBlockMerge:
         assert not verdict.ready
         assert any("красные проверки" in reason for reason in verdict.reasons)
 
+    def test_a_prerelease_cell_does_not_block_but_is_named(self, module: ModuleType) -> None:
+        """Ячейка под `continue-on-error` мерж не держит — и всё же названа.
+
+        issue #1532: гейт отвечал «мержить нельзя» PR, который площадка мержит,
+        и окно шло чинить предрелизную версию вместо работы. Обратная крайность
+        не лучше: молчание о падении означает, что разобрать его некому. Отсюда
+        предупреждение вместо отказа.
+        """
+        verdict = module.evaluate(
+            _pull(),
+            _runs(("completed", "success")),
+            _checks(
+                *_GREEN,
+                ("test (ubuntu-latest, 3.15, true)", "completed", "failure"),
+            ),
+            _EXPECTED,
+        )
+
+        assert not any("красные проверки" in reason for reason in verdict.reasons)
+        assert any("мерж не держит" in warning for warning in verdict.warnings), verdict.warnings
+        assert any("3.15" in warning for warning in verdict.warnings)
+
+    def test_a_stable_cell_still_blocks(self, module: ModuleType) -> None:
+        """Обязательная ячейка матрицы держит мерж, как и держала."""
+        verdict = module.evaluate(
+            _pull(),
+            _runs(("completed", "success")),
+            _checks(
+                *_GREEN,
+                ("test (ubuntu-latest, 3.14, false)", "completed", "failure"),
+            ),
+            _EXPECTED,
+        )
+
+        assert not verdict.ready
+        assert any("красные проверки" in reason for reason in verdict.reasons)
+
     def test_failed_workflow_blocks_merge(self, module: ModuleType) -> None:
         """Красный прогон целиком."""
         verdict = module.evaluate(
