@@ -131,10 +131,11 @@ def test_creates_parent_directories(tmp_path: Path) -> None:
 # повторный подъём порога — гадание: «ждал 30 с» (медленная ФС раннера, дело
 # теста) и «упал за доли секунды» (busy handler не вызывался вовсе, дело
 # продукта) — два разных дефекта с противоположным лечением.
-_WORKER = """
-import sys
+_WORKER = """import sys
 import time
 from pathlib import Path
+
+from stepik_grader import db
 from stepik_grader.glossary import append_missing_entries
 from stepik_grader.glossary.models import GlossaryMissingEntry
 
@@ -145,19 +146,25 @@ for i in range(count):
     started = time.monotonic()
     try:
         append_missing_entries(
-            db_path, [GlossaryMissingEntry(concept=f"w{worker_id}.c{i}", seen_in=[f"{worker_id}.py"])]
+            db_path,
+            [
+                GlossaryMissingEntry(
+                    concept=f"w{worker_id}.c{i}", seen_in=[f"{worker_id}.py"]
+                )
+            ],
         )
     except BaseException as exc:
         waited = time.monotonic() - started
         try:
             import sqlite3
-            with sqlite3.connect(db_path) as conn:
+
+            with sqlite3.connect(db_path, timeout=0) as conn:
                 journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
         except Exception:
             journal_mode = "<недоступен>"
         print(
             f"WAIT_REPORT worker={worker_id} entry={i} waited_s={waited:.3f} "
-            f"busy_timeout_ms={getattr(__import__('stepik_grader.db', fromlist=['x']), 'BUSY_TIMEOUT_MS', '?')} "
+            f"busy_timeout_ms={db.busy_timeout_ms()} "
             f"journal_mode={journal_mode} error={type(exc).__name__}: {exc}",
             file=sys.stderr,
         )
