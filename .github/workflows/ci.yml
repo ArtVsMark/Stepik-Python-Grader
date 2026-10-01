@@ -877,6 +877,10 @@ jobs:
         # случай, и сводка про него говорит отдельной строкой.
         continue-on-error: true
 
+      # issue #1541: без `--apply` скрипт только печатает сводку в лог — а лог
+      # облачной сессии недоступен (403). Шаг для PR так и работал: зелёный,
+      # «сводка сделана», а комментария нет. Флаг стережёт тест
+      # `test_every_addressed_call_publishes` в tests/test_report_failed_tests.py.
       - name: Name the failed tests in the pull request
         if: github.event_name == 'pull_request'
         env:
@@ -885,6 +889,7 @@ jobs:
           python scripts/report_failed_tests.py --dir test-reports
           --pr ${{ github.event.number }}
           --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --apply
 
       # issue #1519: у push в main адресата-PR нет — сводка уходит комментарием
       # к коммиту. Шаг отдельный, а не ветвление внутри одной команды: два

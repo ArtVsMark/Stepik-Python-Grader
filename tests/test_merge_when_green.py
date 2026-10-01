@@ -571,6 +571,77 @@ class TestFreezeIsEnforced:
         assert done == {"added": [], "removed": [], "disabled": []}
         assert outcome.touched == [100]
 
+    def test_the_two_phases_agree_about_one_pull(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Один проход не может утверждать про один PR обе вещи сразу (issue #1525).
+
+        Так это выглядело на живом конвейере при ЗЕЛЁНОЙ базе:
+
+            PR #1513: база зелёная — заморозка снята
+            PR #1513: стоит «queue-frozen» — база красная, согласие ждёт
+
+        Первая фаза сняла заморозку, вторая прочитала метку заново — и увидела
+        ту, которую первая только что назвала снятой. Отчёт механизма перестаёт
+        быть свидетельством: разбор инцидента начинается с поиска красноты,
+        которой нет.
+        """
+        module = _load_module()
+        pulls = self._pulls([module.FREEZE_LABEL])
+        self._wire(module, monkeypatch, red=False, pulls=pulls)
+
+        frozen = module.apply_freeze(dry_run=True)
+        marked = module.apply_default_consent(dry_run=True, frozen=frozen.frozen)
+
+        assert frozen.frozen == set(), "база зелёная — после прохода замороженных нет"
+        assert "заморозка снята" in "\n".join(frozen.lines)
+        assert not any("согласие ждёт" in line for line in marked.lines), (
+            "вторая фаза судит по составу заморозки, а не по метке из снимка ДО прохода"
+        )
+
+    def test_a_frozen_pull_is_still_skipped_when_the_base_stays_red(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Согласованность фаз не отменяет саму заморозку — иначе лечение хуже болезни."""
+        module = _load_module()
+        pulls = self._pulls([module.FREEZE_LABEL])
+        done = self._wire(module, monkeypatch, red=True, pulls=pulls)
+
+        frozen = module.apply_freeze()
+        module.apply_default_consent(frozen=frozen.frozen)
+
+        assert frozen.frozen == {100}, "метка стоит и база красная — PR остаётся замороженным"
+        assert done["added"] == [], "согласие замороженному не выдаётся"
+
+    def test_without_a_freeze_phase_the_label_still_decides(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Одиночный вызов фазы согласия читает метку — менять её было некому."""
+        module = _load_module()
+        pulls = self._pulls([module.FREEZE_LABEL])
+        done = self._wire(module, monkeypatch, red=True, pulls=pulls)
+
+        outcome = module.apply_default_consent()
+
+        assert done["added"] == []
+        assert any("заморожен" in line for line in outcome.lines)
+
+    def test_the_skip_reason_names_a_fact_not_a_label(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Причина пропуска не утверждает про цвет базы того, чего не проверяла.
+
+        Прежний текст говорил «база красная» по одному лишь наличию метки —
+        утверждение о состоянии, которое эта фаза не смотрит вовсе.
+        """
+        module = _load_module()
+        pulls = self._pulls([module.FREEZE_LABEL])
+        self._wire(module, monkeypatch, red=True, pulls=pulls)
+
+        outcome = module.apply_default_consent(frozen={100})
+
+        skipped = [line for line in outcome.lines if "#100" in line]
+        assert skipped, "пропуск обязан быть назван вслух"
+        assert not any("база красная" in line for line in skipped)
+
     def test_consent_does_not_come_back_to_a_frozen_pull(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
