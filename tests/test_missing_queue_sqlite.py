@@ -125,9 +125,19 @@ def test_creates_parent_directories(tmp_path: Path) -> None:
 # Сниппет воркера для межпроцессного acceptance-теста: каждый процесс дозаписывает
 # свой набор concept'ов в ОДНУ базу. BEGIN IMMEDIATE + busy_timeout сериализуют
 # писателей между процессами — ни одна добавка не теряется.
+#
+# Падая, воркер называет три числа (issue #1559): сколько ждала упавшая запись,
+# какой порог ожидания действовал и в каком режиме журнала была база. Подъём
+# порога с 10 до 30 секунд (#1546) флейк не снял — значит, гадать дальше нельзя:
+# «ждал 30 с при пороге 30 000 мс» и «ждал 0,01 с» — разные дефекты. Первый —
+# медленная ФС под нагрузкой (дело теста), второй — busy handler не вызывался
+# вовсе (дело продукта: CLI и web теряли бы добавки).
 _WORKER = """
+import sqlite3
 import sys
+import time
 from pathlib import Path
+from stepik_grader import db
 from stepik_grader.glossary import append_missing_entries
 from stepik_grader.glossary.models import GlossaryMissingEntry
 
@@ -135,9 +145,25 @@ db_path = Path(sys.argv[1])
 worker_id = int(sys.argv[2])
 count = int(sys.argv[3])
 for i in range(count):
-    append_missing_entries(
-        db_path, [GlossaryMissingEntry(concept=f"w{worker_id}.c{i}", seen_in=[f"{worker_id}.py"])]
-    )
+    started = time.monotonic()
+    try:
+        append_missing_entries(
+            db_path,
+            [GlossaryMissingEntry(concept=f"w{worker_id}.c{i}", seen_in=[f"{worker_id}.py"])],
+        )
+    except Exception:
+        waited = time.monotonic() - started
+        try:
+            with sqlite3.connect(db_path, timeout=0) as probe:
+                mode = probe.execute("PRAGMA journal_mode").fetchone()[0]
+        except sqlite3.Error as exc:
+            mode = f"не прочитан ({exc})"
+        print(
+            f"запись {i}: ждала {waited:.2f} с при пороге {db.busy_timeout_ms()} мс, "
+            f"journal_mode={mode}",
+            file=sys.stderr,
+        )
+        raise
 """
 
 
