@@ -7,7 +7,7 @@
 именами. Переписать нечем: `main` защищена.
 
 Поэтому проверяется именно **то, что станет итоговым коммитом**: авторы
-коммитов ветки, а не трейлеры в теле PR (их платформа допишет сама).
+коммитов ветки — и трейлеры из их сообщений, которые squash переносит дословно.
 """
 
 from __future__ import annotations
@@ -242,3 +242,109 @@ class TestTrailerBlock:
 
         assert len(attribution.trailer_block(message)) == 2
         assert {i.email for i in attribution.trailer_identities(message)} == {"a@e.com"}
+
+
+# ---------------------------------------------------------------------------
+# Трейлеры ветки: squash переносит их в `main` дословно
+# ---------------------------------------------------------------------------
+
+_AGREED_AGENT = "Claude Opus 5 <noreply@anthropic.com>"
+
+
+def _log(*messages: str) -> str:
+    """Вывод ``git log --format=%B%x1e`` для набора сообщений."""
+    return "".join(f"{message}\x1e" for message in messages)
+
+
+class TestBranchTrailers:
+    """Смена модели окна меняет подсказку харнесса — и строку в трейлере.
+
+    Харнесс начал подсказывать `Claude Opus 5.5`, а гейты сверяли трейлеры
+    только в `check_pr_ready.py`, которого на пути авто-мержа `agent/**` нет.
+    """
+
+    def test_trailers_of_every_commit_are_collected(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Каждый коммит ветки — свой хвостовой блок."""
+        log = _log(
+            f"feat: раз\n\nCo-Authored-By: {_AGREED_AGENT}",
+            "fix: два\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+        )
+        monkeypatch.setattr(attribution, "_git", lambda *_args, **_kw: log)
+
+        found = {str(identity) for identity in attribution.branch_trailer_identities()}
+
+        assert found == {_AGREED_AGENT, "Claude Opus 5.5 <noreply@anthropic.com>"}
+
+    def _run(
+        self,
+        attribution: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        authors: set[str],
+        trailers: set[str],
+        argv: list[str],
+    ) -> int:
+        def parsed(raw: set[str]) -> set[object]:
+            return {attribution.parse_identity(item) for item in raw}
+
+        monkeypatch.setattr(attribution, "branch_identities", lambda *_a: parsed(authors))
+        monkeypatch.setattr(attribution, "branch_trailer_identities", lambda *_a: parsed(trailers))
+        return int(attribution.main(argv))
+
+    def test_an_unagreed_agent_trailer_fails_the_branch(
+        self,
+        attribution: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Автор верный, а трейлер с чужой строкой — всё равно отказ."""
+        code = self._run(
+            attribution,
+            monkeypatch,
+            authors={_AGREED_AGENT},
+            trailers={"Claude Opus 5.5 <noreply@anthropic.com>"},
+            argv=["--check-branch"],
+        )
+
+        assert code == 1
+        assert "Claude Opus 5.5" in capsys.readouterr().out
+
+    def test_a_human_co_author_in_a_trailer_is_legal(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Соавтор-человек в трейлере — не наш дефект: сверяются только агенты."""
+        code = self._run(
+            attribution,
+            monkeypatch,
+            authors={_AGREED_AGENT},
+            trailers={"Внешний Участник <someone@example.org>"},
+            argv=["--check-branch"],
+        )
+
+        assert code == 0
+
+    def test_ci_mode_lets_dependabot_through(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """В CI ветку ведёт и dependabot: его авторство законно (`--agents-only`)."""
+        bot = "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+        argv = ["--check-branch", "--agents-only", "--base", "origin/main", "--head", "abc"]
+
+        assert self._run(attribution, monkeypatch, authors={bot}, trailers=set(), argv=argv) == 0
+
+    def test_ci_mode_still_catches_the_agent(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`--agents-only` пропускает чужих, но не агента под другим именем."""
+        argv = ["--check-branch", "--agents-only"]
+        code = self._run(
+            attribution,
+            monkeypatch,
+            authors={"Claude <noreply@anthropic.com>"},
+            trailers=set(),
+            argv=argv,
+        )
+
+        assert code == 1

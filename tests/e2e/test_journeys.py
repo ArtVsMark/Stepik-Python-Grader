@@ -21,6 +21,30 @@ from tests.e2e._helpers import write_task
 _TIMEOUT_MS = 10_000
 _CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 
+#: issue #1562: бюджет ожидания плеера обязан быть БОЛЬШЕ того, что разрешено
+#: продукту. Трассировщику законно отведено до 10 с (`core/tracer.py`,
+#: `trace_code(timeout=10.0)`), сверху — запуск дочернего интерпретатора и опрос
+#: статуса страницей. С общим `_TIMEOUT_MS` (те же 10 с) тест мерил загрузку
+#: раннера, а не страницу, и держал очередь мержа красным `e2e`.
+_TRACE_TIMEOUT_MS = 30_000
+
+#: Что показывает страница вместо плеера: ошибку прогона или отмену.
+_TRACE_OUTCOME = "#trace-code, #sandbox-output .msg, #sandbox-output .msg-neutral"
+
+
+def _open_trace(page: Any) -> None:
+    """Нажать «По шагам» и дождаться плеера — или назвать, что показано вместо него.
+
+    Без второй половины отказ трассировщика (в том числе его собственный
+    ``TimeoutError``) выглядел как «элемент не появился»: текст на странице
+    терялся, и падение было неотличимо от медленного раннера.
+    """
+    page.click("#sandbox-step")
+    page.wait_for_selector(_TRACE_OUTCOME, timeout=_TRACE_TIMEOUT_MS)
+    if page.locator("#trace-code").count() == 0:
+        shown = page.locator("#sandbox-output").inner_text()
+        raise AssertionError(f"плеер не открылся, страница показала: {shown!r}")
+
 
 def test_mode2_folder_grading_shows_table_and_detail_tab(
     page: Any, e2e_server: str, tmp_path: Path
@@ -398,8 +422,7 @@ def test_sandbox_step_player_loop_and_keyboard(page: Any, e2e_server: str, tmp_p
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
 
     _type_sandbox_code(page, "for i in range(3):\n    print(i)")
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
 
     label = page.locator("#trace-step-label").text_content()
     assert "шаг 1 из" in label, label
@@ -442,8 +465,7 @@ def test_sandbox_step_player_function_frame_appears(
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
 
     _type_sandbox_code(page, "def f(n):\n    return n + 1\nx = f(5)")
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
 
     total = int(page.locator("#trace-step-label").text_content().split("из")[1])
     saw_frame_with_n = False
@@ -469,8 +491,7 @@ def test_sandbox_diagram_shows_aliasing_and_nesting(
 
     # aliasing: a и b ссылаются на один список → один узел, две стрелки в него
     _type_sandbox_code(page, "a = [1, 2]\nb = a")
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
     page.locator('[data-trace="last"]').click()  # финал: a и b заданы
     page.click('[data-traceview="diagram"]')
     page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
@@ -483,8 +504,7 @@ def test_sandbox_diagram_shows_aliasing_and_nesting(
 
     # вложенность: m = {"x": [1]} → два узла (dict + list), стрелка узел→узел
     _type_sandbox_code(page, 'm = {"x": [1]}')
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
     page.locator('[data-trace="last"]').click()
     page.click('[data-traceview="diagram"]')
     page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
