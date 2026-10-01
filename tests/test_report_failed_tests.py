@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import re
 import sys
 from typing import Any
 
@@ -438,3 +439,107 @@ class TestWorkflowWakesOnPush:
         block = block[: block.index("\n    steps:")]
 
         assert "contents: write" in block
+
+
+# ---------------------------------------------------------------------------
+# issue #1541: сводка запускалась, зеленела — и молчала
+# ---------------------------------------------------------------------------
+
+
+def _ci_calls() -> list[str]:
+    """Шаги ``ci.yml``, зовущие сводку, — каждый склеен в одну строку.
+
+    Разбор текстом, а не YAML-парсером: PyYAML не зависимость проекта. Шаг
+    начинается строкой ``- `` на отступе шагов, а аргументы вызова идут
+    сложенными строками ``>-`` — склейка делает их одной командой.
+    """
+    text = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    steps = re.split(r"(?m)^      - ", text)
+    calls: list[str] = []
+    for step in steps:
+        code = " ".join(
+            line.strip() for line in step.splitlines() if not line.strip().startswith("#")
+        )
+        if "scripts/report_failed_tests.py" in code:
+            calls.append(code)
+    return calls
+
+
+def test_every_addressed_call_publishes() -> None:
+    """Адресат без `--apply` — сводка уходит в лог, которого облако не видит.
+
+    Ровно так шаг для pull request и работал: шаг для коммита флаг нёс, а
+    соседний — нет, и PR-сводка не опубликовалась ни разу.
+    """
+    calls = _ci_calls()
+
+    assert calls, "ci.yml больше не зовёт сводку — сторож смотрит не туда"
+    for call in calls:
+        if "--pr" in call or "--commit" in call:
+            assert "--apply" in call, call
+
+
+def test_no_downloaded_reports_is_its_own_outcome() -> None:
+    """«Отчётов не скачалось» — поломка доставки, а не «тесты не упали»."""
+    empty = reporter.render([], reports=0)
+    silent = reporter.render([], reports=3)
+
+    assert "не скачалось ни одного" in empty
+    assert "ни один тест не назвал себя упавшим" in silent
+    assert "Прочитано отчётов: 3." in silent
+
+
+def test_the_count_of_reports_is_named(tmp_path: pathlib.Path) -> None:
+    """Число прочитанных отчётов различает два диагноза с разным виновником."""
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+    _report(tmp_path, "test-results-e2e.xml", "")
+
+    assert reporter.count_reports(tmp_path) == 2
+    assert reporter.count_reports(tmp_path / "нет-такого") == 0
+
+
+def test_an_address_without_apply_is_said_aloud(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Сухой прогон с адресатом — предупреждение в лог прогона, а не тишина."""
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(tmp_path), "--pr", "1"])
+
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_the_summary_reaches_the_run_page(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Summary прогона — канал, не зависящий от прав на комментарий."""
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    _report(reports, "test-results-e2e.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(reports)])
+
+    text = summary.read_text(encoding="utf-8")
+    assert "tests/test_web.py::test_grade" in text
+    assert "Прочитано отчётов: 1." in text
+
+
+def test_an_e2e_failure_reaches_the_pull_request(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Приёмка #1541: XML есть, падение в нём есть — комментарий обязан появиться."""
+    posted: list[str] = []
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(reporter.gh_rest, "issue_comments", lambda *a, **k: [])
+    monkeypatch.setattr(
+        reporter.gh_rest, "comment_issue", lambda _repo, _number, text, **k: posted.append(text)
+    )
+    _report(tmp_path, "test-results-e2e.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(tmp_path), "--pr", "1541", "--apply"])
+
+    assert len(posted) == 1
+    assert "`e2e` — `tests/test_web.py::test_grade`" in posted[0]
