@@ -78,6 +78,7 @@ __all__ = [
     "basetemp_problem",
     "buffer_section",
     "changed_public_names",
+    "check_agent_signature",
     "check_branch_fresh",
     "check_branch_not_main",
     "check_branch_not_taken",
@@ -563,6 +564,56 @@ def check_commit_authorship(git: GitRunner = _git) -> Check:
             f'git commit --amend --trailer "Co-Authored-By: {owner} '
             '<86671904+ArtVsMark@users.noreply.github.com>" — и так для каждого '
             "названного коммита (rebase -i при нескольких)"
+        ),
+    )
+
+
+#: Запуск соседнего гейта: тот же вид, что у `subprocess.run`, — тесты подменяют.
+SignatureRunner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
+
+
+def _run_signature_gate(argv: list[str]) -> subprocess.CompletedProcess[str]:
+    """Запустить ``check_attribution.py`` и вернуть его вывод целиком."""
+    return subprocess.run(  # argv собран здесь, оболочка не участвует
+        argv,
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def check_agent_signature(run: SignatureRunner = _run_signature_gate) -> Check:
+    """Агент подписан согласованной строкой — и в авторах, и в трейлерах ветки.
+
+    Squash переносит в ``main`` дословно и то и другое, а исправить потом
+    нечем. Строку подсказывает харнесс, и она меняется вместе с моделью окна:
+    после смены модели подсказка стала ``Claude Opus 5.5``, а соседняя
+    проверка («автор участвует в коммитах») смотрит только на владельца.
+
+    Разбор не дублируется, а зовётся подпроцессом: ``preflight`` не
+    импортирует соседние гейты (он работает и там, где их окружение сломано),
+    а вторая копия сверки с ``.claude/settings.json`` разошлась бы с первой.
+    Тот же скрипт стоит шагом в ``ci.yml`` — здесь он нужен, чтобы узнать
+    до пуша, а не по красному прогону.
+    """
+    title = "подпись агента согласована"
+    script = _ROOT / "scripts" / "check_attribution.py"
+    if not script.exists():
+        return Check(name=title, ok=True, detail="сверка недоступна", blocking=False)
+    done = run([sys.executable, str(script), "--check-branch", "--base", _BASE])
+    if done.returncode == 0:
+        return Check(name=title, ok=True, detail="авторы и трейлеры ветки согласованы")
+    wrong = [line.strip() for line in done.stdout.splitlines() if line.strip().startswith("—")]
+    return Check(
+        name=title,
+        ok=False,
+        detail="; ".join(wrong) or "сверка подписи не прошла",
+        hint=(
+            "строка — из .claude/settings.json (attribution.commit), не из подсказки "
+            "харнесса; подробности: python scripts/check_attribution.py --check-branch"
         ),
     )
 
@@ -1244,6 +1295,7 @@ def main(argv: list[str] | None = None) -> int:
         check_branch_not_taken(),
         check_changelog_buffer(),
         check_commit_authorship(),
+        check_agent_signature(),
         check_tests_mentioning_changed_names(),
         check_work_overlap(),
         check_adr_records(),
