@@ -125,9 +125,17 @@ def test_creates_parent_directories(tmp_path: Path) -> None:
 # Сниппет воркера для межпроцессного acceptance-теста: каждый процесс дозаписывает
 # свой набор concept'ов в ОДНУ базу. BEGIN IMMEDIATE + busy_timeout сериализуют
 # писателей между процессами — ни одна добавка не теряется.
-_WORKER = """
-import sys
+#
+# issue #1559: при падении воркер обязан назвать, СКОЛЬКО он ждал write-lock,
+# каким был действовавший порог и какой journal_mode у базы. Без этого числа
+# повторный подъём порога — гадание: «ждал 30 с» (медленная ФС раннера, дело
+# теста) и «упал за доли секунды» (busy handler не вызывался вовсе, дело
+# продукта) — два разных дефекта с противоположным лечением.
+_WORKER = """import sys
+import time
 from pathlib import Path
+
+from stepik_grader import db
 from stepik_grader.glossary import append_missing_entries
 from stepik_grader.glossary.models import GlossaryMissingEntry
 
@@ -135,9 +143,32 @@ db_path = Path(sys.argv[1])
 worker_id = int(sys.argv[2])
 count = int(sys.argv[3])
 for i in range(count):
-    append_missing_entries(
-        db_path, [GlossaryMissingEntry(concept=f"w{worker_id}.c{i}", seen_in=[f"{worker_id}.py"])]
-    )
+    started = time.monotonic()
+    try:
+        append_missing_entries(
+            db_path,
+            [
+                GlossaryMissingEntry(
+                    concept=f"w{worker_id}.c{i}", seen_in=[f"{worker_id}.py"]
+                )
+            ],
+        )
+    except BaseException as exc:
+        waited = time.monotonic() - started
+        try:
+            import sqlite3
+
+            with sqlite3.connect(db_path, timeout=0) as conn:
+                journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        except Exception:
+            journal_mode = "<недоступен>"
+        print(
+            f"WAIT_REPORT worker={worker_id} entry={i} waited_s={waited:.3f} "
+            f"busy_timeout_ms={db.busy_timeout_ms()} "
+            f"journal_mode={journal_mode} error={type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        raise
 """
 
 
@@ -148,6 +179,10 @@ def test_concurrent_cross_process_appends_lose_nothing(tmp_path: Path) -> None:
     одновременной записи из ДВУХ процессов (CLI + web). SQLite/WAL с
     ``BEGIN IMMEDIATE`` сериализует писателей и между процессами — все 4×15
     concept'ов доходят до базы.
+
+    issue #1559: при падении воркер печатает WAIT_REPORT — сколько ждала упавшая
+    запись, действовавший busy_timeout и journal_mode базы. Следующий флейк на
+    Windows объясняет себя через сводку, а не требует третьего расследования.
     """
     db_path = tmp_path / "q.db"
     save_missing_queue(db_path, [])  # заранее создать пустую SQLite-очередь
