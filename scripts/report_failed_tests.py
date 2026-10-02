@@ -21,6 +21,17 @@ junit-отчёты, собранные джобами матрицы, и кла�
    куда смотреть, а не чтобы заменить отчёт: остальные упавшие названы числом.
    Молчаливой обрезки нет — она читалась бы как «это всё».
 3. **Пишет только с** ``--apply``. Без него печатает то, что отправил бы.
+   Но адресат без ``--apply`` — почти наверняка ошибка вызова, а не сухой
+   прогон: так шаг ``ci.yml`` для pull request месяц печатал сводку в лог,
+   недоступный облачной сессии, и ни разу её не опубликовал (issue #1541).
+   Поэтому такой вызов предупреждает вслух, а сводка в любом исходе пишется
+   ещё и в summary прогона.
+
+Исходов у сводки три, и сливаться им нельзя (правило 039): «отчётов не
+скачалось» — это поломка доставки отчётов, «отчёты прочитаны, падений в них
+нет» — смерть джоба до тела тестов, «упало K тестов» — само падение. Число
+прочитанных отчётов называется всегда: «прочитал 14, падений 0» и «прочитал 0»
+— разные диагнозы с разным виновником.
 
 Скрипт не решает, красный прогон или зелёный: его зовут из шага, который и так
 запускается только при падении.
@@ -29,6 +40,7 @@ junit-отчёты, собранные джобами матрицы, и кла�
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -51,6 +63,7 @@ __all__ = [
     "MARKER",
     "Failure",
     "collect",
+    "count_reports",
     "main",
     "parse_report",
     "render",
@@ -212,13 +225,35 @@ def collect(directory: pathlib.Path) -> list[Failure]:
     return sorted(found, key=lambda item: (item.job, item.test))
 
 
+def count_reports(directory: pathlib.Path) -> int:
+    """Сколько junit-отчётов лежит в каталоге — тем же образцом, что и разбор."""
+    return sum(1 for _ in directory.rglob(_REPORT_GLOB)) if directory.is_dir() else 0
+
+
 def render(
-    failures: Iterable[Failure], *, run_url: str | None = None, limit: int = _DEFAULT_LIMIT
+    failures: Iterable[Failure],
+    *,
+    run_url: str | None = None,
+    limit: int = _DEFAULT_LIMIT,
+    reports: int | None = None,
 ) -> str:
-    """Собрать текст комментария со скрытым маркером в первой строке."""
+    """Собрать текст комментария со скрытым маркером в первой строке.
+
+    ``reports`` — сколько отчётов прочитано; ``None`` — не считали (вызов из
+    кода, которому число не нужно).
+    """
     items = list(failures)
     lines = [MARKER, ""]
-    if not items:
+    if not items and reports == 0:
+        lines += [
+            "**Прогон красный, а отчётов тестов не скачалось ни одного.**",
+            "",
+            "Это поломка доставки, а не тестов: джобы не выгрузили "
+            "`test-results-*` (выгрузка с `if-no-files-found: ignore` молчит), "
+            "либо скачивание не нашло артефактов. Какой тест упал, отсюда не "
+            "видно — смотреть логи прогона.",
+        ]
+    elif not items:
         lines += [
             "**Прогон красный, но ни один тест не назвал себя упавшим.**",
             "",
@@ -236,6 +271,8 @@ def render(
             lines.extend(_details_block(item.details))
         if len(items) > limit:
             lines += ["", f"…и ещё {len(items) - limit}. Полный список — в артефакте прогона."]
+    if reports is not None:
+        lines += ["", f"Прочитано отчётов: {reports}."]
     if run_url:
         lines += ["", f"Прогон: {run_url}"]
     lines += [
@@ -271,6 +308,18 @@ def _marked(comments: list[dict[str, object]]) -> int | None:
     return None
 
 
+def _write_step_summary(body: str) -> None:
+    """Сводку — ещё и в summary прогона: этот канал не зависит ни от прав, ни от адресата."""
+    target = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not target:
+        return
+    try:
+        with pathlib.Path(target).open("a", encoding="utf-8") as handle:
+            handle.write(body)
+    except OSError as exc:
+        print(f"::warning::summary прогона не записан: {exc}", file=sys.stderr)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Точка входа: разобрать отчёты и (с ``--apply``) обновить сводку в PR."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -286,8 +335,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--apply", action="store_true", help="писать в PR, а не печатать")
     args = parser.parse_args(argv)
 
-    body = render(collect(args.dir), run_url=args.run_url, limit=args.limit)
+    reports = count_reports(args.dir)
+    failures = collect(args.dir)
+    body = render(failures, run_url=args.run_url, limit=args.limit, reports=reports)
+    print(f"прочитано отчётов: {reports}, упавших тестов: {len(failures)}")
+    _write_step_summary(body)
     if not args.apply or (args.pr is None and not args.commit):
+        if args.pr is not None or args.commit:
+            print(
+                "::warning::адресат сводки задан (--pr/--commit), но без --apply она "
+                "НЕ опубликована — только напечатана в лог (issue #1541)"
+            )
         print(body)
         return gh_rest.EXIT_OK
 

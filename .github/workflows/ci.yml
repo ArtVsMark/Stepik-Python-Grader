@@ -183,6 +183,22 @@ jobs:
       # общем файле. Чистый stdlib (json).
       - name: Contract names one source per subject (issue #1438)
         run: python scripts/check_sources_of_truth.py
+      # Подпись агента: squash переносит в `main` и авторов коммитов ветки, и
+      # трейлеры из их сообщений — дословно и необратимо (`main` защищена).
+      # `check_pr_ready.py` это сверял, но на пути авто-мержа веток `agent/**`
+      # он не вызывается вовсе, а `preflight` в облачном клоне без хука не
+      # запускается при пуше. Сменилась модель окна — харнесс стал подсказывать
+      # другую строку, и ни один гейт этого бы не заметил. Только агентские
+      # подписи (`--agents-only`): ветку может вести dependabot или внешний
+      # участник, их подпись законна. Чистый stdlib.
+      - name: Agent signature matches the agreed one (issue #1553)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --quiet --no-tags --unshallow origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          python scripts/check_attribution.py --check-branch --agents-only --base "origin/${BASE_REF}" --head "${HEAD_SHA}"
 
       # issue #1420 (правило 171): эталон обязательных проверок берётся из дерева
       # ЭТОГО ЖЕ изменения, а не из константы, переписанной руками. Копия верна
@@ -775,9 +791,32 @@ jobs:
       # готовый бинарь и сразу выходит, а OS-deps эфемерному раннеру нужны в
       # любом случае. Так работоспособность job'а не зависит от того, угадал ли
       # кеш, — он остаётся ускорением, а не условием корректности.
-      - name: Install Playwright Chromium + OS deps
+      #
+      # issue #1566: единый `playwright install --with-deps chromium` дважды за
+      # вечер повисал до таймаута шага (10 мин) — тесты не запускались, а
+      # обязательная проверка краснела. Какая половина висит, снаружи видно не
+      # было: шаг один, а логи облачной сессии недоступны. Теперь половины —
+      # отдельные шаги (их исход читается через `actions/jobs/{id}`), и у каждой
+      # до трёх попыток по 3 минуты вместо одного ожидания на десять.
+      # `--kill-after`: установщик зовёт `apt-get`, и попытка, пережившая TERM,
+      # держала бы dpkg-лок для следующей.
+      - name: Install Playwright OS deps (issue #1566)
         timeout-minutes: 10
-        run: playwright install --with-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=15 180 playwright install-deps chromium; then exit 0; fi
+            echo "::warning::зависимости ОС для Playwright: попытка $attempt не уложилась в 3 мин или упала"
+          done
+          exit 1
+
+      - name: Install Playwright Chromium (issue #1566)
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=15 180 playwright install chromium; then exit 0; fi
+            echo "::warning::браузер Playwright: попытка $attempt не уложилась в 3 мин или упала"
+          done
+          exit 1
 
       # issue #790: STEPIK_REQUIRE_E2E_TESTS=1 включает guard'ы
       # tests/e2e/test_not_silently_skipped.py — тот же приём, что у песочницы
@@ -861,6 +900,10 @@ jobs:
         # случай, и сводка про него говорит отдельной строкой.
         continue-on-error: true
 
+      # issue #1541: без `--apply` скрипт только печатает сводку в лог — а лог
+      # облачной сессии недоступен (403). Шаг для PR так и работал: зелёный,
+      # «сводка сделана», а комментария нет. Флаг стережёт тест
+      # `test_every_addressed_call_publishes` в tests/test_report_failed_tests.py.
       - name: Name the failed tests in the pull request
         if: github.event_name == 'pull_request'
         env:
@@ -869,6 +912,7 @@ jobs:
           python scripts/report_failed_tests.py --dir test-reports
           --pr ${{ github.event.number }}
           --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --apply
 
       # issue #1519: у push в main адресата-PR нет — сводка уходит комментарием
       # к коммиту. Шаг отдельный, а не ветвление внутри одной команды: два
