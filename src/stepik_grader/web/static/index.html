@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stepik Python Grader</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body data-sandbox="__EXEC_SANDBOX__" data-record-history="__RECORD_HISTORY__" data-onboarding-seen="__ONBOARDING_SEEN__" data-start-lang="__START_LANG__">
+<a class="sr-only" href="#main-content" data-i18n="a11y.skip_to_content">Перейти к содержимому</a>
+
+<div class="app-shell">
+
+  <header class="topbar" role="banner">
+    <span class="topbar-logo" data-i18n="topbar.logo">🐍 Stepik Python Grader</span>
+    <span class="spacer"></span>
+    <!-- issue #565: статус OS-изоляции исполнения кода; текст/вид ставит JS по data-sandbox. -->
+    <span id="exec-mode-badge" class="badge" hidden></span>
+    <!-- issue #659: язык — частое действие, ему место на виду, а не в «Настройках».
+         Два состояния, поэтому сегментированный переключатель, а не селект. -->
+    <div id="lang-switch" class="lang-switch" role="group" aria-label="Язык интерфейса"
+         title="Язык интерфейса и глоссария; серверные сообщения — на новых запросах"
+         data-i18n-aria-label="topbar.lang_group_aria" data-i18n-title="topbar.lang_title">
+      <button class="lang-btn" type="button" data-lang="ru" aria-pressed="true">RU</button>
+      <button class="lang-btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <!-- issue #659: подпись кнопки темы называет ТЕКУЩИЙ режим (её ставит
+         applyTheme через t()), иначе «Системная» неотличима от остальных. -->
+    <button id="theme-toggle" class="btn-icon" aria-label="Тема: системная — нажмите, чтобы выбрать светлую"
+            title="Тема: системная — нажмите, чтобы выбрать светлую"
+            data-i18n-aria-label="topbar.theme_state_system" data-i18n-title="topbar.theme_state_system">🌓</button>
+    <!-- issue #660: повторно открыть стартовый экран-онбординг (первый показ — авто). -->
+    <button id="onboarding-open" class="btn-icon" aria-label="Как пользоваться"
+            title="Как пользоваться" data-i18n-aria-label="onboarding.open_aria"
+            data-i18n-title="onboarding.open_title">?</button>
+    <!-- issue #754: обратная связь — открывает ЗАПОЛНЕННУЮ форму issue на GitHub.
+         Место в topbar намеренно: канал должен быть виден из любого раздела, а не
+         спрятан в «Настройках», иначе о баге просто не сообщат (эпик #751). -->
+    <button id="feedback-open" class="btn-icon" aria-label="Сообщить о проблеме или предложить идею"
+            title="Сообщить о проблеме или предложить идею" data-i18n-aria-label="feedback.open_aria"
+            data-i18n-title="feedback.open_title">💬</button>
+  </header>
+
+  <nav class="sidebar" aria-label="Основная навигация" data-i18n-aria-label="nav.aria">
+    <div class="sidebar-section">
+      <a class="sidebar-item active" href="#check" data-section="check" aria-current="page">
+        <span data-i18n="nav.check">Проверка решений</span> <span class="sidebar-badge" id="sidebar-badge-check" hidden></span>
+      </a>
+      <a class="sidebar-item" href="#downloader" data-section="downloader" data-i18n="nav.downloader">Загрузчик задач</a>
+      <a class="sidebar-item" href="#glossary" data-section="glossary">
+        <span data-i18n="nav.glossary">Глоссарий</span> <span class="sidebar-badge" id="sidebar-badge-glossary" hidden></span>
+      </a>
+      <a class="sidebar-item" href="#rules" data-section="rules" data-i18n="nav.rules">Правила (PEP)</a>
+      <a class="sidebar-item" href="#insights" data-section="insights">
+        <span data-i18n="nav.insights">Подучить</span> <span class="sidebar-badge" id="sidebar-badge-insights" hidden></span>
+      </a>
+      <a class="sidebar-item" href="#progress" data-section="progress" data-i18n="nav.progress">Прогресс</a>
+      <a class="sidebar-item" href="#sandbox" data-section="sandbox" data-i18n="nav.sandbox">Песочница</a>
+      <div class="sidebar-divider"></div>
+      <!-- issue #364: рабочий раздел «Настройки» вместо мёртвой disabled-заглушки;
+           метка-заголовок «Рабочее пространство» убрана (ничего не группировала). -->
+      <a class="sidebar-item" href="#settings" data-section="settings" data-i18n="nav.settings">Настройки</a>
+    </div>
+  </nav>
+
+  <main class="main" id="main-content">
+
+    <!-- ══ РАЗДЕЛ «ПРОВЕРКА РЕШЕНИЙ» ══ -->
+    <section id="view-check" class="main-view">
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="check.title">Проверка решений</h1>
+        <div class="page-actions">
+          <div class="mode-row" role="group" aria-label="Режим проверки" data-i18n-aria-label="check.mode_group_aria">
+            <button class="mode-btn" data-mode="file" aria-pressed="false"><span data-i18n="check.mode_file">Один файл</span><br><span class="mode-btn-sub" data-i18n="check.mode_file_sub">Режим 1</span></button>
+            <button class="mode-btn active" data-mode="tests" aria-pressed="true"><span data-i18n="check.mode_tests">Папка</span><br><span class="mode-btn-sub" data-i18n="check.mode_tests_sub">Режим 2</span></button>
+            <button class="mode-btn" data-mode="bench" aria-pressed="false"><span data-i18n="check.mode_bench">Бенчмарк</span><br><span class="mode-btn-sub" data-i18n="check.mode_bench_sub">Режим 3</span></button>
+            <button class="mode-btn" data-mode="microbench" aria-pressed="false"><span data-i18n="check.mode_microbench">Микробенчмарк</span><br><span class="mode-btn-sub" data-i18n="check.mode_microbench_sub">Режим 4</span></button>
+          </div>
+          <button id="run" class="btn btn-primary" data-i18n="check.run">▶ Запустить</button>
+          <button id="cancel-run" class="btn btn-secondary" hidden data-i18n="check.cancel">Отменить</button>
+        </div>
+      </div>
+
+      <div class="split-pane">
+
+        <!-- LEFT — Конфигурация -->
+        <div class="split-pane-panel">
+          <div class="panel-header">
+            <span class="panel-title" data-i18n="check.config_title">Конфигурация</span>
+          </div>
+
+          <div class="panel-body">
+            <!-- issue #1179: выбор задачи навигацией — АЛЬТЕРНАТИВА вводу пути,
+                 а не замена. Работа с произвольной папкой вне скачанного курса
+                 остаётся рабочим сценарием и к тому же первым по времени:
+                 сначала пробуют одну задачу, курс качают потом. -->
+            <div id="nav-switch" class="mode-row" role="group"
+                 aria-label="Способ выбора задачи" data-i18n-aria-label="nav.switch_aria">
+              <button id="nav-tab-browse" class="mode-btn" type="button" aria-pressed="false"
+                      data-i18n="nav.tab_browse">Навигация</button>
+              <button id="nav-tab-path" class="mode-btn active" type="button" aria-pressed="true"
+                      data-i18n="nav.tab_path">Путь</button>
+            </div>
+
+            <div id="nav-panel" class="nav-panel" hidden>
+              <div class="nav-controls">
+                <button id="nav-prev" class="btn-icon" type="button" disabled
+                        aria-label="Предыдущая" data-i18n-aria-label="nav.prev_aria">‹</button>
+                <label class="sr-only" for="nav-level" data-i18n="nav.level_label">Уровень листания</label>
+                <select id="nav-level" class="form-input nav-level">
+                  <option value="course" data-i18n="nav.level_course">Курс</option>
+                  <option value="section" data-i18n="nav.level_section">Глава</option>
+                  <option value="step" selected data-i18n="nav.level_step">Шаг</option>
+                </select>
+                <button id="nav-next" class="btn-icon" type="button" disabled
+                        aria-label="Следующая" data-i18n-aria-label="nav.next_aria">›</button>
+                <span id="nav-counter" class="nav-counter"></span>
+                <button id="nav-list-toggle" class="btn-icon" type="button"
+                        aria-expanded="false" aria-controls="nav-list"
+                        aria-label="Список" data-i18n-aria-label="nav.list_aria">☰</button>
+              </div>
+              <p id="nav-context" class="nav-context"></p>
+              <ul id="nav-list" class="nav-list" role="listbox" tabindex="-1" hidden></ul>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="path" data-i18n="check.path_label">Папка с решениями</label>
+              <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__" list="recent-paths-datalist"
+                     placeholder="Путь к файлу решения (.py) или папке с решениями"
+                     data-i18n-placeholder="check.path_placeholder"
+                     data-i18n-placeholder="check.path_placeholder">
+            </div>
+            <!-- issue #364: недавние пути — подсказки datalist у поля пути
+                 (вариант А), а не постоянный блок в панели. -->
+            <datalist id="recent-paths-datalist"></datalist>
+
+            <!-- issue #366: параметры режимов 3/4 — инлайн под полем пути (вкладок
+                 конфиг-панели больше нет); setMode() показывает нужный блок по
+                 режиму: bench-профиль → bench (3), микро-профиль → microbench (4).
+                 issue #727: оба блока — одной структуры (профиль + «свой…» с
+                 полем числа) и с подписью одного вида: раньше режим 3 был
+                 обрезанным вариантом того же контрола, без своего значения,
+                 хотя CLI (_BENCH_PROFILES, cli/interactive.py) его давно умеет. -->
+            <div id="bench-config" hidden>
+              <div class="form-group">
+                <label class="form-label" for="repeats" data-i18n="check.repeats_label">Профиль нагрузки (повторов на тест-кейс)</label>
+                <select class="form-input" id="repeats">
+                  <option value="5" data-i18n="check.repeats_low">низкий · 5</option>
+                  <option value="15" selected data-i18n="check.repeats_medium">средний · 15</option>
+                  <option value="50" data-i18n="check.repeats_high">высокий · 50</option>
+                  <option value="custom" data-i18n="check.repeats_custom">свой…</option>
+                </select>
+              </div>
+              <div class="form-group" id="repeats-custom-group" hidden>
+                <label class="form-label" for="repeats-custom" data-i18n="check.repeats_custom_label">Своё число повторов (5–100)</label>
+                <input class="form-input" id="repeats-custom" type="number" min="5" max="100" value="15">
+              </div>
+            </div>
+            <div id="microbench-config" hidden>
+              <div class="form-group">
+                <label class="form-label" for="micro-profile" data-i18n="check.micro_profile_label">Профиль нагрузки (вызовов на замер)</label>
+                <select class="form-input" id="micro-profile">
+                  <option value="500" data-i18n="check.micro_fast">fast · 500</option>
+                  <option value="1000" selected data-i18n="check.micro_normal">normal · 1 000</option>
+                  <option value="5000" data-i18n="check.micro_thorough">thorough · 5 000</option>
+                  <option value="50000" data-i18n="check.micro_deep">deep · 50 000</option>
+                  <option value="100000" data-i18n="check.micro_hard">hard · 100 000</option>
+                  <option value="custom" data-i18n="check.micro_custom">custom…</option>
+                </select>
+              </div>
+              <div class="form-group" id="micro-custom-group" hidden>
+                <label class="form-label" for="micro-custom" data-i18n="check.micro_custom_label">Своё число вызовов (100–500 000)</label>
+                <input class="form-input" id="micro-custom" type="number" min="100" max="500000" value="1000">
+              </div>
+            </div>
+
+            <div id="file-picker-group" hidden>
+              <div class="row mb-3">
+                <button id="find-solutions-btn" class="btn btn-secondary" type="button" data-i18n="check.find_solutions">Найти решения</button>
+                <!-- issue #683: отправка решения режима 1 на Stepik. Активна лишь
+                     после полного AC; клик требует подтверждения (необратимое
+                     действие на платформе). Живёт здесь, а не в шапке: блок
+                     виден только в режиме 1, и её появление там сдвигало
+                     переключатель режимов при каждом переключении. -->
+                <button id="stepik-submit" class="btn btn-secondary" type="button" disabled
+                        data-i18n="stepik.submit" data-i18n-title="stepik.submit_title"
+                        title="Отправить решение на Stepik — доступно после прохождения всех тестов">↑ Отправить в Stepik</button>
+                <!-- issue #1178: условие задачи рядом с решением. Живёт в том же
+                     блоке, что и «Отправить в Stepik»: он виден только в режиме 1,
+                     а условие показывается для одной выбранной задачи. -->
+                <button id="statement-open" class="btn btn-secondary" type="button" disabled
+                        data-i18n="statement.open" data-i18n-title="statement.open_title"
+                        title="Показать условие задачи — доступно, если оно скачано">📄 Условие задачи</button>
+                <button id="find-reference-btn" class="btn btn-secondary" type="button"
+                        title="Импортировать закреплённое решение Stepik (+топовые) из ветки решений как эталон для сравнения"
+                        data-i18n="check.find_reference" data-i18n-title="check.find_reference_title">Найти эталонное решение</button>
+              </div>
+              <ul id="solutions-list" class="side-list"></ul>
+              <div class="form-group">
+                <label class="form-label" for="solution-editor">
+                  <span data-i18n="check.code_label">Код решения</span>
+                  <!-- issue #297: индикатор несохранённых изменений. «Проверить»
+                       больше не пишет на диск (грейд из временного файла) —
+                       запись только по явному «Сохранить». -->
+                  <span id="editor-dirty" class="editor-dirty" hidden data-i18n="check.editor_dirty">● не сохранено</span>
+                </label>
+                <!-- issue #265: CodeMirror 6 mounts into this div (see app.js
+                     mountEditor()) instead of a plain <textarea>. tabindex
+                     keeps it keyboard-reachable before the editor mounts;
+                     CodeMirror's own contenteditable takes over focus/tab
+                     order once mounted. -->
+                <div class="form-input code-editor" id="solution-editor" tabindex="0"
+                     data-placeholder="Выберите решение слева или начните вводить новое. «Проверить» запускает без записи на диск, «Сохранить» пишет файл."
+                     data-i18n-data-placeholder="check.editor_placeholder"></div>
+                <div class="row mt-3">
+                  <button id="save-solution-btn" class="btn btn-secondary" type="button" disabled data-i18n="check.save">Сохранить</button>
+                </div>
+                <!-- issue #633: ошибка сохранения — рядом с кнопкой, а не в
+                     дальней панели #out (на вкладке «Разбор» она скрыта). -->
+                <p id="save-error" class="inline-error" role="alert" hidden></p>
+              </div>
+            </div>
+            <div class="hint" data-i18n="check.hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Разбор».</div>
+
+            <!-- issue #323: «Функции в коде» — мини-карточки функций текущего
+                 решения (замена мёртвого виджета «Связанные термины»). Скрыт в
+                 режимах 3/4 (issue #324) через #check-terms-block. -->
+            <div id="check-terms-block">
+              <div class="section-heading" data-i18n="check.functions_heading">Функции в коде</div>
+              <ul id="check-terms" class="side-list"><li class="empty" data-i18n="check.terms_empty">Начните вводить код или выберите решение</li></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT — Результаты -->
+        <div class="split-pane-panel">
+          <div class="panel-header">
+            <span class="panel-title" data-i18n="check.results_title">Результаты</span>
+            <div class="panel-tabs" role="tablist">
+              <button class="panel-tab active" data-restab="table" role="tab" id="restab-table-btn" aria-selected="true" aria-controls="restab-table" data-i18n="check.tab_table">Таблица</button>
+              <button class="panel-tab" data-restab="detail" role="tab" id="restab-detail-btn" aria-selected="false" aria-controls="restab-detail" tabindex="-1" data-i18n="check.tab_detail">Разбор</button>
+            </div>
+            <div class="panel-actions" id="result-summary-badges"></div>
+          </div>
+
+          <div class="panel-body no-pad" id="restab-table" role="tabpanel" aria-labelledby="restab-table-btn" tabindex="-1">
+            <div id="bar" class="bar pad-t3-x4"></div>
+            <div id="out"></div>
+          </div>
+          <!-- issue #298 (a11y): polite live region for the result summary.
+               Only the final one-line verdict summary is written here (NOT
+               every progress tick), so assistive tech announces "task_1.py:
+               OK, 12 из 12" on completion without reading the whole table or
+               the intermediate skeleton. Visually hidden (.sr-only). -->
+          <div id="result-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+          <div class="panel-body" id="restab-detail" role="tabpanel" aria-labelledby="restab-detail-btn" tabindex="-1" hidden>
+            <div id="detail-empty" class="empty-state">
+              <h3 data-i18n="check.detail_empty_title">Кейс не выбран</h3>
+              <p data-i18n="check.detail_empty_text">Выберите тест-кейс во вкладке «Таблица», чтобы увидеть разбор.</p>
+            </div>
+            <div id="detail-content" hidden></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ЗАГРУЗЧИК ЗАДАЧ» ══ -->
+    <!-- issue #724: раздел — одна колонка из трёх самостоятельных панелей:
+         «Доступ к Stepik» (состояние авторизации + куда скачивать), «Скачать
+         задачу» (главное действие) и результат, который появляется только после
+         скачивания. Порядок — по ходу дела: без доступа скачивать нечем.
+         Раньше URL и «Скачать» жили в левой колонке под мастером OAuth и
+         уезжали под сгиб, а правую половину экрана занимала пустая панель
+         «Результат». -->
+    <section id="view-downloader" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="downloader.title">Загрузчик задач</h1>
+      </div>
+      <div class="single-pane">
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_load">Доступ к Stepik</span></div>
+          <div class="panel-body">
+            <!-- issue #402/#723: панель доступа. Первый запуск — развилка
+                 «настроить впервые / указать готовый secrets.json»; дальше —
+                 компактная строка состояния. Рисует renderAuthPanel. -->
+            <div id="auth-panel" class="auth-panel"></div>
+            <!-- issue #725: корневая папка — значением из stepik_config.json с
+                 кнопкой «Изменить», а не всегда пустым полем-плейсхолдером. -->
+            <div id="downloader-root-row" class="config-row"></div>
+          </div>
+        </div>
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_download">Скачать задачу</span></div>
+          <div class="panel-body">
+            <div class="downloader-actions">
+              <input class="form-input" id="downloader-url" type="text"
+                     aria-label="URL шага Stepik" data-i18n-aria-label="downloader.url_label"
+                     placeholder="https://stepik.org/lesson/569749/step/4?unit=564263">
+              <button id="downloader-run" class="btn btn-primary" data-i18n="downloader.run">▶ Скачать</button>
+            </div>
+          </div>
+        </div>
+        <div class="split-pane-panel" id="downloader-result-panel" hidden>
+          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_result">Результат</span></div>
+          <div class="panel-body" id="downloader-result">
+            <div id="downloader-content"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ГЛОССАРИЙ» ══ -->
+    <section id="view-glossary" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="glossary.title">Глоссарий</h1>
+      </div>
+      <div class="split-pane">
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="glossary.cards_title">Карточки</span></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <input class="form-input" id="glossary-search" type="text" placeholder="Поиск по глоссарию…" data-i18n-placeholder="glossary.search_placeholder">
+            </div>
+            <div class="mode-row mb-4">
+              <button class="mode-btn active" data-glview="cards" data-i18n="glossary.view_cards">Карточки</button>
+              <button class="mode-btn" data-glview="missing" data-i18n="glossary.view_missing">Недостающее</button>
+            </div>
+            <!-- issue #685: навигация по разделам — раскрываемые семейства
+                 (кнопки рисует JS из поля `group` карточек, покрытие 100%
+                 разделов), поэтому селект «Раздел» и чипы-дубли убраны. Выбрав
+                 раздел, панель сворачивается, а сам выбор виден «пилюлей»
+                 #glossary-filter-pill — она же снимает фильтр. Селекты «Тип» и
+                 «Статус» тоже убраны: kind дублировал навигацию (исключения =
+                 раздел «Исключения», конструкции = «Синтаксис»), а черновиков в
+                 комплектной базе нет — «Статус» показывается (probeGlossaryDrafts)
+                 только если в источнике реально есть не-ready карточки. -->
+            <div id="glossary-filters">
+              <div id="glossary-groups" class="chip-grid" role="group" aria-label="Семейства разделов" data-i18n-aria-label="glossary.groups_aria"></div>
+              <div id="glossary-filter-pill" class="glossary-pill-row" hidden></div>
+              <div id="glossary-group-sections" class="chip-grid chip-grid-nested" role="group" aria-label="Разделы семейства" data-i18n-aria-label="glossary.group_sections_aria" hidden></div>
+              <div class="glossary-filter-row">
+                <select class="form-input" id="glossary-sort" aria-label="Сортировка" data-i18n-aria-label="glossary.sort_aria">
+                  <option value="relevance" data-i18n="glossary.sort_relevance">По релевантности</option>
+                  <option value="az" data-i18n="glossary.sort_az">А–Я</option>
+                  <option value="section" data-i18n="glossary.sort_section">По разделам</option>
+                  <option value="version" data-i18n="glossary.sort_version">По версии</option>
+                </select>
+                <select class="form-input" id="glossary-status" aria-label="Статус" data-i18n-aria-label="glossary.status_aria" hidden>
+                  <option value="" data-i18n="glossary.status_ready">Готовые (по умолчанию)</option>
+                  <option value="draft" data-i18n="glossary.status_draft">Черновики</option>
+                  <option value="all" data-i18n="glossary.status_all">Все статусы</option>
+                </select>
+              </div>
+              <div id="glossary-count" class="hint" aria-live="polite"></div>
+            </div>
+            <ul id="glossary-cards" class="side-list"></ul>
+            <ul id="glossary-missing" class="side-list" hidden></ul>
+          </div>
+        </div>
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="glossary.card_title">Карточка</span></div>
+          <div class="panel-body">
+            <div id="glossary-empty" class="empty-state">
+              <h3 data-i18n="glossary.empty_title">Карточка не выбрана</h3>
+              <p data-i18n="glossary.empty_text">Выберите термин слева, чтобы увидеть описание.</p>
+            </div>
+            <!-- issue #969: адрес указывает на карточку, которой нет. Отдельный
+                 блок, а не подмена текста в #glossary-empty: у пустого состояния
+                 свой смысл («ничего не выбрано»), и оба перерисовываются при
+                 смене языка через data-i18n. -->
+            <div id="glossary-not-found" class="empty-state" hidden>
+              <h3 data-i18n="glossary.not_found_title">Карточка не найдена</h3>
+              <p data-i18n="glossary.not_found_text">В базе нет карточки с таким адресом — возможно, ссылка устарела.</p>
+            </div>
+            <div id="glossary-detail-content" hidden></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПРАВИЛА (PEP)» (issue #348) ══ -->
+    <section id="view-rules" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="rules.title">Правила (PEP 8)</h1>
+      </div>
+      <div class="split-pane">
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="rules.panel_title">Правила</span></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <input class="form-input" id="rules-search" type="text" placeholder="Поиск по коду или названию…" data-i18n-placeholder="rules.search_placeholder">
+            </div>
+            <div id="rules-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по тегам" data-i18n-aria-label="rules.chips_aria"></div>
+            <div id="rules-count" class="hint" aria-live="polite"></div>
+            <ul id="rules-cards" class="side-list"></ul>
+          </div>
+        </div>
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="rules.card_title">Карточка правила</span></div>
+          <div class="panel-body">
+            <div id="rules-empty" class="empty-state">
+              <h3 data-i18n="rules.empty_title">Правило не выбрано</h3>
+              <p data-i18n="rules.empty_text">Выберите код слева, чтобы увидеть объяснение и примеры «до/после».</p>
+            </div>
+            <!-- issue #969: то же для правил — deep-link #/rules/<код>. -->
+            <div id="rules-not-found" class="empty-state" hidden>
+              <h3 data-i18n="rules.not_found_title">Правило не найдено</h3>
+              <p data-i18n="rules.not_found_text">Правила с таким кодом нет в справочнике — возможно, ссылка устарела.</p>
+            </div>
+            <div id="rules-detail-content" hidden></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПОДУЧИТЬ» (issue #348) ══ -->
+    <section id="view-insights" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="insights.title">Подучить</h1>
+      </div>
+      <div class="split-pane-panel">
+        <div class="panel-header"><span class="panel-title" data-i18n="insights.panel_title">Частые ошибки</span></div>
+        <div class="panel-body">
+          <div id="insights-empty" class="empty-state">
+            <h3 data-i18n="insights.empty_title">Пока пусто — и это отлично 🎉</h3>
+            <p><span data-i18n="insights.empty_pre">Откройте раздел</span> <a href="#check" data-section="check" data-i18n="insights.empty_link">«Проверка решений»</a>
+              <span data-i18n="insights.empty_post">и прогоните решение — в веб-интерфейсе история пишется автоматически, и здесь
+              появятся карточки частых ошибок с прогрессом их исправления.</span></p>
+          </div>
+          <ul id="insights-cards" class="insight-list" hidden></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПРОГРЕСС» (issue #538) ══ -->
+    <section id="view-progress" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="progress.title">Прогресс</h1>
+      </div>
+      <div class="split-pane-panel">
+        <div class="panel-header"><span class="panel-title" data-i18n="progress.panel_title">Ваш прогресс по истории прогонов</span></div>
+        <div class="panel-body">
+          <div id="progress-empty" class="empty-state">
+            <h3 data-i18n="progress.empty_title">Пока пусто 📊</h3>
+            <p><span data-i18n="progress.empty_pre">Откройте раздел</span> <a href="#check" data-section="check" data-i18n="progress.empty_link">«Проверка решений»</a>
+              <span data-i18n="progress.empty_post">и прогоните решение — в веб-интерфейсе история пишется автоматически, и здесь
+              появятся KPI: решено задач, время до первого зачёта, разбор вердиктов.</span></p>
+          </div>
+          <div id="progress-content" hidden>
+            <div id="progress-kpis"></div>
+            <div id="progress-badges"></div>
+            <div id="progress-verdicts"></div>
+            <div id="progress-tasks"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПЕСОЧНИЦА» (issue #317) ══ -->
+    <section id="view-sandbox" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="sandbox.title">Песочница</h1>
+        <div class="page-actions">
+          <button id="sandbox-run" class="btn btn-primary" data-i18n="sandbox.run">▶ Запустить</button>
+          <button id="sandbox-step" class="btn btn-secondary" title="Пошаговое исполнение"
+                  data-i18n="sandbox.step" data-i18n-title="sandbox.step_title">⏭ Пошагово</button>
+          <button id="sandbox-cancel" class="btn btn-secondary" hidden data-i18n="sandbox.cancel">Отменить</button>
+        </div>
+      </div>
+      <div class="split-pane">
+        <!-- LEFT — код + входные данные -->
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="sandbox.code_input_title">Код и ввод</span></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <label class="form-label" for="sandbox-editor" data-i18n="sandbox.code_label">Код</label>
+              <div class="form-input code-editor" id="sandbox-editor" tabindex="0"
+                   data-placeholder="Напишите код Python. «Запустить» исполнит его с введёнными ниже данными."
+                   data-i18n-data-placeholder="sandbox.editor_placeholder"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sandbox-stdin" data-i18n="sandbox.stdin_label">Входные данные (stdin)</label>
+              <textarea class="form-input code-editor" id="sandbox-stdin" rows="4"
+                        placeholder="Строки, которые получит программа через input()/sys.stdin"
+                        data-i18n-placeholder="sandbox.stdin_placeholder"
+                        data-i18n-placeholder="sandbox.stdin_placeholder"></textarea>
+            </div>
+
+            <!-- issue #321: мини-карточки функций, задействованных в коде -->
+            <div class="section-heading" data-i18n="sandbox.functions_heading">Функции в коде</div>
+            <ul id="sandbox-terms" class="side-list"><li class="empty" data-i18n="sandbox.terms_empty">Начните вводить код</li></ul>
+          </div>
+        </div>
+        <!-- RIGHT — вывод -->
+        <div class="split-pane-panel">
+          <div class="panel-header">
+            <span class="panel-title" data-i18n="sandbox.output_title">Вывод</span>
+            <span id="sandbox-status" class="badge badge-neutral" hidden></span>
+          </div>
+          <div class="panel-body">
+            <div id="sandbox-empty" class="empty-state">
+              <h3 data-i18n="sandbox.empty_title">Пока пусто</h3>
+              <p data-i18n="sandbox.empty_text">Нажмите «Запустить», чтобы увидеть вывод программы.</p>
+            </div>
+            <div id="sandbox-output" hidden></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «НАСТРОЙКИ» (issue #364) ══ -->
+    <section id="view-settings" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="settings.title">Настройки</h1>
+      </div>
+      <div class="split-pane-panel">
+        <div class="panel-header"><span class="panel-title" data-i18n="settings.panel_title">Интерфейс</span></div>
+        <div class="panel-body">
+          <!-- issue #659: тема и язык переехали в topbar — это частые действия,
+               и селекты здесь были дублем тумблеров. Раздел остаётся под то,
+               что действительно настраивается редко. -->
+          <div class="section-heading" data-i18n="settings.history_heading">История прогонов</div>
+          <!-- Текст заполняется динамически в syncSettingsControls() через t()
+               (settings.history_status_on/off, #546) — раздел скрыт до открытия,
+               поэтому статической RU-заглушки здесь нет (guardrail #547). -->
+          <p class="hint" id="history-status"></p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- issue #565: однократное уведомление о локальном сборе истории (localStorage-гейт в app.js). -->
+<div id="history-notice" class="notice" role="status" hidden>
+  <span class="notice-text"><span data-i18n="notice.history_pre">Прогоны сохраняются локально в</span> <code>.grader_history.db</code>
+    <span data-i18n="notice.history_mid1">для раздела «Подучить» — хранится</span> <strong>sha256</strong> <span data-i18n="notice.history_mid2">решения, не исходный код.
+    Отключить: перезапуск сервера с</span> <code>--no-history</code>.</span>
+  <button id="history-notice-dismiss" class="btn btn-secondary" type="button" data-i18n="notice.history_dismiss">Понятно</button>
+</div>
+
+<!-- issue #543: однократное явное согласие на AI-подсказку (код/IO уходят провайдеру). -->
+<div id="ai-consent-overlay" class="modal-overlay" hidden>
+  <div class="modal ai-consent" role="dialog" aria-modal="true" aria-labelledby="ai-consent-title">
+    <h2 id="ai-consent-title" data-i18n="ai.consent_title">Согласие на AI-подсказку</h2>
+    <p class="ai-consent-body" data-i18n="ai.consent_body">AI-подсказка отправит ваш код и ввод-вывод AI-провайдеру. Рекомендуется локальный провайдер (ollama) — данные не покинут вашу машину. Для несовершеннолетних требуется согласие представителя. Без согласия в сеть ничего не отправляется.</p>
+    <div class="ai-consent-actions">
+      <button id="ai-consent-accept" class="btn" type="button" data-i18n="ai.consent_accept">Согласен, объяснить</button>
+      <button id="ai-consent-decline" class="btn btn-secondary" type="button" data-i18n="ai.consent_decline">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- issue #660: стартовый экран-онбординг. Первый показ — по data-onboarding-seen
+     (флаг в .grader_settings.json), повторно — кнопкой #onboarding-open. Focus-trap,
+     Escape и возврат фокуса — как в модалке AI-согласия (core.js _requestAiConsent). -->
+<div id="onboarding-overlay" class="modal-overlay" hidden>
+  <div class="modal onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <div class="onboarding-head">
+      <h2 id="onboarding-title"><span aria-hidden="true">🐍</span> <span data-i18n="onboarding.title">С чего начать</span></h2>
+      <button id="onboarding-close-x" class="btn-icon" type="button" aria-label="Закрыть"
+              data-i18n-aria-label="onboarding.close_aria">✕</button>
+    </div>
+    <p class="onboarding-lead" data-i18n="onboarding.lead">Локальная проверка решений Python — быстрый офлайн-цикл без ожидания Stepik.</p>
+
+    <div class="onboarding-label" data-i18n="onboarding.modes_label">Режимы проверки</div>
+    <ul class="onboarding-modes">
+      <li><span class="onboarding-ic" aria-hidden="true">📄</span><span><strong data-i18n="onboarding.mode_file">Один файл</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_file_desc">— проверить одно решение по тест-кейсам.</span></span></li>
+      <li><span class="onboarding-ic" aria-hidden="true">📁</span><span><strong data-i18n="onboarding.mode_tests">Папка</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_tests_desc">— проверить все решения в папке разом.</span></span></li>
+      <li><span class="onboarding-ic" aria-hidden="true">⚡</span><span><strong data-i18n="onboarding.mode_bench">Бенчмарк</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_bench_desc">— сравнить скорость решений на повторных прогонах.</span></span></li>
+      <li><span class="onboarding-ic" aria-hidden="true">🔬</span><span><strong data-i18n="onboarding.mode_microbench">Микробенчмарк</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_microbench_desc">— точный замер одной функции (calls/run).</span></span></li>
+    </ul>
+
+    <div class="onboarding-note">
+      <span class="onboarding-ic" aria-hidden="true">🛡️</span>
+      <p><strong data-i18n="onboarding.sandbox_title">Изоляция выключена по умолчанию.</strong> <span class="onboarding-desc" data-i18n="onboarding.sandbox_body">Грейдер рассчитан на ваш доверенный код. Изоляцию сети, файлов и ресурсов включают при запуске — галкой в лаунчере или флагом --sandbox. Из этого окна режим не переключить: сервер уже работает.</span></p>
+    </div>
+    <div class="onboarding-note">
+      <span class="onboarding-ic" aria-hidden="true">⬇️</span>
+      <p><strong data-i18n="onboarding.download_title">Скачивание задач — по желанию.</strong> <span class="onboarding-desc" data-i18n="onboarding.download_body">Проверять решения можно без входа. Чтобы скачивать задачи со Stepik по URL, нужен OAuth (secrets.json).</span></p>
+    </div>
+
+    <!-- issue #934: без статического checked. Состояние выставляет initOnboarding()
+         из data-onboarding-seen: разметка, утверждающая «отмечено», врала о
+         сохранённой настройке, и следующий же «закрыть» отключал авто-показ,
+         который пользователь только что попросил оставить. -->
+    <label class="onboarding-dont-show">
+      <input type="checkbox" id="onboarding-dont-show">
+      <span data-i18n="onboarding.dont_show">Не открывать это окно автоматически при следующем запуске</span>
+    </label>
+    <div class="onboarding-actions">
+      <button id="onboarding-go-check" class="btn btn-primary" type="button" data-i18n="onboarding.go_check">▶ Проверить решение</button>
+      <button id="onboarding-go-downloader" class="btn btn-secondary" type="button" data-i18n="onboarding.go_downloader">Скачать задачу</button>
+      <span class="spacer"></span>
+      <button id="onboarding-close" class="btn btn-secondary" type="button" data-i18n="onboarding.close">Закрыть</button>
+    </div>
+    <p class="onboarding-reopen hint" data-i18n="onboarding.reopen">Открыть снова — кнопкой «?» вверху справа.</p>
+  </div>
+</div>
+
+<!-- issue #754: обратная связь. Модалка НЕ отправляет обращение — она собирает
+     черновик (POST /api/feedback), показывает предпросмотр и ведёт на GitHub, где
+     Submit жмёт сам пользователь. Кнопка «Открыть GitHub» — это <a>, а не button:
+     навигация по клику пользователя не блокируется попап-блокером, в отличие от
+     window.open() из fetch-колбэка. Focus-trap/Escape — как в онбординге. -->
+<!-- issue #1178: окно условия задачи. Шире остальных модалок (модификатор
+     .statement) — в условии таблицы примеров и иллюстрации, в ширину диалога
+     согласия они не помещаются. Прокрутка внутри окна, страница под ним не
+     смещается. -->
+<div id="statement-overlay" class="modal-overlay" hidden>
+  <div class="modal statement" role="dialog" aria-modal="true" aria-labelledby="statement-title">
+    <div class="statement-head">
+      <div>
+        <p id="statement-crumbs" class="statement-crumbs"></p>
+        <h2 id="statement-title"><span aria-hidden="true">📄</span> <span data-i18n="statement.title">Условие задачи</span></h2>
+      </div>
+      <button id="statement-close-x" class="btn-icon" type="button" aria-label="Закрыть"
+              data-i18n-aria-label="statement.close_aria">✕</button>
+    </div>
+    <div id="statement-body" class="statement-body"></div>
+    <div id="statement-attachments" class="statement-attachments" hidden></div>
+  </div>
+</div>
+
+<div id="feedback-overlay" class="modal-overlay" hidden>
+  <div class="modal feedback" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+    <div class="feedback-head">
+      <h2 id="feedback-title"><span aria-hidden="true">💬</span> <span data-i18n="feedback.title">Обратная связь</span></h2>
+      <button id="feedback-close-x" class="btn-icon" type="button" aria-label="Закрыть"
+              data-i18n-aria-label="feedback.close_aria">✕</button>
+    </div>
+    <p class="feedback-lead" data-i18n="feedback.lead">Форма issue на GitHub откроется уже заполненной: версия, ОС и Python подставятся сами. Отправляете её вы сами — кнопкой Submit в браузере.</p>
+
+    <div class="mode-row" role="group" aria-label="Тип обращения" data-i18n-aria-label="feedback.kind_group_aria">
+      <button class="mode-btn active" type="button" data-fbkind="bug" aria-pressed="true" data-i18n="feedback.kind_bug">🐞 Баг</button>
+      <button class="mode-btn" type="button" data-fbkind="idea" aria-pressed="false" data-i18n="feedback.kind_idea">💡 Идея</button>
+      <button class="mode-btn" type="button" data-fbkind="task-problem" aria-pressed="false" data-i18n="feedback.kind_task">🧩 Задача</button>
+    </div>
+    <p class="hint" id="feedback-kind-hint" data-i18n="feedback.kind_hint_bug">Грейдер работает не так, как должен.</p>
+
+    <label class="form-label feedback-label" for="feedback-summary" data-i18n="feedback.summary_label">Опишите коротко (можно дописать в браузере)</label>
+    <textarea id="feedback-summary" class="form-input feedback-input" rows="4"
+              placeholder="Проверка падает с трейсбеком вместо вердикта"
+              data-i18n-placeholder="feedback.title_placeholder"
+              data-i18n-placeholder="feedback.summary_placeholder"></textarea>
+
+    <div id="feedback-step-row" hidden>
+      <label class="form-label feedback-label" for="feedback-step-url" data-i18n="feedback.step_url_label">Ссылка на шаг Stepik</label>
+      <input id="feedback-step-url" class="form-input feedback-input" type="url"
+             placeholder="https://stepik.org/lesson/…/step/…"
+             data-i18n-placeholder="feedback.step_url_placeholder">
+    </div>
+
+    <!-- issue #920 (ADD-4-02): `open` не украшение. Контракт приватности —
+         «сначала покажи, что уйдёт, потом отправляй», — а свёрнутый по
+         умолчанию блок перекладывает показ на любопытство пользователя: не
+         нажал — не увидел, и обещание выполнено только формально. Раскрытый
+         блок закрывается одним кликом, свёрнутый требует его, чтобы обещание
+         сработало. -->
+    <details class="feedback-preview" open>
+      <summary data-i18n="feedback.preview_summary">Показать, что уйдёт в форму</summary>
+      <div id="feedback-preview-body" class="feedback-preview-body"></div>
+    </details>
+
+    <p class="hint feedback-privacy" data-i18n="feedback.privacy">🔒 Код решения и токены не отправляются. Домашний путь заменён на «~». Имя компьютера не передаётся.</p>
+    <p class="hint" id="feedback-warnings" hidden></p>
+
+    <!-- href обеих ссылок ставит JS из ответа POST /api/feedback: адреса GitHub
+         в разметке нарушили бы инвариант «никаких внешних href/src в index.html»
+         (тест TestSecurityHeaders, CSP/офлайн-политика #563). До готового
+         черновика ссылки помечены aria-disabled и не кликаются. -->
+    <div class="feedback-actions">
+      <a id="feedback-open-github" class="btn btn-primary" aria-disabled="true"
+         target="_blank" rel="noopener noreferrer" data-i18n="feedback.open_github">Открыть форму на GitHub</a>
+      <button id="feedback-cancel" class="btn btn-secondary" type="button" data-i18n="feedback.cancel">Отмена</button>
+      <span class="spacer"></span>
+      <a id="feedback-discussions" class="hint" aria-disabled="true"
+         target="_blank" rel="noopener noreferrer" data-i18n="feedback.discussions">Просто вопрос? Спросите в Discussions</a>
+    </div>
+    <p class="hint" data-i18n="feedback.account_note">Для отправки нужен бесплатный аккаунт GitHub — issue публикуется от вашего имени.</p>
+  </div>
+</div>
+
+<!-- issue #295: CodeMirror 6 is a single self-contained vendored ESM bundle
+     (static/vendor/codemirror-bundle@6.mjs — no CDN, see
+     static/vendor/VERSIONS.md) that app.js imports directly by URL; no
+     import map needed (issue #265's importmap + per-package esm.sh bundles
+     + Node browser-compat shims are gone). -->
+<!-- issue #633: стек тостов. aria-live на контейнере не ставим — каждый тост
+     несёт собственную role (status/alert), иначе анонс дублируется. -->
+<div id="toast-stack" class="toast-stack"></div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

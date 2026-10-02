@@ -1,0 +1,325 @@
+"""У каждого гарда есть исполнитель, и он объявлен (issue #1348).
+
+Две проверки состояния трекера были написаны, покрыты тестами — и не
+запускались **ничем**: ни `ci.yml`, ни `preflight.py`, ни pre-commit, ни
+расписанием. При этом свод обещал, что они «проверяют». Правило исполнялось
+ровно тогда, когда кто-то вспомнит команду; за месяц не вспомнил никто.
+
+Дефект здесь не в конкретном скрипте, а в том, что **отсутствие исполнителя
+ничем не обнаруживалось**: гард-сирота выглядит снаружи точно так же, как
+работающий. Поэтому тест проверяет не «эти два запускаются», а весь класс:
+каждый `scripts/check_*.py` объявлен в реестре ниже вместе с тем, кто его
+запускает, и заявленный исполнитель действительно на него ссылается.
+
+Новый гард без исполнителя роняет этот тест — то есть автор обязан ответить на
+вопрос «кто это запускает?» до мержа, а не через месяц.
+"""
+
+from __future__ import annotations
+
+import pathlib
+
+import pytest
+
+_ROOT = pathlib.Path(__file__).parent.parent
+_SCRIPTS = _ROOT / "scripts"
+
+#: Кто запускает каждый гард. Ключ — имя файла, значение — путь исполнителя и
+#: причина, по которой выбран именно он. Скрипт, которого здесь нет, роняет
+#: тест: «никто» — не вариант, а именно тот дефект, из которого вырос issue.
+_RUNNERS: dict[str, tuple[str, str]] = {
+    "check_attribution.py": (
+        "scripts/check_pr_ready.py",
+        "импортируется гейтом мержа: подпись сверяется до слияния, после — поздно",
+    ),
+    "check_audit_registry.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "предмет — документ аудита против истории мержей: обращение к API, "
+        "поэтому расписание, а не прогон на каждый PR",
+    ),
+    "check_branch_protection.py": (
+        ".github/workflows/ci.yml",
+        "правило 171: половина без сети — эталон обязательных проверок сверяется "
+        "с матрицей из дерева этого же изменения (--tree-only), на каждый PR; "
+        "полная сверка с ruleset требует PAT и живёт в scripts/nightly_checks.py",
+    ),
+    "check_changelog_translated.py": (
+        ".github/workflows/ci.yml",
+        "запись уезжает в CHANGELOG и на PyPI — проверяется на каждый PR",
+    ),
+    "check_catalogue_trails.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "issue #1424: предмет — следы каталога в наше дерево, читается из клона "
+        "чужого репозитория; расписание, а не прогон на каждый PR. Правит след "
+        "владелец дерева, поэтому находка предупреждение, а не отказ",
+    ),
+    "check_experimental_python.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "issue #1529: предмет — чужой календарь (манифест раннера), обращение в "
+        "сеть; расписание, а не прогон на каждый PR. И находка тут не про наш "
+        "код: версия вышла без нас, а починка задевает ещё и ruleset",
+    ),
+    "check_container_closure.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "правило 121: предмет — состояние трекера, поэтому расписание, а не прогон "
+        "на каждый PR (квота общая на аккаунт)",
+    ),
+    "check_contrast.py": (
+        "tests/test_contrast.py",
+        "осознанно тестом, а не джобом: предмет — файлы репозитория, а не трекер",
+    ),
+    "check_adr_records.py": (
+        ".github/workflows/ci.yml",
+        "правила 042/043: запись о решении полна, и её не правят задним числом",
+    ),
+    "check_contract_evolution.py": (
+        ".github/workflows/ci.yml",
+        "правило 113: контракт говорит, что стабильно, что расширяемо и как добавляют новое",
+    ),
+    "check_orphan_branches.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "правило 147: у отмены по префиксу ветки есть адресат — ночной обход",
+    ),
+    "check_declared_outcomes.py": (
+        ".github/workflows/ci.yml",
+        "правило 145: у каждого объявленного исхода есть прогон, а долг виден числом",
+    ),
+    "check_docs_guardrails.py": (".github/workflows/ci.yml", "бюджеты и ссылки документации"),
+    "check_gate_tests.py": (
+        ".github/workflows/ci.yml",
+        "правило 140: у гейта есть прогон того, что он обязан отвергнуть",
+    ),
+    "check_generated_sources.py": (
+        ".github/workflows/ci.yml",
+        "правило 118: у производного файла назван живой исходник",
+    ),
+    "check_showcase_links.py": (
+        ".github/workflows/ci.yml",
+        "правило 089: оригинал не ссылается на свою витрину",
+    ),
+    "check_glossary_docs_links.py": (
+        ".github/workflows/ci.yml",
+        "предмет — адреса документации в карточках: проверяется на каждый PR, "
+        "как и прочие гарды содержимого репозитория",
+    ),
+    "check_glossary_examples.py": (
+        ".github/workflows/ci.yml",
+        "предмет — файлы базы глоссария: проверяется на каждый PR, как и прочие "
+        "гарды содержимого репозитория",
+    ),
+    "check_good_first_issues_bilingual.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "предмет — состояние трекера: расписание, а не прогон на каждый PR (квота)",
+    ),
+    "check_issue_checklists.py": (
+        ".github/workflows/tracker-guardrails.yml",
+        "предмет — состояние трекера: расписание, а не прогон на каждый PR (квота)",
+    ),
+    "check_locale_guardrails.py": (".github/workflows/ci.yml", "полнота локалей"),
+    "check_mcp_permissions.py": (
+        ".github/workflows/ci.yml",
+        "форма запрета MCP: именная запись отключается молча при переименовании",
+    ),
+    "check_hidden_defaults.py": (
+        ".github/workflows/ci.yml",
+        "умолчания из окружения: -z у списков путей от git и явная encoding= "
+        "у текстового subprocess — оба дефекта видны разбором, а не прогоном",
+    ),
+    "check_issue_state_after_merge.py": (
+        "scripts/nightly_checks.py",
+        "вторая половина правила 173: связь проверяется ДО слияния, а врёт она "
+        "после — закрыта ли закрытая, открыта ли частичная, назван ли остаток",
+    ),
+    "check_stale_repo_names.py": (
+        "scripts/nightly_checks.py",
+        "правило 172: переименование чужого репозитория чинит редирект площадки, "
+        "поэтому сигнала о незавершённой миграции нет вовсе — заменяет его перепись",
+    ),
+    "capture_github_fixtures.py": (
+        "scripts/nightly_checks.py",
+        "правило 170: у подделки чужого интерфейса обязан быть снятый источник, "
+        "иначе набор подтверждает представление автора, а не поведение площадки",
+    ),
+    "measure_queue_wakeups.py": (
+        "scripts/nightly_checks.py",
+        "правило 169: у механизма, объявленного страховкой, обязан быть замер — "
+        "иначе «работает» держится верой, а список событий сужают под неё",
+    ),
+    "check_rules_digest.py": (
+        ".github/workflows/ci.yml",
+        "второй рубеж: дайджест правил не разошёлся с ответом проекта, а хук SessionStart объявлен",
+    ),
+    "check_rule_bindings.py": (
+        ".github/workflows/ci.yml",
+        "формат ответа каталогу — на каждый PR; полнота против каталога — "
+        "по расписанию в tracker-guardrails.yml, ей нужен клон каталога",
+    ),
+    "check_pip_audit_report.py": (
+        ".github/workflows/ci.yml",
+        "разбор отчёта pip-audit в цепочке поставок",
+    ),
+    "check_catalogue_name.py": (
+        "scripts/nightly_checks.py",
+        "переименование каталога правил ничего не ломает сразу: клон по старому "
+        "имени переадресуется, и заметить смену нечем — кроме канонического "
+        "имени, которое отдаёт площадка",
+    ),
+    "check_proposal_verdicts.py": (
+        "scripts/nightly_checks.py",
+        "вердикт каталога по нашим предложениям: канал двусторонний, и ответ "
+        "читается из клона каталога, а не из памяти окна",
+    ),
+    "check_pr_ready.py": (
+        ".github/workflows/ci.yml",
+        "гейт мержа; вызывается и вручную перед слиянием",
+    ),
+    "check_raw_values.py": (
+        ".github/workflows/ci.yml",
+        "правило 122: в ответ веб-слоя уходит число, а не его отформатированный вид",
+    ),
+    "check_ruff_pin.py": (".github/workflows/ci.yml", "пины инструментов вердикта"),
+    "check_sources_of_truth.py": (
+        ".github/workflows/ci.yml",
+        "предмет — согласованность самого контракта: ни сети, ни клона не нужно, "
+        "поэтому на каждый PR (и в pre-commit по правкам CLAUDE.md)",
+    ),
+    "check_secret_dumps.py": (".github/workflows/ci.yml", "реестр точек дампа секретов"),
+    "check_test_isolation.py": (".github/workflows/ci.yml", "изоляция тестов"),
+    "check_marker_matching.py": (
+        ".github/workflows/ci.yml",
+        "правило 141: константа-маркер сверяется целиком, а не началом",
+    ),
+    "check_step_deadlines.py": (
+        ".github/workflows/ci.yml",
+        "правило 100: у сетевого шага свой дедлайн — общий предел job'а старт не покрывает",
+    ),
+    "check_three_outcomes.py": (
+        ".github/workflows/ci.yml",
+        "правило 039: скрипт, ходящий в GitHub, отличает «не отработала» от «чисто»",
+    ),
+    "check_truncation_marks.py": (
+        ".github/workflows/ci.yml",
+        "правило 016: обрезка по пределу оставляет признак обрыва",
+    ),
+    "check_ui_locale_guardrails.py": (".github/workflows/ci.yml", "UI-строки без хардкода"),
+    "check_version_consistency.py": (".github/workflows/ci.yml", "дрейф версии в доках"),
+    "check_web_imports.py": (".github/workflows/ci.yml", "импорты ES-модулей веб-слоя"),
+    "check_wheel_contents.py": (".github/workflows/release.yml", "содержимое колеса при релизе"),
+    "check_work_overlap.py": (
+        "scripts/preflight.py",
+        "карта чужой работы показывается сама, неблокирующим шагом. Прежде "
+        "механизм был добровольным (opt-in хук `--install-hook`), и причиной "
+        "названо «список чужих веток стоит обращения к API» — премиса неверная: "
+        "living_branches() читает git for-each-ref refs/remotes/origin, то есть "
+        "локальные ссылки, без сети и токена, о чём говорит и docstring самого "
+        "скрипта. Из-за неё три ответа каталогу (051, 132, 133) полтора месяца "
+        "называли гейтом то, что не запускалось ничем (issue #1400). Шаг остался "
+        "НЕблокирующим: пересечение по файлам — штатное состояние конвейера",
+    ),
+    "check_workflow_guardrails.py": (".github/workflows/ci.yml", "пины и таймауты в workflow'ах"),
+    "skip_inventory.py": (
+        ".github/workflows/ci.yml",
+        "у каждого пропуска в наборе названа причина",
+    ),
+}
+
+
+#: Гарды, не попадающие под соглашение об имени `check_*.py`. Соглашение и было
+#: дырой: `skip_inventory.py` написан гейтом (ненулевой выход на пропуске без
+#: причины) и полтора месяца не запускался ничем — реестр его просто не видел,
+#: потому что имя начинается не с `check_` (issue #1400).
+#: Гарды, чьё имя не начинается с `check_`. Список закрытый: без него скрипт,
+#: названный иначе, выпадал бы из реестра исполнителей молча —
+#: `capture_github_fixtures.py --check` именно проверка (правило 170), просто
+#: тот же файл умеет ещё и снимать образцы.
+_GUARDS_BEYOND_THE_NAMING: tuple[str, ...] = (
+    "capture_github_fixtures.py",
+    "measure_queue_wakeups.py",
+    "skip_inventory.py",
+)
+
+
+def _guard_scripts() -> list[str]:
+    named = {path.name for path in _SCRIPTS.glob("check_*.py")}
+    named |= {name for name in _GUARDS_BEYOND_THE_NAMING if (_SCRIPTS / name).exists()}
+    return sorted(named)
+
+
+def test_every_guard_declares_its_runner() -> None:
+    """Гард без объявленного исполнителя — тот самый дефект, а не мелочь."""
+    declared = set(_RUNNERS)
+    present = set(_guard_scripts())
+
+    orphans = sorted(present - declared)
+    assert not orphans, (
+        f"гард без объявленного исполнителя: {orphans}. "
+        "Подключите его (workflow, preflight, pre-commit или тест) и впишите сюда — "
+        "иначе он повторит issue #1348: написан, покрыт тестами и не запускается."
+    )
+
+    stale = sorted(declared - present)
+    assert not stale, f"в реестре есть исчезнувшие скрипты: {stale}"
+
+
+@pytest.mark.parametrize("script", _guard_scripts())
+def test_declared_runner_actually_calls_the_guard(script: str) -> None:
+    """Заявленный исполнитель действительно ссылается на скрипт.
+
+    Без этой проверки реестр стал бы декларацией, разошедшейся с фактом, —
+    ровно тем, чем был свод до issue #1348.
+    """
+    runner, why = _RUNNERS[script]
+    path = _ROOT / runner
+    assert path.exists(), f"{script}: исполнитель {runner} не найден"
+
+    text = path.read_text(encoding="utf-8")
+    needle = script.removesuffix(".py")
+    if needle in text:
+        return
+
+    # Ссылка может быть через один переход: ночной обход зовёт свои проверки
+    # списком внутри `nightly_checks.py` — шаги workflow не тестируются, а этот
+    # список тестируется (issue #1384). Дальше одного перехода не идём: цепочка
+    # длиннее делает реестр нечитаемым, а его смысл — быстрый ответ «чем».
+    for hop in ("nightly_checks",):
+        if hop not in text:
+            continue
+        if needle in (_ROOT / "scripts" / f"{hop}.py").read_text(encoding="utf-8"):
+            return
+
+    raise AssertionError(f"{script}: {runner} на него не ссылается (заявлено: {why})")
+
+
+def test_tracker_guards_run_on_a_schedule() -> None:
+    """Приёмка #1348: нарушение в трекере находится без участия человека.
+
+    Красный до правки: workflow не существовал, и обе проверки не запускались
+    ничем — свод обещал механизм, которого не было.
+    """
+    workflow = _ROOT / ".github" / "workflows" / "tracker-guardrails.yml"
+    assert workflow.exists(), "нет workflow, запускающего проверки трекера"
+
+    text = workflow.read_text(encoding="utf-8")
+    assert "schedule:" in text, "без расписания проверка снова ждёт, что кто-то вспомнит"
+    assert "workflow_dispatch:" in text, "нужен ручной запуск: проверить, не дожидаясь суток"
+    assert "nightly_checks" in text, "обход должен запускаться, а не только существовать"
+
+    # Сами проверки перечислены в скрипте — шаги workflow не тестируются, а его
+    # список тестируется (issue #1384, tests/test_nightly_checks.py).
+    listed = (_ROOT / "scripts" / "nightly_checks.py").read_text(encoding="utf-8")
+    assert "check_issue_checklists" in listed
+    assert "check_good_first_issues_bilingual" in listed
+
+
+def test_tracker_guards_warn_without_failing_the_run() -> None:
+    """Предупреждают о вероятном: чинить в трекере может быть нечего.
+
+    Чек-лист мог отсутствовать намеренно, `good first issue` — ждать перевода
+    первые минуты. Красный прогон здесь требовал бы починки там, где её нет.
+    """
+    text = (_ROOT / ".github" / "workflows" / "tracker-guardrails.yml").read_text(encoding="utf-8")
+    assert "|| true" in text, "нарушение в трекере не должно ронять прогон"
+    assert "GITHUB_STEP_SUMMARY" in text, (
+        "итог обязан попадать в summary прогона: предупреждение, "
+        "спрятанное в лог, — это снова то, о чём никто не вспомнит"
+    )

@@ -1,0 +1,1310 @@
+"""api_routes.py — бизнес-хендлеры HTTP API грейдера (issue #647, DEV-01).
+
+Извлечены из монолитного ``server._Handler``: 13 GET + 9 POST эндпоинтов
+``/api/*``, декларативная таблица маршрутов (#427) и её диспетчер, back-pressure
+submit (#429) и кламп числовых query/body-параметров (#259/#262/#641).
+``_ApiRoutesMixin`` наследует ``_GuardMixin`` (периметр безопасности) и
+наследуется ``server._Handler``'ом, который держит только do_GET/do_POST и
+статику. HTTP-контракт — docs/dev/api.md (контракт-тест api.md↔роуты).
+"""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import pathlib
+import traceback
+from typing import Any
+from urllib.parse import parse_qs, unquote, urlparse
+
+from stepik_grader.web import auth_adapter, runs
+from stepik_grader.web.commands import filter_commands
+from stepik_grader.web.downloader_adapter import (
+    download_task,
+    read_config,
+    read_step_id,
+    secrets_path_for,
+    write_config,
+)
+from stepik_grader.web.feedback_adapter import feedback_draft
+from stepik_grader.web.glossary_adapter import (
+    code_terms,
+    glossary_get,
+    glossary_missing,
+    glossary_search,
+    missing_queue_path,
+    queue_code_gaps,
+    record_glossary_hit,
+)
+from stepik_grader.web.http_guards import _GuardMixin, _json, _lang_from_query
+from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
+from stepik_grader.web.insights_adapter import insights_cards, progress_report
+from stepik_grader.web.navigation_adapter import read_task_tree
+from stepik_grader.web.reference_adapter import import_reference
+from stepik_grader.web.rules_adapter import rules_get, rules_search
+from stepik_grader.web.settings_adapter import (
+    grant_ai_consent,
+    has_ai_consent,
+    read_settings,
+    revoke_ai_consent,
+    set_flag,
+)
+from stepik_grader.web.statement_adapter import read_image, read_statement
+from stepik_grader.web.usage_adapter import usage_snapshot
+from stepik_grader.web.viewmodels import (
+    grade_benchmark,
+    grade_microbench,
+    grade_path,
+    history_db_path_if_enabled,
+    list_solutions,
+    read_source,
+    save_solution,
+)
+
+__all__ = ["_ApiRoutesMixin"]
+
+
+def _since_from_query(query: dict[str, list[str]]) -> float | None:
+    """Нижняя граница по времени из ``?since=`` — или ``None``.
+
+    Мусор в параметре означает «границы нет», а не ноль и не отказ: клиент
+    здесь соседний инструмент, и молча отдать ему ВСЁ безопаснее, чем ответить
+    ошибкой на опечатку в необязательном параметре (issue #1365).
+    """
+    raw = (query.get("since") or [""])[0]
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+# issue #259 (A-2): API — не server-ready без лимитов на входные данные.
+# Тело POST ограничено 1 MiB (413 при превышении); repeats/number из query
+# кламп'аются в разумный диапазон вместо прохода как есть в исполнение.
+_REPEATS_RANGE = (1, 1000)
+_NUMBER_RANGE = (1, 1_000_000)
+# issue #641: границы per-run лимитов из тела POST /api/v1/runs
+# (``limits: {timeout_s, memory_mb}``) — override серверных дефолтов в разумных
+# пределах. Верх memory совпадает с дефолтом ``CONFIG.max_memory_mb`` (1024): запрос
+# не поднимает потолок выше серверного максимума; timeout — до 60 с (6× дефолтных 10).
+_TIMEOUT_S_RANGE = (1.0, 60.0)
+_MEMORY_MB_RANGE = (16, 1024)
+
+
+def _int(values: list[str] | None, default: int) -> int:
+    """Первое значение из query как int, иначе default (без падения)."""
+    try:
+        return int((values or [str(default)])[0])
+    except (TypeError, ValueError):
+        return default
+
+
+def _clamp(value: int, lo: int, hi: int) -> int:
+    """Ограничивает значение диапазоном [lo, hi] (issue #259 — защита от
+    неограниченных `repeats`/`number` в API)."""
+    return max(lo, min(hi, value))
+
+
+def _to_int(value: Any, default: int) -> int:
+    """Значение из JSON-тела (не query-string-списка, в отличие от ``_int``)
+    как int, иначе default (issue #262 — `POST /api/v1/runs` params)."""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_run_limits(body: dict[str, Any]) -> dict[str, float | int]:
+    """Per-run лимиты ``{timeout_s?, memory_mb?}`` из тела POST /api/v1/runs (issue #641).
+
+    Возвращает только числовые заданные ключи, зажатые в серверные границы
+    (``_TIMEOUT_S_RANGE``/``_MEMORY_MB_RANGE``). Отсутствие блока ``limits`` или
+    нечисловой мусор (строка/``null``/``bool``) → ключ не добавляется, и grade-слой
+    берёт дефолт из ``CONFIG``. Override не поднимает потолок выше серверного
+    максимума (верх диапазонов).
+    """
+    raw = body.get("limits")
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, float | int] = {}
+    timeout_s = raw.get("timeout_s")
+    if isinstance(timeout_s, int | float) and not isinstance(timeout_s, bool):
+        lo, hi = _TIMEOUT_S_RANGE
+        out["timeout_s"] = max(lo, min(hi, float(timeout_s)))
+    memory_mb = raw.get("memory_mb")
+    if isinstance(memory_mb, int | float) and not isinstance(memory_mb, bool):
+        out["memory_mb"] = _clamp(int(memory_mb), *_MEMORY_MB_RANGE)
+    return out
+
+
+class _ApiRoutesMixin(_GuardMixin):
+    """Бизнес-хендлеры ``/api/*`` + таблица маршрутов и диспетчер (issue #647).
+
+    13 GET + 9 POST эндпоинтов, декларативный роутинг (#427), back-pressure
+    submit (#429). Наследует ``_GuardMixin`` (guard'ы/сериализация/чтение тела);
+    наследуется ``server._Handler``'ом, добавляющим do_GET/do_POST и статику.
+    """
+
+    # -- Реестр маршрутов (issue #427) — декларативная таблица path→handler-метод
+    # вместо растущих if/elif в do_GET/do_POST. Точные пути ищутся в dict (O(1)),
+    # затем префиксы по порядку (первое совпадение), суффикс опционален (POST
+    # /cancel). Один диспетчер `_dispatch` на оба метода; HTTP-контракт не
+    # меняется (docs/dev/api.md). Новый эндпоинт = запись в таблице + метод-хендлер.
+    _API_GET_EXACT = {
+        "/api/grade": "_get_grade",
+        "/api/glossary": "_get_glossary",
+        "/api/glossary/missing": "_get_glossary_missing",
+        "/api/rules": "_get_rules",
+        "/api/insights": "_get_insights",
+        "/api/progress": "_get_progress",
+        "/api/commands": "_get_commands",
+        "/api/solutions": "_get_solutions",
+        "/api/source": "_get_source",
+        "/api/task/statement": "_get_task_statement",
+        "/api/task/image": "_get_task_image",
+        "/api/tasks/index": "_get_tasks_index",
+        "/api/auth/status": "_get_auth_status",
+        "/api/downloader/config": "_get_downloader_config",
+        "/api/v1/usage": "_get_usage",
+    }
+    _API_GET_PREFIX = (
+        ("/api/v1/runs/", "_get_run_status"),
+        ("/api/glossary/", "_get_glossary_card"),
+        ("/api/rules/", "_get_rule_card"),
+    )
+    _API_POST_EXACT = {
+        "/api/v1/runs": "_handle_create_run",
+        "/api/v1/hint": "_handle_create_hint",
+        "/api/v1/settings": "_handle_update_settings",
+        "/api/stepik/submit": "_handle_stepik_submit",
+        "/api/auth/start": "_handle_auth_start",
+        "/api/code-terms": "_post_code_terms",
+        "/api/glossary/hit": "_post_glossary_hit",
+        "/api/download": "_post_download",
+        "/api/feedback": "_post_feedback",
+        "/api/downloader/config": "_post_downloader_config",
+        "/api/import-reference": "_post_import_reference",
+        "/api/save-solution": "_post_save_solution",
+    }
+    _API_POST_PREFIX = (("/api/v1/runs/", "_handle_cancel_run", "/cancel"),)
+
+    def _dispatch(
+        self,
+        exact: dict[str, str],
+        prefixes: tuple[tuple[str, ...], ...],
+        parsed: Any,
+        *args: Any,
+    ) -> None:
+        """Единый диспетчер (issue #427): точное совпадение → префикс(+суффикс) →
+        404. Хендлер — имя метода, вызывается с ``(parsed, *args)`` (GET
+        прокидывает ``lang``, POST — нет)."""
+        handler = exact.get(parsed.path)
+        if handler is None:
+            for entry in prefixes:
+                prefix, name = entry[0], entry[1]
+                suffix = entry[2] if len(entry) > 2 else ""
+                if parsed.path.startswith(prefix) and (not suffix or parsed.path.endswith(suffix)):
+                    handler = name
+                    break
+        if handler is None:
+            self._send(404, "text/plain; charset=utf-8", b"not found")
+            return
+        try:
+            getattr(self, handler)(parsed, *args)
+        except Exception as exc:
+            # issue #922: необработанное исключение в хендлере `http.server` НЕ
+            # становится ответом. Базовый класс печатает трейсбек в лог сервера
+            # и закрывает соединение, а клиент получает разрыв — «сервер не
+            # ответил» вместо «вот что случилось». Для одностраничного
+            # интерфейса это худший исход: раздел молча остаётся в состоянии
+            # «идёт запрос», и единственный выход — перезагрузка страницы,
+            # ровно то, чего критерий приёмки подэпика требует не допускать.
+            #
+            # Рубеж НЕ заменяет обработку ошибок в хендлерах: каждая известная
+            # причина обязана иметь свой код и своё сообщение (NUL-байт —
+            # 400 выше по стеку, а не 500 здесь). Он ловит НЕизвестные, чтобы
+            # цена ошибки была «ответ 500 с текстом», а не «интерфейс завис».
+            #
+            # Если ответ уже начат, второго не будет: дописать статус поверх
+            # отправленных заголовков нельзя, и попытка испортила бы поток
+            # сильнее самой ошибки. Исключение пробрасывается — соединение
+            # закроет базовый класс, как и раньше.
+            if self._response_started:
+                raise
+            lang = args[0] if args and isinstance(args[0], str) else DEFAULT_LANG
+            self._send(
+                500,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields(
+                            "server_internal_error",
+                            lang,
+                            route=parsed.path,
+                            error=f"{type(exc).__name__}: {exc}",
+                        ),
+                    }
+                ),
+            )
+            # Причина всё равно нужна тому, кто чинит: ответ клиенту её
+            # сокращает, а лог сервера обязан сохранить полный трейсбек.
+            traceback.print_exc()
+
+    def _dispatch_api_get(self, parsed: Any, lang: str) -> None:
+        """Диспетчеризация GET /api/* — вызывается только после `_guard_request()`.
+
+        ``lang`` — локаль ``?lang=`` запроса (issue #264), уже разрешённая
+        ``_lang_from_query()`` в ``do_GET`` — прокидывается в хендлеры и дальше
+        в ``viewmodels.py``/каталог сообщений для рендера ``message``.
+        """
+        self._dispatch(self._API_GET_EXACT, self._API_GET_PREFIX, parsed, lang)
+
+    def _get_run_status(self, parsed: Any, lang: str) -> None:
+        run_id = parsed.path[len("/api/v1/runs/") :]
+        if not run_id or "/" in run_id:
+            self._send(404, "text/plain; charset=utf-8", b"not found")
+            return
+        job = runs.get_job(run_id)
+        if job is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("run_not_found", lang, run_id=run_id)}),
+            )
+            return
+        self._send(200, "application/json; charset=utf-8", _json(job.to_status_dict()))
+
+    def _get_grade(self, parsed: Any, lang: str) -> None:
+        # DEPRECATED для bench/microbench (issue #262): синхронный — держит
+        # HTTP-запрос открытым на всю длительность бенчмарка, без прогресса и
+        # без отмены. POST /api/v1/runs + polling — асинхронная замена (см.
+        # web/runs.py). Оставлен как тонкая sync-обёртка для обратной
+        # совместимости и для режимов 1/2 (обычные тесты), вне scope #262 —
+        # поведение не меняется, TODO(#267) docs/dev/api.md.
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        mode = (qs.get("mode") or ["tests"])[0]
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_file_or_folder", lang),
+                "rows": [],
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return
+            path = confined
+            # issue #922 (ARCH-2-02): синхронный грейд занимает место в ОБЩЕМ
+            # учёте прогонов. Прежде этот путь job'у не заводил и потому в учёт
+            # не попадал вовсе: десять вкладок поднимали десять подпроцессов
+            # Python при любом значении `max_active_runs` — настройка была, а
+            # половина трафика шла мимо неё.
+            #
+            # Отмена и TTL так не чинятся и чиниться здесь не должны: HTTP-запрос
+            # держится открытым всю длительность прогона, отменять нечего, а
+            # результат никуда не складывается. Для отмены есть асинхронный
+            # путь, и находка называет три разных свойства, а не одно.
+            try:
+                with runs.sync_slot():
+                    if mode == "bench":
+                        reference = (qs.get("reference") or [""])[0].strip() or None
+                        repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
+                        data = grade_benchmark(
+                            path,
+                            repeats=repeats,
+                            reference=reference,
+                            lang=lang,
+                            workspace=self.server.workspace,
+                        )
+                    elif mode == "microbench":
+                        number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
+                        data = grade_microbench(
+                            path, number=number, lang=lang, workspace=self.server.workspace
+                        )
+                    else:
+                        data = grade_path(path, lang=lang, workspace=self.server.workspace)
+            except runs.TooManyRunsError as exc:
+                # Тот же код и то же сообщение, что у асинхронного пути: для
+                # пользователя это одна и та же причина отказа.
+                self._send(
+                    429,
+                    "application/json; charset=utf-8",
+                    _json(
+                        {
+                            "kind": "error",
+                            **message_fields("too_many_runs", lang, limit=exc.limit),
+                        }
+                    ),
+                )
+                return
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_glossary(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        query = (qs.get("q") or [""])[0]
+        # Опциональные грани фильтра/сортировки (issue #329, group — #685);
+        # пустые → None.
+        cards = glossary_search(
+            query,
+            section=(qs.get("section") or [""])[0] or None,
+            kind=(qs.get("kind") or [""])[0] or None,
+            status=(qs.get("status") or [""])[0] or None,
+            sort=(qs.get("sort") or [""])[0] or None,
+            group=(qs.get("group") or [""])[0] or None,
+            lang=lang,
+        )
+        self._send(200, "application/json; charset=utf-8", _json(cards))
+
+    def _get_glossary_missing(self, parsed: Any, lang: str) -> None:
+        # issue #966: очередь ищется относительно рабочей директории сервера, а
+        # не cwd процесса — иначе раздел пуст, хотя пополнение шло.
+        queue = missing_queue_path(self.server.workspace)
+        self._send(
+            200, "application/json; charset=utf-8", _json(glossary_missing(queue_path=queue))
+        )
+
+    def _get_glossary_card(self, parsed: Any, lang: str) -> None:
+        # issue #969: путь берётся из запроса ЗАКОДИРОВАННЫМ. У карточек есть
+        # кириллические id («остаток», «срез»), фронтенд шлёт их через
+        # encodeURIComponent, и без декодирования сервер искал строку
+        # «%D0%BE%D1%81…» — то есть прямая ссылка на такую карточку не работала
+        # вовсе. Путь здесь не файловый (id ищется в базе), обхода каталогов нет.
+        card_id = unquote(parsed.path[len("/api/glossary/") :])
+        card = glossary_get(card_id, lang=lang)
+        if card is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields("glossary_card_not_found", lang, card_id=card_id),
+                    }
+                ),
+            )
+        else:
+            self._send(200, "application/json; charset=utf-8", _json(card))
+
+    def _post_glossary_hit(self, parsed: Any) -> None:
+        """POST /api/glossary/hit (issue #1220) — отметить переход в карточку из ошибки.
+
+        Тело: ``{"card_id", "failure_kind"?, "error_class"?}`` → ``200``
+        ``{"kind": "glossary_hit", "recorded": bool}``. ``recorded=false`` — не
+        отказ, а честный ответ «история выключена»: тумблер один на весь журнал
+        (ADR-0002), и отдельного согласия эта запись не заводит.
+
+        Метод POST, а не параметр к ``GET /api/glossary/<id>``: у записи есть
+        побочный эффект, а GET браузер волен повторить или предзагрузить — тогда
+        метрика «пришёл из ошибки» считала бы кэш и префетчи.
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        card_id = str(body.get("card_id") or "").strip()
+        if not card_id:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("glossary_no_card_id", lang)}),
+            )
+            return
+        db_path = history_db_path_if_enabled()
+        recorded = False
+        if db_path is not None:
+            recorded = record_glossary_hit(
+                card_id,
+                db_path=db_path,
+                failure_kind=str(body.get("failure_kind") or "") or None,
+                error_class=str(body.get("error_class") or "") or None,
+            )
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"kind": "glossary_hit", "recorded": recorded}),
+        )
+
+    def _get_rules(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        cards = rules_search(
+            (qs.get("q") or [""])[0],
+            tag=(qs.get("tag") or [""])[0] or None,
+        )
+        self._send(200, "application/json; charset=utf-8", _json(cards))
+
+    def _get_insights(self, parsed: Any, lang: str) -> None:
+        self._send(200, "application/json; charset=utf-8", _json(insights_cards()))
+
+    def _get_progress(self, parsed: Any, lang: str) -> None:
+        # issue #538: агрегатный отчёт прогресса (KPI solved/total, вердикты,
+        # TTFG по задачам в ``tasks``) — тот же движок, что CLI --export-progress.
+        self._send(200, "application/json; charset=utf-8", _json(progress_report()))
+
+    def _get_usage(self, parsed: Any, lang: str) -> None:
+        """GET /api/v1/usage (issue #1365) — журнал прогонов для соседнего инструмента.
+
+        Отдаёт то же, что CLI-команда ``usage``: события в схеме
+        ``stepik-grader/usage/1`` и число пропущенных строк. Ничего не собирает
+        сверх журнала — это чтение уже накопленного, а не телеметрия, заведённая
+        боком.
+
+        **Выключено по умолчанию.** Без ``--expose-usage`` эндпоинт отвечает
+        404, как несуществующий: журнал человек копил для себя (``--stats``), и
+        решение поделиться им с соседним инструментом принимает он, а не
+        умолчание. 404, а не 403, — потому что снаружи выключенный эндпоинт и
+        должен выглядеть отсутствующим, а не запертым.
+        """
+        if not getattr(self.server, "expose_usage", False):
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("usage_endpoint_disabled", lang)}),
+            )
+            return
+
+        since = _since_from_query(parse_qs(parsed.query))
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json(usage_snapshot(since=since)),
+        )
+
+    def _get_rule_card(self, parsed: Any, lang: str) -> None:
+        # issue #969: коды правил ASCII, но декодируем по той же причине —
+        # чтобы соседние эндпоинты не расходились в обращении с путём.
+        code = unquote(parsed.path[len("/api/rules/") :])
+        card = rules_get(code)
+        if card is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("rule_card_not_found", lang, code=code)}),
+            )
+        else:
+            self._send(200, "application/json; charset=utf-8", _json(card))
+
+    def _get_commands(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        raw_context = (qs.get("context") or [""])[0]
+        context = {tag for tag in raw_context.split(",") if tag} or None
+        self._send(200, "application/json; charset=utf-8", _json(filter_commands(context)))
+
+    def _get_solutions(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+                "files": [],
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return
+            data = list_solutions(confined, lang=lang)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_source(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {"kind": "error", **message_fields("specify_path_file", lang)}
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return
+            # issue #811 (SECW-02): эндпоинт показывает КОД решения, и его
+            # контракт — только это. Без фильтра он работал как примитив чтения
+            # чего угодно внутри workspace: проверено прогоном, что
+            # `?path=secrets.json` отдавал 200 с client_secret и access_token.
+            # Довод «читать безопаснее, чем исполнять» здесь не спасает:
+            # исполнение файл по HTTP не возвращает, а этот ответ — возвращает.
+            if confined.suffix.lower() != ".py":
+                data = {
+                    "kind": "error",
+                    **message_fields("source_not_a_solution", lang, name=confined.name),
+                }
+            else:
+                data = read_source(confined, lang=lang)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_tasks_index(self, parsed: Any, lang: str) -> None:
+        """GET /api/tasks/index?path=<корень>&refresh=1 (issue #1179).
+
+        Дерево скачанных задач со статусами — данные для панели навигации.
+        В сеть не ходит: работает с тем, что уже на диске.
+
+        Пустое дерево возвращается как обычный ответ, а не как ошибка: у
+        человека может не быть ни одной скачанной задачи, и панель обязана
+        показать «пока пусто», а не сбой.
+        """
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил 403
+            refresh = (qs.get("refresh") or [""])[0] in {"1", "true", "yes"}
+            data = read_task_tree(confined, refresh=refresh)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_task_statement(self, parsed: Any, lang: str) -> None:
+        """GET /api/task/statement?path=<каталог задачи> (issue #1177).
+
+        Отдаёт условие скачанной задачи: шапку из ``meta.json``, очищенное тело
+        и список вложений. В сеть не ходит — работает с тем, что уже на диске.
+
+        **Параметр — каталог, а не файл.** Соседний ``_get_source`` вынужден
+        фильтровать расширение (issue #811: без фильтра он отдавал `200` с
+        `client_secret` на `?path=secrets.json`), потому что имя файла приходит
+        от вызывающего. Здесь имя не приходит вовсе: адаптер сам читает
+        ``task.html`` внутри названного каталога, поэтому назвать чужой файл
+        нечем. Конфайнмент в workspace всё равно обязателен — он отвечает на
+        другой вопрос, «внутри ли рабочей папки».
+        """
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил 403
+            data = read_statement(confined)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_task_image(self, parsed: Any, lang: str) -> None:
+        """GET /api/task/image?path=<каталог задачи>&name=<файл> (issue #1177).
+
+        Отдаёт байты картинки-вложения, на которую ссылается условие. Ручка
+        нужна потому, что в браузере ``src="pic.png"`` разрешается относительно
+        корня сервера, а не каталога задачи: без неё переписанный ``src`` давал
+        бы 404 на каждой иллюстрации.
+
+        **Имя сверяется со списком вложений из ``meta.json``, а не берётся как
+        путь**, и расширение обязано быть картиночным. Иначе это была бы вторая
+        серия issue #811: ручка чтения произвольного файла, только теперь ещё и
+        отдающая его ``inline`` со своего origin. SVG не отдаётся вовсе — он
+        носит скрипт и обошёл бы всю очистку HTML.
+        """
+        qs = parse_qs(parsed.query)
+        raw_dir = (qs.get("path") or [""])[0].strip()
+        name = (qs.get("name") or [""])[0].strip()
+        if not raw_dir or not name:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_path_folder", lang)}),
+            )
+            return
+
+        confined = self._confined_path(raw_dir, lang)
+        if confined is None:
+            return  # _confined_path уже отправил 403
+
+        found = read_image(confined, name)
+        if found is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("attachment_not_found", lang, name=name)}),
+            )
+            return
+        body, content_type = found
+        self._send(200, content_type, body)
+
+    def _get_auth_status(self, parsed: Any, lang: str) -> None:
+        # issue #402: валиден ли токен Stepik. issue #723: путь к secrets.json —
+        # из stepik_config.json, тот же, что использует скачивание; раньше здесь
+        # был жёсткий workspace/secrets.json, и статус мог расходиться с делом.
+        secrets_path = secrets_path_for(self.server.workspace)
+        status = auth_adapter.auth_status(secrets_path)
+        config = read_config(self.server.workspace)
+        # issue #1213: `reason` говорит, что делать (нужна форма), но не что
+        # случилось. Пользователю нужно второе: «файла нет по пути X» и «файл
+        # есть, но не читается» — разные проблемы с разными действиями. Отдаём
+        # КАТЕГОРИЮ состояния, никогда содержимое: рядом лежат client_secret и
+        # токен (SECURITY.md, прецедент с `?path=secrets.json`).
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json(
+                {
+                    **status,
+                    "secrets_path": config["secrets_path"],
+                    # Настроенный путь бывает относительным («secrets.json»), и
+                    # на вопрос «где искали» он не отвечает. Разрешённый путь —
+                    # отвечает, а форма ниже по-прежнему правит настроенный.
+                    "secrets_path_resolved": str(secrets_path),
+                    "secrets_state": auth_adapter.secrets_state(secrets_path),
+                }
+            ),
+        )
+
+    def _get_downloader_config(self, parsed: Any, lang: str) -> None:
+        """GET /api/downloader/config (issue #723/#725) — куда скачивать и чем.
+
+        Отдаёт ``{root_dir, secrets_path, root_dir_default, secrets_exists,
+        configured}`` из ``stepik_config.json`` рабочей директории. Нужен UI,
+        чтобы показать текущую корневую папку значением (а не пустым полем с
+        плейсхолдером) и отличить первый запуск от повторного.
+        """
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json(read_config(self.server.workspace)),
+        )
+
+    def _secrets_path_is_writable(self, path: pathlib.Path, lang: str) -> bool:
+        """Можно ли назначить ``path`` файлом секретов, не затерев чужие данные.
+
+        issue #811 (SECW-05): конфайнмент проверял только вложенность в
+        workspace, поэтому ``{"secrets_path": "task1/solution.py"}`` принимался,
+        а последующая авторизация перезаписывала решение JSON'ом с
+        ``client_secret``. Порча файла в рабочей папке — полбеды; хуже, что
+        токен оказывается в пути, который пользователь не считает секретным
+        (файл в git-репозитории задач) — прямая дорога закоммитить его.
+
+        Правило: расширение ``.json`` и либо файла ещё нет, либо он уже похож на
+        secrets (JSON-объект с ``client_id``). Отказ — 400 с причиной, а не
+        молчаливая перезапись.
+        """
+        if path.suffix.lower() != ".json":
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields("secrets_path_not_json", lang, name=path.name),
+                    }
+                ),
+            )
+            return False
+        if not path.exists():
+            return True
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing = None
+        if isinstance(existing, dict) and "client_id" in existing:
+            return True
+        self._send(
+            400,
+            "application/json; charset=utf-8",
+            _json(
+                {
+                    "kind": "error",
+                    **message_fields("secrets_path_occupied", lang, name=path.name),
+                }
+            ),
+        )
+        return False
+
+    def _post_downloader_config(self, parsed: Any) -> None:
+        """POST /api/downloader/config (issue #723/#725) — сохранить конфиг загрузчика.
+
+        Тело: ``{"root_dir"?: str, "secrets_path"?: str}`` — пишутся только
+        переданные поля. Оба пути конфайнятся в workspace (как ``root`` у
+        ``/api/download``, issue #401): иначе через этот эндпоинт можно было бы
+        назначить чтение произвольного файла с диска или создать каталог вне
+        рабочей директории. Ответ — новый конфиг плюс статус авторизации по
+        нему, чтобы UI сразу сказал «файл рабочий» или «токена нет».
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        raw_root = str(body.get("root_dir") or "").strip()
+        raw_secrets = str(body.get("secrets_path") or "").strip()
+        root_dir = None
+        secrets_path = None
+        if raw_root:
+            root_dir = self._confined_path(raw_root, lang)
+            if root_dir is None:
+                return  # 403 уже отправлен
+        if raw_secrets:
+            secrets_path = self._confined_path(raw_secrets, lang)
+            if secrets_path is None:
+                return
+            if not self._secrets_path_is_writable(secrets_path, lang):
+                return
+        config = write_config(self.server.workspace, root_dir=root_dir, secrets_path=secrets_path)
+        status = auth_adapter.auth_status(secrets_path_for(self.server.workspace))
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"ok": True, **config, "auth": status}),
+        )
+
+    def _post_code_terms(self, parsed: Any) -> None:
+        # issue #321/#322: мини-карточки глоссария по коду. Тело — либо {code}
+        # (режим 1/песочница, debounce), либо {path} (режим 2, разово после
+        # прогона): path конфайнится и читается, пробелы решения дозаписываются
+        # в очередь «Недостающее» (practice-driven канал).
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        terms_path = str(body.get("path") or "").strip()
+        if terms_path:
+            confined = self._confined_path(terms_path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил ошибку
+            try:
+                terms_code = confined.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                # issue #423: не-UTF8 файл не должен ронять /api/code-terms —
+                # best-effort детект пробелов на пустом коде.
+                terms_code = ""
+            queue_code_gaps(
+                terms_code,
+                source=confined.name,
+                queue_path=missing_queue_path(self.server.workspace),
+            )
+        else:
+            raw_code = body.get("code")
+            terms_code = raw_code if isinstance(raw_code, str) else ""
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"terms": code_terms(terms_code, lang=lang)}),
+        )
+
+    def _post_download(self, parsed: Any) -> None:
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        url = str(body.get("url") or "").strip()
+        if not url:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("specify_url", lang)}),
+            )
+            return
+        # issue #401: root (куда скачивать) из тела запроса — конфайнить в
+        # workspace, иначе download_task через mkdir создаёт произвольные
+        # каталоги вне рабочей директории.
+        raw_root = str(body.get("root") or "").strip()
+        if raw_root:
+            confined = self._confined_path(raw_root, lang)
+            if confined is None:
+                return  # _confined_path уже отправил 403
+            root: str | None = str(confined)
+        else:
+            root = None
+        data = download_task(url, root=root, workspace=self.server.workspace)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _post_feedback(self, parsed: Any) -> None:
+        # issue #754: черновик обращения (баг/идея/проблема с задачей) — ссылка на
+        # ЗАПОЛНЕННУЮ форму issue на GitHub плюс предпросмотр того, что уйдёт.
+        # Сервер ничего не отправляет и не создаёт: Submit жмёт сам пользователь
+        # в браузере, токена у грейдера нет (эпик #751). POST, а не GET, чтобы
+        # текст обращения не оседал в access-логе http.server как query-string.
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        draft = feedback_draft(
+            str(body.get("kind") or ""),
+            summary=body.get("summary"),
+            step_url=body.get("step_url"),
+            logs=body.get("logs"),
+            lang=lang,
+            # Активная OS-изоляция — часть окружения: под --sandbox поведение
+            # исполнения отличается, и баг-репорт без этого факта уводит в сторону.
+            sandbox=bool(getattr(self.server, "sandbox", False)),
+        )
+        if draft is None:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("feedback_unknown_kind", lang)}),
+            )
+            return
+        self._send(200, "application/json; charset=utf-8", _json(draft))
+
+    def _post_import_reference(self, parsed: Any) -> None:
+        # issue #55: закреплённое решение Stepik → task{N}_{100+}.py в папке
+        # задачи. path конфайнится в workspace (как download's root).
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        raw_folder = str(body.get("path") or "").strip()
+        if not raw_folder:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("specify_folder", lang)}),
+            )
+            return
+        confined_dir = self._confined_path(raw_folder, lang)
+        if confined_dir is None:
+            return  # _confined_path уже отправил 403
+        raw_top = body.get("top")
+        top = raw_top if isinstance(raw_top, int) else None  # предел — забота адаптера
+        data = import_reference(str(confined_dir), top=top, workspace=self.server.workspace)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _post_save_solution(self, parsed: Any) -> None:
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        raw_folder = str(body.get("folder") or "").strip()
+        if not raw_folder:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("specify_folder", lang)}),
+            )
+            return
+        confined_folder = self._confined_path(raw_folder, lang)
+        if confined_folder is None:
+            return
+        code = body.get("code")
+        if not isinstance(code, str):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("specify_code", lang)}),
+            )
+            return
+        raw_path = str(body.get("path") or "").strip() or None
+        target_path: pathlib.Path | None = None
+        if raw_path:
+            confined_target = self._confined_path(raw_path, lang)
+            if confined_target is None:
+                return
+            # issue #963 (SEC-1-03): ручка сохраняет РЕШЕНИЕ, и её контракт —
+            # только это. Без фильтра конфайна хватало, чтобы записать что угодно
+            # внутри workspace: `path=secrets.json` затирал токен Stepik текстом
+            # решения, причём optimistic-lock не мешал (без `expected_mtime`
+            # проверки нет). Соседний `_get_source` такой гейт получил в #811,
+            # а `_secrets_path_is_writable` защищает только сам secrets.json —
+            # здесь распространяем правило на любой не-`.py`.
+            if not self._is_python_target(confined_target, lang):
+                return
+            target_path = confined_target
+        # issue #297: optimistic locking — фронтенд присылает mtime, запомненный
+        # при загрузке файла; save_solution откажет с conflict=True, если файл на
+        # диске с тех пор изменился. Нечисловое/отсутствующее значение → None
+        # (проверка не применяется).
+        raw_mtime = body.get("expected_mtime")
+        expected_mtime = float(raw_mtime) if isinstance(raw_mtime, int | float) else None
+        data = save_solution(
+            confined_folder, target_path, code, lang=lang, expected_mtime=expected_mtime
+        )
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _submit_or_429(
+        self,
+        lang: str,
+        kind: str,
+        path: pathlib.Path | None,
+        params: dict[str, Any],
+        *,
+        code: str | None = None,
+        stdin: str | None = None,
+    ) -> runs.Job | None:
+        """``runs.submit_job`` с back-pressure (issue #429): при превышении
+        лимита активных job'ов шлёт ``429`` с ``too_many_runs`` и возвращает
+        ``None`` (паттерн «ответ внутри, отказ через None», как
+        ``_confined_path``/``_read_json_body``); иначе — созданная ``Job``."""
+        try:
+            return runs.submit_job(
+                kind, path, params, code=code, stdin=stdin, workspace=self.server.workspace
+            )
+        except runs.TooManyRunsError as exc:
+            self._send(
+                429,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("too_many_runs", lang, limit=exc.limit)}),
+            )
+            return None
+
+    def _handle_create_run(self, parsed: Any) -> None:
+        """POST /api/v1/runs (issue #262/#297) — тело ``{"path","code"?,"mode",
+        "params"?}`` → ``202`` + ``{"run_id","status"}``. Асинхронная
+        альтернатива ``/api/grade`` для tests (корректность режима 1, issue
+        #297) / bench / microbench — ставит job в очередь (``web/runs.py``) и
+        сразу возвращает, не дожидаясь завершения; прогресс/результат — через
+        ``GET /api/v1/runs/{id}``. С ``code`` в теле (режим 1) грейд идёт из
+        временного файла, целевой файл не перезаписывается.
+        """
+        lang = _lang_from_query(parsed)
+        if not self._guard_request(lang):
+            return
+        body = self._read_json_body(lang)
+        if body is None:
+            return
+
+        mode = str(body.get("mode") or "").strip()
+        # issue #317/#318: песочница — code+stdin без path и без тестов
+        # (playground — запуск, trace — пошаговый трейс исполнения).
+        if mode in ("playground", "trace"):
+            self._handle_code_run(body, lang, mode)
+            return
+
+        raw_path = str(body.get("path") or "").strip()
+        if not raw_path:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_path_file_or_folder", lang)}),
+            )
+            return
+        if mode not in ("tests", "bench", "microbench"):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("invalid_run_mode", lang, mode=mode)}),
+            )
+            return
+        confined = self._confined_path(raw_path, lang)
+        if confined is None:
+            return
+
+        raw_code = body.get("code")
+        code = raw_code if isinstance(raw_code, str) and raw_code else None
+
+        raw_params = body.get("params")
+        params_in = raw_params if isinstance(raw_params, dict) else {}
+        params: dict[str, Any] = {"lang": lang}
+        if mode == "bench":
+            params["repeats"] = _clamp(_to_int(params_in.get("repeats"), 15), *_REPEATS_RANGE)
+            reference = str(params_in.get("reference") or "").strip() or None
+            params["reference"] = reference
+        elif mode == "microbench":
+            params["number"] = _clamp(_to_int(params_in.get("number"), 1000), *_NUMBER_RANGE)
+        # mode == "tests" (issue #297): корректность режима 1, никаких
+        # числовых params (кроме lang) — только code в теле.
+
+        # issue #641: опц. per-run лимиты {timeout_s, memory_mb} — override дефолтов
+        # сервера в границах диапазонов. Пусто → grade-слой берёт дефолт из CONFIG.
+        # microbench их не потребляет (run_microbench_mode держит серверные дефолты).
+        params.update(_parse_run_limits(body))
+
+        job = self._submit_or_429(lang, mode, confined, params, code=code)
+        if job is None:
+            return
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_code_run(self, body: dict[str, Any], lang: str, kind: str) -> None:
+        """POST /api/v1/runs с ``mode="playground"``/``"trace"`` (issue #317/#318)
+        — тело ``{"code","stdin"?}`` → ``202`` + ``{"run_id","status"}``. Без
+        ``path`` и без тестов: ``playground`` — одиночный запуск кода со stdin,
+        ``trace`` — пошаговый трейс исполнения (оба через async-очередь ради
+        отмены/неблокирующего UI). Лимит тела (#259) и localhost/Origin guard
+        (#242) уже применены вызывающим кодом."""
+        raw_code = body.get("code")
+        code = raw_code if isinstance(raw_code, str) else ""
+        if not code.strip():
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_code", lang)}),
+            )
+            return
+        raw_stdin = body.get("stdin")
+        stdin = raw_stdin if isinstance(raw_stdin, str) else ""
+        job = self._submit_or_429(lang, kind, None, {"lang": lang}, code=code, stdin=stdin)
+        if job is None:
+            return
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_update_settings(self, parsed: Any) -> None:
+        """POST /api/v1/settings (issue #660) — write-through UI-настроек в
+        ``.grader_settings.json``.
+
+        Тело: ``{"onboarding_seen"?: bool, "ai_hint_consent"?: false}`` →
+        ``200 {"ok": true, "ai_consent": bool}``. Пишутся только явно переданные
+        поля. Клиент шлёт ``onboarding_seen: true`` при закрытии стартового
+        экрана с отмеченной галкой «не показывать» и ``false``, если галку сняли.
+
+        ``ai_hint_consent`` принимается ТОЛЬКО как ``false`` — отзыв (issue
+        #933). Дать согласие здесь нельзя: выдача идёт своим путём
+        (``/api/v1/hint``), где рядом показано, кому именно уйдут данные, и
+        привязывается к получателю. Отзыв же обязан быть доступен оттуда, где
+        пользователь находится: до этого отозвать согласие можно было только
+        командой в терминале и только в текущей папке — согласие, которое
+        нельзя отозвать привычным способом, согласием не является.
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        _lang, body = res
+        value = body.get("onboarding_seen")
+        if isinstance(value, bool):
+            set_flag(self.server.workspace, "onboarding_seen", value)
+        if body.get("ai_hint_consent") is False:
+            revoke_ai_consent(self.server.workspace)
+        settings = read_settings(self.server.workspace)
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"ok": True, "ai_consent": settings.ai_hint_consent is True}),
+        )
+
+    def _handle_stepik_submit(self, parsed: Any) -> None:
+        """POST /api/stepik/submit (issue #683) — отправить решение режима 1 на Stepik.
+
+        Тело: ``{"code", "path"?, "step_id"?}`` → ``202`` + ``{"run_id","status"}``;
+        вердикт (``{"status": "correct"|"wrong"|"evaluation", "hint", "score",
+        "submission_id"}``) — через ``GET /api/v1/runs/{id}``. ``step_id`` берётся
+        из тела или из ``meta.json`` папки задачи (``read_step_id``). Пустой код →
+        **400** ``stepik_no_code``; не Stepik-задача (нет step_id) → **400**
+        ``stepik_no_step_id``; нет валидного токена → job завершается
+        ``stepik_auth_required`` (в сеть ничего). Отправка — необратимое действие,
+        поэтому UI требует явного подтверждения ДО вызова этого эндпоинта.
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+
+        code = str(body.get("code") or "")
+        if not code.strip():
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("stepik_no_code", lang)}),
+            )
+            return
+
+        # Папка задачи нужна не только ради ``step_id``: по ней считается ключ
+        # задачи, под которым вердикт платформы ложится рядом с нашим (#1175).
+        # Поэтому путь разбирается всегда, а не только когда ``step_id`` не
+        # прислали, — иначе привязка терялась ровно у тех клиентов, что уже
+        # знают идентификатор шага.
+        task_dir: pathlib.Path | None = None
+        raw_path = str(body.get("path") or "").strip()
+        if raw_path:
+            confined = self._confined_path(raw_path, lang)
+            if confined is None:
+                return
+            task_dir = confined if confined.is_dir() else confined.parent
+        step_id = body.get("step_id")
+        if not isinstance(step_id, int) and task_dir is not None:
+            step_id = read_step_id(task_dir)
+        if not isinstance(step_id, int):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("stepik_no_step_id", lang)}),
+            )
+            return
+
+        # issue #811 (SECW-04): путь берётся из stepik_config.json, как и во
+        # всех соседних обработчиках. Жёсткий workspace/secrets.json возвращал
+        # расщепление, закрытое issue #723: при кастомном пути «Доступ активен»
+        # в UI, а отправка падала stepik_auth_required; хуже обратный случай —
+        # забытый secrets.json в корне отправлял решение под чужой учёткой.
+        secrets_path = secrets_path_for(self.server.workspace)
+        job = self._submit_or_429(
+            lang,
+            "stepik_submit",
+            None,
+            {
+                "step_id": step_id,
+                "secrets_path": str(secrets_path),
+                "task_dir": str(task_dir) if task_dir is not None else "",
+                "workspace": str(self.server.workspace),
+            },
+            code=code,
+        )
+        if job is None:
+            return
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_create_hint(self, parsed: Any) -> None:
+        """POST /api/v1/hint (issue #543) — AI-объяснение упавшего кейса как async-job.
+
+        Тело: ``{"verdict","stdin"?,"expected"?,"actual"?,"diff"?,"error"?,
+        "path"?|"code"?,"consent"?}`` → ``202`` + ``{"run_id","status"}``; результат
+        (``{"hint": str|None, "configured": bool}``) — через ``GET /api/v1/runs/{id}``.
+
+        Приватность (в т.ч. несовершеннолетних): подсказка отправляет код и ввод-вывод
+        AI-провайдеру, поэтому нужно ОБЯЗАТЕЛЬНОЕ однократное явное согласие. Без
+        согласия — ``403 consent_required``, в сеть НИЧЕГО не уходит (job не ставится,
+        провайдер не вызывается). ``consent: true`` в теле фиксирует согласие в
+        ``.grader_settings.json`` (``ai_hint_consent``) — далее не требуется. Провайдер
+        не настроен → job вернёт ``hint=null`` (graceful, грейдинг не затрагивается).
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+
+        # Consent-гейт — синхронно, ДО любого обращения к провайдеру (приватность).
+        #
+        # issue #931: согласие сверяется С ПОЛУЧАТЕЛЕМ, а не только по факту.
+        # Прежде веб читал один флаг и игнорировал `ai_hint_consent_endpoint`,
+        # который CLI сверяет строго, — согласие, данное локальному ollama,
+        # молча распространялось на любой адрес, попавший в конфиг позже. А
+        # конфиг приезжает вместе с чужой папкой задач.
+        granted = has_ai_consent(self.server.workspace)
+        if body.get("consent") is True and not granted:
+            granted = grant_ai_consent(self.server.workspace)
+        if not granted:
+            self._send(
+                403,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("consent_required", lang)}),
+            )
+            return
+
+        # Код решения для заземления промпта: из confined-пути (грейд по файлу) или
+        # из тела (playground/инлайн). Отсутствие — не ошибка (промпт без кода).
+        code = ""
+        raw_path = str(body.get("path") or "").strip()
+        if raw_path:
+            confined = self._confined_path(raw_path, lang)
+            if confined is None:
+                return
+            # issue #963 (SEC-1-01): здесь хуже, чем у чтения исходника, — файл не
+            # показывается, а УВОЗИТСЯ по сети внешнему AI-провайдеру. Без гейта
+            # `path=secrets.json` отправлял в промпт client_secret и access_token,
+            # и следов в интерфейсе не оставалось: в ответе только подсказка.
+            # Тот же фильтр, что `_get_source` получил в #811.
+            if not self._is_python_target(confined, lang):
+                return
+            with contextlib.suppress(OSError):
+                code = confined.read_text(encoding="utf-8")
+        else:
+            raw_code = body.get("code")
+            if isinstance(raw_code, str):
+                code = raw_code
+
+        # web зовёт stdout кейса "actual"; нормализуем в CaseResult-форму для
+        # общего core-хелпера build_failure_context (issue #542, str|list толерантен).
+        case: dict[str, Any] = {
+            "verdict": str(body.get("verdict") or ""),
+            "stdin": str(body.get("stdin") or ""),
+            "expected": str(body.get("expected") or ""),
+            "output": str(body.get("actual") or ""),
+            "diff": str(body.get("diff") or ""),
+            "error": str(body.get("error") or ""),
+        }
+        job = self._submit_or_429(lang, "hint", None, {"lang": lang, "case": case}, code=code)
+        if job is None:
+            return
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_auth_start(self, parsed: Any) -> None:
+        """POST /api/auth/start (issue #402) — тело ``{client_id, client_secret,
+        redirect_uri?}`` → ``202`` + ``{run_id, status}``. Записывает креды в
+        ``secrets.json`` (путь — из ``stepik_config.json``, issue #723) и
+        запускает браузерный OAuth-flow как async-job (``kind="auth"``); опрос —
+        через ``GET /api/v1/runs/{id}``.
+
+        Пустое тело допустимо, если креды уже лежат в ``secrets.json``
+        (issue #723): истёкший токен обновляется одной кнопкой, без повторного
+        ввода client_id/secret — это и есть «второй запуск» из постановки.
+
+        ``webbrowser.open`` открывается на МАШИНЕ СЕРВЕРА — корректно только для
+        локального ``--serve`` (localhost, single-user). Под ``_guard_request``
+        (Host/Origin/Fetch-Metadata, #242/#399) — сторонняя страница не
+        инициирует OAuth-flow.
+        """
+        lang = _lang_from_query(parsed)
+        if not self._guard_request(lang):
+            return
+        body = self._read_json_body(lang)
+        if body is None:
+            return
+        secrets_path = secrets_path_for(self.server.workspace)
+        stored = auth_adapter.stored_credentials(secrets_path)
+        client_id = str(body.get("client_id") or "").strip() or stored.get("client_id", "")
+        client_secret = str(body.get("client_secret") or "").strip() or stored.get(
+            "client_secret", ""
+        )
+        redirect_uri = (
+            str(body.get("redirect_uri") or "").strip()
+            or stored.get("redirect_uri", "")
+            or auth_adapter.DEFAULT_REDIRECT_URI
+        )
+        if not client_id or not client_secret:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_oauth_creds", lang)}),
+            )
+            return
+        # issue #402 (harden): callback-сервер (wait_for_auth_code) биндится на
+        # host из redirect_uri. Принимаем только loopback — иначе тело POST могло
+        # бы забиндить callback на все интерфейсы (0.0.0.0) на ~120с.
+        redirect_host = (urlparse(redirect_uri).hostname or "").lower()
+        if redirect_host not in ("localhost", "127.0.0.1", "::1"):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("invalid_redirect_uri", lang)}),
+            )
+            return
+        params: dict[str, Any] = {
+            "lang": lang,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "secrets_path": str(secrets_path),
+        }
+        job = self._submit_or_429(lang, "auth", None, params)
+        if job is None:
+            return
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_cancel_run(self, parsed: Any) -> None:
+        """POST /api/v1/runs/{id}/cancel (issue #262) — best-effort отмена."""
+        lang = _lang_from_query(parsed)
+        if not self._guard_request(lang):
+            return
+        run_id = parsed.path[len("/api/v1/runs/") : -len("/cancel")]
+        job = runs.get_job(run_id)
+        if job is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("run_not_found", lang, run_id=run_id)}),
+            )
+            return
+        runs.cancel_job(run_id)
+        self._send(200, "application/json; charset=utf-8", _json(job.to_status_dict()))

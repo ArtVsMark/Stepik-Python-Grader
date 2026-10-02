@@ -1,0 +1,294 @@
+"""pytest_plugin.py — запуск грейдера как pytest-плагина (issue #57).
+
+Архитектурный слой: Application / Integration (адаптер к pytest).
+
+Регистрируется через entry point ``pytest11`` (см. pyproject.toml), поэтому
+доступен в любом проекте, где установлен ``stepik-python-grader``. По
+умолчанию — no-op: сбор тест-кейсов включается только флагом
+``--grader-mode`` или ini-опцией ``grader_mode = true``.
+
+    pytest --grader-mode StepikTasks/
+
+pytest обходит переданный путь и для каждого файла-решения (``task*.py``,
+детекция через ``is_solution_file``) собирает по одному ``pytest.Item`` на
+тест-кейс из соответствующей ``tests/``-директории. Каждый item исполняется
+через ``run_single_test`` — тот же движок, что и у CLI-режима 1; провал даёт
+обычный pytest FAILED с diff «ожидалось/получено», ошибка выполнения —
+отчёт с текстом исключения.
+
+Импорты ядра (``core/grader_core``, ``core/test_loader``) намеренно ленивы —
+внутри хуков, а не на уровне модуля. Entry-point-плагины грузятся ДО старта
+coverage.py, поэтому импорт всего ядра на уровне модуля пометил бы его
+def-строки непокрытыми во всём пакете. Ленивая загрузка держит момент импорта
+внутри реального прогона (после старта coverage) и ускоряет запуск pytest,
+когда грейдер-режим не используется.
+"""
+
+from __future__ import annotations
+
+import warnings
+from typing import TYPE_CHECKING, Any
+
+import pytest
+
+__all__ = [
+    "DEFAULT_LANG",
+    "GraderFailure",
+    "GraderFile",
+    "GraderItem",
+    "GraderMissingTests",
+    "MissingTestsItem",
+    "missing_tests_key",
+    "pytest_addoption",
+    "pytest_collect_file",
+    "pytest_terminal_summary",
+]
+
+# Язык отчёта по умолчанию — прежнее поведение плагина (issue #821).
+DEFAULT_LANG = "ru"
+
+# issue #974: решения, у которых не нашлось ``tests/``. Копятся при сборе и
+# печатаются в конце прогона — иначе pytest сообщает лишь «collected N items»,
+# где N молча меньше числа решений. Stash, а не глобальная переменная: у
+# каждого прогона свой config, и параллельный запуск не должен видеть чужой
+# список.
+missing_tests_key = pytest.StashKey[list[str]]()
+
+if TYPE_CHECKING:
+    import os
+    import pathlib
+    from collections.abc import Iterable
+
+    from _pytest._code.code import ExceptionInfo, TerminalRepr
+
+    from stepik_grader.core.result import CaseResult
+    from stepik_grader.core.test_loader import TestCase
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Добавить флаг --grader-mode и ini-опцию grader_mode."""
+    group = parser.getgroup("stepik-grader", "Stepik Python Grader")
+    group.addoption(
+        "--grader-mode",
+        action="store_true",
+        default=False,
+        help="Собирать файлы-решения (task*.py) как pytest-тесты, "
+        "по одному item на тест-кейс из tests/.",
+    )
+    parser.addini(
+        "grader_mode",
+        type="bool",
+        default=False,
+        help="Включить сбор решений грейдером (эквивалент --grader-mode).",
+    )
+    # issue #821: плагин — единственный канал грейдера в чужие CI и IDE
+    # (entry point pytest11), и он был единственной монолингвальной
+    # поверхностью: отчёт печатался по-русски мимо i18n проекта. Язык задаётся
+    # так же, как остальные настройки pytest — флагом или ini; дефолт прежний.
+    group.addoption(
+        "--grader-lang",
+        default=None,
+        help="Язык отчёта грейдера: ru (по умолчанию) или en.",
+    )
+    parser.addini(
+        "grader_lang",
+        type="string",
+        default=DEFAULT_LANG,
+        help="Язык отчёта грейдера (эквивалент --grader-lang).",
+    )
+    # issue #974: пропавший каталог tests/ — обычное следствие мерджа или
+    # неполной выкладки, и ровно тогда гейт обязан краснеть. По умолчанию
+    # поведение мягкое (предупреждение + сводка), чтобы флаг не сломал чужие
+    # прогоны молча; строгий режим включается явно.
+    group.addoption(
+        "--grader-strict",
+        action="store_true",
+        default=False,
+        help="Считать решение без tests/ провалом, а не пропуском.",
+    )
+    parser.addini(
+        "grader_strict",
+        type="bool",
+        default=False,
+        help="Решение без tests/ — провал (эквивалент --grader-strict).",
+    )
+
+
+def _grader_enabled(config: pytest.Config) -> bool:
+    """True, если грейдер-режим включён флагом или ini-опцией."""
+    return bool(config.getoption("--grader-mode") or config.getini("grader_mode"))
+
+
+def _grader_lang(config: pytest.Config) -> str:
+    """Язык отчёта: флаг перекрывает ini, ini — дефолт (issue #821)."""
+    return str(config.getoption("--grader-lang") or config.getini("grader_lang") or DEFAULT_LANG)
+
+
+def _grader_strict(config: pytest.Config) -> bool:
+    """True, если решение без ``tests/`` должно валить прогон (issue #974)."""
+    return bool(config.getoption("--grader-strict") or config.getini("grader_strict"))
+
+
+def pytest_collect_file(parent: pytest.Collector, file_path: Any) -> GraderFile | None:
+    """Собрать task*.py как GraderFile, если грейдер-режим включён."""
+    if not _grader_enabled(parent.config):
+        return None
+    from stepik_grader.core.test_loader import is_solution_file
+
+    if file_path.suffix == ".py" and is_solution_file(file_path.name):
+        return GraderFile.from_parent(parent, path=file_path)
+    return None
+
+
+class GraderMissingTests(Exception):
+    """У решения не нашлось ``tests/`` (issue #974).
+
+    Отдельный тип, а не общий ``GraderFailure``: тот несёт результат прогона,
+    а здесь прогона не было вовсе — и отчёт обязан говорить именно это, а не
+    показывать пустой diff.
+    """
+
+
+class GraderFailure(Exception):
+    """Провал тест-кейса грейдера — несёт result-словарь run_single_test."""
+
+    def __init__(self, result: CaseResult) -> None:
+        self.result = result
+        super().__init__(result.get("error") or "grader test case failed")
+
+
+class GraderFile(pytest.File):
+    """Коллектор одного файла-решения: один Item на тест-кейс."""
+
+    def collect(self) -> Iterable[pytest.Item]:
+        """Собрать по одному ``GraderItem`` на каждый тест-кейс файла-решения."""
+        from stepik_grader.core.test_loader import (
+            _apply_run_mode_override,
+            load_test_cases,
+            resolve_test_dir,
+        )
+
+        solution = self.path
+        test_dir = resolve_test_dir(solution)
+        if test_dir is None:
+            # issue #974: раньше здесь был голый `return` — ни строки в отчёте,
+            # ни кода возврата. Плагин обходил решение молча, а pytest печатал
+            # «collected N items», где N меньше числа решений. Преподаватель и
+            # CI получали зелёный прогон, из которого нельзя понять, что задача
+            # вообще не проверялась.
+            self.config.stash.setdefault(missing_tests_key, []).append(str(solution))
+            warnings.warn(
+                f"{solution.name}: каталог tests/ не найден — решение не проверено",
+                UserWarning,
+                stacklevel=2,
+            )
+            if _grader_strict(self.config):
+                yield MissingTestsItem.from_parent(self, name="tests_not_found")
+            return
+        cases = load_test_cases(test_dir)
+        _apply_run_mode_override(cases, solution, test_dir)
+        for case in cases:
+            yield GraderItem.from_parent(
+                self, name=f"test_{case.index}", case=case, solution=solution
+            )
+
+
+class GraderItem(pytest.Item):
+    """Один тест-кейс грейдера как исполняемый pytest Item."""
+
+    def __init__(
+        self, name: str, parent: GraderFile, case: TestCase, solution: pathlib.Path
+    ) -> None:
+        super().__init__(name, parent)
+        self.case = case
+        self.solution = solution
+
+    def runtest(self) -> None:
+        """Прогнать кейс через ``run_single_test``; провал → ``GraderFailure``."""
+        from stepik_grader.core.grader_core import run_single_test
+
+        result = run_single_test(self.solution, self.case)
+        if not result["passed"]:
+            raise GraderFailure(result)
+
+    def repr_failure(
+        self, excinfo: ExceptionInfo[BaseException], style: Any = None
+    ) -> str | TerminalRepr:
+        """Читаемый отчёт: verdict + diff «ожидалось/получено» или текст ошибки.
+
+        Подписи — из каталога проекта (issue #821), язык берётся из
+        ``--grader-lang``/``grader_lang``. Импорт ``core.i18n`` ленивый, как и
+        остальные импорты ядра здесь: entry-point-плагин грузится до старта
+        coverage, и импорт на уровне модуля пометил бы ядро непокрытым.
+        """
+        if isinstance(excinfo.value, GraderFailure):
+            from stepik_grader.core.i18n import load_locale_messages
+
+            lang = _grader_lang(self.config)
+            msgs = load_locale_messages(lang) or load_locale_messages(DEFAULT_LANG)
+            result = excinfo.value.result
+            verdict = result.get("verdict", "?")
+            header = msgs["plugin_case_header"].format(index=self.case.index, verdict=verdict)
+            lines = [header]
+            if result.get("error"):
+                lines.append(msgs["plugin_error"].format(error=result["error"]))
+            else:
+                lines.append(msgs["plugin_expected"])
+                lines.extend(f"  {line}" for line in result["expected"])
+                lines.append(msgs["plugin_actual"])
+                lines.extend(f"  {line}" for line in result["output"])
+            return "\n".join(lines)
+        return super().repr_failure(excinfo)
+
+    def reportinfo(self) -> tuple[os.PathLike[str] | str, int | None, str]:
+        """Заголовок отчёта pytest для кейса (путь, строка, человекочитаемое имя)."""
+        return self.path, 0, f"grader: {self.name}"
+
+
+class MissingTestsItem(pytest.Item):
+    """Решение без ``tests/`` как проваленный item (issue #974, ``--grader-strict``).
+
+    Отдельный item, а не ошибка коллектора, намеренно: в отчёте pytest видно
+    ИМЯ решения, у которого пропали тесты, — а именно этого и не хватало, когда
+    плагин молчал. Ошибка сбора показала бы трассировку плагина вместо того,
+    что нужно читателю.
+    """
+
+    def runtest(self) -> None:
+        """Всегда провал: проверять нечего, и это не повод считать задачу пройденной."""
+        raise GraderMissingTests(self.path.name)
+
+    def repr_failure(
+        self, excinfo: ExceptionInfo[BaseException], style: Any = None
+    ) -> str | TerminalRepr:
+        """Одна понятная строка вместо трассировки плагина."""
+        if isinstance(excinfo.value, GraderMissingTests):
+            from stepik_grader.core.i18n import load_locale_messages
+
+            lang = _grader_lang(self.config)
+            msgs = load_locale_messages(lang) or load_locale_messages(DEFAULT_LANG)
+            return msgs["plugin_tests_not_found"].format(solution=self.path.name)
+        return super().repr_failure(excinfo)
+
+    def reportinfo(self) -> tuple[os.PathLike[str] | str, int | None, str]:
+        """Заголовок отчёта: путь решения и почему оно здесь."""
+        return self.path, 0, f"grader: {self.name}"
+
+
+def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: Any) -> None:
+    """Назвать решения, оставшиеся без ``tests/`` (issue #974).
+
+    Печатается в конце, а не в ``pytest_report_header``: заголовок выводится ДО
+    сбора, когда список ещё пуст. Строка появляется и в мягком режиме — иначе
+    единственным следом остаётся предупреждение, которое ``-q`` прячет.
+    """
+    skipped = config.stash.get(missing_tests_key, None)
+    if not skipped:
+        return
+    from stepik_grader.core.i18n import load_locale_messages
+
+    lang = _grader_lang(config)
+    msgs = load_locale_messages(lang) or load_locale_messages(DEFAULT_LANG)
+    terminalreporter.write_sep("-", msgs["plugin_missing_tests_header"].format(count=len(skipped)))
+    for solution in skipped:
+        terminalreporter.write_line(f"  {solution}")

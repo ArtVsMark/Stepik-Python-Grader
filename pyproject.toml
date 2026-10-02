@@ -1,0 +1,415 @@
+[build-system]
+# setuptools>=77 — поддержка PEP 639 SPDX-выражения license + license-files (issue #100).
+# setuptools-scm>=8 — динамическая версия из git-тегов (issue #162): git —
+# единственный источник истины, статической строки version в [project] больше нет.
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stepik-python-grader"
+# issue #162: версия вычисляется из git-тегов (setuptools-scm), см. секцию
+# [tool.setuptools_scm] ниже. Поэтому "version" объявлена dynamic, а не
+# захардкожена — единый источник истины теперь git-тег vX.Y.0.
+dynamic = ["version"]
+# issue #832 (AD-02): summary — единственное поле, по которому PyPI ранжирует
+# помимо имени, поэтому в нём стоят слова, которыми пакет ищут, а не только те,
+# которыми он назван. Прежняя редакция не содержала ни local/offline, ни
+# benchmark, ни sandbox — четыре редкие фичи в поиске не участвовали вовсе.
+description = "Local offline autograder for Python: run, benchmark and compare Stepik solutions, with an optional OS sandbox and web UI"
+keywords = [
+    "stepik",
+    "autograder",
+    "grader",
+    "python-education",
+    "benchmark",
+    "offline",
+    "sandbox",
+    "glossary",
+    "testing",
+    "pytest",
+    "cli",
+    "education",
+    "learn-python",
+]
+# Уезжает в long_description дистрибутива КАК ЕСТЬ. Относительные ссылки PyPI не
+# переписывает — резолвит к pypi.org, поэтому README держит абсолютные адреса, а
+# следит за этим `scripts/check_docs_guardrails.check_pypi_readme_is_absolute`.
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+# Провенанс: без authors/urls связь «дистрибутив ↔ репозиторий» не выражена в
+# метаданных вовсе, и страница пакета на PyPI не даёт установившему через
+# `pipx install stepik-python-grader` ни одной двери в проект.
+authors = [
+    { name = "Artem Markitanov", email = "av.markitanov@gmail.com" },
+]
+# Классификаторы — по фактическому состоянию проекта, не по намерению: 3.12/3.13
+# = матрица CI (3.14 там ещё experimental: continue-on-error, поэтому наружу как
+# поддержанная не объявляется), Console+Web Environment = CLI и `--serve`,
+# Framework :: Pytest = entry point pytest11 ниже, Typing :: Typed = py.typed
+# (PEP 561), Natural Language = двуязычные локали RU/EN.
+# Классификатора `License :: OSI Approved :: MIT License` здесь НЕТ намеренно:
+# лицензия объявлена SPDX-выражением (PEP 639, `license = "MIT"` выше), а
+# setuptools>=77 на сочетание того и другого падает с InvalidConfigError
+# («License classifiers have been superseded by license expressions»). В METADATA
+# лицензия и так есть — полем `License-Expression: MIT`.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: Pytest",
+    "Intended Audience :: Education",
+    "Natural Language :: English",
+    "Natural Language :: Russian",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Education",
+    "Topic :: Education :: Testing",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "requests>=2.34.2,<3.0",
+    "psutil>=5.9,<8.0",
+    "rich>=13.0,<16.0",
+]
+
+# Ссылки боковой панели страницы пакета на PyPI. Ключи именно такие: PyPI знает
+# набор известных имён (Homepage/Repository/Changelog/Issues и синонимы) и вешает
+# на них иконки — произвольная подпись отрисуется безымянной строкой.
+[project.urls]
+Homepage = "https://github.com/ArtVsMark/Stepik-Python-Grader"
+Repository = "https://github.com/ArtVsMark/Stepik-Python-Grader"
+# issue #832 (GROW-06): вход в документацию прямо со страницы пакета — без него
+# у поставившего через `pipx` не было двери в docs/ вообще.
+Documentation = "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/README.md"
+Changelog = "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/CHANGELOG.md"
+Issues = "https://github.com/ArtVsMark/Stepik-Python-Grader/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
+    # Параллельный прогон набора: `pytest -n auto`. В `addopts` НЕ включён
+    # намеренно — тесты поднимают настоящие процессы, слушают порты и пишут в
+    # общие файлы, поэтому распараллеливание включается осознанно, когда нужен
+    # быстрый заход, а не по умолчанию для всех (в том числе для CI).
+    "pytest-xdist>=3.5",
+    # issue #791: единственное место, где задаётся версия ruff — pre-commit
+    # берёт его из окружения (`language: system`), а не ставит по своему `rev`.
+    # Верхняя граница обязательна: минорный скачок ruff меняет и правила, и
+    # форматирование (0.16 начал форматировать Python ВНУТРИ markdown — см.
+    # `[tool.ruff.format] exclude` ниже), поэтому без неё CI и машина
+    # контрибьютора расходятся молча, в момент выхода релиза. Границу поднимать
+    # осознанно, отдельным PR, прогнав `ruff format --check .` на всём дереве.
+    "ruff>=0.16,<0.17",
+    # issue #1349: у mypy механизм расхождения тот же и даже прямее — минорный
+    # релиз добавляет диагностику, и CI краснеет на НЕИЗМЕННОМ коде, в день
+    # выхода, у того, кто пересоздал окружение. Поверхность гарантированная:
+    # `[tool.mypy]` здесь со сниженной терпимостью (issue #441), а гейт гоняет
+    # `mypy src/stepik_grader scripts`. Границу поднимать так же осознанно, как
+    # у ruff: отдельным PR, прогнав весь набор.
+    "mypy>=2.3,<2.4",
+    # issue #405: property-based тесты (parse_testblock_file, normalize_floats).
+    "hypothesis>=6.0",
+    # issue #1349: почему `pytest`/`pytest-cov`/`pytest-xdist` НЕ пришпилены
+    # сверху, хотя соседи по списку — да. Верхняя граница здесь защищает от
+    # одного: инструмент меняет ВЕРДИКТ о неизменном коде. У ruff и mypy это
+    # ровно так — новое правило или новая диагностика краснеют на том же файле.
+    # Прогонные инструменты меняют не вердикт, а поведение прогона: сломанный
+    # релиз pytest валит набор целиком и шумно, в первом же прогоне, — это
+    # видно сразу и чинится подъёмом границы, а не разбором ложного красного.
+    # Отвергнутый вариант — пришпилить всё подряд: он делает окружение
+    # неподвижным и заставляет поднимать четыре границы там, где содержательно
+    # нужны две. Решение пересматривается, если прогонный инструмент хоть раз
+    # даст РАЗНЫЙ вердикт на одном коде.
+]
+watch = [
+    "watchfiles>=0.21,<2.0",
+]
+# issue #263: opt-in dev-extra for Playwright e2e smoke tests of the web UI
+# (tests/e2e/) -- playwright is NOT a runtime dependency, only pulled in when
+# a contributor explicitly installs this extra (see CONTRIBUTING.md § E2E).
+e2e = [
+    "playwright>=1.40",
+]
+# issue #346: opt-in extra для PEP-проверки решения через ruff (core/lint.py,
+# раздел «Стиль»). ruff НЕ runtime-зависимость — тянется только при явной
+# установке этого extra; без него блок «Стиль» скрыт (LintUnavailable).
+# issue #728: часть нужных нам pycodestyle-правил у ruff в preview, а preview —
+# зона нестабильного API. Верхняя граница major-серии не даёт молча приехать
+# версии, где эти коды переименованы; guard-тест (tests/test_lint.py) поймает
+# расхождение раньше пользователя.
+lint = [
+    "ruff>=0.15,<2.0",
+]
+
+[project.scripts]
+stepik-grader = "stepik_grader.cli:run_cli"
+
+# issue #661: GUI-лаунчер веб-интерфейса без командной строки. gui-scripts (не
+# обычный scripts) — на Windows создаёт pythonw-exe БЕЗ консольного окна: двойной
+# клик открывает окно-лаунчер, а не терминал (тот самый «ярлык» из issue).
+# Кроссплатформенно: на Linux/macOS ведёт себя как обычный консольный скрипт.
+[project.gui-scripts]
+stepik-grader-gui = "stepik_grader.launcher:main"
+
+# issue #57: pytest-плагин. Регистрируется как pytest11 entry point, поэтому
+# `pytest --grader-mode` доступен всюду, где установлен stepik-python-grader.
+# По умолчанию no-op (см. pytest_plugin._grader_enabled).
+[project.entry-points.pytest11]
+stepik_grader = "stepik_grader.pytest_plugin"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# issue #162: версия из git-тегов. Схема проекта — НЕ SemVer (все теги = vX.Y.0,
+# PATCH = число коммитов после тега; см. CONTRIBUTING.md §Версионирование и
+# scripts/version.py). setuptools-scm не умеет "класть коммиты в PATCH" именованной
+# схемой, поэтому:
+#   * НА ТЕГЕ  vX.Y.0            → метаданные пакета = "X.Y.0"  (совпадает с релизом)
+#   * ВНЕ ТЕГА (N коммитов, hash)→ "X.Y.0.postN+g<hash>"  (PEP 440 dev-сборка)
+# База версии всегда остаётся последним релизным тегом X.Y.0 (version_scheme =
+# post-release), поэтому политика "все релизы = vX.Y.0" не нарушается, а dev-сборки
+# технически отличимы от релиза локальным сегментом +g<hash>. "Логический" счётчик
+# X.Y.N (scripts/version.py) остаётся справочным инструментом для тегирования.
+# При сборке из sdist (нет .git) версия берётся из PKG-INFO — git остаётся
+# единственным источником истины, зафиксированным в момент сборки sdist.
+[tool.setuptools_scm]
+version_scheme = "post-release"
+# issue #958: дерево без `.git` — не экзотика, а обычный способ получить
+# исходники: «Download ZIP» с GitHub, `git archive`, вендоренная копия, образ
+# с `.dockerignore` на `.git`. Без запасного значения setuptools-scm падает
+# `LookupError` ещё на `get_requires_for_build_wheel`, то есть пакет не
+# собирается вовсе, а сообщение ничего не говорит о причине.
+#
+# «0.0.0» выбрано намеренно как заведомо неправдоподобная версия: сборка
+# проходит, но число само сообщает «версия неизвестна, это не релиз».
+# Инвариант CLAUDE.md не нарушен — статической `version` в [project]
+# по-прежнему нет, git остаётся единственным источником истины там, где он есть.
+fallback_version = "0.0.0"
+
+# issue #101: PEP 561 — маркер py.typed, чтобы mypy у downstream-потребителей
+# видел типы установленного пакета. Достаточно на верхнем уровне пакета —
+# помечает всё дерево stepik_grader как типизированное.
+# issue #144: JSON-локали (core/locales/*.json) — иначе не попадут в wheel/sdist.
+# issue #125: web/static/* (index.html/app.css/app.js) — та же причина.
+# issue #260: web/static/fonts/* — "web/static/*" не рекурсивный (не матчит
+# подпапку), поэтому шрифты (woff2 + LICENSE) нужны отдельным паттерном.
+# issue #265: web/static/vendor/* — та же причина, для вендоренных
+# ESM-бандлов CodeMirror 6 (.mjs + LICENSE + VERSIONS.md).
+# issue #326: glossary/data/*.json — комплектная база карточек глоссария
+# (импорт из Glossary-Python), zero-config источник раздела «Глоссарий».
+# issue #345: rules/data/*.json — комплектная база карточек правил PEP 8.
+[tool.setuptools.package-data]
+stepik_grader = [
+    "py.typed",
+    "_build_info.json",
+    "core/locales/*.json",
+    "glossary/data/*.json",
+    "rules/data/*.json",
+    "web/static/*",
+    "web/static/fonts/*",
+    "web/static/vendor/*",
+    "web/static/locales/*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# issue #443: PTH (только pathlib, инвариант CLAUDE.md), SIM105/SIM115
+# (contextlib.suppress / context-manager для open), RUF022 (сортировка __all__),
+# RUF100 (мёртвые noqa), D101/D102/D103 (docstrings публичного API). Полная
+# группа SIM/D не берётся — только перечисленные коды, чтобы не тянуть спорные
+# правила разом.
+select = [
+    "E", "F", "W", "I", "UP", "B", "S102",
+    "PTH", "SIM105", "SIM115", "RUF022", "RUF100",
+    "D101", "D102", "D103",
+]
+# RUF001-003: кириллица в docstring'ах/комментариях/строках — легитимна для
+# русскоязычного проекта, не «ambiguous». PTH201 (Path(".") → Path.cwd()) не
+# берём: `Path(".")` — валидный относительный идиом, а Path.cwd() меняет
+# семантику на абсолютный путь (issue #443).
+ignore = ["S101", "RUF001", "RUF002", "RUF003", "PTH201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["stepik_grader"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# grader.py is a pure backward-compat re-export facade over core/grader_core.py /
+# core/reporter.py / cli.py -- every import in it is intentionally "unused" here.
+"src/stepik_grader/grader.py" = ["F401", "F403", "F405", "I001"]
+# issue #443: docstrings публичного API (D1) требуются только от пакета
+# src/stepik_grader. Тестовые функции/классы, вспомогательные скрипты и
+# conftest — не публичный API, docstring не обязателен (иначе ~1120 ложных D1).
+"tests/**/*.py" = ["D101", "D102", "D103"]
+"scripts/**/*.py" = ["D101", "D102", "D103"]
+"conftest.py" = ["D101", "D102", "D103"]
+
+# issue #441: достигнутый уровень типизации зафиксирован здесь (конфиг —
+# источник истины), а не флагами в CI. Проект проходит эти четыре проверки с
+# нулём ошибок, поэтому CI-команда упрощена до `mypy src/stepik_grader`
+# (--ignore-missing-imports переехал в конфиг). До полного --strict остаются
+# ошибки [attr-defined] на untyped-стабах сторонних либ (psutil/requests/
+# ctypes) — их не берём, чтобы не плодить # type: ignore на границе.
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_return_any = true
+# warn_unused_ignores СОЗНАТЕЛЬНО НЕ включён. Часть `# type: ignore` в проекте
+# платформозависима: ОС-специфичные `# type: ignore[attr-defined]` в
+# core/sandbox/_macos.py, core/sandbox/_posix_common.py, core/runner.py,
+# core/stepik_client.py, web/server.py опираются на символы (ctypes/fcntl/
+# resource/select), доступные не на всех ОС — на одной платформе они «unused»,
+# на другой обязательны. Глобальный warn_unused_ignores ложно падал бы на
+# каждой ОС по очереди (та же логика per-OS, что у двух чисел покрытия,
+# issue #283). Точечная чистка мёртвых ignore — задача ruff RUF100 (issue #443).
+
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov=scripts --cov-report=term-missing --cov-report=xml -v --tb=short"
+# issue #444: global per-test deadline (pytest-timeout). The suite is full of
+# real subprocesses/threads; a hung child (e.g. a regression of the runner
+# process-group / stdin-deadlock fixes, #418/#419) would otherwise hang the
+# whole run and all CI matrix jobs. `thread` method interrupts without SIGALRM,
+# so it is portable to Windows. Per-test override: @pytest.mark.timeout(N).
+timeout = 120
+timeout_method = "thread"
+testpaths = ["tests"]
+python_classes = ["Test*"]
+# issue #263: tests/e2e/ (Playwright smoke tests against a real --serve
+# instance) needs the opt-in "e2e" extra + `playwright install chromium` --
+# excluded from the default `pytest`/`pytest tests/` sweep (and from the
+# --cov measurement above, which only targets src/) so CI's `pytest -q` and
+# the CLAUDE.md pre-commit checklist don't require a browser install. Run
+# explicitly: `pytest tests/e2e/` (norecursedirs only skips *implicit*
+# recursion, an explicit path is still collected).
+# issue #405: setting this key REPLACES pytest's defaults, so the ".*" hidden-dir
+# ignore is restored explicitly -- otherwise hypothesis's example DB (.hypothesis/)
+# trips the plugin's "norecursedirs replaced defaults" warning on every run.
+norecursedirs = ["tests/e2e", ".*", "build", "dist", "*.egg", "node_modules", "venv"]
+
+[tool.coverage.paths]
+# issue #283: lets `coverage combine` merge the three OS matrix jobs' data
+# files into one report. Each job records absolute paths under a
+# different GitHub Actions workspace root (/home/runner/work/<repo>/<repo>
+# on Linux, D:\a\<repo>\<repo> on Windows, /Users/runner/work/<repo>/<repo>
+# on macOS) -- without this aliasing, combine would treat the same source
+# file recorded on three OSes as three unrelated files instead of merging
+# their line coverage, silently defeating the whole point of combining.
+source = [
+    "src/stepik_grader",
+    "*/src/stepik_grader",
+]
+# issue #790: тот же aliasing для CI-скриптов — они тоже измеряются (см.
+# `source` ниже) и записываются каждым job'ом матрицы под своим корнем.
+scripts = [
+    "scripts",
+    "*/scripts",
+]
+
+[tool.coverage.run]
+# issue #294: this base `omit` list is what LOCAL `pytest`/CLAUDE.md-checklist
+# runs use as-is (full honest single-OS picture, core/sandbox/ backends for
+# other OSes naturally at 0%). CI's per-OS `test` matrix job additionally
+# generates a CI-only `.coveragerc.ci` (scripts/generate_ci_coveragerc.py)
+# that layers on top of THIS list, omitting only the core/sandbox/ backend
+# files structurally unreachable on that job's own OS -- so that job's own
+# `--cov-fail-under` gate (declared in the CI step, issue #954) isn't dragged
+# down by platforms it can never exercise (ubuntu measured ~86.1%, ~1pp
+# margin, before this). The
+# `coverage-combine` job (cross-OS aggregate, `--fail-under=90`) does NOT use
+# `.coveragerc.ci` and keeps reading this exact list, so the combined number
+# stays a true aggregate -- no sandbox file is omitted from every job at once.
+# issue #790: `scripts/` измеряется наравне с пакетом. Эти 15 файлов —
+# часть релизного конвейера (сверка версии, генерация .coveragerc.ci, combine
+# покрытия, публикация бейджей), их типизацию mypy уже стережёт, а покрытие не
+# измерялось вовсе: тесты на них есть, но какие ветки они трогают — было
+# неизвестно, а сломанный релизный скрипт обнаруживается в момент релиза.
+# Измеренное покрытие scripts/ на момент включения — 88%, выше общего порога,
+# поэтому отдельный порог не заводится.
+source = ["src", "scripts"]
+omit = [
+    "src/stepik_grader/diagnostic_stepik.py",
+    # issue #57: pytest-плагин регистрируется как pytest11 entry point и
+    # грузится ДО старта coverage.py, поэтому его def/class/import-заголовки
+    # всегда числятся непокрытыми (тела функций тестируются 16 тестами через
+    # pytester в tests/test_pytest_plugin.py). Измерять его coverage бессмысленно
+    # — число было бы артефактом порядка загрузки, а не реальным пробелом.
+    "src/stepik_grader/pytest_plugin.py",
+    # issue #976: разовые тулзы мейнтейнера — из измерения исключены, но
+    # `scripts/` в целом остаётся в контуре (инвариант issue #790 про релизный
+    # конвейер продолжает действовать).
+    #
+    # Граница между списками одна: **что ломается у пользователя, если скрипт
+    # сломан**. Гейты и конвейер (check_*, generate_*_badge, combine_coverage,
+    # extract_release_notes, preflight, check_pr_ready, collect_changelog) —
+    # ломают релиз или пропускают дефект в продукт, поэтому меряются. Файлы
+    # ниже запускает вручную мейнтейнер, их поломка видна ему же в тот же
+    # момент, и никакой пользователь её не увидит. Измерение заставляло писать
+    # под них тесты ради процента: 4349 из 7263 LOC `scripts/` (около 60%) не
+    # вызываются ни одним шагом workflow.
+    #
+    # Новый скрипт по умолчанию МЕРЯЕТСЯ — сюда он попадает только осознанно.
+    "scripts/audit_glossary_cards.py",
+    "scripts/check_contrast.py",
+    "scripts/check_work_overlap.py",
+    "scripts/corpus_fetch.py",
+    "scripts/corpus_mutations.py",
+    "scripts/corpus_run.py",
+    "scripts/corpus_sweep.py",
+    "scripts/generate_draft_cards.py",
+    "scripts/glossary_draft_pipeline.py",
+    "scripts/import_glossary_python.py",
+    "scripts/perf_baseline.py",
+    "scripts/skip_inventory.py",
+    "tests/*",
+    "conftest.py",
+]
+
+[tool.coverage.report]
+# issue #954: порога здесь НЕТ намеренно. `addopts` включает `--cov`
+# безусловно, поэтому `fail_under` в конфиге превращал любой частичный прогон
+# (`pytest tests/test_packaging.py`, `pytest -k ...`) в ложно-красный: тесты
+# зелёные, покрытие пакета по паре файлов — 0%, код возврата 1. Читающий exit
+# code — контрибьютор, агент или скрипт — делает вывод «тесты упали» и чинит
+# несуществующую поломку.
+#
+# Гейт не отменён, а перенесён туда, где прогон заведомо полный: флаг
+# `--cov-fail-under` в шаге `Run tests` (.github/workflows/ci.yml) и
+# `--fail-under 90` в `coverage-combine`. Что порог не исчез из CI молча,
+# следит `scripts/check_workflow_guardrails.py`.
+exclude_lines = [
+    "if __name__ == .__main__.:",
+    "pragma: no cover",
+]
+
+[tool.stepik-grader]
+timeout_seconds = 10.0
+similar_threshold = 1.15
+much_slower_threshold = 1.50
+measure_child_memory = true
+microbench_max_cases = 5
+encoding = "utf-8"
+max_memory_mb = 1024
+
+[tool.ruff.format]
+# ruff 0.16 форматирует Python-блоки ВНУТРИ markdown, схлопывая намеренно
+# выровненные комментарии-аннотации и компактные импорты в docs/CLAUDE.md
+# (сделаны так для читаемости примеров). Проза-доки — не код проекта, ruff их
+# трогать не должен; .py форматируются как прежде.
+exclude = ["*.md"]

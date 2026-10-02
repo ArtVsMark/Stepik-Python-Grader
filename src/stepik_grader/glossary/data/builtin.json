@@ -1,0 +1,2294 @@
+[
+  {
+    "id": "__import__",
+    "title": "__import__",
+    "kind": "term",
+    "summary": {
+      "ru": "Низкоуровневый импорт модуля. Обычно используй importlib.import_module.",
+      "en": "Low-level module import. Normally use importlib.import_module instead."
+    },
+    "body": {
+      "ru": "В обычном коде эта функция не нужна: она существует для внутренностей оператора import, а имя модуля из строки правильно превращать в модуль через importlib.import_module. Отдельная ловушка — точечное имя: без непустого fromlist возвращается верхний пакет, а не вложенный модуль, тогда как import_module отдаёт ровно то, что попросили.",
+      "en": "Application code almost never needs this — the function exists to back the import statement, and turning a module name held in a string into a module is importlib.import_module's job. There is also a dotted-name trap: with an empty fromlist you get the top-level package back, not the submodule, whereas import_module returns exactly what you asked for."
+    },
+    "syntax": "__import__(name, ...)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#import__",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "модули",
+    "aliases": [
+      "импорт модуля по имени-строке",
+      "динамический импорт модуля"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "math = __import__('math')",
+      "print(math.pi)  # → 3.14159...",
+      "os = __import__('os')",
+      "print(os.sep)  # → /",
+      "json = __import__('json')",
+      "print(json.dumps({'a':1}))  # → {\"a\":1}",
+      "import importlib",
+      "re = importlib.import_module('re')",
+      "print(re.match(r'\\d+','123').group())  # → 123"
+    ],
+    "related": [
+      "sys.modules",
+      "modulenotfounderror",
+      "importerror"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "all",
+    "title": "all",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает True, если все элементы итерируемого истинны, или если итерируемый пуст. Использует ленивое вычисление.",
+      "en": "Returns True if all elements of the iterable are true, or if the iterable is empty. Evaluates lazily."
+    },
+    "body": {
+      "ru": "Истинность считается через bool(), а не «элемент есть»: ноль среди чисел или пустая строка среди строк уронят проверку в False, хотя значения на месте — если вы имели в виду именно наличие, пишите условие явно, через is not None. И осторожнее с отрицанием: not all(...) означает «хотя бы один ложный», а вовсе не «все ложные» — для второго нужен any по отрицанию условия.",
+      "en": "Truthiness goes through bool(), which is not the same as «the value is present»: a zero among numbers or an empty string among strings turns the check into False even though nothing is missing, so spell the condition out with is not None when presence is what you mean. Mind the negation too: not all(...) says «at least one is false», not «all are false» — the latter needs any() over the negated condition."
+    },
+    "syntax": "all(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#all",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "логика",
+    "aliases": [
+      "все элементы истинны",
+      "проверить, что все условия выполнены",
+      "истинны ли все значения"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(all([True,True,True]))  # → True",
+      "print(all([True,False,True]))  # → False",
+      "print(all([]))  # → True (пустой)",
+      "print(all(x>0 for x in [1,2,3]))  # → True",
+      "print(all(x>0 for x in [1,-1,3]))  # → False"
+    ],
+    "related": [
+      "any"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "any",
+    "title": "any",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает True, если хотя бы один элемент итерируемого истинен. Использует ленивое вычисление.",
+      "en": "Returns True if at least one element of the iterable is true. Evaluates lazily."
+    },
+    "body": {
+      "ru": "any отвечает только «да или нет» и не отдаёт сам подошедший элемент — за элементом идут к next() с генератором и значением по умолчанию. И передавайте именно генераторное выражение: со списковым включением внутри скобок Python сначала честно посчитает все элементы, и ленивая остановка на первом истинном пропадёт.",
+      "en": "any() gives you a yes-or-no answer and never the element that matched; when you need the element itself, reach for next() over a generator with a default value. Pass a generator expression rather than a list comprehension inside the parentheses — the comprehension builds every result first, so the early exit on the first true item is lost."
+    },
+    "syntax": "any(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#any",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "логика",
+    "aliases": [
+      "хотя бы один элемент истинен",
+      "есть ли подходящий элемент",
+      "выполняется ли хоть одно условие"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(any([False,True,False]))  # → True",
+      "print(any([False,False]))  # → False",
+      "print(any([]))  # → False",
+      "print(any(x<0 for x in [1,-1,3]))  # → True",
+      "print(any(x==5 for x in range(10)))  # → True",
+      "# ленивое вычисление — остановится на первом True",
+      "print(any(x > 100 for x in range(10**6)))  # → True"
+    ],
+    "related": [
+      "all"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "ascii",
+    "title": "ascii",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает repr() объекта, но заменяет все не-ASCII символы на escape-последовательности \\xNN, \\uNNNN или \\UNNNNNNNN.",
+      "en": "Returns repr() of the object but replaces every non-ASCII character with a \\xNN, \\uNNNN or \\UNNNNNNNN escape sequence."
+    },
+    "body": {
+      "ru": "Возвращается именно repr, то есть строка вместе с кавычками — для сравнения или подсчёта символов это не годится, только для показа. Берите её, когда вывод обязан быть чисто ASCII (лог, консоль без юникода) или когда надо разглядеть невидимые символы и подмену похожих букв; в f-строках то же самое даёт конверсия !a.",
+      "en": "What you get back is a repr, quotes included — fine for display, useless for comparing or counting characters. Reach for it when the output must be pure ASCII (a log file, a console that mangles Unicode) or when you need to spot invisible characters and look-alike letters; the !a conversion inside an f-string does exactly the same thing."
+    },
+    "syntax": "ascii(object)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#ascii",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "строки",
+    "aliases": [
+      "экранирование юникод-символов",
+      "показать коды символов в строке"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(ascii('hello'))  # → 'hello'",
+      "print(ascii('привет'))  # → '\\u043f\\u0440...' (экранировано)",
+      "print(ascii([1,'a']))  # → [1, 'a']",
+      "print(ascii('café'))  # → 'caf\\xe9'",
+      "print(ascii(None))  # → None"
+    ],
+    "related": [
+      "repr",
+      "repr-vs-str",
+      "str.isascii"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "bin",
+    "title": "bin",
+    "kind": "term",
+    "summary": {
+      "ru": "Преобразует целое число в строку двоичного представления с префиксом '0b'. Отрицательные числа: bin(-5) → '-0b101'.",
+      "en": "Converts an integer to its binary string representation with the '0b' prefix. Negative numbers: bin(-5) → '-0b101'."
+    },
+    "body": {
+      "ru": "Возвращается строка, а не число: складывать и сравнивать её с числами бессмысленно, обратное преобразование — int(s, 2). Отрицательные значения записываются знаком минус перед модулем, никакого дополнительного кода «как в памяти» здесь нет. Аргумент обязан быть целым (или иметь __index__), float даёт TypeError; если нужна фиксированная ширина без префикса 0b, берите форматирование по коду b.",
+      "en": "The result is a string, not a number — arithmetic on it makes no sense, and int(s, 2) converts back. Negative values get a leading minus sign in front of the magnitude; this is not two's-complement machine representation. The argument must be an integer (or expose __index__), a float raises TypeError, and for a fixed-width value without the 0b prefix use the b format code instead."
+    },
+    "syntax": "bin(x)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#bin",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "числа",
+    "aliases": [
+      "перевести число в двоичную систему",
+      "двоичное представление числа",
+      "двоичный код числа"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(bin(10))   # → 0b1010",
+      "print(bin(255))  # → 0b11111111",
+      "print(bin(-5))   # → -0b101",
+      "print(bin(0))    # → 0b0",
+      "print(int(bin(42),2))  # → 42"
+    ],
+    "related": [
+      "hex",
+      "oct",
+      "системы-счисления",
+      "int.bit_length"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "breakpoint",
+    "title": "breakpoint",
+    "kind": "term",
+    "summary": {
+      "ru": "Вызывает встроенный отладчик pdb в месте вызова. Python 3.7+. Поведение можно переопределить через PYTHONBREAKPOINT.",
+      "en": "Drops into the built-in pdb debugger at the point of the call. Python 3.7+. The behavior can be overridden through PYTHONBREAKPOINT."
+    },
+    "body": {
+      "ru": "Самая частая беда на курсе — забытый breakpoint() в отправленном решении: программа уходит в отладчик и начинает читать строки тестового ввода как команды pdb, после чего падает или зависает по таймауту. Обезвредить сразу все точки останова, ничего не вырезая из кода, помогает переменная окружения PYTHONBREAKPOINT=0; ею же можно подставить свой отладчик вместо pdb.",
+      "en": "The classic accident is a forgotten breakpoint() in a submitted solution: the program drops into the debugger and starts consuming the test input as pdb commands, then dies or hangs until the timeout. Setting PYTHONBREAKPOINT=0 disables every breakpoint call without editing a single line, and the same variable can point at a different debugger instead of pdb."
+    },
+    "syntax": "breakpoint()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#breakpoint",
+    "version": "3.7",
+    "section": "Встроенные функции",
+    "subcat": "отладка",
+    "aliases": [
+      "точка останова",
+      "запустить отладчик",
+      "пошаговая отладка кода"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "# breakpoint() — вставляет точку останова",
+      "# Устанавливается через PYTHONBREAKPOINT env",
+      "import os",
+      "os.environ['PYTHONBREAKPOINT']='0'  # отключить",
+      "# breakpoint()  # → войти в pdb",
+      "print('Debugging would start here')  # → debug point"
+    ],
+    "related": [
+      "print",
+      "logging-debug",
+      "assert"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "callable",
+    "title": "callable",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает True, если объект можно вызвать: функция, класс, лямбда или объект с методом __call__.",
+      "en": "Returns True if the object can be called: a function, a class, a lambda or an object with a __call__ method."
+    },
+    "body": {
+      "ru": "Проверка идёт по типу объекта, а не по самому объекту: приписать экземпляру атрибут obj.__call__ = f недостаточно — Python ищет __call__ у класса, и callable(obj) останется False, как и сам вызов. True тоже ничего не обещает: объект вызываемый, но с другим числом аргументов вызов упадёт TypeError. В обычном коде проверка почти не нужна — прямее просто вызвать и поймать TypeError либо разделять ветки по isinstance; callable полезен на границе, где приходит то ли значение, то ли фабрика.",
+      "en": "The check looks at the object's type, not the object: assigning obj.__call__ = f to an instance is not enough, because Python looks up __call__ on the class, so callable(obj) stays False and the call fails too. A True answer promises little either — the object is callable, but calling it with the wrong arguments still raises TypeError. In everyday code you rarely need the check: calling and handling TypeError, or branching on isinstance, is more direct; callable earns its keep at an API boundary where a value or a factory may arrive."
+    },
+    "syntax": "callable(object)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#callable",
+    "version": "3.2",
+    "section": "Встроенные функции",
+    "subcat": "интроспекция",
+    "aliases": [
+      "можно ли вызвать объект",
+      "проверить что объект функция"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(callable(print))    # → True",
+      "print(callable(len))      # → True",
+      "print(callable(42))       # → False",
+      "print(callable(lambda: 0))  # → True",
+      "class A:",
+      "    def __call__(self): pass",
+      "print(callable(A()))  # → True"
+    ],
+    "related": [
+      "вызываемые-объекты-__call__",
+      "isinstance",
+      "callable-arg-ret"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "chr",
+    "title": "chr",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает строку из одного символа по его Unicode кодовой точке (целое число). Обратная функция для ord().",
+      "en": "Returns a one-character string for the given Unicode code point (an integer). The inverse of ord()."
+    },
+    "body": {
+      "ru": "Аргумент — номер символа в Unicode, а не байт: chr(200) даёт 'È', а байт со значением 200 получают через bytes([200]). Допустим диапазон 0..0x10FFFF, за его пределами ValueError; коды суррогатов 0xD800-0xDFFF формально принимаются, но такую строку потом не удастся закодировать в UTF-8.",
+      "en": "The argument is a Unicode code point, not a byte: chr(200) gives 'È', while a byte with value 200 comes from bytes([200]). Valid values are 0 through 0x10FFFF and anything else raises ValueError; surrogate codes 0xD800-0xDFFF are accepted but the resulting string cannot be encoded to UTF-8 afterwards."
+    },
+    "syntax": "chr(i)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#chr",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "строки",
+    "aliases": [
+      "символ по коду",
+      "преобразовать число в символ",
+      "буква по номеру в таблице юникода"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(chr(65))   # → A",
+      "print(chr(97))   # → a",
+      "print(chr(1072)) # → а (кириллица)",
+      "print(chr(9829)) # → ♥",
+      "print(''.join(chr(i) for i in range(65,70)))  # → ABCDE"
+    ],
+    "related": [
+      "ord",
+      "ascii",
+      "str.isascii"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "compile",
+    "title": "compile",
+    "kind": "term",
+    "summary": {
+      "ru": "Компилирует строку или AST в объект кода (code object). Используется с exec() или eval() для динамического кода.",
+      "en": "Compiles a string or an AST into a code object. Used with exec() or eval() to run code built at runtime."
+    },
+    "body": {
+      "ru": "Аргумент mode обязан совпадать с тем, что внутри: 'eval' принимает ровно одно выражение (строка с присваиванием сразу даст SyntaxError), 'exec' — любой набор инструкций, 'single' — одну инструкцию с печатью результата, как в интерактивной оболочке. Второй аргумент filename нигде не открывается — это просто подпись, которая всплывёт в трейсбеке и в отладчике, поэтому осмысленное имя вроде '<user-formula>' помогает потом читать ошибки. Смысл отдельного compile — разобрать исходник один раз и потом гонять готовый code object в цикле; на безопасность это не влияет никак, опасен по-прежнему момент exec/eval.",
+      "en": "The mode argument must match what you actually pass: 'eval' takes exactly one expression (a string containing an assignment raises SyntaxError right away), 'exec' takes any sequence of statements, 'single' takes one statement and echoes its result like the interactive shell. The filename argument is never opened — it is only a label that shows up in tracebacks and debuggers, so something descriptive like '<user-formula>' pays off when errors appear. The point of compiling separately is to parse the source once and reuse the code object in a loop; it adds no safety whatsoever, since the dangerous step is still the exec/eval call."
+    },
+    "syntax": "compile(source, filename, mode)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#compile",
+    "version": "3.8",
+    "section": "Встроенные функции",
+    "subcat": "выполнение",
+    "aliases": [
+      "скомпилировать строку в код",
+      "объект кода"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "code = compile('1+2', '<string>', 'eval')",
+      "print(eval(code))  # → 3",
+      "stmt = compile('x=5\\nprint(x)', '<s>', 'exec')",
+      "exec(stmt)  # → 5",
+      "code2 = compile('[x**2 for x in range(5)]','<s>','eval')",
+      "print(eval(code2))  # → [0,1,4,9,16]",
+      "print(type(code))  # → <class 'code'>"
+    ],
+    "related": [
+      "eval",
+      "exec",
+      "syntaxerror"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "delattr",
+    "title": "delattr",
+    "kind": "term",
+    "summary": {
+      "ru": "Удаляет атрибут объекта по имени. Эквивалент del obj.attr, но позволяет передать имя атрибута как строку динамически.",
+      "en": "Deletes the named attribute of an object. Equivalent to del obj.attr, but lets you pass the attribute name dynamically as a string."
+    },
+    "body": {
+      "ru": "Смысл в delattr есть только тогда, когда имя атрибута вычисляется в рантайме; если имя известно заранее, пишите del obj.attr. Удаляется именно атрибут экземпляра: если x объявлен в теле класса, а не присвоен через self, то delattr(экземпляр, 'x') упадёт с AttributeError, хотя чтение obj.x до этого работало. Отсутствующий атрибут — тоже AttributeError, так что подстраховывайтесь hasattr или try/except.",
+      "en": "delattr earns its keep only when the attribute name is computed at run time; if you know the name in advance, write del obj.attr. It removes an instance attribute: if x lives in the class body rather than being assigned through self, delattr(instance, 'x') raises AttributeError even though reading obj.x worked fine. A missing attribute raises AttributeError too, so guard the call with hasattr or try/except."
+    },
+    "syntax": "delattr(object, name)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#delattr",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "ООП",
+    "aliases": [
+      "удалить атрибут объекта",
+      "удалить свойство по имени"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "class A:",
+      "    x = 1",
+      "    def __init__(self): self.y = 2",
+      "a = A()",
+      "delattr(a,'y')",
+      "print(hasattr(a,'y'))  # → False",
+      "delattr(A,'x')",
+      "print(hasattr(A,'x'))  # → False",
+      "try:",
+      "    delattr(a,'z')",
+      "except AttributeError as e: print(e)"
+    ],
+    "related": [
+      "setattr",
+      "getattr",
+      "hasattr"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "dict",
+    "title": "dict",
+    "kind": "term",
+    "summary": {
+      "ru": "Изменяемый маппинг: хранит пары ключ–значение. Ключи уникальны и хешируемы. С Python 3.7 сохраняет порядок вставки.",
+      "en": "A mutable mapping: stores key–value pairs. Keys are unique and hashable. Since Python 3.7 it preserves insertion order."
+    },
+    "body": {
+      "ru": "Обращение d[k] к отсутствующему ключу — это KeyError; если ключа может не быть, берите d.get(k) или d.get(k, значение_по_умолчанию). Ключ обязан быть хешируемым, поэтому кортеж ключом быть может, а список — нет. Поиск и вставка в среднем O(1), а вот сравнение словарей порядок вставки игнорирует: {'a':1,'b':2} == {'b':2,'a':1} истинно, хотя порядок при переборе разный.",
+      "en": "Indexing a missing key with d[k] raises KeyError; when the key may be absent, use d.get(k) or d.get(k, default) instead. Keys must be hashable, so a tuple can be a key but a list cannot. Lookup and insertion are O(1) on average, and equality ignores insertion order — {'a':1,'b':2} == {'b':2,'a':1} is True even though iteration order differs."
+    },
+    "syntax": "dict(**kwargs)\ndict(mapping)\ndict(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#func-dict",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "типы",
+    "aliases": [
+      "словарь",
+      "ассоциативный массив",
+      "пары ключ-значение"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(dict(a=1,b=2))  # → {'a':1,'b':2}",
+      "print(dict([('x',1),('y',2)]))  # → {'x':1,'y':2}",
+      "print(dict.fromkeys(['a','b'],0))  # → {'a':0,'b':0}",
+      "d=dict(zip('abc',[1,2,3]))",
+      "print(d)  # → {'a':1,'b':2,'c':3}",
+      "print(dict({'a':1},b=2))  # → {'a':1,'b':2}"
+    ],
+    "related": [
+      "создание-словаря",
+      "доступ-d-key",
+      "dict.get",
+      "collections.defaultdict"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "dir",
+    "title": "dir",
+    "kind": "term",
+    "summary": {
+      "ru": "Список атрибутов объекта (или локального пространства имён).",
+      "en": "Lists the attributes of an object (or the names of the current local namespace)."
+    },
+    "body": {
+      "ru": "dir() возвращает имена (строки), а не сами атрибуты — чтобы добраться до значения, нужен getattr(obj, name). Список отсортирован по алфавиту и намеренно неполон: он собирается через __dir__ и не видит атрибуты, которые класс создаёт на лету в __getattr__. Это инструмент для разглядывания объекта в REPL, а не опора для логики программы.",
+      "en": "dir() hands back names as strings, not the attributes themselves — reach the value with getattr(obj, name). The list is alphabetised and deliberately approximate: it is built from __dir__ and misses anything a class conjures dynamically in __getattr__. Treat it as a REPL exploration tool, not something program logic should depend on."
+    },
+    "syntax": "dir([object])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#dir",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "интроспекция",
+    "aliases": [
+      "список атрибутов объекта",
+      "какие методы есть у объекта",
+      "посмотреть содержимое объекта"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(dir([])[:5])  # → ? первые пять атрибутов списка (состав зависит от версии Python)",
+      "print('append' in dir([]))  # → True",
+      "class A:",
+      "    x = 1",
+      "    def f(self): pass",
+      "print('x' in dir(A))  # → True",
+      "print('f' in dir(A))  # → True",
+      "print(type(dir([])))  # → <class 'list'>"
+    ],
+    "related": [
+      "vars",
+      "getattr",
+      "help"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "end",
+    "title": "end=",
+    "kind": "term",
+    "summary": {
+      "ru": "Параметр функции print(), задающий строку, добавляемую в конец вывода. По умолчанию — символ новой строки '\\n'. Позволяет выводить на одной строке.",
+      "en": "Parameter of print() that sets the string appended after the output. Defaults to the newline character '\\n'. Lets you print on a single line."
+    },
+    "body": {
+      "ru": "sep вставляется между аргументами, а end добавляется один раз в самом конце — эти два параметра постоянно путают. При end=\"\" текст остаётся в буфере stdout, пока не встретится перенос строки, поэтому индикаторы прогресса в консоли дополняют вызовом flush=True; сам end принимает любую строку, включая \"\\r\" и несколько символов сразу.",
+      "en": "sep goes between the arguments, while end is appended once after all of them — a pair that gets mixed up constantly. With end=\"\" the text sits in the stdout buffer until a newline appears, so console progress indicators add flush=True; end itself accepts any string, including \"\\r\" or several characters at once."
+    },
+    "syntax": "print(*objects, end='строка')",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#print",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "вывод",
+    "aliases": [
+      "вывод без переноса строки",
+      "печать в одну строку",
+      "убрать перевод строки при выводе"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(\"Загрузка\", end=\"...\"); print(\"готово\")  # → Загрузка...готово",
+      "for i in range(5): print(i, end=\" \")  # → 0 1 2 3 4",
+      "print(\"строка без переноса\", end=\"\")  # курсор остаётся на той же строке",
+      "print(\"раз\", end=\"\\t\"); print(\"два\")  # → раз\tдва",
+      "print(\"конец\", end=\"!\\n\")  # → конец!"
+    ],
+    "related": [
+      "sep",
+      "print",
+      "print-file-flush"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "eval",
+    "title": "eval",
+    "kind": "term",
+    "summary": {
+      "ru": "Вычисляет выражение из строки. ВНИМАНИЕ: небезопасен для ненадёжного ввода!",
+      "en": "Evaluates an expression given as a string. WARNING: unsafe for untrusted input!"
+    },
+    "body": {
+      "ru": "eval считает ровно одно выражение и возвращает его значение — присваивания, if и циклы туда не пролезут, для них нужен exec. Ограничить вред подменой globals не выйдет: даже из урезанного словаря добираются до встроенных функций и __import__, поэтому единственная защита — не пускать в eval чужие строки. Когда надо разобрать введённое число или литерал, берите int(), float() или ast.literal_eval(), который понимает только константы и не исполняет код.",
+      "en": "eval evaluates exactly one expression and returns its value — assignments, if statements and loops will not go through it; those need exec. Handing it a stripped-down globals dict is not a sandbox: builtins and __import__ remain reachable from almost any expression, so the only real defence is never feeding eval a string you did not write. To turn user input into a number or a literal, use int(), float() or ast.literal_eval(), which understands constants only and executes nothing."
+    },
+    "syntax": "eval(expression[, globals[, locals]])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#eval",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "выполнение",
+    "aliases": [
+      "вычислить выражение из строки",
+      "выполнить строку как выражение",
+      "превратить строку в число или список"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(eval('2**10'))  # → 1024",
+      "print(eval('[x**2 for x in range(5)]'))  # → [0,1,4,9,16]",
+      "x = 10",
+      "print(eval('x + 5'))  # → 15",
+      "print(eval('1+2', {}))  # → 3 (пустой globals)",
+      "print(eval('abs(-5)', {'abs':abs}))  # → 5"
+    ],
+    "related": [
+      "exec",
+      "compile",
+      "input"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "exec",
+    "title": "exec",
+    "kind": "term",
+    "summary": {
+      "ru": "Выполняет динамически созданный Python-код: строку или code object. Изменяет переданное пространство имён.",
+      "en": "Executes dynamically created Python code: a string or a code object. Modifies the namespace it is given."
+    },
+    "body": {
+      "ru": "Главная ловушка — вызвать exec('x = 1') внутри функции и ждать, что появится локальная переменная x: компилятор распределяет локальные ещё до запуска, и созданное exec'ом имя коду функции не видно (на уровне модуля, где пространство имён и есть словарь, всё работает). Надёжный приём — отдать exec отдельный словарь и потом достать результат из него: exec(src, g), затем g['x']. Возвращает exec всегда None — значение выражения так не получить, для этого eval.",
+      "en": "The classic trap is calling exec('x = 1') inside a function and expecting a local x to appear: locals are laid out at compile time, so a name created by exec is invisible to the function's own code (at module level, where the namespace is a real dict, it does work). The reliable pattern is to give exec its own dict and read the result out of it: exec(src, g), then g['x']. exec always returns None — it cannot hand you the value of an expression; that is what eval is for."
+    },
+    "syntax": "exec(object[, globals[, locals]])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#exec",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "выполнение",
+    "aliases": [
+      "выполнить код из строки",
+      "запустить строку как программу",
+      "динамическое выполнение кода"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "exec('x = 1 + 2')",
+      "# print(x)  # x есть в локальном пространстве?",
+      "g = {}",
+      "exec('y = 42', g)",
+      "print(g['y'])  # → 42",
+      "exec('for i in range(3): print(i)')  # → 0 1 2",
+      "def make_func(name):",
+      "    exec(f'def {name}(): return \"{name}\"', globals())",
+      "    make_func('hello')",
+      "    print(hello())  # → hello"
+    ],
+    "related": [
+      "eval",
+      "compile",
+      "globals",
+      "locals"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "format",
+    "title": "format",
+    "kind": "term",
+    "summary": {
+      "ru": "Форматирует значение по строке спецификации формата (format spec). Вызывает метод __format__ объекта.",
+      "en": "Formats a value according to a format specification string (format spec). Calls the object's __format__ method."
+    },
+    "body": {
+      "ru": "Это ровно то, что происходит внутри фигурных скобок f-строки, поэтому отдельный вызов оправдан лишь тогда, когда сама спецификация считается в рантайме (например, число знаков после точки берётся из переменной). Не путайте с методом str.format(): здесь первый аргумент — форматируемое значение, а не шаблон. Округление у '.2f' идёт от двоичного представления float, так что format(2.675, '.2f') честно выдаёт 2.67.",
+      "en": "This is precisely what happens inside the braces of an f-string, so a separate call earns its keep only when the spec itself is computed at runtime — say, the number of decimals comes from a variable. Do not mix it up with the str.format() method: here the first argument is the value being formatted, not a template. Rounding for '.2f' follows the binary float value, which is why format(2.675, '.2f') honestly yields 2.67."
+    },
+    "syntax": "format(value, format_spec='')",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#format",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "строки",
+    "aliases": [
+      "форматирование числа",
+      "вывести число с двумя знаками после запятой",
+      "выравнивание при выводе"
+    ],
+    "keywords": [
+      "str.format"
+    ],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(format(3.14159, '.2f'))  # → 3.14",
+      "print(format(42, '08b'))  # → 00101010",
+      "print(format(1000000, ','))  # → 1,000,000",
+      "print(format('hello', '^10'))  # →   hello",
+      "print(format(0.25, '%'))  # → 25.000000%"
+    ],
+    "related": [
+      "format-метод-форматирования",
+      "f-строки",
+      "форматирование-старый-стиль",
+      "str.format_map"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "frozenset",
+    "title": "frozenset",
+    "kind": "term",
+    "summary": {
+      "ru": "Неизменяемое множество. Поддерживает все операции set (объединение, пересечение и т.д.), но не поддерживает add() и remove(). Хешируемо — можно использовать как ключ словаря.",
+      "en": "An immutable set. Supports every set operation (union, intersection and so on) but has no add() or remove(). Hashable — it can be used as a dictionary key."
+    },
+    "body": {
+      "ru": "frozenset берут тогда, когда множество нужно положить ключом в словарь или элементом другого множества — обычный set туда не пустят, он нехешируемый. Литерала у frozenset нет, только вызов конструктора: фигурные скобки всегда дают set (а пустые — вообще пустой словарь). Ловушка: frozenset({1,2}) == {1,2} истинно, но достать значение по обычному set из такого словаря нельзя — d[{1,2}] упадёт с TypeError, ведь ключ сначала надо захешировать.",
+      "en": "Use frozenset when a set has to become a dictionary key or an element of another set — a plain set is rejected there because it is unhashable. There is no literal syntax for it, only the constructor call: braces always build a set, and empty braces build a dict. A trap: frozenset({1,2}) == {1,2} is True, yet you still cannot look the entry up with a plain set — d[{1,2}] raises TypeError, because the key has to be hashed first."
+    },
+    "syntax": "frozenset(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#func-frozenset",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "типы",
+    "aliases": [
+      "замороженное множество",
+      "хешируемое множество",
+      "множество как ключ словаря"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "fs = frozenset([1,2,3,2,1])",
+      "print(fs)  # → frozenset({1, 2, 3})",
+      "print(sorted(frozenset('hello')))  # → ['e', 'h', 'l', 'o'] (порядок множества не определён, поэтому сортируем)",
+      "d = {frozenset([1,2]): 'value'}",
+      "print(d)  # → {frozenset({1, 2}): 'value'}",
+      "print(1 in fs)  # → True",
+      "print(fs & frozenset([2,3,4]))  # → frozenset({2, 3})"
+    ],
+    "related": [
+      "frozenset-неизменяемое-множество",
+      "set",
+      "hash"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "getattr",
+    "title": "getattr",
+    "kind": "term",
+    "summary": {
+      "ru": "Получает атрибут объекта по имени как строке. Третий аргумент — значение по умолчанию, если атрибут не существует (иначе AttributeError).",
+      "en": "Gets an attribute of an object by its name given as a string. The third argument is the default value used when the attribute does not exist (otherwise AttributeError)."
+    },
+    "body": {
+      "ru": "Значение по умолчанию вычисляется всегда, ещё до самого поиска атрибута, — если оно дорогое или имеет побочный эффект, лучше сначала спросить hasattr. Вторая ловушка: default подставляется на любой AttributeError, включая тот, который бросил код внутри property, поэтому настоящая ошибка в свойстве тихо превращается в «атрибута нет».",
+      "en": "The default is evaluated eagerly, before the lookup even happens — if computing it is expensive or has side effects, check with hasattr instead. The subtler trap: the default kicks in on any AttributeError, including one raised inside a property's own code, so a real bug in that property silently turns into \"attribute missing\"."
+    },
+    "syntax": "getattr(object, name[, default])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#getattr",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "ООП",
+    "aliases": [
+      "получить атрибут по имени",
+      "обращение к полю объекта через строку",
+      "динамический доступ к атрибуту"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "class A:",
+      "    x = 42",
+      "a = A()",
+      "print(getattr(a,'x'))  # → 42",
+      "print(getattr(a,'y',None))  # → None",
+      "getattr([1,2,3],'append')(4)  # → [1,2,3,4]",
+      "print(getattr('hello','upper')())  # → HELLO",
+      "name = 'x'; print(getattr(a, name))  # → 42"
+    ],
+    "related": [
+      "setattr",
+      "hasattr",
+      "delattr",
+      "attributeerror"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "globals",
+    "title": "globals",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает словарь глобального пространства имён текущего модуля.",
+      "en": "Returns the dictionary of the global namespace of the current module."
+    },
+    "body": {
+      "ru": "Это не копия, а живой словарь модуля: присваивание в него действительно создаёт глобальную переменную — в отличие от locals() внутри функции, где правки в общем случае никуда не доедут. Отсюда соблазн лепить имена переменных на лету, но почти всегда вместо этого нужен обычный словарь: сгенерированные имена не видит ни читатель, ни линтер. Внутри функции globals() отдаёт пространство имён модуля, где функция определена, а не того, кто её вызвал.",
+      "en": "What you get is the module's live namespace dictionary, not a snapshot, so assigning into it really does create a global — unlike writing into locals() inside a function, which generally has no effect. That tempts people into manufacturing variable names at runtime; a plain dictionary is nearly always the better answer, since generated names are invisible to readers and linters alike. Called inside a function, globals() still points at the module where that function was defined, not at the caller's module."
+    },
+    "syntax": "globals()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#globals",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "пространства имён",
+    "aliases": [
+      "глобальные переменные модуля",
+      "словарь глобальных имён",
+      "обратиться к переменной по её имени-строке"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "x = 42",
+      "print('x' in globals())  # → True",
+      "print(globals()['x'])  # → 42",
+      "globals()['new_var'] = 99",
+      "print(new_var)  # → 99",
+      "print(type(globals()))  # → dict",
+      "print('print' in dir(__builtins__))  # → True"
+    ],
+    "related": [
+      "locals",
+      "локальные-и-глобальные-переменные",
+      "global-nonlocal",
+      "vars"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "hasattr",
+    "title": "hasattr",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает True, если у объекта есть атрибут с указанным именем. Реализован через попытку getattr() — проверяет наличие без исключения.",
+      "en": "Returns True if the object has an attribute with the given name. Implemented as a getattr() attempt — checks presence without raising."
+    },
+    "body": {
+      "ru": "hasattr не заглядывает в устройство объекта, а действительно запрашивает атрибут: у property это выполнит её тело со всеми побочными эффектами и затратами. False возвращается только когда пойман AttributeError — исключение любого другого типа улетит наружу. Если значение атрибута всё равно понадобится дальше, дешевле один getattr(obj, name, default), чем hasattr плюс повторное обращение.",
+      "en": "hasattr does not inspect the object's structure — it actually fetches the attribute, so for a property it runs that property's body, side effects and cost included. It returns False only when an AttributeError was caught; any other exception propagates. And if you need the value afterwards anyway, a single getattr(obj, name, default) is cheaper than hasattr plus a second lookup."
+    },
+    "syntax": "hasattr(object, name)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#hasattr",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "ООП",
+    "aliases": [
+      "проверить наличие атрибута",
+      "есть ли у объекта поле",
+      "проверка существования свойства"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "class A:",
+      "    x = 1",
+      "a = A()",
+      "print(hasattr(a,'x'))  # → True",
+      "print(hasattr(a,'y'))  # → False",
+      "print(hasattr([],'append'))  # → True",
+      "print(hasattr([],'nonexistent'))  # → False",
+      "print(hasattr('str','upper'))  # → True"
+    ],
+    "related": [
+      "getattr",
+      "setattr",
+      "attributeerror"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "hash",
+    "title": "hash",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает целочисленный хеш объекта. Объект должен быть хешируемым (неизменяемым). Используется словарями и множествами.",
+      "en": "Returns the integer hash of an object. The object must be hashable (immutable). Used by dictionaries and sets."
+    },
+    "body": {
+      "ru": "У str и bytes хеш заново рандомизируется при каждом запуске интерпретатора (PYTHONHASHSEED) — это защита от атак на коллизии, а не контрольная сумма, поэтому сохранять его в файл или сравнивать между процессами нельзя; для стабильного отпечатка берите hashlib. И действует правило «равные объекты — равные хеши»: hash(1) == hash(1.0) == hash(True), а свой класс становится нехешируемым, как только вы определили __eq__ и не определили __hash__.",
+      "en": "For str and bytes the hash is randomised on every interpreter start (PYTHONHASHSEED) — it is a collision-attack defence, not a checksum, so never persist it or compare it across processes; use hashlib for a stable fingerprint. The contract also says equal objects must hash equally: hash(1) == hash(1.0) == hash(True), and your own class turns unhashable the moment you define __eq__ without __hash__."
+    },
+    "syntax": "hash(object)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#hash",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "интроспекция",
+    "aliases": [
+      "хеш объекта",
+      "хешируемый объект",
+      "почему список не может быть ключом словаря"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(hash(42))      # → 42",
+      "print(hash('hello')) # → ? хеш строки солится PYTHONHASHSEED и меняется от запуска",
+      "print(hash((1,2,3))) # → ? хеш кортежа считается из хешей элементов",
+      "try:",
+      "    hash([1,2,3])  # список нехешируем — будет TypeError",
+      "except TypeError as e: print(e)  # → unhashable type: 'list'",
+      "print(hash(42) == hash(42.0))  # → True (равные объекты)"
+    ],
+    "related": [
+      "collections.abc.Hashable",
+      "хеш-таблица-dict",
+      "кортеж-как-ключ-словаря",
+      "frozenset"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "help",
+    "title": "help",
+    "kind": "term",
+    "summary": {
+      "ru": "Выводит встроенную справку по объекту, функции или модулю. В интерактивном режиме без аргумента запускает интерактивную справку.",
+      "en": "Prints the built-in help for an object, function or module. With no argument in interactive mode it starts the interactive help."
+    },
+    "body": {
+      "ru": "help ничего не возвращает, а печатает, поэтому print(help(len)) покажет справку и следом None. Текст берётся из docstring — у ваших собственных функций справка будет пустой, пока docstring не написан. И не оставляйте голый help() в сдаваемом решении: без аргумента он запускает интерактивную справку и повиснет, читая stdin.",
+      "en": "help prints and returns None, so print(help(len)) shows the page and then None underneath. What it prints is the docstring, which is why your own functions look empty until you write one. And never leave a bare help() in a submitted solution — with no argument it starts the interactive helper and blocks reading stdin."
+    },
+    "syntax": "help([object])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#help",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "интроспекция",
+    "aliases": [
+      "встроенная справка",
+      "документация по функции",
+      "как узнать что делает функция"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "help(len)  # → выводит справку о len",
+      "help(str.upper)  # → справка о методе",
+      "help(list)  # → все методы списка",
+      "print(len.__doc__[:30])  # → Return the number of items...",
+      "import math; help(math.sqrt)  # → sqrt справка"
+    ],
+    "related": [
+      "dir",
+      "type"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "hex",
+    "title": "hex",
+    "kind": "term",
+    "summary": {
+      "ru": "Преобразует целое число в строку шестнадцатеричного представления с префиксом '0x'. Буквы в нижнем регистре.",
+      "en": "Converts an integer to its hexadecimal string representation with the '0x' prefix. The letters are lower-case."
+    },
+    "body": {
+      "ru": "Буквы всегда в нижнем регистре и префикс 0x приклеен намертво — если нужен верхний регистр или строка без префикса, используйте форматирование по кодам x и X. Функция работает только с целыми: у float есть собственный метод float.hex(), а байты переводит в hex-строку bytes.hex(). Обратно разбирает int(s, 16), причём он принимает строку и с префиксом 0x, и без него.",
+      "en": "The digits are always lower-case and the 0x prefix is always there — for upper-case or prefix-free output use the x and X format codes. The function accepts integers only: floats have their own float.hex() method, and byte data is converted by bytes.hex(). To parse it back use int(s, 16), which accepts the string with or without the 0x prefix."
+    },
+    "syntax": "hex(x)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#hex",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "числа",
+    "aliases": [
+      "перевести число в шестнадцатеричную систему",
+      "шестнадцатеричное представление числа"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(hex(255))  # → 0xff",
+      "print(hex(16))   # → 0x10",
+      "print(hex(-42))  # → -0x2a",
+      "print(hex(0))    # → 0x0",
+      "print(int(hex(255), 16))  # → 255"
+    ],
+    "related": [
+      "bin",
+      "oct",
+      "системы-счисления",
+      "int"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "id",
+    "title": "id",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает уникальный идентификатор объекта (адрес в памяти).",
+      "en": "Returns the unique identifier of an object (its address in memory)."
+    },
+    "body": {
+      "ru": "Идентификатор уникален только пока объект жив: после сборки мусора то же число может достаться новому объекту, так что запомнить id и сравнить его позже — ненадёжно. Практический смысл один — понять, один это объект или два, и для этого читабельнее a is b, тогда как равенство значений проверяют через ==. Осторожно с интернированием: CPython кеширует маленькие целые (от -5 до 256) и короткие строки, поэтому у одинаковых литералов id часто совпадает — строить на этом логику нельзя.",
+      "en": "An id is unique only while the object is alive; once it is collected the same number can be handed to a new object, so storing an id and comparing it later is unreliable. Its one real use is asking whether two names point to the same object — which a is b expresses more readably — while == compares values. Watch out for interning as well: CPython caches small ints (-5 to 256) and short strings, so identical literals often share an id, and no logic should rest on that."
+    },
+    "syntax": "id(object)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#id",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "интроспекция",
+    "aliases": [
+      "идентификатор объекта",
+      "адрес объекта в памяти",
+      "это один и тот же объект"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "x = 42",
+      "y = x",
+      "print(id(x) == id(y))  # → True (одно и то же имя, один объект)",
+      "print(id(42) == id(42))  # → True (маленькие целые интернированы)",
+      "a = 'hello'; b = 'hello'",
+      "print(id(a) == id(b))  # → True (интернирование строк)",
+      "# Ловушка: id([]) == id([]) даёт True, и это НЕ значит «один объект».",
+      "# Первый список освобождается сразу после вычисления id, и второй получает",
+      "# тот же адрес. Сравнивать так нельзя — объекты должны быть ЖИВЫ:",
+      "first, second = [], []",
+      "print(id(first) == id(second))  # → False (два живых списка — разные объекты)",
+      "print(first is second)  # → False (is сравнивает по id, но держит ссылки)"
+    ],
+    "related": [
+      "is-is-not",
+      "hash",
+      "строки-в-памяти-интернирование-неизменяе"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "input",
+    "title": "input()",
+    "kind": "function",
+    "summary": {
+      "ru": "Встроенная функция для чтения строки с клавиатуры. Выводит необязательный приглашающий текст и возвращает введённую строку без символа новой строки.",
+      "en": "Built-in function that reads a line from the keyboard. It prints an optional prompt and returns the line entered, without the trailing newline."
+    },
+    "body": {
+      "ru": "input() всегда отдаёт строку: даже \"42\" остаётся строкой, а int() на пустом или нечисловом вводе бросит ValueError. Когда поток ввода кончился (файл или пайп в тестирующей системе), input() бросает EOFError, а не возвращает пустую строку — поэтому цикл чтения ограничивают известным числом строк или ловят EOFError. Приглашающий текст уходит в тот же stdout, что и ответ, так что в задачах с автопроверкой input() вызывают без аргумента.",
+      "en": "input() always hands back a string — \"42\" is still text, and int() on empty or non-numeric input raises ValueError. When the stream runs out (a file or pipe in an autograder) it raises EOFError rather than returning an empty string, so bound the read loop by a known count or catch EOFError. The prompt goes to the very same stdout as your answer, which is why graded solutions call input() with no argument."
+    },
+    "syntax": "input([prompt]) -> str",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#input",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "ввод",
+    "aliases": [
+      "ввод с клавиатуры",
+      "считать строку от пользователя",
+      "запросить данные у пользователя"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "# name = input(\"Введите имя: \")  # пользователь вводит строку",
+      "# age = int(input(\"Возраст: \"))  # → преобразование в int",
+      "# price = float(input(\"Цена: \"))  # → преобразование в float",
+      "# Проверка: x = int(input()) if input().isdigit() else 0",
+      "# line1 = input(\"Строка 1: \"); line2 = input(\"Строка 2: \")",
+      "# s = input(\"  hello  \").strip()  # → \"hello\" (убирает пробелы)",
+      "# Симуляция ввода без клавиатуры:",
+      "import io, sys",
+      "sys.stdin = io.StringIO('Alice\\n')",
+      "print(input())  # → Alice",
+      "sys.stdin = sys.__stdin__"
+    ],
+    "related": [
+      "print",
+      "int",
+      "преобразование-типов",
+      "str.split"
+    ],
+    "related_errors": [
+      "EOFError"
+    ]
+  },
+  {
+    "id": "issubclass",
+    "title": "issubclass",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает True, если класс является подклассом указанного класса или одного из классов в кортеже.",
+      "en": "Returns True if the class is a subclass of the given class or of one of the classes in the tuple."
+    },
+    "body": {
+      "ru": "Первый аргумент — именно класс, а не экземпляр: передадите объект — получите TypeError, для объектов есть isinstance. Вторым можно дать кортеж классов, тогда True вернётся при наследовании хотя бы от одного из них. И помните про bool: он подкласс int, поэтому проверка на int пропустит True и False там, где ждали только числа.",
+      "en": "The first argument must be a class, not an instance — passing an object raises TypeError, and objects are checked with isinstance instead. The second argument may be a tuple of classes, in which case inheriting from any one of them is enough. Watch out for bool: it is a subclass of int, so a check against int also accepts True and False."
+    },
+    "syntax": "issubclass(class, classinfo)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#issubclass",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "интроспекция/ООП",
+    "aliases": [
+      "проверка подкласса",
+      "является ли класс наследником",
+      "проверить наследование класса"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(issubclass(bool, int))   # → True",
+      "print(issubclass(int, object))  # → True",
+      "print(issubclass(list, (list,tuple)))  # → True",
+      "class A: pass",
+      "class B(A): pass",
+      "print(issubclass(B, A))  # → True",
+      "print(issubclass(A, B))  # → False"
+    ],
+    "related": [
+      "isinstance",
+      "наследование",
+      "type",
+      "abc.ABC"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "iter",
+    "title": "iter",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает итератор. С двумя аргументами — вызывает функцию до значения sentinel.",
+      "en": "Returns an iterator. With two arguments it calls the function until it returns the sentinel value."
+    },
+    "body": {
+      "ru": "Итератор одноразовый, и iter от уже полученного итератора вернёт его же — второй проход по тому же объекту даст пустоту, нужен новый iter от исходной коллекции. Форма с двумя аргументами вызывает функцию без аргументов снова и снова, пока та не вернёт значение sentinel; сам sentinel в выдачу не попадает. Это удобный способ читать поток до маркера конца, не городя while True с проверкой и break.",
+      "en": "An iterator is single-use, and calling iter on an existing iterator gives back the same object — a second pass yields nothing, so build a fresh iterator from the original collection. The two-argument form calls the zero-argument callable over and over until it returns the sentinel, and the sentinel itself is not yielded. That turns a read-until-marker loop into a plain for loop instead of while True with a manual break."
+    },
+    "syntax": "iter(object)\niter(callable, sentinel)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#iter",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "итераторы",
+    "aliases": [
+      "получить итератор",
+      "создать итератор из последовательности",
+      "ручной перебор элементов"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "it = iter([1,2,3])",
+      "print(next(it), next(it))  # → 1 2",
+      "it2 = iter('hello')",
+      "print(list(it2))  # → ['h','e','l','l','o']",
+      "# sentinel-вариант",
+      "from io import StringIO",
+      "f = StringIO('a\\nb\\nc')",
+      "for line in iter(f.readline, ''):",
+      "    print(line.strip())",
+      "    print(list(iter(range(5))))  # → [0,1,2,3,4]"
+    ],
+    "related": [
+      "next",
+      "итератор-__iter__-__next__",
+      "stopiteration",
+      "iter-next"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "list",
+    "title": "list",
+    "kind": "term",
+    "summary": {
+      "ru": "Создаёт изменяемый список из итерируемого или пустой список. list() без аргументов эквивалентен [].",
+      "en": "Creates a mutable list from an iterable, or an empty list. list() with no arguments is equivalent to []."
+    },
+    "body": {
+      "ru": "list(другой_список) делает поверхностную копию: внешний список новый, а вложенные списки и объекты те же самые, поэтому правка copy[0][0] отзовётся в оригинале. От генератора, map или filter list() забирает все элементы разом, и повторный вызов вернёт уже пустой список — итератор исчерпан. От строки получаются отдельные символы, а не ['hello']: если нужен список из одного элемента, пишите ['hello'].",
+      "en": "list(other_list) makes a shallow copy: the outer list is new, but nested lists and objects are the same ones, so editing copy[0][0] shows up in the original. Applied to a generator, map or filter, list() drains it in one go, and a second call returns an empty list because the iterator is exhausted. Applied to a string it yields individual characters, not ['hello'] — for a one-element list write the brackets yourself."
+    },
+    "syntax": "list(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#func-list",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "типы",
+    "aliases": [
+      "список",
+      "массив в питоне",
+      "преобразовать в список"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(list('hello'))  # → ['h','e','l','l','o']",
+      "print(list(range(5)))  # → [0,1,2,3,4]",
+      "print(list({1,2,3}))  # → [1,2,3]",
+      "print(list({'a':1,'b':2}))  # → ['a','b']",
+      "print(list(zip([1,2],[3,4])))  # → [(1,3),(2,4)]"
+    ],
+    "related": [
+      "создание-списка",
+      "tuple",
+      "list.append",
+      "списочные-выражения-list-comprehension"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "locals",
+    "title": "locals",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает словарь текущего локального пространства имён. В модуле совпадает с globals(). Копия, не ссылка.",
+      "en": "Returns a dictionary of the current local namespace. At module level it matches globals(). A copy, not a reference."
+    },
+    "body": {
+      "ru": "Внутри функции это снимок: записать что-то в полученный словарь и ждать появления новой локальной переменной бесполезно — обратной связи с кадром нет (в Python 3.13 это закреплено PEP 667, раньше поведение зависело от реализации). На уровне модуля и в теле класса locals() отдаёт настоящий словарь пространства имён, и правки в нём как раз видны — отсюда путаница. В функции попадают только те имена, которым уже что-то присвоено к моменту вызова.",
+      "en": "Inside a function the result is a snapshot: writing into that dict will not create or change a local variable, because there is no link back to the frame (Python 3.13 guarantees this via PEP 667; before that it was implementation-defined). At module level and in a class body locals() hands you the real namespace mapping, where writes do take effect — which is the usual source of confusion. Only names already assigned at the moment of the call show up inside a function."
+    },
+    "syntax": "locals()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#locals",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "пространства имён",
+    "aliases": [
+      "локальные переменные функции",
+      "словарь локальных имён",
+      "какие переменные видны внутри функции"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "def f():",
+      "    x = 10; y = 20",
+      "    return locals()",
+      "print(f())  # → {'x':10,'y':20}",
+      "def g(a, b):",
+      "    c = a+b",
+      "    print('c' in locals())  # → True",
+      "    return locals()",
+      "print(g(1,2))  # → {'a':1,'b':2,'c':3}",
+      "print(type(locals()))  # → <class 'dict'>"
+    ],
+    "related": [
+      "globals",
+      "vars",
+      "локальные-и-глобальные-переменные",
+      "global-nonlocal"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "max",
+    "title": "max",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает наибольший элемент итерируемого или наибольший из переданных аргументов. Поддерживает key-функцию.",
+      "en": "Returns the largest item of an iterable, or the largest of the arguments given. Supports a key function."
+    },
+    "body": {
+      "ru": "На пустом итерируемом max падает с ValueError — если пустота возможна, передайте default. Аргумент key меняет только критерий сравнения, а возвращается сам элемент, а не значение key: именно так по словарю получают ключ с наибольшим значением, а не само значение. Если максимум достигается на нескольких элементах, вернётся первый встреченный.",
+      "en": "max raises ValueError on an empty iterable, so pass default whenever the input may be empty. key only changes what is compared — you still get the element back, not the key value, which is how you obtain the dict key with the largest value rather than the value itself. When several items tie for largest, the first one encountered wins."
+    },
+    "syntax": "max(iterable, *, key=None)\nmax(a, b, ...)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#max",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "числа/коллекции",
+    "aliases": [
+      "максимум",
+      "наибольшее значение",
+      "найти самое большое число"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(max(3,1,4,1,5))  # → 5",
+      "print(max([10,20,5]))  # → 20",
+      "print(max('apple','banana','cherry'))  # → cherry",
+      "print(max([1,2,3], key=lambda x:-x))  # → 1",
+      "print(max([], default=0))  # → 0"
+    ],
+    "related": [
+      "min",
+      "sum",
+      "len"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "memoryview",
+    "title": "memoryview",
+    "kind": "term",
+    "summary": {
+      "ru": "Создаёт объект представления буфера без копирования данных. Позволяет работать со срезами бинарных данных эффективно.",
+      "en": "Creates a view into an object's buffer without copying the data. Lets you work with slices of binary data efficiently."
+    },
+    "body": {
+      "ru": "memoryview работает только с объектами, поддерживающими буферный протокол — bytes, bytearray, array.array; на str или список будет TypeError. Писать через представление можно лишь тогда, когда исходный объект изменяемый: у memoryview(b'...') присваивание запрещено, потому что bytes только для чтения. Срез представления — снова memoryview, а не bytes (отсюда обёртка bytes(...)), и пока представление живо, bytearray нельзя менять в размере: append или расширение упадут с BufferError.",
+      "en": "memoryview only accepts objects that support the buffer protocol — bytes, bytearray, array.array; a str or a list raises TypeError. Writing through the view works only if the underlying object is mutable: assigning into memoryview(b'...') fails because bytes is read-only. Slicing a view gives another memoryview rather than bytes (hence the bytes(...) wrapper), and while a view is alive the bytearray cannot be resized — append or extend raise BufferError."
+    },
+    "syntax": "memoryview(object)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#func-memoryview",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "типы",
+    "aliases": [
+      "работа с байтами без копирования",
+      "срез бинарных данных без копирования",
+      "представление памяти"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "b = bytearray(b'hello world')",
+      "mv = memoryview(b)",
+      "print(bytes(mv[6:11]))  # → b'world'",
+      "mv[0] = ord('H')",
+      "print(b)  # → bytearray(b'Hello world')",
+      "print(mv.format)  # → B (unsigned char)",
+      "print(mv.itemsize)  # → 1",
+      "print(len(mv))  # → 11"
+    ],
+    "related": [
+      "bytearray",
+      "bytes",
+      "buffererror",
+      "collections.abc.Buffer"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "min",
+    "title": "min",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает наименьший элемент итерируемого или наименьший из переданных аргументов. Поддерживает key-функцию.",
+      "en": "Returns the smallest item of an iterable, or the smallest of the arguments given. Supports a key function."
+    },
+    "body": {
+      "ru": "min проходит последовательность ровно один раз за O(n), поэтому для одного крайнего элемента он дешевле, чем sorted(...)[0]. Разнотипные значения не сравниваются «как-нибудь»: число со строкой даст TypeError, а строки сравниваются посимвольно по кодовым точкам, из-за чего '10' оказывается меньше '9'.",
+      "en": "min makes a single O(n) pass, so it beats sorted(...)[0] when you only need one extreme element. Mixed types are not silently ordered: comparing a number with a string raises TypeError, and strings are compared code point by code point, which is why '10' comes out smaller than '9'."
+    },
+    "syntax": "min(iterable, *, key=None)\nmin(a, b, ...)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#min",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "числа/коллекции",
+    "aliases": [
+      "минимум",
+      "наименьшее значение",
+      "найти самое маленькое число"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(min(3,1,4,1,5))  # → 1",
+      "print(min([10,20,5]))  # → 5",
+      "print(min('apple','banana','cherry'))  # → apple",
+      "print(min([1,2,3], key=lambda x:-x))  # → 3",
+      "print(min([], default=0))  # → 0"
+    ],
+    "related": [
+      "max",
+      "sum",
+      "len"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "next",
+    "title": "next",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает следующий элемент итератора. default — если итератор исчерпан.",
+      "en": "Returns the next item of an iterator. default is returned if the iterator is exhausted."
+    },
+    "body": {
+      "ru": "next принимает итератор, а не коллекцию: next([1, 2, 3]) — это TypeError, сначала нужен iter(). Без второго аргумента исчерпанный итератор поднимает StopIteration, поэтому либо ловите её, либо передавайте default. Внутри генератора это особенно важно: незамеченная StopIteration там не всплывает наружу, а превращается в RuntimeError (PEP 479), и источник ошибки становится неочевидным.",
+      "en": "next takes an iterator, not a container: next([1, 2, 3]) is a TypeError — wrap the list in iter() first. Without the second argument an exhausted iterator raises StopIteration, so either catch it or pass a default. Inside a generator this matters even more: an unhandled StopIteration is converted into RuntimeError (PEP 479), which hides where the problem actually came from."
+    },
+    "syntax": "next(iterator[, default])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#next",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "итераторы",
+    "aliases": [
+      "следующий элемент итератора",
+      "взять следующее значение генератора",
+      "первый подходящий элемент"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "it = iter([1,2,3])",
+      "print(next(it))  # → 1",
+      "print(next(it))  # → 2",
+      "print(next(it))  # → 3",
+      "print(next(it, 'end'))  # → end",
+      "g = (x**2 for x in range(5))",
+      "print(next(g), next(g))  # → 0 1"
+    ],
+    "related": [
+      "iter",
+      "stopiteration",
+      "anext"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "object",
+    "title": "object",
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс всех классов Python. Предоставляет методы по умолчанию: __str__, __repr__, __eq__, __hash__ и другие магические методы.",
+      "en": "The base class of every Python class. Provides the default __str__, __repr__, __eq__, __hash__ and other magic methods."
+    },
+    "body": {
+      "ru": "Голый object() — не универсальный контейнер для полей: у него нет __dict__, поэтому o.foo = 1 сразу падает с AttributeError; зато он идеален как уникальный маркер-заглушка, когда None — допустимое значение. Унаследованные по умолчанию __eq__ и __hash__ смотрят на тождество объекта: два одинаковых по смыслу экземпляра не равны, пока вы не определите __eq__ — а как только определите, класс перестаёт быть хешируемым, если не задать и __hash__.",
+      "en": "A bare object() is not a general-purpose bag of fields: it has no __dict__, so o.foo = 1 fails with AttributeError; it is, however, the perfect unique sentinel when None is a legitimate value. The inherited __eq__ and __hash__ compare identity, so two semantically equal instances are unequal until you define __eq__ — and the moment you do, the class stops being hashable unless you define __hash__ as well."
+    },
+    "syntax": "object()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#object",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "ООП",
+    "aliases": [
+      "базовый класс всех объектов",
+      "родитель всех классов",
+      "корень иерархии классов"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "o = object()",
+      "print(type(o))  # → <class 'object'>",
+      "print(isinstance(42, object))  # → True",
+      "print(isinstance('hi', object))  # → True",
+      "class A(object): pass  # явно наследуется",
+      "print(A.__bases__)  # → (<class 'object'>,)",
+      "print(dir(object())[:2])  # → ['__class__', '__delattr__']"
+    ],
+    "related": [
+      "class",
+      "наследование",
+      "type",
+      "__str__-__repr__"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "oct",
+    "title": "oct",
+    "kind": "term",
+    "summary": {
+      "ru": "Преобразует целое число в строку восьмеричного представления с префиксом '0o'.",
+      "en": "Converts an integer to its octal string representation with the '0o' prefix."
+    },
+    "body": {
+      "ru": "В Python 3 восьмеричный литерал пишется только с префиксом 0o — привычная по старым примерам запись 0777 это SyntaxError. Типичная ошибка с правами доступа: os.chmod ждёт целое число 0o755, а не строку, которую вернул oct(); чтобы получить число из строки, нужен int(s, 8).",
+      "en": "In Python 3 an octal literal must carry the 0o prefix — the old 0777 form seen in legacy examples is a SyntaxError. A common slip with file permissions: os.chmod expects the integer 0o755, not the string that oct() produced; use int(s, 8) to turn such a string back into a number."
+    },
+    "syntax": "oct(x)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#oct",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "числа",
+    "aliases": [
+      "перевести число в восьмеричную систему",
+      "восьмеричное представление числа"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(oct(8))    # → 0o10",
+      "print(oct(255))  # → 0o377",
+      "print(oct(64))   # → 0o100",
+      "print(oct(-8))   # → -0o10",
+      "print(int(oct(8),8))  # → 8"
+    ],
+    "related": [
+      "bin",
+      "hex",
+      "системы-счисления",
+      "int"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "ord",
+    "title": "ord",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает Unicode кодовую точку (целое число) символа. Принимает строку длиной 1. Обратная функция для chr().",
+      "en": "Returns the Unicode code point (an integer) of a character. Takes a string of length 1. The inverse of chr()."
+    },
+    "body": {
+      "ru": "Строки сравниваются и сортируются как раз по этим кодам, поэтому 'Z' < 'a' (все заглавные латинские идут раньше строчных), а кириллица больше любой латиницы — вот откуда «странный» порядок в sorted(). Аргумент — ровно один символ: ord('ab') и ord('') дают TypeError, так что перебирать строку надо посимвольно.",
+      "en": "String comparison and sorting run on exactly these numbers, which is why 'Z' < 'a' (every uppercase Latin letter precedes every lowercase one) and why Cyrillic sorts after all Latin — the source of most \"weird\" sorted() results. The argument must be exactly one character: ord('ab') and ord('') both raise TypeError, so iterate over the string character by character."
+    },
+    "syntax": "ord(c)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#ord",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "строки",
+    "aliases": [
+      "код символа",
+      "номер символа в юникоде",
+      "преобразовать букву в число"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(ord('A'))   # → 65",
+      "print(ord('a'))   # → 97",
+      "print(ord('а'))   # → 1072 (кириллица)",
+      "print(ord('0'))   # → 48",
+      "print([ord(c) for c in 'ABC'])  # → [65,66,67]"
+    ],
+    "related": [
+      "chr",
+      "ascii",
+      "str.isascii"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "print",
+    "title": "print()",
+    "kind": "function",
+    "summary": {
+      "ru": "Встроенная функция для вывода данных на стандартный вывод (экран). Принимает любое количество аргументов, разделяет их параметром sep и заканчивает строку параметром end.",
+      "en": "Built-in function that writes data to standard output (the screen). It takes any number of arguments, joins them with the sep parameter and ends the line with the end parameter."
+    },
+    "body": {
+      "ru": "print сам прогоняет каждый аргумент через str(), поэтому print(\"x =\", 42) работает без ручного преобразования — в отличие от \"x =\" + 42, где будет TypeError. Возвращает None: строка x = print(a) кладёт в x не текст, а None; если результат нужен как значение, собирайте его f-строкой или \" \".join(...).",
+      "en": "print runs str() over every argument for you, so print(\"x =\", 42) needs no manual conversion, unlike \"x =\" + 42 which raises TypeError. It returns None, so x = print(a) stores None rather than the text — build the string with an f-string or \" \".join(...) when you need it as a value."
+    },
+    "syntax": "print(*objects, sep=' ', end='\\n', file=sys.stdout, flush=False)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#print",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "вывод",
+    "aliases": [
+      "вывод на экран",
+      "печать в консоль",
+      "напечатать результат"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(\"Hello, World!\")  # → Hello, World!",
+      "print(\"a\", \"b\", \"c\", sep=\"-\")  # → a-b-c",
+      "print(\"Нет переноса\", end=\"\")  # → Нет переноса",
+      "print(\"x =\", 42, \"y =\", 3.14)  # → x = 42 y = 3.14",
+      "name = \"Анна\"; age = 25",
+      "print(f\"{name} — {age} лет\")  # → Анна — 25 лет",
+      "print(f\"{3.14159:.2f}\")  # → 3.14",
+      "with open(\"_test.txt\", \"w\") as f:",
+      "    print(\"в файл\", file=f)  # записывает строку в файл",
+      "    import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !",
+      "    import sys; print(\"ошибка\", file=sys.stderr)  # → в поток ошибок"
+    ],
+    "related": [
+      "input",
+      "sep",
+      "end",
+      "f-строки"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "print-file-flush",
+    "title": "print(file=, flush=)",
+    "kind": "function",
+    "summary": {
+      "ru": "Параметр file= перенаправляет вывод в произвольный файловый объект (по умолчанию sys.stdout). flush=True немедленно сбрасывает внутренний буфер потока, не дожидаясь его заполнения.",
+      "en": "The file= parameter redirects the output to any file object (sys.stdout by default). flush=True flushes the stream's internal buffer immediately instead of waiting for it to fill up."
+    },
+    "body": {
+      "ru": "Буферизация зависит от того, куда идёт вывод: в терминале stdout сбрасывается построчно, а при перенаправлении в файл или пайп копится блоками по несколько килобайт, поэтому вперемешку со stderr (он всегда построчный) строки в логе могут встать в неожиданном порядке. flush=True это чинит, но заметно замедляет вывод, если звать его в цикле на миллион строк. file= ничего не открывает и не закрывает — объект вы открываете сами, лучше через with.",
+      "en": "Buffering depends on where the output goes: stdout flushes line by line on a terminal, but piles up in multi-kilobyte blocks once redirected to a file or a pipe, so lines interleaved with stderr (always line-buffered) can land in a surprising order. flush=True fixes that ordering but costs real time in a million-iteration loop. file= neither opens nor closes anything — you supply an already-open object, ideally from a with block."
+    },
+    "syntax": "print(*objects, sep=\" \", end=\"\\n\", file=sys.stdout, flush=False)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#print",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "вывод",
+    "aliases": [
+      "печать в файл",
+      "перенаправление вывода",
+      "сброс буфера вывода"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "import sys",
+      "print(\"ошибка!\", file=sys.stderr)  # → выводит в stderr",
+      "print(\".\", end=\"\", flush=True)  # → без буфера, без переноса строки",
+      "with open(\"_gloss_test.txt\", \"w\") as f:",
+      "    print(\"запись\", file=f)  # → пишет строку в файл",
+      "    import io; buf = io.StringIO()",
+      "    print(\"в буфер\", file=buf); print(buf.getvalue())  # → в буфер",
+      "    print(1, 2, 3, sep=\"-\", file=sys.stdout, flush=True)  # → 1-2-3"
+    ],
+    "related": [
+      "print",
+      "sys.stdin-sys.stdout-sys.stderr",
+      "file-flush",
+      "буферизация"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "repr",
+    "title": "repr",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает строку с официальным представлением объекта — такую, по которой можно воссоздать объект (по возможности).",
+      "en": "Returns the official string representation of an object — one the object can be recreated from where possible."
+    },
+    "body": {
+      "ru": "repr пригождается, когда print врёт: он показывает кавычки и экранированные символы, поэтому сразу видно, где '1' — строка, а где число, и есть ли на конце лишний пробел или перевод строки. Внутри контейнеров Python всегда зовёт repr элементов — вот почему print(['a']) печатает с кавычками, а print('a') нет. У собственных классов repr по умолчанию выдаёт бесполезное <Foo object at 0x...>, пока не определён метод __repr__.",
+      "en": "Reach for repr when print is hiding something: it shows quotes and escape sequences, so you can tell the string '1' from the number 1 and spot a stray trailing space or newline. Inside containers Python always calls repr on the elements — that is why print(['a']) shows quotes while print('a') does not. For your own classes repr falls back to the useless <Foo object at 0x...> until you define __repr__."
+    },
+    "syntax": "repr(object)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#repr",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "строки",
+    "aliases": [
+      "строковое представление объекта",
+      "отладочный вывод объекта",
+      "показать строку с кавычками"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(repr('hello'))  # → \"'hello'\"",
+      "print(repr([1,2,3]))  # → '[1, 2, 3]'",
+      "print(repr(None))     # → 'None'",
+      "print(repr(3.14))     # → '3.14'",
+      "print(repr({'a':1}))  # → \"{'a': 1}\""
+    ],
+    "related": [
+      "repr-vs-str",
+      "__str__-__repr__",
+      "str",
+      "ascii"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "repr-vs-str",
+    "title": "repr() vs str()",
+    "kind": "term",
+    "summary": {
+      "ru": "str() возвращает «читаемое» представление объекта для вывода пользователю. repr() возвращает «однозначное» представление, пригодное для воспроизведения объекта в коде; используется в интерактивной консоли и при отладке.",
+      "en": "str() returns the 'readable' representation of an object, meant for the user. repr() returns the 'unambiguous' representation, suitable for recreating the object in code; it is what the interactive console and debugging show."
+    },
+    "body": {
+      "ru": "Внутри контейнеров элементы всегда показываются через repr — поэтому print(\"привет\") даёт голый текст, а print([\"привет\"]) выводит строку в кавычках, и это не баг. В своих классах достаточно определить __repr__: если __str__ нет, str() и print() падают обратно на него, а вот обратной подстановки не бывает. В f-строках отладочное представление включается суффиксом !r.",
+      "en": "Inside containers elements are always shown via repr — that is why print(\"hi\") gives bare text while print([\"hi\"]) shows the string in quotes; not a bug. In your own classes defining __repr__ is enough: when __str__ is missing, str() and print() fall back to it, but there is no fallback the other way round. In f-strings the debug form is requested with the !r suffix."
+    },
+    "syntax": "str(object)  repr(object)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#repr",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "строки",
+    "aliases": [
+      "строковое представление объекта",
+      "отладочное представление объекта",
+      "как объект печатается в консоли"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(str(\"привет\"))    # → привет",
+      "print(repr(\"привет\"))   # → 'привет'",
+      "print(str(None))        # → None",
+      "print(repr(None))       # → None",
+      "print(str([1, 2]))      # → [1, 2]",
+      "print(repr([1, 2]))     # → [1, 2]"
+    ],
+    "related": [
+      "repr",
+      "__str__-__repr__",
+      "str",
+      "print"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "reversed",
+    "title": "reversed",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает обратный итератор для последовательности. Не копирует данные — ленивое вычисление.",
+      "en": "Returns a reverse iterator over a sequence. Does not copy the data — evaluated lazily."
+    },
+    "body": {
+      "ru": "Подходит не любому итерируемому: нужна последовательность — с методом __reversed__ либо с парой __len__ и __getitem__. Множества и генераторы дадут TypeError, а словарь (начиная с 3.8) обходится по ключам в обратном порядке вставки. От среза [::-1] отличается тем, что не создаёт копию: правки исходного списка по ходу обхода итератор увидит.",
+      "en": "Not every iterable qualifies: reversed needs a sequence — one that defines __reversed__, or both __len__ and __getitem__. Sets and generators raise TypeError, while dicts (since 3.8) walk their keys in reverse insertion order. Unlike the [::-1] slice it makes no copy, so mutating the underlying list during iteration is visible to the iterator."
+    },
+    "syntax": "reversed(sequence)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#reversed",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "итераторы",
+    "aliases": [
+      "перебор в обратном порядке",
+      "пройти список с конца",
+      "обратный обход последовательности"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(list(reversed([1,2,3,4,5])))  # → [5,4,3,2,1]",
+      "print(list(reversed('hello')))  # → ['o','l','l','e','h']",
+      "print(list(reversed(range(5))))  # → [4,3,2,1,0]",
+      "for x in reversed([1,2,3]):",
+      "    print(x, end=' ')  # → 3 2 1",
+      "    print(''.join(reversed('hello')))  # → olleh"
+    ],
+    "related": [
+      "zip",
+      "enumerate"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sep",
+    "title": "sep=",
+    "kind": "term",
+    "summary": {
+      "ru": "Параметр функции print(), задающий разделитель между аргументами. По умолчанию — пробел. Может быть любой строкой, включая пустую.",
+      "en": "Parameter of print() that sets the separator between arguments. Defaults to a space. Can be any string, including an empty one."
+    },
+    "body": {
+      "ru": "Разделитель вставляется только МЕЖДУ аргументами, поэтому при единственном аргументе sep не делает ничего: print(nums, sep=\", \") напечатает список целиком со скобками, а не через запятую — нужно распаковать его звёздочкой или собрать строку через str.join(). Для хвоста строки sep не отвечает, там работает end. Значением может быть только строка или None: sep=0 даёт TypeError.",
+      "en": "The separator goes only BETWEEN arguments, so with a single argument sep does nothing: print(nums, sep=\", \") prints the list with its brackets — unpack it with a star or build the string with str.join() instead. What comes after the last item is end's job, not sep's. The value must be a string or None: sep=0 raises TypeError."
+    },
+    "syntax": "print(*objects, sep='разделитель')",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#print",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "вывод",
+    "aliases": [
+      "разделитель при печати",
+      "вывод через запятую",
+      "убрать пробел между аргументами"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(1, 2, 3, sep=\", \")  # → 1, 2, 3",
+      "print(\"a\", \"b\", \"c\", sep=\"\")  # → abc",
+      "print(\"год\", \"месяц\", \"день\", sep=\"-\")  # → год-месяц-день",
+      "print(10, 20, 30, sep=\"\\n\")  # каждое число на новой строке",
+      "print(*[1, 2, 3, 4], sep=\" | \")  # → 1 | 2 | 3 | 4"
+    ],
+    "related": [
+      "end",
+      "print",
+      "str.join"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "set",
+    "title": "set",
+    "kind": "term",
+    "summary": {
+      "ru": "Изменяемое множество уникальных хешируемых элементов без определённого порядка. Поддерживает операции объединения, пересечения и разности.",
+      "en": "A mutable set of unique hashable items with no defined order. Supports union, intersection and difference operations."
+    },
+    "body": {
+      "ru": "Пустое множество создаётся только через set() — фигурные скобки без содержимого дают пустой словарь. Внутрь кладутся лишь хешируемые объекты: список вызовет TypeError, его надо превратить в кортеж или frozenset. Порядок обхода не определён и не связан с порядком добавления, поэтому для стабильного вывода печатайте sorted(s), а не само множество.",
+      "en": "An empty set can only be built with set(); empty curly braces give you a dict instead. Only hashable objects fit inside — a list raises TypeError, so convert it to a tuple or frozenset first. Iteration order is arbitrary and unrelated to insertion order, so print sorted(s) when the output has to be reproducible."
+    },
+    "syntax": "set(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#func-set",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "типы",
+    "aliases": [
+      "множество",
+      "уникальные элементы",
+      "убрать дубликаты из списка"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(set([1,2,2,3]))  # → {1,2,3}",
+      "s1={1,2,3}; s2={2,3,4}",
+      "print(s1|s2)  # → {1,2,3,4} объединение",
+      "print(s1&s2)  # → {2,3} пересечение",
+      "print(s1-s2)  # → {1} разность",
+      "print(s1^s2)  # → {1,4} симм.разность"
+    ],
+    "related": [
+      "создание-множества",
+      "операции-над-множествами",
+      "frozenset",
+      "set.add"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "setattr",
+    "title": "setattr",
+    "kind": "term",
+    "summary": {
+      "ru": "Устанавливает атрибут объекта по имени. Эквивалент obj.name = value, но позволяет задать имя атрибута динамически как строку.",
+      "en": "Sets an attribute of an object by name. Equivalent to obj.name = value, but lets you give the attribute name dynamically as a string."
+    },
+    "body": {
+      "ru": "Брать setattr стоит только когда имя атрибута реально вычисляется в рантайме (пришло из конфига, цикла, пользовательского ввода); если имя известно заранее, обычное obj.x = value читается лучше и опечатку в нём заметит IDE, а в строке — никто. Имя не проверяется на то, что оно валидный идентификатор: setattr(obj, 'my attr', 1) спокойно создаст запись в __dict__, до которой потом не добраться иначе как через getattr. На объектах без __dict__ — со __slots__ или встроенных типах вроде int и str — попытка упирается в AttributeError.",
+      "en": "Reach for setattr only when the attribute name is genuinely computed at runtime (from a config, a loop, user input); when you know the name up front, plain obj.x = value reads better and a typo in it gets flagged, while a typo inside a string does not. The name is not checked for being a valid identifier: setattr(obj, 'my attr', 1) happily lands in __dict__ and can then only be read back through getattr. Objects without a __dict__ — those with __slots__, or built-in types like int and str — raise AttributeError instead."
+    },
+    "syntax": "setattr(object, name, value)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#setattr",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "ООП",
+    "aliases": [
+      "установить атрибут по имени",
+      "задать поле объекта динамически"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "class A: pass",
+      "a=A()",
+      "setattr(a,'x',42)",
+      "print(a.x)  # → 42",
+      "for name,val in [('p',1),('q',2)]:",
+      "    setattr(a,name,val)",
+      "print(a.p, a.q)  # → 1 2",
+      "setattr(a,'lst',[])",
+      "a.lst.append(1)",
+      "print(a.lst)  # → [1]"
+    ],
+    "related": [
+      "getattr",
+      "delattr",
+      "hasattr",
+      "vars"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sorted",
+    "title": "sorted",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает новый отсортированный список. Принимает key и reverse. Не изменяет исходную последовательность.",
+      "en": "Returns a new sorted list. Accepts key and reverse. Does not modify the original sequence."
+    },
+    "body": {
+      "ru": "Сортировка устойчивая: элементы с одинаковым ключом сохраняют исходный взаимный порядок — на этом строят сортировку по нескольким критериям, делая проходы от менее важного к более важному. key вычисляется ровно один раз на элемент, так что даже дорогая функция там не страшна. В отличие от list.sort(), который меняет список на месте и возвращает None, sorted берёт любой итерируемый объект и всегда отдаёт новый список.",
+      "en": "The sort is stable: items with equal keys keep their relative order, which is what makes multi-key sorting work when you sort by the least significant key first. The key function is evaluated exactly once per element, so an expensive key is not a performance trap. Unlike list.sort(), which reorders in place and returns None, sorted accepts any iterable and always hands back a new list."
+    },
+    "syntax": "sorted(iterable, key=None, reverse=False)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#sorted",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "итераторы",
+    "aliases": [
+      "сортировка",
+      "отсортировать список",
+      "упорядочить по возрастанию"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(sorted([3,1,4,1,5]))  # → [1,1,3,4,5]",
+      "print(sorted('hello'))  # → ['e','h','l','l','o']",
+      "print(sorted([3,1,2],reverse=True))  # → [3,2,1]",
+      "print(sorted(['b','aaa','cc'],key=len))  # → ['b','cc','aaa']",
+      "print(sorted({'c':3,'a':1,'b':2}))  # → ['a','b','c']"
+    ],
+    "related": [
+      "list.sort",
+      "sorted-с-key",
+      "сортировка-ключом-key-lambda",
+      "reversed"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sum",
+    "title": "sum",
+    "kind": "term",
+    "summary": {
+      "ru": "Суммирует элементы итерируемого. start — начальное значение.",
+      "en": "Sums the items of an iterable. start is the initial value."
+    },
+    "body": {
+      "ru": "Строки sum складывать отказывается — будет TypeError с подсказкой использовать ''.join(). Склейка списков через sum(списки, []) формально работает, но на каждом шаге создаёт новый список и растёт квадратично; для длинных данных берите itertools.chain.",
+      "en": "sum refuses to concatenate strings — it raises TypeError and points you at ''.join() instead. Flattening lists with sum(lists, []) does work, but it builds a fresh list at every step and scales quadratically, so reach for itertools.chain on anything long."
+    },
+    "syntax": "sum(iterable, start=0)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#sum",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "числа/коллекции",
+    "aliases": [
+      "сумма элементов",
+      "суммировать список",
+      "посчитать сумму"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(sum([1,2,3,4,5]))  # → 15",
+      "print(sum(range(101)))  # → 5050",
+      "print(sum([[1,2],[3,4]], []))  # → [1,2,3,4]",
+      "print(sum([0.1]*10))  # → 1.0 (примерно)",
+      "print(sum({'a':1,'b':2}.values()))  # → 3"
+    ],
+    "related": [
+      "min",
+      "max",
+      "len"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "tuple",
+    "title": "tuple",
+    "kind": "term",
+    "summary": {
+      "ru": "Неизменяемая упорядоченная последовательность элементов. Хешируема (если элементы хешируемы) — можно использовать как ключ словаря.",
+      "en": "An immutable ordered sequence of items. Hashable (if its items are) — it can be used as a dictionary key."
+    },
+    "body": {
+      "ru": "Кортеж делает запятая, а не скобки: (1) — обычное число, кортеж из одного элемента пишется (1,). Неизменяемость поверхностная — если внутри лежит список, его содержимое менять можно, и такой кортеж перестаёт быть хешируемым: попытка использовать его ключом словаря даст TypeError.",
+      "en": "It is the comma, not the parentheses, that makes a tuple: (1) is just a number, while a one-element tuple is written (1,). Immutability is shallow — a list stored inside can still be mutated, and such a tuple is no longer hashable, so using it as a dict key raises TypeError."
+    },
+    "syntax": "tuple(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#func-tuple",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "типы",
+    "aliases": [
+      "кортеж",
+      "неизменяемый список",
+      "преобразовать в кортеж"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(tuple('abc'))    # → ('a','b','c')",
+      "print(tuple([1,2,3]))  # → (1,2,3)",
+      "t = (1,2,3)",
+      "a,b,c = t",
+      "print(a,b,c)  # → 1 2 3",
+      "print(tuple(zip([1,2],[3,4])))  # → ((1,3),(2,4))"
+    ],
+    "related": [
+      "создание-кортежа",
+      "list",
+      "неизменяемость-кортежа",
+      "namedtuple"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "vars",
+    "title": "vars",
+    "kind": "term",
+    "summary": {
+      "ru": "Возвращает __dict__ объекта или словарь текущего локального пространства имён (без аргументов — аналог locals()).",
+      "en": "Returns the __dict__ of an object, or a dictionary of the current local namespace (with no argument — the same as locals())."
+    },
+    "body": {
+      "ru": "vars(экземпляра) показывает только его собственные атрибуты — атрибуты и методы класса туда не попадут, они лежат в vars(типа). Возвращается не копия, а живой __dict__: правка этого словаря действительно меняет объект. А если у класса объявлены __slots__ (или это встроенный тип вроде int), никакого __dict__ нет и vars бросит TypeError.",
+      "en": "vars(instance) shows only the instance's own attributes — class attributes and methods are not there, they live in vars(type). What you get is the live __dict__ rather than a copy, so mutating it genuinely changes the object. And a class declaring __slots__ (or a built-in type such as int) has no __dict__ at all, so vars raises TypeError."
+    },
+    "syntax": "vars([object])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#vars",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "интроспекция",
+    "aliases": [
+      "словарь атрибутов объекта",
+      "получить поля объекта как словарь"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "class A:",
+      "    def __init__(self): self.x=1; self.y=2",
+      "a=A()",
+      "print(vars(a))  # → {'x':1,'y':2}",
+      "print('x' in vars(a))  # → True",
+      "print(vars(int)['__add__'])  # → ? слот-обёртка int.__add__ (repr содержит адрес)",
+      "print(type(vars()))  # → dict",
+      "print('print' in vars(__builtins__) if isinstance(vars(__builtins__),dict) else True)"
+    ],
+    "related": [
+      "dir",
+      "locals",
+      "getattr"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "переменные",
+    "title": "Переменные",
+    "kind": "term",
+    "summary": {
+      "ru": "Именованные области памяти для хранения значений. В Python переменные динамически типизированы — тип определяется значением, а не объявлением.",
+      "en": "Named places in memory that hold values. Python variables are dynamically typed — the type comes from the value, not from a declaration."
+    },
+    "body": {
+      "ru": "Имя в Python — это ярлык на объект, а не коробка со значением: b = a ничего не копирует, и если объект изменяемый (список, словарь), правка через одно имя видна через второе. Обращение к имени, которому ещё ничего не присвоили, даёт NameError, а не None или ноль. При множественном присваивании количество имён слева и значений справа должно совпадать, иначе ValueError.",
+      "en": "A name is a label attached to an object, not a box holding a value: b = a copies nothing, and if the object is mutable (a list, a dict), a change made through one name is visible through the other. Reading a name that was never assigned raises NameError — not None, not zero. In multiple assignment the number of names on the left must match the number of values on the right, otherwise you get ValueError."
+    },
+    "syntax": "имя_переменной = значение",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "переменные",
+    "aliases": [
+      "присваивание значения",
+      "объявить переменную",
+      "динамическая типизация"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "x = 10  # целое число",
+      "pi = 3.14  # float",
+      "greeting = \"Привет\"  # строка",
+      "a, b, c = 1, 2, 3  # множественное присваивание",
+      "a, b = b, a  # обмен значений без temp",
+      "x += 5  # x = x + 5 → 15 (составное присваивание)",
+      "del x  # удаление переменной"
+    ],
+    "related": [
+      "операторы-присваивания",
+      "преобразование-типов",
+      "локальные-и-глобальные-переменные",
+      "type"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "числовые-литералы",
+    "title": "Числовые литералы",
+    "kind": "term",
+    "summary": {
+      "ru": "Python поддерживает запись чисел в двоичной (0b), восьмеричной (0o) и шестнадцатеричной (0x) системах счисления, разделитель _ для читаемости, а также экспоненциальную нотацию.",
+      "en": "Python can write numbers in binary (0b), octal (0o) and hexadecimal (0x), allows the _ separator for readability, and supports exponential notation."
+    },
+    "body": {
+      "ru": "Все эти записи дают обычный int — «двоичного числа» как отдельного типа нет, и печатается оно всегда в десятичном виде; обратный перевод в запись с префиксом делают bin(), oct(), hex(), и они возвращают строку. Экспоненциальная форма — исключение: 1e3 это float 1000.0, а не int. Ведущий ноль в десятичном литерале запрещён (010 — SyntaxError), для восьмеричной нужен явный 0o.",
+      "en": "All these forms produce a plain int — there is no separate \"binary number\" type, and it always prints in decimal; to get the prefixed form back use bin(), oct() or hex(), which return strings. Exponential notation is the exception: 1e3 is the float 1000.0, not an int. A leading zero in a decimal literal is a SyntaxError (010); octal needs the explicit 0o prefix."
+    },
+    "syntax": "0b<биты>  0o<цифры>  0x<цифры>  <цифры>_<цифры>  <число>e<порядок>",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#",
+    "version": "",
+    "section": "Ввод и вывод",
+    "subcat": "литералы",
+    "aliases": [
+      "двоичная запись числа",
+      "шестнадцатеричное число",
+      "экспоненциальная запись числа"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(0b1010)      # → 10",
+      "print(0o17)        # → 15",
+      "print(0xFF)        # → 255",
+      "print(1_000_000)   # → 1000000",
+      "print(1.5e3)       # → 1500.0",
+      "print(0b1111 == 15 == 0xF)  # → True"
+    ],
+    "related": [
+      "системы-счисления",
+      "bin",
+      "hex",
+      "int"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "len",
+    "title": "len()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает число элементов в объекте (длину): последовательности, множества, словаря, строки.",
+      "en": "Return the number of items in a container (its length)."
+    },
+    "body": {
+      "ru": "len() ничего не пересчитывает: контейнеры хранят свою длину, поэтому вызов работает за O(1) хоть на миллионе элементов. Но он требует наличия __len__ — у генератора и вообще у любого итератора длины нет, и вы получите TypeError; длину потока считают через sum(1 for _ in it) или сначала материализуют его в список.",
+      "en": "len() does not count anything: containers keep their size, so the call is O(1) even for a million items. It does require __len__, though — a generator or any other iterator has no length and raises TypeError, so count a stream with sum(1 for _ in it) or materialise it into a list first."
+    },
+    "syntax": "len(obj)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#len",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "Встроенные функции",
+    "aliases": [
+      "длина строки",
+      "количество элементов",
+      "размер списка"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(len([1, 2, 3]))     # → 3",
+      "print(len('abcd'))        # → 4",
+      "print(len({'a': 1}))      # → 1"
+    ],
+    "related": [
+      "min",
+      "max",
+      "sum"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "aiter",
+    "title": "aiter()",
+    "kind": "function",
+    "summary": {
+      "ru": "Асинхронный аналог iter(): возвращает асинхронный итератор объекта (вызывает __aiter__). Работает с async for / anext().",
+      "en": "Async analog of iter(): return an async iterator for the object (calls __aiter__)."
+    },
+    "body": {
+      "ru": "Появилась в Python 3.10. Возвращает сам асинхронный итератор, а не awaitable — писать await aiter(obj) не нужно, await ставится уже перед anext(). Работает только с объектами, у которых есть __aiter__ (асинхронные генераторы, асинхронные потоки); для обычного списка это TypeError — там iter(). Явный вызов нужен редко: async for делает его за вас.",
+      "en": "Added in Python 3.10. It hands back the async iterator itself, not an awaitable — await aiter(obj) is wrong; the await belongs in front of anext(). It only accepts objects that define __aiter__ (async generators, async streams); a plain list raises TypeError and needs iter(). You rarely call it by hand, since async for does it for you."
+    },
+    "syntax": "aiter(async_iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#aiter",
+    "version": "3.10",
+    "section": "Встроенные функции",
+    "subcat": "Встроенные функции",
+    "aliases": [
+      "получить асинхронный итератор",
+      "перебор асинхронной последовательности"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def main():",
+      "    async def agen():",
+      "        yield 1",
+      "        yield 2",
+      "    it = aiter(agen())",
+      "    print(await anext(it))   # → 1",
+      "asyncio.run(main())"
+    ],
+    "related": [
+      "anext",
+      "iter",
+      "async-for-async-with",
+      "collections.abc.AsyncIterator"
+    ],
+    "related_errors": [
+      "TypeError"
+    ]
+  },
+  {
+    "id": "anext",
+    "title": "anext()",
+    "kind": "function",
+    "summary": {
+      "ru": "Асинхронный аналог next(): возвращает awaitable для следующего элемента async-итератора; с default не поднимает StopAsyncIteration.",
+      "en": "Async analog of next(): return an awaitable for the next item of an async iterator."
+    },
+    "body": {
+      "ru": "Появилась в Python 3.10. Возвращает не элемент, а awaitable: без await получите объект корутины и предупреждение 'coroutine was never awaited', а элемент так и не прочитается. Второй аргумент работает как у next(): вместо StopAsyncIteration отдаёт значение по умолчанию — короче, чем оборачивать вызов в try/except.",
+      "en": "Added in Python 3.10. It returns an awaitable, not the item: forget the await and you get a coroutine object plus a 'coroutine was never awaited' warning, while nothing is actually consumed. The second argument behaves like the one in next() — it yields a default instead of raising StopAsyncIteration, which is tidier than wrapping the call in try/except."
+    },
+    "syntax": "anext(async_iterator, default)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#anext",
+    "version": "3.10",
+    "section": "Встроенные функции",
+    "subcat": "Встроенные функции",
+    "aliases": [
+      "следующий элемент асинхронного итератора",
+      "асинхронное получение следующего значения"
+    ],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def main():",
+      "    async def agen():",
+      "        yield 10",
+      "    it = aiter(agen())",
+      "    print(await anext(it))          # → 10",
+      "    print(await anext(it, 'конец'))  # → конец",
+      "asyncio.run(main())"
+    ],
+    "related": [
+      "aiter",
+      "next",
+      "stopasynciteration",
+      "async-for-async-with"
+    ],
+    "related_errors": [
+      "StopAsyncIteration",
+      "TypeError"
+    ]
+  }
+]

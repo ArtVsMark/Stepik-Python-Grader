@@ -1,0 +1,266 @@
+repos:
+  # issue #791: ruff берётся ИЗ ОКРУЖЕНИЯ (`language: system`), а не ставится
+  # pre-commit'ом по собственному `rev`. Прежде версия жила в двух местах —
+  # `rev: v0.15.21` здесь и `ruff>=0.15.19` в pyproject.toml — и разъехалась
+  # ровно так, как предупреждал прежний комментарий: в окружении и CI встал
+  # 0.16, а хук продолжал править код правилами 0.15, из-за чего локальное
+  # «всё чисто» перестало что-либо гарантировать. Теперь источник версии один
+  # — `[dev]` в pyproject.toml (там же верхняя граница), а
+  # `scripts/check_ruff_pin.py` следит, чтобы второй пин не завёлся снова —
+  # и заодно за верхней границей mypy, где расхождение того же рода (#1349).
+  #
+  # --unsafe-fixes не используется: он добавлялся ровно ради UP038
+  # (isinstance-кортежи → PEP 604), а ruff удалил это правило как вредное
+  # (X|Y в isinstance медленнее tuple-формы), поэтому с --unsafe-fixes хук
+  # переписывал горячий путь core/tracer.py на более медленную форму.
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (из окружения)
+        entry: ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format (из окружения)
+        entry: ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-ast          # SyntaxError — главное
+      - id: check-json         # валидный JSON
+      # Вендор-бандл codemirror — сгенерированный esbuild-артефакт: правящие
+      # текст хуки не должны его трогать (трейлинг-пробел из минификации, а
+      # слепой тримминг может задеть строковый литерал). Пересобирается по
+      # рецепту static/vendor/VERSIONS.md, не редактируется вручную.
+      - id: end-of-file-fixer  # пустая строка в конце файла
+        exclude: &vendor_generated '^src/stepik_grader/web/static/vendor/.*\.mjs$'
+      - id: trailing-whitespace
+        exclude: *vendor_generated
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: *vendor_generated
+
+  # issue #996 (REL-2-08): guardrail-скрипты гонялись ТОЛЬКО в CI, и о нарушении
+  # контрибьютор узнавал после пуша — кругом в 5–10 минут ожидания вместо секунды
+  # на коммите. Все восемь укладываются в ~3.6 с суммарно, а привязка к своим
+  # файлам делает типичный коммит ещё дешевле: правка одного модуля не зовёт
+  # проверку локалей.
+  #
+  # `language: system` — тот же приём, что у ruff выше: интерпретатор берётся из
+  # окружения, второй пин версии не заводится (issue #791).
+  # `pass_filenames: false` — скрипты обходят репозиторий сами и аргументов не
+  # принимают; передать им список файлов значило бы сломать вызов.
+  - repo: local
+    hooks:
+      - id: check-docs-guardrails
+        name: docs guardrails (README, ссылки, индексы docs/)
+        entry: python scripts/check_docs_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '\.md$'
+
+      - id: check-glossary-examples
+        name: примеры карточек глоссария компилируются
+        entry: python scripts/check_glossary_examples.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/glossary/data/.*\.json$'
+
+      - id: check-glossary-docs-links
+        name: ссылки карточек ведут к описываемому имени
+        entry: python scripts/check_glossary_docs_links.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/glossary/data/.*\.json$'
+
+      - id: check-locale-guardrails
+        name: полнота локалей ru/en
+        entry: python scripts/check_locale_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/(core/i18n\.py|web/(i18n\.py|static/.*\.js))$|locales'
+
+      - id: check-ui-locale-guardrails
+        name: UI-строки без хардкода
+        entry: python scripts/check_ui_locale_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/.*\.(py|js|html)$'
+
+      - id: check-web-imports
+        name: ES-модули web — имя вызвано, но не импортировано
+        entry: python scripts/check_web_imports.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/web/static/.*\.js$'
+
+      - id: check-workflow-guardrails
+        name: пины и права в workflow'ах
+        entry: python scripts/check_workflow_guardrails.py
+        language: system
+        pass_filenames: false
+        files: '^\.github/workflows/.*\.ya?ml$'
+
+      - id: check-changelog-translated
+        name: записи CHANGELOG не остались английскими
+        entry: python scripts/check_changelog_translated.py
+        language: system
+        pass_filenames: false
+        files: '^(changelog\.d/.*\.md|CHANGELOG\.md)$'
+
+      - id: check-test-isolation
+        name: тесты не пишут в домашний каталог
+        entry: python scripts/check_test_isolation.py
+        language: system
+        pass_filenames: false
+        files: '^tests/.*\.py$'
+
+      - id: check-secret-dumps
+        name: точки дампа перечислены и редактируют секреты
+        entry: python scripts/check_secret_dumps.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/.*\.py$'
+
+      - id: check-mcp-permissions
+        name: запрет MCP держится формой, а не именами
+        entry: python scripts/check_mcp_permissions.py
+        language: system
+        pass_filenames: false
+        files: '^\.claude/settings\.json$'
+      - id: check-sources-of-truth
+        name: контракт не называет двух источников одного предмета
+        entry: python scripts/check_sources_of_truth.py
+        language: system
+        pass_filenames: false
+        files: '^(CLAUDE\.md|\.rules/sources_of_truth\.json)$'
+      - id: check-gate-tests
+        name: у гейта есть прогон того, что он обязан отвергнуть
+        entry: python scripts/check_gate_tests.py
+        language: system
+        pass_filenames: false
+        files: '^(scripts/check_.*\.py|tests/test_.*\.py)$'
+
+      - id: check-generated-sources
+        name: у производного файла назван живой исходник
+        entry: python scripts/check_generated_sources.py
+        language: system
+        pass_filenames: false
+        files: '^(docs/.*|\.github/.*|\.rules/.*|scripts/generate_.*\.py)$'
+
+      - id: check-marker-matching
+        name: маркер сверяется целиком, а не началом
+        entry: python scripts/check_marker_matching.py
+        language: system
+        pass_filenames: false
+        files: '^(scripts|src|tests|\\.claude/hooks)/.*\\.py$'
+
+      - id: check-declared-outcomes
+        name: прогнан каждый объявленный исход
+        entry: python scripts/check_declared_outcomes.py
+        language: system
+        pass_filenames: false
+        files: '^(scripts|tests)/.*\\.py$'
+
+      - id: check-adr-records
+        name: запись о решении полна
+        entry: python scripts/check_adr_records.py
+        language: system
+        pass_filenames: false
+        files: '^docs/dev/adr/.*\\.md$'
+
+      - id: check-contract-evolution
+        name: контракт описывает свою эволюцию
+        entry: python scripts/check_contract_evolution.py
+        language: system
+        pass_filenames: false
+        files: '^docs/dev/.*\\.md$'
+
+      - id: check-truncation-marks
+        name: обрезка оставляет признак обрыва
+        entry: python scripts/check_truncation_marks.py
+        language: system
+        pass_filenames: false
+        files: '^(src/stepik_grader|scripts)/.*\\.py$'
+
+      - id: check-raw-values
+        name: в ответ уходит число, а не его вид
+        entry: python scripts/check_raw_values.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/web/.*\\.py$'
+
+      - id: check-step-deadlines
+        name: у сетевого шага свой дедлайн
+        entry: python scripts/check_step_deadlines.py
+        language: system
+        pass_filenames: false
+        files: '^\\.github/workflows/.*\\.yml$'
+
+      - id: check-three-outcomes
+        name: у проверки три исхода, а не два
+        entry: python scripts/check_three_outcomes.py
+        language: system
+        pass_filenames: false
+        files: '^scripts/.*\\.py$'
+
+      - id: check-showcase-links
+        name: оригинал не ссылается на свою витрину
+        entry: python scripts/check_showcase_links.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/(glossary/data|locales|web/static)/.*$'
+
+      - id: check-rule-bindings
+        name: ответ каталогу правил сходится с фактом
+        entry: python scripts/check_rule_bindings.py
+        language: system
+        pass_filenames: false
+        files: '^(\.rules/bindings\.json|scripts/.*\.py)$'
+
+      - id: check-branch-protection-tree
+        name: эталон обязательных проверок выведен из ci.yml, а не переписан
+        entry: python scripts/check_branch_protection.py --tree-only
+        language: system
+        pass_filenames: false
+        files: '^(\.github/workflows/ci\.yml|scripts/check_branch_protection\.py)$'
+
+      - id: check-hidden-defaults
+        name: умолчания заданы явно (кодировка, -z у списков путей)
+        entry: python scripts/check_hidden_defaults.py
+        language: system
+        pass_filenames: false
+        files: '^(src|scripts|tests)/.*\.py$'
+
+      - id: check-rules-digest
+        name: второй рубеж — дайджест правил сходится с ответом проекта
+        entry: python scripts/check_rules_digest.py
+        language: system
+        pass_filenames: false
+        files: '^(\.rules/bindings\.json|docs/agent/rules/DIGEST\.md|\.claude/settings\.json)$'
+
+      - id: check-ruff-pin
+        name: пины инструментов вердикта (ruff, mypy)
+        entry: python scripts/check_ruff_pin.py
+        language: system
+        pass_filenames: false
+        files: '^(pyproject\.toml|\.pre-commit-config\.yaml)$'
+
+      - id: check-version-consistency
+        name: версия в доках не разошлась с тегом
+        entry: python scripts/check_version_consistency.py
+        language: system
+        pass_filenames: false
+        files: '^(pyproject\.toml|CHANGELOG\.md|README\.md|README\.en\.md)$'
+
+      - id: skip-inventory
+        name: у каждого пропуска в наборе названа причина
+        entry: python scripts/skip_inventory.py --summary
+        language: system
+        pass_filenames: false
+        files: '^tests/.*\.py$'

@@ -1,0 +1,1565 @@
+[
+  {
+    "id": "async-def-await",
+    "title": "async def / await",
+    "kind": "term",
+    "summary": {
+      "ru": "async def объявляет корутину. await приостанавливает выполнение до результата другой корутины.",
+      "en": "async def declares a coroutine. await suspends execution until another coroutine produces its result."
+    },
+    "body": {
+      "ru": "Вызов greet('Alice') без await ничего не выполняет — он возвращает объект-корутину, а при завершении программы вы получите предупреждение \"coroutine was never awaited\". Само по себе await доступно только внутри async def, а верхний уровень программы запускается через asyncio.run(main()). И асинхронность здесь не про параллельность: цикл событий один и однопоточный, поэтому обычный блокирующий вызов вроде time.sleep() или синхронного requests замораживает сразу все задачи.",
+      "en": "Calling greet('Alice') without await runs nothing — it just builds a coroutine object, and at exit you get the warning that a coroutine was never awaited. await itself is only legal inside async def, and the top of the program is started with asyncio.run(main()). Also, async is not parallelism: the event loop is a single thread, so one ordinary blocking call such as time.sleep() or synchronous requests freezes every task at once."
+    },
+    "syntax": "async def name() -> T:\n    result = await other_coroutine()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/compound_stmts.html#coroutine-function-definition",
+    "version": "",
+    "section": "Асинхронное программирование",
+    "subcat": "корутины",
+    "aliases": [
+      "корутина",
+      "асинхронная функция",
+      "дождаться результата корутины"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def greet(name):",
+      "    await asyncio.sleep(0)",
+      "    return f'hello, {name}'",
+      "async def main():",
+      "    msg = await greet('Alice')",
+      "    print(msg) # → hello, Alice",
+      "    asyncio.run(main())",
+      "    # coroutine без await не выполняется автоматически"
+    ],
+    "related": [
+      "asyncio.run",
+      "asyncio.gather",
+      "async-for-async-with"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "async-for-async-with",
+    "title": "async for / async with",
+    "kind": "term",
+    "summary": {
+      "ru": "async for итерирует по асинхронному итератору. async with использует асинхронный контекстный менеджер.",
+      "en": "async for iterates over an asynchronous iterator. async with uses an asynchronous context manager."
+    },
+    "body": {
+      "ru": "Это не ускорители, а способ дождаться того, что приходит порциями: async for всё равно идёт по одному элементу за раз, просто между шагами отдаёт управление event loop. Обе формы работают только внутри async def и только с объектами, у которых есть __aiter__/__anext__ (или __aenter__/__aexit__) — обычный список или синхронный with-объект дадут TypeError. Если нужна именно параллельность, а не последовательное ожидание, собирайте корутины и отдавайте их gather или TaskGroup.",
+      "en": "Neither form makes anything parallel: async for still walks items one at a time, it just yields control back to the event loop between steps. Both are allowed only inside an async def, and only for objects implementing __aiter__/__anext__ (or __aenter__/__aexit__) — a plain list or a sync context manager raises TypeError. When you actually want things to overlap, collect the coroutines and hand them to gather or a TaskGroup."
+    },
+    "syntax": "async for item in aiter: ...\nasync with ctx_manager() as obj: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/compound_stmts.html#the-async-for-statement",
+    "version": "",
+    "section": "Асинхронное программирование",
+    "subcat": "итерация",
+    "aliases": [
+      "асинхронный цикл",
+      "асинхронный контекстный менеджер",
+      "перебор асинхронного итератора"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def agen():",
+      "    for i in range(3):",
+      "        await asyncio.sleep(0)",
+      "        yield i",
+      "async def main():",
+      "    async for val in agen():",
+      "        print(val) # → 0, 1, 2",
+      "        asyncio.run(main())"
+    ],
+    "related": [
+      "async-def-await",
+      "contextlib.asynccontextmanager",
+      "collections.abc.AsyncIterator"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.create_task",
+    "title": "asyncio.create_task()",
+    "kind": "function",
+    "summary": {
+      "ru": "Оборачивает корутину в Task, запуская её в фоне event loop. Задача стартует немедленно, не дожидаясь await.",
+      "en": "Wraps a coroutine in a Task, running it in the background of the event loop. The task starts immediately, without waiting for an await."
+    },
+    "body": {
+      "ru": "Корутина не стартует прямо в точке вызова: задача лишь ставится в очередь event loop и начинает выполняться, когда текущая корутина сама дойдёт до ближайшего await. Вторая ловушка — ссылка: loop держит на задачу только слабую ссылку, поэтому task, никуда не сохранённый, может быть собран сборщиком мусора посреди работы; храните его в переменной или во множестве до завершения. И исключение внутри задачи молчит, пока её не заawait'или — потерянные задачи легко прячут ошибки.",
+      "en": "Nothing runs at the call site itself: the task is queued on the event loop and only starts once the current coroutine reaches its next await. Also keep a reference — the loop holds only a weak one, so a task assigned nowhere can be garbage-collected mid-flight; park it in a variable or a set until it finishes. An exception raised inside a task stays silent until someone awaits it, which is how fire-and-forget tasks swallow bugs."
+    },
+    "syntax": "task = asyncio.create_task(coro())",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task",
+    "version": "3.7",
+    "section": "Асинхронное программирование",
+    "subcat": "задачи",
+    "aliases": [
+      "фоновая задача",
+      "запустить корутину в фоне"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def bg():",
+      "    await asyncio.sleep(0)",
+      "    return 'done'",
+      "async def main():",
+      "    t = asyncio.create_task(bg())",
+      "    print('working...')",
+      "    result = await t",
+      "    print(result) # → done",
+      "    asyncio.run(main())"
+    ],
+    "related": [
+      "asyncio.gather",
+      "asyncio.run",
+      "async-def-await"
+    ],
+    "related_errors": [
+      "RuntimeError"
+    ]
+  },
+  {
+    "id": "asyncio.gather",
+    "title": "asyncio.gather()",
+    "kind": "function",
+    "summary": {
+      "ru": "Запускает несколько корутин конкурентно и ждёт завершения всех. Возвращает список результатов.",
+      "en": "Runs several coroutines concurrently and waits until all of them finish. Returns the list of results."
+    },
+    "body": {
+      "ru": "Результаты приходят в порядке аргументов, а не в порядке завершения. По умолчанию (return_exceptions=False) первая же ошибка сразу пробрасывается наружу, но остальные корутины при этом не отменяются и продолжают крутиться в фоне — отсюда висящие задачи и жалобы при выходе; с return_exceptions=True исключения просто лягут в список результатов на своих местах. В Python 3.11+ для группы задач с внятной отменой обычно удобнее asyncio.TaskGroup.",
+      "en": "Results come back in argument order, never in completion order. With the default return_exceptions=False the first failure propagates at once, yet the remaining coroutines are not cancelled and keep running in the background — that is where stray tasks and shutdown warnings come from; return_exceptions=True instead places each exception into the result list. On Python 3.11+ asyncio.TaskGroup is usually the better fit when you want the whole group cancelled on failure."
+    },
+    "syntax": "results = await asyncio.gather(coro1, coro2, ...)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.gather",
+    "version": "",
+    "section": "Асинхронное программирование",
+    "subcat": "параллельность",
+    "aliases": [
+      "запустить корутины параллельно",
+      "дождаться всех задач"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def fetch(n):",
+      "    await asyncio.sleep(0)",
+      "    return n ** 2",
+      "async def main():",
+      "    res = await asyncio.gather(fetch(2), fetch(3), fetch(4))",
+      "    print(res) # → [4, 9, 16]",
+      "    asyncio.run(main())"
+    ],
+    "related": [
+      "asyncio.create_task",
+      "as-completed",
+      "asyncio.run"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.queue",
+    "title": "asyncio.Queue",
+    "kind": "term",
+    "summary": {
+      "ru": "Очередь для обмена данными между корутинами. put/get — с await. Не потокобезопасна: для обмена между потоками используй queue.Queue.",
+      "en": "A queue for passing data between coroutines. put/get are awaited. Not thread-safe: use queue.Queue to pass data between threads."
+    },
+    "body": {
+      "ru": "Главная боль — как остановить потребителя: await q.get() на пустой очереди ждёт вечно, а проверка q.empty() в цикле — гонка, продюсер мог просто ещё не успеть положить элемент. Штатные способы завершиться — послать сентинел (например, None) или отмечать обработанное через task_done() и ждать q.join(). maxsize больше нуля превращает put в точку ожидания и даёт backpressure: быстрый продюсер не убежит от медленного потребителя.",
+      "en": "The hard part is stopping the consumer: await q.get() on an empty queue waits forever, and looping on q.empty() is a race — the producer may simply not have put the item yet. The usual exits are a sentinel value (say None) or marking work with task_done() and waiting on q.join(). A maxsize above zero makes put itself a suspension point, giving you backpressure so a fast producer cannot outrun a slow consumer."
+    },
+    "syntax": "q = asyncio.Queue(maxsize=0)\nawait q.put(item)\nitem = await q.get()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-queue.html#asyncio.Queue",
+    "version": "",
+    "section": "Асинхронное программирование",
+    "subcat": "очередь",
+    "aliases": [
+      "асинхронная очередь",
+      "очередь для корутин"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def producer(q):",
+      "    for i in range(3):",
+      "        await q.put(i)",
+      "async def consumer(q):",
+      "    while not q.empty():",
+      "        v = await q.get()",
+      "        print(v) # → 0, 1, 2",
+      "async def main():",
+      "    q = asyncio.Queue()",
+      "    await producer(q)",
+      "    await consumer(q)",
+      "    asyncio.run(main())"
+    ],
+    "related": [
+      "очередь-queue",
+      "asyncio.create_task",
+      "collections.deque"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.run",
+    "title": "asyncio.run()",
+    "kind": "function",
+    "summary": {
+      "ru": "Запускает корутину верхнего уровня в новом event loop. Главная точка входа для async-программ (Python 3.7+).",
+      "en": "Runs a top-level coroutine in a new event loop. The main entry point of an async program (Python 3.7+)."
+    },
+    "body": {
+      "ru": "Вызвать его изнутри уже работающего цикла нельзя: в Jupyter или внутри другой корутины получите RuntimeError про asyncio.run() cannot be called from a running event loop. Каждый вызов создаёт новый loop и в конце закрывает его, отменяя недоделанные задачи, поэтому привязанные к циклу объекты (Queue, Lock, открытые соединения) нельзя переиспользовать между двумя вызовами. Практическое правило: ровно один вызов на всю программу, в самой верхней точке.",
+      "en": "You cannot call it from inside a loop that is already running — in Jupyter or within another coroutine you get RuntimeError: asyncio.run() cannot be called from a running event loop. Every call builds a fresh loop and closes it on exit, cancelling whatever is still pending, so loop-bound objects such as Queue, Lock or open connections cannot be shared across two calls. Rule of thumb: exactly one call, at the very top of your program."
+    },
+    "syntax": "asyncio.run(coro)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-runner.html#asyncio.run",
+    "version": "3.7",
+    "section": "Асинхронное программирование",
+    "subcat": "event loop",
+    "aliases": [
+      "запустить корутину",
+      "запуск асинхронной программы"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def main():",
+      "    return 42",
+      "result = asyncio.run(main())",
+      "result # → 42",
+      "async def hello():",
+      "    print('start')",
+      "    await asyncio.sleep(0)",
+      "    print('end')",
+      "    asyncio.run(hello()) # → start\\nend"
+    ],
+    "related": [
+      "async-def-await",
+      "asyncio.gather",
+      "asyncio.create_task"
+    ],
+    "related_errors": [
+      "RuntimeError"
+    ]
+  },
+  {
+    "id": "asyncio.sleep",
+    "title": "asyncio.sleep()",
+    "kind": "function",
+    "summary": {
+      "ru": "Приостанавливает корутину на указанное время, не блокируя event loop. Аналог time.sleep() для async.",
+      "en": "Suspends a coroutine for the given time without blocking the event loop. The async counterpart of time.sleep()."
+    },
+    "body": {
+      "ru": "Главная ошибка — оставить в корутине time.sleep(): он замораживает весь поток вместе с event loop, и параллельные задачи встают, хотя код внешне выглядит асинхронным. Указанное время — минимум, а не точность: возврат произойдёт не раньше него, но насколько позже — зависит от загруженности цикла. Вызов asyncio.sleep(0) — идиома «уступить управление»: спать не нужно, но другим готовым задачам дают шанс поработать.",
+      "en": "The classic mistake is leaving time.sleep() inside a coroutine: it freezes the whole thread along with the event loop, so every concurrent task stalls even though the code looks asynchronous. The delay is a lower bound, not a guarantee — you never resume earlier, but how much later depends on how busy the loop is. asyncio.sleep(0) is the idiom for yielding control: no real waiting, just a chance for other ready tasks to run."
+    },
+    "syntax": "await asyncio.sleep(seconds)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.sleep",
+    "version": "",
+    "section": "Асинхронное программирование",
+    "subcat": "event loop",
+    "aliases": [
+      "асинхронная пауза",
+      "неблокирующая задержка",
+      "подождать в корутине"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def task(n):",
+      "    await asyncio.sleep(0.1)",
+      "    return n * 2",
+      "async def main():",
+      "    r = await task(5)",
+      "    print(r) # → 10",
+      "    asyncio.run(main())",
+      "    # asyncio.sleep(0) — уступить управление без паузы"
+    ],
+    "related": [
+      "async-def-await",
+      "asyncio.run",
+      "asyncio.gather"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "generator-function-yield",
+    "title": "Generator function — yield",
+    "kind": "term",
+    "summary": {
+      "ru": "Функция с yield — генераторная функция. Возвращает генератор. Выполнение приостанавливается при yield.",
+      "en": "A function with yield is a generator function. It returns a generator. Execution is suspended at each yield."
+    },
+    "body": {
+      "ru": "Вызов генераторной функции не выполняет ни одной строки её тела — только создаёт объект-генератор; код стартует при первом next() или на первой итерации цикла. Генератор одноразовый: после того как он исчерпан, повторный for по той же переменной молча даст ноль итераций — это ловушка, когда результат хотят обойти дважды или сначала посчитать len(). Смысл конструкции — считать элементы по одному и не держать в памяти весь список, поэтому она уместна для больших или бесконечных последовательностей.",
+      "en": "Calling a generator function runs none of its body — it only builds a generator object; the code starts at the first next() or the first loop iteration. Generators are single-pass: once exhausted, a second for over the same variable silently yields nothing, which bites people who want to iterate twice or take len() first. The whole point is producing items one at a time instead of materialising a list, which is what makes huge or infinite sequences workable."
+    },
+    "syntax": "def gen():\n    yield value",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/expressions.html#yield-expressions",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "генераторы",
+    "aliases": [
+      "генераторная функция",
+      "возвращать значения по одному",
+      "ленивая выдача значений"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "def count_up(n):",
+      "    i = 0",
+      "    while i < n:",
+      "        yield i",
+      "        i += 1",
+      "for x in count_up(4):",
+      "    print(x, end=' ')  # → 0 1 2 3",
+      "# Бесконечный генератор",
+      "def naturals():",
+      "    n = 1",
+      "    while True:",
+      "        yield n",
+      "        n += 1",
+      "from itertools import islice",
+      "print(list(islice(naturals(), 5)))  # → [1,2,3,4,5]",
+      "# Ленивые вычисления",
+      "def read_large_file(path):",
+      "    # Открывает файл ленивно",
+      "    with open(path) as f:",
+      "        for line in f:",
+      "            yield line.strip()",
+      "    # Сохраняет память!",
+      "# Состояние между вызовами",
+      "def running_total(lst):",
+      "    total = 0",
+      "    for x in lst:",
+      "        total += x",
+      "        yield total",
+      "print(list(running_total([1,2,3,4])))  # → [1,3,6,10]",
+      "# Фибоначчи-генератор",
+      "def fib_gen():",
+      "    a, b = 0, 1",
+      "    while True:",
+      "        yield a",
+      "        a, b = b, a+b",
+      "g = fib_gen()",
+      "print([next(g) for _ in range(8)])  # → [0,1,1,2,3,5,8,13]",
+      "# send() — отправить значение в генератор",
+      "def accumulator():",
+      "    total = 0",
+      "    while True:",
+      "        value = yield total",
+      "        if value is not None:",
+      "            total += value",
+      "acc = accumulator()",
+      "next(acc)  # инициализация",
+      "print(acc.send(10))  # → 10",
+      "print(acc.send(5))   # → 15",
+      "# Генератор можно обходить только раз",
+      "g2 = count_up(3)",
+      "print(list(g2))  # → [0,1,2]",
+      "print(list(g2))  # → [] исчерпан"
+    ],
+    "related": [
+      "yield-from",
+      "генераторное-выражение",
+      "iter-next",
+      "stopiteration"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "iter-next",
+    "title": "iter() / next()",
+    "kind": "function",
+    "summary": {
+      "ru": "iter() создаёт итератор из итерируемого. next() возвращает следующий элемент. Default-значение — вместо StopIteration.",
+      "en": "iter() builds an iterator out of an iterable. next() returns the following item. The default value is returned instead of raising StopIteration."
+    },
+    "body": {
+      "ru": "Цикл for делает ровно это под капотом: берёт iter() у объекта и дёргает next(), пока не поймает StopIteration. Отсюда неочевидное следствие — итератор помнит позицию, поэтому после частичного обхода следующий цикл продолжит с того места, где вы остановились, а не с начала. Голый next() без второго аргумента бросает StopIteration, и если это происходит внутри генератора, интерпретатор превращает исключение в RuntimeError (PEP 479) — надёжнее передавать значение по умолчанию.",
+      "en": "A for loop is exactly this under the hood: it calls iter() on the object and keeps calling next() until StopIteration shows up. The non-obvious consequence is that an iterator remembers its position, so after a partial walk the next loop resumes where you stopped rather than from the beginning. A bare next() without a default raises StopIteration, and when that happens inside a generator the interpreter converts it into RuntimeError (PEP 479), so passing a default is the safer habit."
+    },
+    "syntax": "it = iter(obj)\nnext(it, default)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#iter",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "протокол итератора",
+    "aliases": [
+      "создать итератор из коллекции",
+      "получить следующий элемент",
+      "ручной перебор без цикла"
+    ],
+    "keywords": [
+      "iter",
+      "next"
+    ],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "it = iter([1,2,3])",
+      "print(next(it))  # → 1",
+      "print(next(it))  # → 2",
+      "print(next(it))  # → 3",
+      "print(next(it, 'end'))  # → end",
+      "# iter со sentinel",
+      "import io",
+      "f = io.StringIO('line1\\nline2\\n')",
+      "for line in iter(f.readline, ''):",
+      "    print(line.strip())  # → line1 / line2",
+      "    # iter строки",
+      "    it2 = iter('hello')",
+      "    for ch in it2:",
+      "        print(ch, end='')  # → hello",
+      "        # next с default предотвращает исключение",
+      "        it3 = iter([])",
+      "        print(next(it3, None))  # → None",
+      "# Бесконечный итератор + islice",
+      "from itertools import islice, count",
+      "it4 = count(1)",
+      "print(list(islice(it4, 5)))  # → [1,2,3,4,5]"
+    ],
+    "related": [
+      "итератор-__iter__-__next__",
+      "stopiteration",
+      "generator-function-yield"
+    ],
+    "related_errors": [
+      "StopIteration",
+      "TypeError"
+    ]
+  },
+  {
+    "id": "itertools.accumulate",
+    "title": "itertools.accumulate",
+    "kind": "term",
+    "summary": {
+      "ru": "Накапливающиеся промежуточные результаты применения функции. По умолчанию — сумма.",
+      "en": "The running intermediate results of applying a function. Sums by default."
+    },
+    "body": {
+      "ru": "Отличие от functools.reduce: reduce сворачивает всё в одно число, accumulate отдаёт всю историю свёртки — на выходе столько же элементов, сколько на входе. Результат ленивый итератор, а не список: печатать его напрямую бесполезно, нужен list() или обход циклом, и пройти по нему можно один раз. Функция должна принимать два аргумента; параметр initial (с Python 3.8) подставляет стартовое значение и делает выход на один элемент длиннее.",
+      "en": "The difference from functools.reduce: reduce collapses everything into a single value, while accumulate hands you the whole running history — the output has as many items as the input. It returns a lazy iterator, not a list, so printing it directly is useless; wrap it in list() or loop over it, and remember you only get one pass. The function must take two arguments, and the initial parameter (Python 3.8+) seeds the accumulation and makes the output one item longer."
+    },
+    "syntax": "from itertools import accumulate\naccumulate(iterable, func=operator.add)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.accumulate",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "itertools",
+    "aliases": [
+      "накопительная сумма",
+      "нарастающий итог",
+      "кумулятивная сумма"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "from itertools import accumulate",
+      "print(list(accumulate([1,2,3,4,5])))  # → [1,3,6,10,15] (накопленные суммы)",
+      "import operator",
+      "print(list(accumulate([1,2,3,4,5], operator.mul)))  # → [1,2,6,24,120] (факториалы)",
+      "# running max",
+      "print(list(accumulate([3,1,4,1,5,9,2,6], max)))  # → [3,3,4,4,5,9,9,9]",
+      "# С начальным значением (Python 3.8+)",
+      "print(list(accumulate([1,2,3], initial=100)))  # → [100,101,103,106]",
+      "# Применение в финансах (баланс счёта)",
+      "transactions = [1000, -200, -50, 300, -100]",
+      "balances = list(accumulate(transactions))",
+      "print(balances)  # → [1000,800,750,1050,950]"
+    ],
+    "related": [
+      "functools.reduce",
+      "префиксные-суммы",
+      "sum"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.chain",
+    "title": "itertools.chain",
+    "kind": "term",
+    "summary": {
+      "ru": "Последовательно перебирает несколько итерируемых как одно целое.",
+      "en": "Walks through several iterables one after another as if they were a single one."
+    },
+    "body": {
+      "ru": "В отличие от a + b, chain ничего не копирует: элементы берутся по одному по мере обхода, память постоянная, и это работает с любыми итерируемыми — множествами, файлами, генераторами, а не только со списками одного типа. Разница между chain(*matrix) и chain.from_iterable(matrix) существенна: звёздочка сразу разворачивает внешнюю последовательность в аргументы, from_iterable берёт её лениво и потому переживает длинные или бесконечные внешние источники. Итог — обычный одноразовый итератор, второго прохода по нему не будет.",
+      "en": "Unlike a + b, chain copies nothing: items are pulled one at a time as you iterate, memory stays constant, and it accepts any iterables — sets, files, generators — not just lists of one type. The gap between chain(*matrix) and chain.from_iterable(matrix) matters: the star expands the outer sequence into arguments immediately, while from_iterable consumes it lazily and therefore survives very long or endless outer sources. What you get back is an ordinary single-pass iterator, so there is no second walk over it."
+    },
+    "syntax": "from itertools import chain\nchain(a, b, c)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.chain",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "itertools",
+    "aliases": [
+      "перебрать несколько списков подряд",
+      "объединить итерируемые в одну цепочку"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "from itertools import chain",
+      "result = list(chain([1,2],[3,4],[5,6]))",
+      "print(result)  # → [1,2,3,4,5,6]",
+      "# chain.from_iterable",
+      "matrix = [[1,2],[3,4],[5,6]]",
+      "flat = list(chain.from_iterable(matrix))",
+      "print(flat)  # → [1,2,3,4,5,6]",
+      "# Объединение строк",
+      "words = list(chain('hello', ' ', 'world'))",
+      "print(''.join(words))  # → hello world",
+      "# С генераторами",
+      "def gen1(): yield 1; yield 2",
+      "def gen2(): yield 3; yield 4",
+      "print(list(chain(gen1(), gen2())))  # → [1,2,3,4]",
+      "# chain vs list + list",
+      "a = range(1000000); b = range(1000000)",
+      "# chain(a,b) — без создания списка в памяти!"
+    ],
+    "related": [
+      "list.extend",
+      "itertools.islice",
+      "yield-from"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.groupby",
+    "title": "itertools.groupby",
+    "kind": "term",
+    "summary": {
+      "ru": "Группирует последовательные одинаковые элементы. Данные должны быть отсортированы по ключу!",
+      "en": "Groups consecutive equal items. The data must be sorted by the key first!"
+    },
+    "body": {
+      "ru": "Главная ловушка после «забыл отсортировать» — группа живёт только до перехода к следующей. Все группы делят один исходный итератор, поэтому list(groupby(data)) даёт пустые группы: пока вы дойдёте до конца, предыдущие уже съедены. Нужен весь результат сразу — забирайте list(group) внутри цикла, до следующей итерации.",
+      "en": "Beyond the classic \"forgot to sort\" mistake, a group stays valid only until you move on to the next one. All groups share the same underlying iterator, so list(groupby(data)) hands you empty groups: by the time the loop ends, the earlier ones have been consumed. If you need everything at once, call list(group) inside the loop body, before advancing."
+    },
+    "syntax": "from itertools import groupby\ngroupby(iterable, key=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.groupby",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "itertools",
+    "aliases": [
+      "группировка по ключу",
+      "сгруппировать подряд идущие одинаковые элементы"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "from itertools import groupby",
+      "data = ['A','A','B','B','B','A']",
+      "for key, group in groupby(data):",
+      "    print(key, list(group))  # → A [A,A] / B [B,B,B] / A [A]",
+      "    # Сортировка перед groupby!",
+      "    words = ['apple','apricot','banana','blueberry','cherry']",
+      "    for letter, group in groupby(words, key=lambda w: w[0]):",
+      "        print(letter, list(group))",
+      "        # Подсчёт групп",
+      "        data2 = sorted([1,1,2,2,2,3])",
+      "        result = {k: list(v) for k,v in groupby(data2)}",
+      "        print(result)  # → {1:[1,1], 2:[2,2,2], 3:[3]}",
+      "        # Группировка по условию",
+      "        nums = [1,2,4,6,3,7,8]",
+      "        nums.sort(key=lambda x: x%2)",
+      "    for parity, grp in groupby(nums, key=lambda x: x%2):",
+      "        print('odd' if parity else 'even', list(grp))",
+      "        # Длины рядов",
+      "        data3 = 'AAABBBCCDDDDEE'",
+      "        runs = [(k, len(list(v))) for k,v in groupby(data3)]",
+      "        print(runs)  # → [('A',3),('B',3),('C',2),('D',4),('E',2)]"
+    ],
+    "related": [
+      "sorted-с-key",
+      "collections.counter",
+      "collections.defaultdict"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.islice",
+    "title": "itertools.islice",
+    "kind": "term",
+    "summary": {
+      "ru": "Срез итератора без материализации. Аналог slice для итерируемых.",
+      "en": "Slices an iterator without materializing it. The counterpart of a slice for iterables."
+    },
+    "body": {
+      "ru": "islice не возвращается назад: отрицательные start, stop и step запрещены, шаг только положительный. И он реально расходует итератор — элементы до start прочитаны и выброшены, а после вызова исходный итератор стоит на месте, докуда дошёл срез, так что повторный islice продолжит, а не начнёт заново.",
+      "en": "islice never looks backwards: negative start, stop and step are rejected, and the step must be positive. It also genuinely consumes the source — items before start are read and thrown away, and afterwards the underlying iterator sits wherever the slice stopped, so a second islice continues from there instead of starting over."
+    },
+    "syntax": "from itertools import islice\nislice(iterable, stop)\nislice(iterable, start, stop[, step])",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.islice",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "itertools",
+    "aliases": [
+      "срез итератора",
+      "взять первые элементы генератора"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "from itertools import islice",
+      "print(list(islice(range(100), 5)))  # → [0,1,2,3,4]",
+      "print(list(islice(range(100), 2, 7)))  # → [2,3,4,5,6]",
+      "print(list(islice(range(100), 0, 10, 2)))  # → [0,2,4,6,8]",
+      "# Первые N строк файла (ленивый)",
+      "# with open('big.txt') as f:",
+      "#     head = list(islice(f, 10))",
+      "# islice с бесконечным генератором",
+      "def naturals():",
+      "    n = 0",
+      "    while True: yield n; n+=1",
+      "    print(list(islice(naturals(), 5, 10)))  # → [5,6,7,8,9]",
+      "    # Пагинация",
+      "    data = range(100)",
+      "    page = list(islice(data, 20, 30))  # страница 3 (по 10)",
+      "    print(page)  # → [20...29]",
+      "    # Каждый N-й элемент",
+      "    print(list(islice(range(20), 0, None, 3)))  # → [0,3,6,9,12,15,18]"
+    ],
+    "related": [
+      "срезы-списка",
+      "itertools.takewhile",
+      "itertools.chain"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "yield-from",
+    "title": "yield from",
+    "kind": "term",
+    "summary": {
+      "ru": "Делегирует yield другому генератору или итерируемому. Упрощает вложенные генераторы.",
+      "en": "Delegates yielding to another generator or iterable. It simplifies nested generators."
+    },
+    "body": {
+      "ru": "Это не просто сокращение для цикла с yield: yield from пробрасывает во вложенный генератор send() и throw(), а значение из его return становится результатом самого выражения yield from. Ради обычного перебора экономия невелика, а вот для сопрограмм и рекурсивного обхода (дерево, вложенные списки) — именно то, ради чего конструкцию добавили в Python 3.3.",
+      "en": "It is more than shorthand for a for loop with yield: yield from forwards send() and throw() into the subgenerator, and whatever the subgenerator returns becomes the value of the yield from expression itself. For plain iteration the savings are cosmetic; the real payoff is coroutines and recursive traversal (trees, nested lists), which is why Python 3.3 introduced it."
+    },
+    "syntax": "yield from iterable",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/expressions.html#yield-expressions",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "генераторы",
+    "aliases": [
+      "делегирование генератора",
+      "вложенные генераторы"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "def chain(*iterables):",
+      "    for it in iterables:",
+      "        yield from it",
+      "print(list(chain([1,2],[3,4],[5])))  # → [1,2,3,4,5]",
+      "def flatten(lst):",
+      "    for item in lst:",
+      "        if isinstance(item, list):",
+      "            yield from flatten(item)",
+      "        else:",
+      "            yield item",
+      "print(list(flatten([1,[2,[3,4]],5])))  # → [1,2,3,4,5]",
+      "def gen_a():",
+      "    yield 1; yield 2",
+      "def gen_b():",
+      "    yield from gen_a()",
+      "    yield 3",
+      "print(list(gen_b()))  # → [1,2,3]",
+      "# yield from с range",
+      "def gen_range(n):",
+      "    yield from range(n)",
+      "print(list(gen_range(5)))  # → [0,1,2,3,4]",
+      "# yield from возвращает значение (return в под-генераторе)",
+      "def sub():",
+      "    yield 1; yield 2",
+      "    return 'done'",
+      "def main():",
+      "    result = yield from sub()",
+      "    print('sub returned:', result)  # → done",
+      "list(main())  # → [1,2]"
+    ],
+    "related": [
+      "generator-function-yield",
+      "itertools.chain",
+      "генераторное-выражение"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "генераторное-выражение",
+    "title": "Генераторное выражение",
+    "kind": "term",
+    "summary": {
+      "ru": "Ленивый аналог list comprehension в круглых скобках. Не создаёт список в памяти.",
+      "en": "The lazy counterpart of a list comprehension, written in parentheses. It does not build a list in memory."
+    },
+    "body": {
+      "ru": "Генератор одноразовый: после list(gen) второй проход даст пустоту, а не прежние значения — частая причина «почему сумма ноль». Ещё тонкость: самое левое iterable вычисляется сразу при создании выражения, а всё остальное — лениво, поэтому изменение внешних переменных после создания генератора повлияет на результат.",
+      "en": "A generator expression is single-use: after list(gen) a second pass yields nothing rather than the old values, which is a common cause of a mysterious zero sum. One more subtlety: the leftmost iterable is evaluated immediately when the expression is created, while everything else is deferred, so changing outer variables afterwards still affects the output."
+    },
+    "syntax": "(expr for x in iterable if condition)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/expressions.html#generator-expressions",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "генераторы",
+    "aliases": [
+      "генератор в круглых скобках",
+      "ленивая генерация без списка в памяти"
+    ],
+    "keywords": [],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "gen = (x**2 for x in range(5))",
+      "print(type(gen))  # → generator",
+      "print(list(gen))  # → [0,1,4,9,16]",
+      "# Ленивость — память не расходуется",
+      "big_gen = (x**2 for x in range(10**6))",
+      "print(next(big_gen))  # → 0",
+      "print(next(big_gen))  # → 1",
+      "# sum с генератором",
+      "print(sum(x**2 for x in range(10)))  # → 285",
+      "# Фильтрация",
+      "evens = (x for x in range(20) if x%2==0)",
+      "print(list(evens))  # → [0,2,4,6,8,10,12,14,16,18]",
+      "# В функции — скобки не нужны",
+      "print(max(len(s) for s in ['hi','hello','ok']))  # → 5",
+      "# Вложенный генератор",
+      "matrix = [[1,2],[3,4],[5,6]]",
+      "flat = (x for row in matrix for x in row)",
+      "print(list(flat))  # → [1,2,3,4,5,6]"
+    ],
+    "related": [
+      "списочные-выражения-list-comprehension",
+      "generator-function-yield",
+      "генераторы-множеств-set-comprehension"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "итератор-__iter__-__next__",
+    "title": "Итератор __iter__ / __next__",
+    "kind": "term",
+    "summary": {
+      "ru": "Итератор — объект с __iter__ и __next__. __next__ возвращает следующее значение или поднимает StopIteration.",
+      "en": "An iterator is an object with __iter__ and __next__. __next__ returns the next value or raises StopIteration."
+    },
+    "body": {
+      "ru": "Не путайте итерируемое и итератор: список можно обойти сколько угодно раз, а итератор — ровно один, и после исчерпания он обязан продолжать поднимать StopIteration, а не начинать заново. Поэтому класс, у которого __iter__ возвращает self, во втором цикле for молча ничего не выдаст; чтобы объект переиспользовался, __iter__ должен возвращать каждый раз новый объект-итератор.",
+      "en": "Do not confuse an iterable with an iterator: a list can be traversed any number of times, an iterator exactly once, and once exhausted it must keep raising StopIteration rather than restarting. That is why a class whose __iter__ returns self silently produces nothing in a second for loop; to make the object reusable, __iter__ should hand back a fresh iterator object each time."
+    },
+    "syntax": "class Iter:\n    def __iter__(self): return self\n    def __next__(self): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/glossary.html#term-iterator",
+    "version": "",
+    "section": "Итераторы и генераторы",
+    "subcat": "протокол итератора",
+    "aliases": [
+      "протокол итератора",
+      "сделать класс перебираемым",
+      "свой итератор"
+    ],
+    "keywords": [
+      "__iter__",
+      "__next__"
+    ],
+    "tags": [
+      "iter"
+    ],
+    "examples": [
+      "class CountUp:",
+      "    def __init__(self, start, stop):",
+      "        self.current = start",
+      "        self.stop = stop",
+      "    def __iter__(self):",
+      "        return self",
+      "    def __next__(self):",
+      "        if self.current >= self.stop:",
+      "            raise StopIteration",
+      "        val = self.current",
+      "        self.current += 1",
+      "        return val",
+      "for x in CountUp(1, 4):",
+      "    print(x, end=' ')  # → 1 2 3",
+      "class Squares:",
+      "    def __init__(self, n):",
+      "        self.i = 0; self.n = n",
+      "    def __iter__(self): return self",
+      "    def __next__(self):",
+      "        if self.i >= self.n: raise StopIteration",
+      "        val = self.i**2",
+      "        self.i += 1",
+      "        return val",
+      "print(list(Squares(5)))  # → [0,1,4,9,16]",
+      "# Итератор — одноразовый!",
+      "it = iter([1,2,3])",
+      "print(list(it))  # → [1,2,3]",
+      "print(list(it))  # → [] исчерпан!",
+      "class FibIter:",
+      "    def __init__(self, max_n):",
+      "        self.a, self.b = 0, 1",
+      "        self.max_n = max_n",
+      "    def __iter__(self): return self",
+      "    def __next__(self):",
+      "        if self.a > self.max_n: raise StopIteration",
+      "        val = self.a",
+      "        self.a, self.b = self.b, self.a+self.b",
+      "        return val",
+      "print(list(FibIter(50)))  # → [0,1,1,2,3,5,8,13,21,34]",
+      "# for цикл использует __iter__/__next__",
+      "lst = [10, 20, 30]",
+      "it = iter(lst)",
+      "while True:",
+      "    try:",
+      "        print(next(it))",
+      "    except StopIteration:",
+      "        break  # → 10 20 30",
+      "class Reversed:",
+      "    def __init__(self, data):",
+      "        self.data = data",
+      "        self.i = len(data) - 1",
+      "    def __iter__(self): return self",
+      "    def __next__(self):",
+      "        if self.i < 0: raise StopIteration",
+      "        val = self.data[self.i]",
+      "        self.i -= 1",
+      "        return val",
+      "print(list(Reversed([1,2,3,4])))  # → [4,3,2,1]"
+    ],
+    "related": [
+      "iter-next",
+      "stopiteration",
+      "generator-function-yield",
+      "collections.abc.Iterator"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.count",
+    "title": "itertools.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Бесконечный счётчик: start, start+step, … Часто с zip()/islice().",
+      "en": "An infinite counter: start, start+step, …"
+    },
+    "body": {
+      "ru": "Счётчик бесконечен: list(count()) или for без break повесит программу и съест память — ограничивайте его через islice(), zip() или takewhile(). Типичное применение — генератор индексов в паре с zip() (как enumerate), а step может быть и дробным.",
+      "en": "The counter is infinite: list(count()) or a for-loop without a break will hang and exhaust memory — bound it with islice(), zip(), or takewhile(). A common use is as an index generator paired with zip() (enumerate-style), and step may be a float."
+    },
+    "syntax": "itertools.count(start=0, step=1)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.count",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "бесконечный счётчик",
+      "нумерация с заданным шагом",
+      "бесконечная последовательность чисел"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "c = itertools.count(10)",
+      "print(next(c), next(c), next(c))   # → 10 11 12",
+      "print(list(itertools.islice(itertools.count(0, 5), 4)))   # → [0, 5, 10, 15]",
+      "print(list(zip(itertools.count(1), 'abc')))   # → [(1, 'a'), (2, 'b'), (3, 'c')]",
+      "print(list(itertools.islice(itertools.count(3, -1), 5)))   # → [3, 2, 1, 0, -1]"
+    ],
+    "related": [
+      "itertools.cycle",
+      "itertools.repeat",
+      "itertools.islice",
+      "enumerate"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.cycle",
+    "title": "itertools.cycle",
+    "kind": "function",
+    "summary": {
+      "ru": "Бесконечно повторяет элементы итерируемого по кругу.",
+      "en": "Repeat the elements of an iterable endlessly, cycling."
+    },
+    "body": {
+      "ru": "На первом проходе cycle сохраняет копию всех элементов, чтобы потом повторять их бесконечно, — поэтому на огромном или бесконечном источнике он незаметно съест память. Сам итератор никогда не заканчивается: list(cycle(...)) зависнет навсегда, всегда ограничивай его через islice или через next() в цикле с собственным условием выхода.",
+      "en": "On its first pass cycle stores a copy of every element so it can repeat them forever, which means it quietly holds the whole input in memory on huge or infinite sources. The iterator itself never ends: list(cycle(...)) hangs forever, so always bound it with islice or a next() loop that has its own exit condition."
+    },
+    "syntax": "itertools.cycle(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.cycle",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "зациклить последовательность",
+      "повторять элементы по кругу"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "c = itertools.cycle([1, 2, 3])",
+      "print([next(c) for _ in range(5)])   # → [1, 2, 3, 1, 2]",
+      "print(list(itertools.islice(itertools.cycle('ab'), 5)))   # → ['a', 'b', 'a', 'b', 'a']",
+      "print(list(zip('abcd', itertools.cycle([0, 1]))))   # → [('a', 0), ('b', 1), ('c', 0), ('d', 1)]",
+      "print(list(itertools.islice(itertools.cycle([]), 3)))   # → []"
+    ],
+    "related": [
+      "itertools.repeat",
+      "itertools.count",
+      "itertools.islice"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.repeat",
+    "title": "itertools.repeat",
+    "kind": "function",
+    "summary": {
+      "ru": "Повторяет одно значение: бесконечно или ровно times раз.",
+      "en": "Repeat a single value endlessly or exactly `times` times."
+    },
+    "body": {
+      "ru": "Без аргумента times поток бесконечен — не оборачивай его в list(), а комбинируй с zip()/map(), чтобы подать константу к каждому элементу (map(pow, base, repeat(2))). repeat отдаёт один и тот же объект, а не копии, поэтому для изменяемого значения все элементы окажутся ссылками на одну и ту же вещь.",
+      "en": "With no times argument the stream is infinite — never wrap it in list(); pair it with zip()/map() to feed a constant alongside each element (map(pow, base, repeat(2))). repeat yields the same object every time, not copies, so with a mutable value every item is a reference to one shared thing."
+    },
+    "syntax": "itertools.repeat(obj, times)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.repeat",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "повторить значение несколько раз",
+      "последовательность одинаковых элементов"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.repeat('x', 3)))   # → ['x', 'x', 'x']",
+      "print(sum(itertools.repeat(5, 4)))   # → 20",
+      "print(list(map(pow, [1, 2, 3], itertools.repeat(2))))   # → [1, 4, 9]",
+      "print(list(itertools.islice(itertools.repeat(7), 3)))   # → [7, 7, 7]",
+      "print(list(itertools.repeat('x', -1)))   # → []"
+    ],
+    "related": [
+      "itertools.cycle",
+      "itertools.count",
+      "map"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.combinations",
+    "title": "itertools.combinations",
+    "kind": "function",
+    "summary": {
+      "ru": "Все сочетания длины r из итерируемого (без повторов, порядок не важен).",
+      "en": "All length-r combinations of the iterable (no repeats, order-independent)."
+    },
+    "body": {
+      "ru": "Элементы считаются уникальными по позиции, а не по значению: если во входе есть повторы, в выводе появятся одинаковые кортежи. Число результатов — C(n, r), растёт комбинаторно, поэтому не оборачивайте combinations от большого входа в list() бездумно; сами кортежи идут в лексикографическом порядке входа, а при r больше n результат пуст.",
+      "en": "Elements are treated as unique by position, not by value, so duplicate inputs produce duplicate output tuples. The result count is C(n, r) and grows explosively — don't blindly list() combinations of a large input; tuples come in the input's lexicographic order, and r greater than n yields nothing."
+    },
+    "syntax": "itertools.combinations(iterable, r)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.combinations",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "сочетания",
+      "комбинаторика без повторений",
+      "выбрать несколько элементов из набора"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.combinations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 3)]",
+      "print([''.join(p) for p in itertools.combinations('abc', 2)])   # → ['ab', 'ac', 'bc']",
+      "print(len(list(itertools.combinations(range(5), 3))))   # → 10",
+      "print(list(itertools.combinations([3, 1, 2], 2)))   # → [(3, 1), (3, 2), (1, 2)]",
+      "print(list(itertools.combinations([1, 2], 3)))   # → []"
+    ],
+    "related": [
+      "itertools.combinations_with_replacement",
+      "itertools.permutations",
+      "itertools.product"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.combinations_with_replacement",
+    "title": "itertools.combinations_with_replacement",
+    "kind": "function",
+    "summary": {
+      "ru": "Сочетания длины r с повторами элементов.",
+      "en": "Length-r combinations allowing repeated elements."
+    },
+    "body": {
+      "ru": "Отличие от combinations — один и тот же элемент можно взять несколько раз (кортежи неубывающие по позиции). От product(it, repeat=r) отличается тем, что не даёт переставленных дубликатов: только сочетания без учёта порядка, поэтому результатов C(n+r-1, r), а не n в степени r.",
+      "en": "Unlike combinations, the same element may be picked more than once (tuples are non-decreasing by position). Unlike product(it, repeat=r) it omits reordered duplicates — only order-independent selections — so you get C(n+r-1, r) results instead of n**r."
+    },
+    "syntax": "itertools.combinations_with_replacement(iterable, r)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.combinations_with_replacement",
+    "version": "3.1",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "сочетания с повторениями",
+      "комбинации с возвращением"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.combinations_with_replacement([1, 2], 2)))   # → [(1, 1), (1, 2), (2, 2)]",
+      "print(list(itertools.combinations_with_replacement('ab', 3)))   # → [('a', 'a', 'a'), ('a', 'a', 'b'), ('a', 'b', 'b'), ('b', 'b', 'b')]",
+      "print(len(list(itertools.combinations_with_replacement(range(6), 2))))   # → 21",
+      "print(list(itertools.combinations([1, 2], 2)))   # → [(1, 2)]",
+      "print(list(itertools.combinations_with_replacement([], 2)))   # → []"
+    ],
+    "related": [
+      "itertools.combinations",
+      "itertools.permutations",
+      "itertools.product"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.permutations",
+    "title": "itertools.permutations",
+    "kind": "function",
+    "summary": {
+      "ru": "Все перестановки длины r из итерируемого (порядок важен).",
+      "en": "All length-r permutations of the iterable (order matters)."
+    },
+    "body": {
+      "ru": "Число результатов растёт как n!/(n−r)!, поэтому на большом входе перебор взрывается почти мгновенно — не заворачивай его в list() бездумно. Элементы считаются уникальными по позиции, а не по значению: в [1, 1] две единицы дадут внешне «дублирующиеся» кортежи, а если порядок внутри группы не важен, тебе нужен combinations.",
+      "en": "The result count grows as n!/(n−r)!, so it explodes almost instantly on large inputs — don't wrap it in list() carelessly. Elements are treated as unique by position, not by value: two equal items like [1, 1] produce look-alike duplicate tuples, and if order within a group doesn't matter you want combinations instead."
+    },
+    "syntax": "itertools.permutations(iterable, r=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.permutations",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "перестановки",
+      "все порядки элементов",
+      "перебор всех расстановок"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.permutations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)]",
+      "print([''.join(p) for p in itertools.permutations('abc')])  # → ['abc', 'acb', 'bac', 'bca', 'cab', 'cba']",
+      "print(len(list(itertools.permutations(range(4)))))  # → 24",
+      "print(list(itertools.permutations('aab', 2)))  # → [('a', 'a'), ('a', 'b'), ('a', 'a'), ('a', 'b'), ('b', 'a'), ('b', 'a')]",
+      "print(list(itertools.permutations([1, 2], 3)))  # → []"
+    ],
+    "related": [
+      "itertools.combinations",
+      "itertools.product",
+      "itertools.combinations_with_replacement"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.product",
+    "title": "itertools.product",
+    "kind": "function",
+    "summary": {
+      "ru": "Декартово произведение итерируемых (вложенные циклы как плоский итератор).",
+      "en": "Cartesian product of iterables (nested loops as a flat iterator)."
+    },
+    "body": {
+      "ru": "product заменяет вложенные for-циклы одним плоским итератором, но перед началом полностью считывает все входы в память — бесконечный или огромный итерируемый передавать нельзя. Крайний правый аргумент меняется быстрее всех; repeat=N даёт произведение набора с самим собой N раз (product(xs, repeat=3) вместо тройного цикла).",
+      "en": "product flattens nested for-loops into one iterator, but it fully materializes every input into memory first — so an infinite or huge iterable will hang or exhaust RAM. The rightmost argument varies fastest, and repeat=N gives the product of a set with itself N times instead of an N-deep loop nest."
+    },
+    "syntax": "itertools.product(*iterables, repeat=1)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.product",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "декартово произведение",
+      "все комбинации из нескольких списков",
+      "замена вложенным циклам"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.product([1, 2], ['a', 'b'])))   # → [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]",
+      "print(list(itertools.product('ab', repeat=2)))  # → [('a', 'a'), ('a', 'b'), ('b', 'a'), ('b', 'b')]",
+      "print([''.join(p) for p in itertools.product('01', repeat=3)])  # → ['000', '001', '010', '011', '100', '101', '110', '111']",
+      "print(len(list(itertools.product(range(3), range(4)))))  # → 12",
+      "print(list(itertools.product([1, 2], [])))  # → []"
+    ],
+    "related": [
+      "itertools.permutations",
+      "вложенные-циклы",
+      "itertools.combinations"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.compress",
+    "title": "itertools.compress",
+    "kind": "function",
+    "summary": {
+      "ru": "Отбирает элементы data, где соответствующий элемент selectors истинен.",
+      "en": "Select elements of data where the corresponding selector is true."
+    },
+    "body": {
+      "ru": "Останавливается на более коротком из двух аргументов, лишний хвост игнорируется. Удобен, когда булева маска уже посчитана заранее (например, другим фильтром) и её хочется переиспользовать — читается чище, чем comprehension с zip; selectors — любые истинные или ложные значения, не обязательно 0 и 1.",
+      "en": "It stops at the shorter of the two arguments and ignores the leftover tail. It shines when you already have a boolean mask computed elsewhere and want to reuse it — cleaner than a comprehension zipping the two — and selectors can be any truthy/falsy values, not just 0 and 1."
+    },
+    "syntax": "itertools.compress(data, selectors)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.compress",
+    "version": "3.1",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "фильтр по маске",
+      "выбрать элементы по флагам"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.compress(['a', 'b', 'c', 'd'], [1, 0, 1, 0])))   # → ['a', 'c']",
+      "nums = [5, 12, 7, 20]",
+      "print(list(itertools.compress(nums, [n > 10 for n in nums])))   # → [12, 20]",
+      "print(list(itertools.compress([1, 2, 3], [1, 1])))   # → [1, 2]",
+      "print(list(itertools.compress(['a', 'b', 'c'], ['', 'x', None])))   # → ['b']"
+    ],
+    "related": [
+      "itertools.filterfalse",
+      "filter",
+      "zip"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.dropwhile",
+    "title": "itertools.dropwhile",
+    "kind": "function",
+    "summary": {
+      "ru": "Пропускает элементы, пока предикат истинен, затем отдаёт остаток целиком.",
+      "en": "Drop elements while the predicate is true, then yield the rest."
+    },
+    "body": {
+      "ru": "Предикат проверяется только до первого False — после этого dropwhile отдаёт весь остаток как есть, даже если дальше снова попадаются элементы, которые предикату подходят. Именно этим он отличается от filter, который проверяет каждый элемент по отдельности.",
+      "en": "The predicate is tested only until it first returns False — after that dropwhile passes the entire remainder through unchanged, even elements that would again satisfy it. That is exactly what separates it from filter, which evaluates every element individually."
+    },
+    "syntax": "itertools.dropwhile(predicate, iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.dropwhile",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "пропустить элементы пока условие истинно",
+      "отбросить начало последовательности"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.dropwhile(lambda x: x < 3, [1, 2, 3, 1, 2])))   # → [3, 1, 2]",
+      "print(list(itertools.dropwhile(lambda x: x == 0, [0, 0, 5, 0, 7])))  # → [5, 0, 7]",
+      "print(''.join(itertools.dropwhile(str.isspace, '   код')))  # → код",
+      "print(list(itertools.dropwhile(lambda x: x > 0, [1, 2, 3])))  # → []",
+      "print(list(filter(lambda x: x >= 3, [1, 2, 3, 1, 2])))  # → [3]"
+    ],
+    "related": [
+      "itertools.takewhile",
+      "itertools.filterfalse",
+      "itertools.islice"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.takewhile",
+    "title": "itertools.takewhile",
+    "kind": "function",
+    "summary": {
+      "ru": "Отдаёт элементы, пока предикат истинен, затем останавливается.",
+      "en": "Yield elements while the predicate is true, then stop."
+    },
+    "body": {
+      "ru": "Останавливается навсегда на первом элементе, где предикат ложь, — в отличие от filter(), который просто пропускает неподходящие и идёт дальше (для противоположного поведения есть dropwhile). Учти: элемент, оборвавший выдачу, уже вытянут из исходного итератора и потерян, если продолжить читать тот же итератор.",
+      "en": "It stops for good at the first element where the predicate is false — unlike filter(), which merely skips non-matching items and keeps going (dropwhile is the mirror image). Note that the element that breaks the run is already pulled from the source iterator and lost if you keep reading that same iterator."
+    },
+    "syntax": "itertools.takewhile(predicate, iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.takewhile",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "брать элементы пока условие истинно",
+      "остановиться на первом несовпадении",
+      "начало последовательности по условию"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.takewhile(lambda x: x < 3, [1, 2, 3, 1])))   # → [1, 2]",
+      "print(''.join(itertools.takewhile(str.isdigit, '2026год')))   # → 2026",
+      "print(list(itertools.takewhile(lambda x: x > 0, [-1, 5, 7])))   # → []",
+      "print(list(filter(lambda x: x < 3, [1, 2, 3, 1])))   # → [1, 2, 1]",
+      "print(list(itertools.dropwhile(lambda x: x < 3, [1, 2, 3, 1])))   # → [3, 1]"
+    ],
+    "related": [
+      "itertools.dropwhile",
+      "itertools.islice",
+      "itertools.filterfalse"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.filterfalse",
+    "title": "itertools.filterfalse",
+    "kind": "function",
+    "summary": {
+      "ru": "Отдаёт элементы, для которых предикат ложен (обратное filter()).",
+      "en": "Yield elements for which the predicate is false (the opposite of filter())."
+    },
+    "body": {
+      "ru": "Как и у filter, значение predicate=None означает «проверять сам элемент на истинность», так что filterfalse(None, it) отдаёт именно ложные элементы — нули, пустые строки, None. В паре с filter на одном источнике (через tee) это стандартный способ разбить данные на две группы по условию.",
+      "en": "As with filter, passing predicate=None means \"test the element's own truthiness\", so filterfalse(None, it) yields exactly the falsy items — zeros, empty strings, None. Paired with filter over one source (via tee) it is the standard way to split data into two groups by a condition."
+    },
+    "syntax": "itertools.filterfalse(predicate, iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.filterfalse",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "обратный фильтр",
+      "оставить элементы не прошедшие условие"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.filterfalse(lambda x: x % 2, [1, 2, 3, 4])))   # → [2, 4]",
+      "print(list(itertools.filterfalse(None, [0, 1, '', 'a', [], [2]])))  # → [0, '', []]",
+      "print(list(itertools.filterfalse(lambda w: len(w) > 3, ['кот', 'дом', 'программа', 'и'])))  # → ['кот', 'дом', 'и']",
+      "print(list(itertools.filterfalse(lambda x: True, [1, 2, 3])))  # → []",
+      "print(list(filter(lambda x: x % 2, [1, 2, 3, 4])))  # → [1, 3]"
+    ],
+    "related": [
+      "filter",
+      "itertools.compress",
+      "itertools.dropwhile"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.starmap",
+    "title": "itertools.starmap",
+    "kind": "function",
+    "summary": {
+      "ru": "Как map(), но аргументы берутся распаковкой кортежей: f(*args).",
+      "en": "Like map(), but arguments are taken by unpacking each tuple: f(*args)."
+    },
+    "body": {
+      "ru": "Бери starmap, когда аргументы уже сгруппированы в кортежи внутри одного итерируемого; обычный map(f, a, b) — когда итерируемые лежат отдельно. По сути starmap(f, seq) — это (f(*args) for args in seq).",
+      "en": "Reach for starmap when the arguments already come grouped as tuples inside one iterable; use plain map(f, a, b) when the iterables are separate. It is essentially (f(*args) for args in seq)."
+    },
+    "syntax": "itertools.starmap(function, iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.starmap",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "применить функцию к кортежам аргументов",
+      "отображение с распаковкой аргументов"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.starmap(pow, [(2, 3), (3, 2)])))   # → [8, 9]",
+      "print(list(itertools.starmap(max, [(1, 5), (9, 2), (4, 4)])))   # → [5, 9, 4]",
+      "print(list(itertools.starmap(lambda n, s: f'{n}: {s}', [('Ann', 90), ('Bob', 75)])))   # → ['Ann: 90', 'Bob: 75']",
+      "print(list(map(pow, [2, 3], [3, 2])))   # → [8, 9]",
+      "print(list(itertools.starmap(pow, [(2,)])))   # → TypeError"
+    ],
+    "related": [
+      "map",
+      "zip",
+      "args"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.pairwise",
+    "title": "itertools.pairwise",
+    "kind": "function",
+    "summary": {
+      "ru": "Соседние пары элементов: (s0,s1), (s1,s2), … (Python 3.10+).",
+      "en": "Successive overlapping pairs: (s0,s1), (s1,s2), … (3.10+)."
+    },
+    "body": {
+      "ru": "В отличие от старого приёма zip(seq, seq[1:]), pairwise работает с любым итерируемым — включая генераторы и бесконечные потоки, — потому что лениво держит в памяти только предыдущий элемент. Если на входе меньше двух элементов, результат пустой.",
+      "en": "Unlike the old zip(seq, seq[1:]) trick, pairwise works on any iterable — generators and infinite streams included — because it lazily keeps only the previous element around. With fewer than two input items it yields nothing."
+    },
+    "syntax": "itertools.pairwise(iterable)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.pairwise",
+    "version": "3.10",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "соседние пары элементов",
+      "пары подряд идущих значений",
+      "сравнить соседние элементы списка"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.pairwise([1, 2, 3, 4])))   # → [(1, 2), (2, 3), (3, 4)]",
+      "print(list(itertools.pairwise('abc')))  # → [('a', 'b'), ('b', 'c')]",
+      "print([b - a for a, b in itertools.pairwise([10, 13, 12, 20])])  # → [3, -1, 8]",
+      "print(all(a <= b for a, b in itertools.pairwise([1, 2, 2, 5])))  # → True",
+      "print(list(itertools.pairwise([7])))  # → []"
+    ],
+    "related": [
+      "zip",
+      "itertools.batched",
+      "itertools.tee"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.batched",
+    "title": "itertools.batched",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает итерируемое на кортежи длины n (последний может быть короче); Python 3.12+.",
+      "en": "Batch an iterable into tuples of length n (the last may be shorter); 3.12+."
+    },
+    "body": {
+      "ru": "Возвращает ленивый итератор кортежей, а не список, — оборачивайте в list(), если нужен весь результат сразу. До 3.12 для нарезки писали zip(*[iter(it)]*n), но тот молча выбрасывал неполный последний кусок, а batched его сохраняет; с 3.13 есть strict=True, чтобы потребовать одинаковую длину всех кусков (иначе ValueError), а n меньше 1 всегда ошибка.",
+      "en": "It returns a lazy iterator of tuples, not a list, so wrap it in list() when you need everything at once. The old pre-3.12 chunking idiom zip(*[iter(it)]*n) silently dropped an incomplete final batch, whereas batched keeps it; since 3.13 strict=True demands equal-sized batches (else ValueError), and n below 1 always raises."
+    },
+    "syntax": "itertools.batched(iterable, n)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.batched",
+    "version": "3.12",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "разбить список на части",
+      "нарезать последовательность группами",
+      "пачки элементов"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.batched([1, 2, 3, 4, 5], 2)))   # → [(1, 2), (3, 4), (5,)]",
+      "print(list(itertools.batched('abcdef', 3)))   # → [('a', 'b', 'c'), ('d', 'e', 'f')]",
+      "print([sum(b) for b in itertools.batched(range(1, 7), 3)])   # → [6, 15]",
+      "print(list(itertools.batched([], 3)))   # → []",
+      "print(list(itertools.batched([1, 2, 3], 0)))   # → ValueError"
+    ],
+    "related": [
+      "itertools.islice",
+      "itertools.pairwise",
+      "itertools.chain"
+    ],
+    "related_errors": [
+      "ValueError"
+    ]
+  },
+  {
+    "id": "itertools.zip_longest",
+    "title": "itertools.zip_longest",
+    "kind": "function",
+    "summary": {
+      "ru": "Как zip(), но продолжает до самого длинного итерируемого, добивая fillvalue.",
+      "en": "Like zip(), but continues to the longest iterable, padding with fillvalue."
+    },
+    "body": {
+      "ru": "Ленивая — отдаёт итератор, значения тянутся по требованию. Главная ловушка: fillvalue один на все короткие последовательности, а его дефолт None легко совпадает с настоящим None в данных, и тогда не отличить добитый пропуск от реального значения. Противоположность — zip(..., strict=True) из 3.10, который наоборот падает, если длины не совпали.",
+      "en": "It is lazy — it returns an iterator and produces tuples on demand. The catch: fillvalue is a single shared value for every short iterable, and its default None easily collides with a genuine None in your data, so you cannot tell padding apart from a real value. Its opposite is zip(..., strict=True) from 3.10, which instead raises when the lengths differ."
+    },
+    "syntax": "itertools.zip_longest(*iterables, fillvalue=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.zip_longest",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "объединить списки разной длины",
+      "заполнить недостающие элементы при объединении"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.zip_longest([1, 2], ['a'], fillvalue='?')))   # → [(1, 'a'), (2, '?')]",
+      "print(list(itertools.zip_longest([1, 2], ['a'])))   # → [(1, 'a'), (2, None)]",
+      "print(list(zip([1, 2], ['a'])))   # → [(1, 'a')]",
+      "print([sum(p) for p in itertools.zip_longest([1, 2, 3], [10, 20], fillvalue=0)])   # → [11, 22, 3]",
+      "print(list(itertools.zip_longest('ab', '1', '', fillvalue='-')))   # → [('a', '1', '-'), ('b', '-', '-')]"
+    ],
+    "related": [
+      "zip",
+      "zip-strict-true",
+      "itertools.chain"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.tee",
+    "title": "itertools.tee",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт n независимых итераторов из одного (исходный дальше использовать нельзя).",
+      "en": "Create n independent iterators from a single iterable."
+    },
+    "body": {
+      "ru": "После tee исходный итератор использовать нельзя — работай только с возвращёнными ветками. Если одну ветку прочитать далеко вперёд другой, tee буферизует все промежуточные элементы в памяти, так что при большом разрыве проще сделать list(); ветки к тому же не потокобезопасны.",
+      "en": "After tee, stop using the original iterator and work only through the returned branches. If one branch races far ahead of another, tee buffers every element in between in memory — so for a large gap a plain list() is cheaper — and the branches are not thread-safe."
+    },
+    "syntax": "itertools.tee(iterable, n=2)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.tee",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [
+      "размножить итератор",
+      "копия генератора",
+      "несколько независимых итераторов"
+    ],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "a, b = itertools.tee([1, 2, 3])",
+      "print(list(a), list(b))   # → [1, 2, 3] [1, 2, 3]",
+      "print(list(a))   # → []",
+      "c, d, e = itertools.tee([1, 2, 3], 3)",
+      "print(next(c), next(c), next(d), list(e))   # → 1 2 1 [1, 2, 3]"
+    ],
+    "related": [
+      "iter-next",
+      "itertools.pairwise",
+      "itertools.islice"
+    ],
+    "related_errors": []
+  }
+]

@@ -1,0 +1,82 @@
+# Секреты OAuth — НИКОГДА не пушить!
+secrets.json
+stepik_config.json
+PokolenieTestes/
+solutions/
+# Скачанное со Stepik в корне репозитория. Слэш в начале обязателен: голое
+# `tasks/` матчит директорию с таким именем НА ЛЮБОЙ глубине и молча съедало
+# `corpus/tasks/` — прогонный корпус годами оставался пустым не потому, что в
+# него не клали задач, а потому что git их не видел.
+/tasks/
+StepikTasks/
+# Прогонный корпус: локальные задачи (чужие условия наружу не едут) и отчёты
+corpus/local/
+corpus/reports/
+*_debug.json
+diagnostic_result*.json
+stepik_diagnostics/
+errors.txt
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+.idea/
+.vscode/
+# Рабочий каталог Claude Code: сессионные worktrees, локальные настройки и
+# launch.json для preview — инструментальные артефакты конкретной машины, не
+# часть проекта (агентский контракт живёт в CLAUDE.md, он отслеживается).
+# Игнорируется СОДЕРЖИМОЕ, а не сама папка: исключённый каталог git внутрь не
+# заходит вовсе, и «!» на файле в нём не срабатывает.
+.claude/*
+# Исключение — общие настройки харнесса: правило транспорта к GitHub, которое
+# должно исполняться механизмом, а не памятью окна (issue #1280).
+!.claude/settings.json
+# И хуки, на которые эти настройки ссылаются (issue #1384). Механизм, которого
+# нет в репозитории, механизмом не является: настройки объявляли `SessionStart`
+# и `PreToolUse`, файлы лежали только в рабочей копии — в чистом клоне и в CI
+# хука не существовало, и правило снова держалось памятью окна. Поймано
+# прогоном: тест звал скрипт по пути и получал код 2 «файла нет».
+!.claude/hooks/
+!.claude/hooks/*.py
+.DS_Store
+Thumbs.db
+*.egg-info/
+dist/
+build/
+
+PokolenieTestes/
+
+.coverage
+coverage.xml
+.coveragerc.ci
+.pytest_cache/
+.hypothesis/
+t.py
+.stepik_cache/
+.grader_cache/
+.grader_glossary_missing.json
+.grader_glossary_missing.db
+.grader_glossary_missing.db-wal
+.grader_glossary_missing.db-shm
+.grader_stats.jsonl
+.grader_history.db
+.grader_history.db-wal
+.grader_history.db-shm
+.grader_settings.json
+# Спутник-файл межпроцессной блокировки (atomic_io.file_lock): создаётся при
+# первой записи настроек и намеренно не удаляется, иначе гонка возвращается.
+.grader_settings.json.lock
+
+# issue #1262: сведения о сборке считаются при сборке колеса
+# (scripts/generate_build_info.py) — в git лежала бы версия, устаревшая
+# на каждый следующий PR.
+src/stepik_grader/_build_info.json
+
+# Факты проекта для соседних (scripts/generate_facts.py). Собираются
+# прогоном и публикуются веткой `badges`: производное пересобирается на
+# каждом пуше, то есть чаще изменений, и в общей ветке не хранится
+# (правило 160).
+.github/badges/facts.json

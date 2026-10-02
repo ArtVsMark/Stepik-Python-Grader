@@ -1,0 +1,1053 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    # issue #988: без списка типов GitHub берёт дефолт `opened, synchronize,
+    # reopened` — `ready_for_review` в него НЕ входит. PR, созданный черновиком,
+    # оставался вовсе без проверок: ни при создании, ни после снятия черновика,
+    # пока в ветку не запушат новый коммит. Проверено на живых PR этого
+    # репозитория — прогон стартовал только после `git push`, а снятие черновика
+    # и переоткрытие PR не давали ничего.
+    types: [opened, synchronize, reopened, ready_for_review]
+  # issue #1235: merge queue. СЕГОДНЯ ЭТОТ ТРИГГЕР НЕ СРАБАТЫВАЕТ — очередь
+  # доступна репозиториям ОРГАНИЗАЦИИ (и приватным на Enterprise Cloud), а у
+  # личного аккаунта такой опции нет в защите ветки вовсе. Первая редакция
+  # issue утверждала обратное, поймано внешней проверкой.
+  #
+  # Оставлен намеренно: он безвреден (событие просто не приходит) и снимает
+  # ровно ту ловушку, ради которой заведён, — без него очередь, если проект
+  # однажды переедет в организацию, мержила бы вслепую, а в интерфейсе всё
+  # выглядело бы включённым. Кандидат — ветка «main + этот PR», то есть полная
+  # матрица проверяла бы БУДУЩЕЕ состояние main и ловила семантический конфликт.
+  #
+  # Порядок мержа до тех пор — вариант B, см. CLAUDE.md § Гейты: обновить ветку
+  # → auto-merge → дождаться зелёного main.
+  merge_group:
+  # issue #1095: ручной запуск из вкладки Actions. Часть событий не превращается
+  # в прогоны — за одну сессию четыре PR из девяти не получили проверок при
+  # создании (черновик, готовый, разное время — корреляции нет; пуш срабатывает
+  # всегда). Без этой кнопки единственным способом добудиться CI был холостой
+  # `merge main` + push, то есть коммит-пустышка в ветке ради перезапуска.
+  # Выбор ветки в интерфейсе Actions даёт тот же прогон без мусора в истории.
+  workflow_dispatch:
+  # issue #1227: cross-OS покрытие собирается ночью, а не на каждом пуше в main.
+  # Короткий прогон main (одна ОС) собирать нечего — трёх артефактов у него нет.
+  # issue #1235: и после включения merge queue это остаётся верным — полная
+  # матрица уезжает на кандидата очереди, а пуш в main лишь обновляет бейджи по
+  # уже проверенному состоянию.
+  schedule:
+    - cron: "17 2 * * *"
+
+# issue #1036 (находки REL-1-02/STR-2-01 аудита 2026-08-10): один прогон на
+# ветку. Без группы каждый пуш и каждое обновление PR запускали ПОЛНУЮ матрицу
+# (девять комбинаций ОС × версия плюс гейты — около пятнадцати job'ов), а
+# устаревшие прогоны продолжали занимать слоты до конца. При двух параллельных
+# линиях работ и разводке конфликтов это упирается в лимит одновременных job'ов
+# аккаунта: очередь встаёт, а часть событий вообще не превращается в прогоны.
+#
+# main не отменяем: его прогон коммитит бейджи и питает cross-OS покрытие —
+# отмена на середине оставила бы README врать до следующего пуша.
+#
+# issue #1227, ВАЖНО И НЕОЧЕВИДНО: `cancel-in-progress: false` защищает только
+# ВЫПОЛНЯЮЩИЙСЯ прогон. В очереди одной группы GitHub держит максимум один
+# ОЖИДАЮЩИЙ, и каждый новый пуш вытесняет предыдущий pending — тот получает
+# `cancelled`, не начавшись. На эту часть настройка не влияет вовсе, так что
+# «main не отменяем» читать как «прогоны main защищены» нельзя.
+#
+# Замер 19.08.2026: шесть мержей подряд дали шесть `cancelled` прогонов и ни
+# одного выполненного. Лечение — темп мержа (issue #1235, вариант B): ветка
+# обновляется из main, auto-merge мержит её по зелёному, следующий PR берётся
+# после завершения прогона main. Merge queue закрыла бы это штатно, но она
+# доступна только организациям. Короткий прогон main (issue #1229) остаётся как
+# есть — он лишь обновляет бейджи.
+#
+# Ночной прогон живёт в СВОЕЙ группе: иначе он встал бы в очередь к пушам main
+# и вытеснялся бы ими ровно так же.
+#
+# Правило 179 каталога: группа, ОТМЕНЯЮЩАЯ прогон, обязана называть голову, а не
+# только изменение. Для события pull_request `github.ref` — это `refs/pull/N/merge`,
+# один и тот же ref у всех коммитов PR: прогоны на РАЗНЫХ головах попадали в одну
+# группу. События площадки доставляются не в том порядке, в каком сделаны коммиты,
+# поэтому вытеснить мог более новый — и последнее слово оставалось за прогоном на
+# устаревшем коммите, а на актуальном обязательной проверки не было вовсе. Создать
+# её после этого нечем: новый прогон рождается только от нового события, и PR
+# зависает в ожидании имени навсегда.
+#
+# Голова ДОБАВЛЕНА, а отмена не выключена: дубли на одной голове гасить по-прежнему
+# нужно — повторное событие на том же коммите отменяется, как и раньше.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.event_name == 'schedule' && 'nightly' || 'main' }}
+  # Отменяем только устаревшие прогоны PR. Кандидат очереди отменять НЕЛЬЗЯ:
+  # отменённая обязательная проверка выкинет его из очереди, и мерж, который
+  # ничем не плох, просто не состоится. Прежнее условие (`ref != main`) для
+  # queue-ref'ов давало `true` — по названию ветки очередь от обычной не
+  # отличить, поэтому спрашиваем событие, а не ref.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # issue #173 / эпик #167: README-витрина не должна разрастаться, а локальные
+  # Markdown-ссылки README ↔ docs не должны протухать. Проверка на чистом stdlib
+  # (без pip install) — быстрая и детерминированная, поэтому отдельным job.
+  docs-guardrails:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: README line-budget + Markdown link-check
+        run: python scripts/check_docs_guardrails.py
+      # issue #264: message_id-каталог веб-API (web/i18n.py) — ru.json должен
+      # покрывать все message_id, используемые в web/*.py, а ru.json/en.json
+      # обязаны иметь одинаковый набор ключей. Тоже чистый stdlib (ast/json),
+      # без pip install — держим в том же быстром job, что и docs-guardrails.
+      - name: Locale message catalog guardrails (issue #264)
+        run: python scripts/check_locale_guardrails.py
+      # issue #955: пример карточки, который не собирается в валидный Python,
+      # пользователь копирует в «Песочницу» и получает IndentationError — на
+      # учебной поверхности это учит неверному. Храповик исполнения такой
+      # пример помечал `unverifiable` и проходил мимо: чем сильнее сломан
+      # пример, тем меньше к нему вопросов. Здесь встречная проверка с
+      # бюджетом, который обязан уменьшаться.
+      - name: Примеры карточек глоссария компилируются (issue #955)
+        run: python scripts/check_glossary_examples.py
+      # issue #919 (ADD-3-06): карточка — конечная станция, и уходят из неё в
+      # официальную документацию по docs_url. Девять карточек iter.json,
+      # включая четыре функции itertools со своими якорями, ссылались на общий
+      # термин glossary#term-generator, а pathlib.path — на страницу open().
+      # Проверка не ходит в сеть: гейт, зависящий от доступности
+      # docs.python.org, отвечал бы про сеть, а не про базу.
+      - name: Ссылки карточек ведут к описываемому имени (issue #919)
+        run: python scripts/check_glossary_docs_links.py
+      # issue #547: локализация web-UI оболочки (ui.json + data-i18n #545 +
+      # t()/tp() #546) — паритет ru/en, покрытие ключей, нет голой кириллицы вне
+      # каталога. Тоже чистый stdlib (html.parser/json), без pip install.
+      - name: Web UI locale guardrails (issue #547)
+        run: python scripts/check_ui_locale_guardrails.py
+      # issue #855: ES-модули без сборщика — имя, не попавшее в import из
+      # core.js, даёт ReferenceError только в рантайме, в момент рендера. Так
+      # раздел «Прогресс» переставал рисоваться целиком при непустой истории.
+      # Тоже чистый stdlib, поэтому живёт в этом же быстром job'е.
+      - name: Web module import guardrails (issue #855)
+        run: python scripts/check_web_imports.py
+      # issue #988: ошибка в workflow не видна ни линтеру, ни тестам — она
+      # проявляется один раз, в момент релиза, и стоит невозвратно (версия в
+      # PyPI неперезаписываема). Проверка на чистом stdlib, поэтому живёт здесь.
+      - name: Workflow guardrails (issue #988)
+        run: python scripts/check_workflow_guardrails.py
+      # issue #997: выдуманный абсолютный путь в argv теста работает с настоящим
+      # диском. `--root /some/dir` создал на машине разработчика C:\some\dir с
+      # .grader_settings.json, и тот файл через месяц уронил этот же тест —
+      # только локально: под Linux запись в корень / не проходит, поэтому здесь
+      # ловим причину статически, а не ждём следа. Тоже чистый stdlib (ast).
+      - name: Test isolation guardrails (issue #997)
+        run: python scripts/check_test_isolation.py
+      # issue #1290: запись без единой кириллической буквы — подозрение на
+      # непереведённую. На PR это предупреждение, а не отказ: запись в ветке
+      # может быть черновиком, и падать на состоянии работы значит блокировать
+      # чужие изменения. Отказ стоит там, где ошибка необратима, — в release.yml.
+      - name: CHANGELOG entries are translated (issue #1290)
+        run: python scripts/check_changelog_translated.py
+      # issue #1301 (предусловие безопасности) / #982: ответ API, попавший на
+      # диск без редакции, — утечка токена, которая проявится только на
+      # настоящем токене, то есть уже у пользователя. Реестр точек дампа не
+      # даёт новой такой точке появиться без разбора. Тоже чистый stdlib (ast).
+      - name: Secret dump registry (issue #1301)
+        run: python scripts/check_secret_dumps.py
+      # issue #1346: запрет GitHub-инструментов MCP держался списком ИМЁН, а
+      # сервер их консолидировал — ни одно из двадцати девяти не существовало,
+      # и запрет молча перестал действовать. Теперь запрещён сервер целиком, а
+      # гард стережёт форму: именная запись возвращает ту же хрупкость и потому
+      # отклоняется. Чистый stdlib (json).
+      - name: MCP denial holds by shape, not by names (issue #1346)
+        run: python scripts/check_mcp_permissions.py
+      # issue #1351: ответ проекта каталогу правил. Здесь только офлайн-часть —
+      # схема, поля по статусу и существование путей в `where`: она не требует
+      # ни сети, ни клона каталога. Полнота ответа (есть ли запись по каждому
+      # правилу) проверяется по расписанию в tracker-guardrails.yml, потому что
+      # для неё нужен экспорт каталога.
+      - name: Rule bindings answer the catalogue (issue #1351)
+        run: python scripts/check_rule_bindings.py
+      # issue #1438: контракт читают по частям — агент приходит в тот раздел,
+      # куда его привела задача, и соседних не открывает. Противоречие между
+      # разделами не замечает никто: оба абзаца по отдельности верны. Живой
+      # случай — состояние находки, названное «единственным» дважды и в разных
+      # местах: 493 находки из 883 разошлись, а очередь мержа сериализовалась на
+      # общем файле. Чистый stdlib (json).
+      - name: Contract names one source per subject (issue #1438)
+        run: python scripts/check_sources_of_truth.py
+      # Подпись агента: squash переносит в `main` и авторов коммитов ветки, и
+      # трейлеры из их сообщений — дословно и необратимо (`main` защищена).
+      # `check_pr_ready.py` это сверял, но на пути авто-мержа веток `agent/**`
+      # он не вызывается вовсе, а `preflight` в облачном клоне без хука не
+      # запускается при пуше. Сменилась модель окна — харнесс стал подсказывать
+      # другую строку, и ни один гейт этого бы не заметил. Только агентские
+      # подписи (`--agents-only`): ветку может вести dependabot или внешний
+      # участник, их подпись законна. Чистый stdlib.
+      - name: Agent signature matches the agreed one (issue #1553)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --quiet --no-tags --unshallow origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          python scripts/check_attribution.py --check-branch --agents-only --base "origin/${BASE_REF}" --head "${HEAD_SHA}"
+
+      # issue #1420 (правило 171): эталон обязательных проверок берётся из дерева
+      # ЭТОГО ЖЕ изменения, а не из константы, переписанной руками. Копия верна
+      # до первой правки матрицы и расходится молча: ruleset и константа
+      # остаются согласными друг с другом, работы называются иначе, и PR уходит
+      # в вечное ожидание, не покраснев нигде. Здесь только половина без сети —
+      # полная сверка с ruleset требует PAT и живёт в ночном обходе.
+      - name: Эталон обязательных проверок выведен из дерева (issue #1420)
+        run: python scripts/check_branch_protection.py --tree-only
+
+      # issue #1417: умолчания, которые прогон не проверяет. Оба дефекта требуют
+      # СОВПАДЕНИЯ двух условий — платформы и данных, — поэтому зелёная матрица
+      # про них не говорит ничего, а разбор исходника говорит всё. Правила 176
+      # (кодировка у текстового subprocess) и 165 (-z у списков путей от git).
+      - name: Умолчания заданы явно, а не взяты из окружения (issue #1417)
+        run: python scripts/check_hidden_defaults.py
+
+      # issue #1384: второй рубеж — правила читаются окном на старте. Сверяется
+      # без сети: предмет здесь соответствие дайджеста ответу проекта, а его
+      # отставание от самого каталога смотрит ночной обход, где есть клон.
+      - name: Второй рубеж не разошёлся с ответом проекта (issue #1384)
+        run: python scripts/check_rules_digest.py
+
+      # issue #1384: правила, которые держались на словах, получили механизм.
+      # 140 — у гейта есть прогон отвергаемого предмета; 118 — у производного
+      # файла назван живой исходник; 089 — оригинал не ссылается на свою витрину.
+      - name: Правила с механизмом, а не на словах (issue #1384)
+        run: |
+          python scripts/check_gate_tests.py
+          python scripts/check_generated_sources.py
+          python scripts/check_showcase_links.py
+          python scripts/check_three_outcomes.py
+          python scripts/check_marker_matching.py
+          python scripts/check_step_deadlines.py
+          # issue #1400: правило 040 — пропуск без причины неотличим от забытого
+          # теста. Скрипт был написан гейтом (ненулевой выход на необъяснённом
+          # пропуске) и полтора месяца не запускался ничем, поэтому «держится
+          # гейтом» в ответе каталогу было утверждением, а не фактом.
+          python scripts/skip_inventory.py --summary
+          python scripts/check_raw_values.py
+          python scripts/check_truncation_marks.py
+          python scripts/check_declared_outcomes.py
+
+      # issue #1384: 042 — решение записывается вместе с отвергнутыми
+      # вариантами; 043 — его не правят задним числом. Здесь только полнота
+      # записей: сверка с базой требует истории, которой у мелкого клона нет,
+      # и живёт в preflight.
+      - name: Запись о решении полна (issue #1384)
+        run: python scripts/check_adr_records.py
+
+      # issue #1384, правило 113: контракт обязан сказать, что в нём стабильно,
+      # что расширяемо и как добавляют новое, — иначе каждое изменение это
+      # переговоры с нуля, а потребители расходятся молча.
+      - name: Контракт описывает свою эволюцию (issue #1384)
+        run: python scripts/check_contract_evolution.py
+
+  # issue #1036 (STR-2-01): OS-независимые гейты одним быстрым job'ом вместо
+  # девяти повторов внутри матрицы. Ruff, mypy, пин ruff и сверка версии дают
+  # один и тот же вердикт на любой платформе и любой версии Python — платить за
+  # него девятью установками зависимостей незачем, а при забитой очереди Actions
+  # эти повторы и есть то, что вытесняет чужие прогоны.
+  static:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # issue #162: динамическая версия (setuptools-scm) вычисляется из
+        # git-тегов — check_version_consistency.py без полной истории не найдёт
+        # baseline.
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: pip install -e ".[dev]"
+
+      # issue #791: версию ruff задаёт ровно одно место — `[dev]` в
+      # pyproject.toml. Гард ловит возврат второго пина (`rev:` хука
+      # ruff-pre-commit), спецификатор без верхней границы и устаревшую
+      # dev-установку — для КАЖДОГО инструмента вердикта, то есть и для mypy
+      # (issue #1349). Стоит ПЕРЕД самим ruff: если версии разъехались, вердикт
+      # линтера ниже уже не о том, что увидит контрибьютор локально.
+      - name: Verdict tool pins are bounded (issues #791, #1349)
+        run: python scripts/check_ruff_pin.py
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Type check
+        # issue #441: строгость задаётся [tool.mypy] в pyproject.toml (источник
+        # истины), --ignore-missing-imports переехал туда — команда упрощена.
+        # issue #558: scripts/ (релиз-логика: version/бейджи/coverage-конфиг) тоже
+        # под тип-гейтом — раньше 2000+ строк CI-скриптов не проверялись.
+        run: mypy src/stepik_grader scripts
+
+      - name: Version consistency (issue #165)
+        run: python scripts/check_version_consistency.py
+
+  test:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    # issue #808 (SUP-04): матрица гоняет тесты, ставит зависимости и исполняет
+    # сторонний код на 9 комбинациях — права на запись в main ей не нужны и
+    # раньше выдавались только ради одного шага с бейджами. Сам шаг переехал в
+    # job `coverage-combine`, который уже коммитил свой бейдж: теперь бейджи
+    # обновляет ровно один job с `contents: write`, а матрица — read-only.
+    permissions:
+      contents: read
+    # issue #1227: РАЗМЕР МАТРИЦЫ ЗАВИСИТ ОТ СОБЫТИЯ.
+    #
+    # `pull_request` (и ночной прогон, и ручной запуск) — полная матрица: девять
+    # комбинаций ОС × версия. Проверять надо ДО мержа, здесь и место.
+    #
+    # `push` в main — одна ОС и одна версия. Полная матрица на каждый мерж
+    # упиралась в лимит одновременных job'ов, прогон вставал в очередь, а
+    # следующий мерж вытеснял его оттуда ещё до старта: 19.08.2026 шесть мержей
+    # подряд дали шесть `cancelled` и ни одного выполненного. Короткий прогон
+    # укладывается в минуты, поэтому каждое состояние main наконец проверяется —
+    # пусть и одной ОС. Кросс-платформенное покрытие даёт ночной прогон.
+    #
+    # issue #454: версия без верхней границы в `requires-python = ">=3.12"`
+    # обещана пользователю, поэтому покрывается на всех трёх ОС — sandbox
+    # завязан на OS-специфичные backend'ы, которые смена версии Python задевает
+    # вероятнее всего. `experimental: true` → `continue-on-error`, merge не
+    # блокируется; coverage-combine и бейджи фильтруются по 3.12 &&
+    # !experimental.
+    #
+    # issue #1529: КАКАЯ ВЕРСИЯ ЭКСПЕРИМЕНТАЛЬНАЯ — ВОПРОС К ЧУЖОМУ КАЛЕНДАРЮ.
+    # Флаг стоял на 3.14 с тех пор, как она была предрелизной, и пережил её
+    # выход: замер по манифесту раннера 09.09.2026 — 3.14.7 `stable=True`
+    # (седьмой патч), 3.15.0-rc.2 `stable=False`. Целый цикл релизов падения на
+    # полноценной поддерживаемой версии не блокировали мерж, и ни один прогон
+    # не покраснел: флаг делал ровно то, что написано. Цена измерена на PR
+    # #1522 — единственная упавшая ячейка была 3.14, PR уехал в main, причина
+    # осталась неизвестной (сводка не приходит, пока `continue-on-error` держит
+    # `needs.test.result` зелёным, — #1526).
+    #
+    # issue #1232: на предрелизных раннерах спавн подпроцесса стабильно не
+    # укладывается в дефолтные двадцать секунд — три разных теста падали по
+    # одной этой причине, и падение читалось как регрессия кода. Порог
+    # поднимается ТОЛЬКО здесь и ТОЛЬКО настоящей экспериментальной: дефолт в
+    # коде отличает «подвисло навсегда» от «система под нагрузкой» на машине
+    # пользователя, и поднимать его до полутора минут значило бы заставить
+    # каждого столько ждать.
+    env:
+      STEPIK_GRADER_LAUNCH_TIMEOUT_S: ${{ matrix.experimental && '90' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # issue #1231: матрица одинакова для ЛЮБОГО события. Прежде на `push`
+        # оставалась одна комбинация `ubuntu × 3.12` — отмены в очереди это
+        # убрало, но ценой слепой зоны: `main` переставал проверяться на
+        # Windows и macOS до ночного прогона. Зона не теоретическая — полная
+        # матрица на PR в тот же день поймала падение
+        # `test_local_runner_times_out` на `macos-latest × 3.14`, которого
+        # короткий прогон не увидел бы в принципе. ОС-специфики в проекте
+        # много по устройству: Job Objects против bubblewrap против
+        # `sandbox-exec`, ACL против POSIX-битов, кодировки консоли, короткие
+        # пути Windows.
+        #
+        # Очередь при этом держится не размером матрицы, а ТЕМПОМ мержа:
+        # следующий PR не мержится, пока не завершился прогон предыдущего
+        # (`check_pr_ready.py` отвечает «ждать»). Плата — мерж примерно раз в
+        # четверть часа.
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        python-version: ["3.12", "3.13", "3.14"]
+        experimental: [false]
+        include:
+          # Предрелизная версия следующего цикла. `allow-prereleases: true`
+          # ниже разрешает раннеру взять rc; выйдет 3.15 — переезжает в строку
+          # `python-version` выше, а сюда встаёт 3.16.
+          - {os: "ubuntu-latest",  python-version: "3.15", experimental: true}
+          - {os: "windows-latest", python-version: "3.15", experimental: true}
+          - {os: "macos-latest",   python-version: "3.15", experimental: true}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # issue #162: динамическая версия (setuptools-scm) вычисляется из git-тегов.
+        # fetch-depth: 0 подтягивает полную историю + теги, иначе pip install -e .
+        # не сможет определить версию, а check_version_consistency.py — baseline.
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: pip install -e ".[dev]"
+
+      # issue #420: в матрице test bubblewrap НАМЕРЕННО не ставится — sandbox-тесты
+      # здесь скипаются (skipif bwrap отсутствует). Раннеры GitHub Actions не дают
+      # bwrap создать непривилегированный user namespace (uid map / netns loopback),
+      # поэтому полный Linux-бэкенд гоняется отдельным job'ом `sandbox-linux` ниже
+      # (privileged-контейнер, где userns/netns доступны). Backend-фиксы usrmerge
+      # и биндинг /usr (#420) — в _linux.py.
+
+      # issue #1036 (STR-2-01): ruff/mypy/пин ruff/сверка версии переехали в job
+      # `static` — они не зависят ни от ОС, ни от версии Python, а здесь
+      # гонялись девять раз на каждый прогон. Матрице остаётся то, ради чего
+      # она существует: pytest на каждой платформе.
+
+      # issue #294: this job's OWN --cov-fail-under=85 gate (see `Run tests`)
+      # otherwise counts the OTHER two platforms' core/sandbox/ backend files
+      # as permanently-uncovered (they're structurally unreachable here --
+      # SandboxRunner.__init__ never imports them on this OS) -- measured as
+      # little as ~1.1pp margin on ubuntu. Generates a CI-only coverage config
+      # that additionally omits those unreachable files for THIS job's gate;
+      # the coverage-combine job below does NOT use it, so the true cross-OS
+      # aggregate (--fail-under=90) still sees every file counted by whichever
+      # job(s) can actually exercise it -- no file is omitted everywhere.
+      - name: Generate per-OS coverage config (issue #294)
+        shell: bash
+        run: python scripts/generate_ci_coveragerc.py "$(python -c 'import platform; print(platform.system())')"
+
+      - name: Run tests
+        # issue #558: на mac/win-job'ах матрицы включаем anti-silent-skip guard
+        # (обобщение #420 с Linux) — их sandbox-backend'ы (sandbox-exec / Job
+        # Objects) встроены в ОС, поэтому их поломка/недоступность должна ПАДАТЬ,
+        # а не тихо skip'аться (test_{macos,windows}_sandbox_not_silently_skipped).
+        # На ubuntu переменную НЕ ставим: матричный Linux-job намеренно без bwrap
+        # (песочница скипается; полный прогон — в отдельном privileged sandbox-linux).
+        # Пустая строка на ubuntu = «не требовать» (guard'ы само-гейтятся по env).
+        env:
+          STEPIK_REQUIRE_SANDBOX_TESTS: ${{ (matrix.os == 'macos-latest' || matrix.os == 'windows-latest') && '1' || '' }}
+        # issue #954: порог покрытия задаётся ЗДЕСЬ, а не в pyproject.toml.
+        # В конфиге он применялся к любому запуску, включая частичный, и делал
+        # ложно-красным зелёный прогон одного файла. Здесь прогон заведомо
+        # полный, поэтому гейт осмыслен. Guard на присутствие флага —
+        # scripts/check_workflow_guardrails.py.
+        # PR #1378: `--junitxml` пишет отчёт ВСЕГДА, в том числе когда прогон
+        # красный. До этого упавший джоб матрицы не оставлял следа вовсе:
+        # артефакты выгружались только при успехе, логи Actions облачной
+        # сессии недоступны (403), и красный `test (windows-latest, 3.12)` на
+        # `main` невозможно было даже назвать по имени теста.
+        run: >-
+          pytest -q --cov-config=.coveragerc.ci --cov-fail-under=85
+          --junitxml=test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+
+      # PR #1378: отчёт о прогоне уезжает артефактом ВНЕ ЗАВИСИМОСТИ от
+      # исхода (`if: always()`) — ради красного случая он и нужен. Зелёный
+      # прогон и так ничего не спрашивает; вопрос «какой тест упал на
+      # windows» до этого оставался без ответа, потому что единственный
+      # носитель ответа не сохранялся.
+      - name: Upload test results (#1378)
+        if: always()
+        # issue #1509: несостоявшаяся выгрузка НЕ выносит вердикт по джобу.
+        # Отсутствие диагностического артефакта проект уже считает законным
+        # случаем — и реализовал это у всех потребителей: `report-failures`
+        # скачивает `test-results-*` с `continue-on-error`, `coverage-combine`
+        # так же берёт `coverage-xml-ubuntu`, а `combine_coverage.py` отвечает
+        # на недостачу `::warning:: degraded` (#559). Не хватало ровно этой,
+        # второй стороны: сбой artifact-сервиса валил джоб при зелёных тестах.
+        # Замер 08.09.2026 — два красных `main` за час, каждый раз ровно один
+        # не доехавший артефакт из четырнадцати, шаг `Run tests` зелёный, и
+        # каждый раз замороженная очередь мержа при готовом PR рядом.
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          path: test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # issue #283: each OS job only ever exercises its OWN core/sandbox/
+      # backend (_linux.py/_macos.py/_windows.py) — the other two always read
+      # 0% on this machine, which permanently caps any single job's coverage
+      # well below what the test suite actually exercises across the matrix.
+      # Rename + upload this job's .coverage data file so the coverage-combine
+      # job (below) can merge all three OSes into one honest cross-platform
+      # number. One Python version per OS is enough — the sandbox backends
+      # aren't Python-version-dependent, no need to duplicate across 3.13.
+      - name: Rename coverage data file for combine (issue #283)
+        if: matrix.python-version == '3.12' && matrix.experimental == false
+        shell: bash
+        run: mv .coverage ".coverage.${{ matrix.os }}"
+
+      - name: Upload coverage data (issue #283)
+        if: matrix.python-version == '3.12' && matrix.experimental == false
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-data-${{ matrix.os }}
+          path: .coverage.${{ matrix.os }}
+          # v4 excludes dotfiles by default; .coverage.* needs this explicitly.
+          include-hidden-files: true
+
+      # issue #808 (SUP-04): per-OS coverage.xml уезжает артефактом вместо того,
+      # чтобы этот job сам считал и коммитил бейдж — коммит делает единственный
+      # job с правом записи (coverage-combine). Тот же фильтр, что и у данных
+      # покрытия выше: одна ОС, одна версия Python.
+      - name: Upload ubuntu coverage.xml for the badge job (issue #808)
+        # issue #1227: и ночной прогон тоже — он обновляет те же бейджи.
+        if: |
+          (github.event_name == 'push' || github.event_name == 'schedule') &&
+          matrix.os == 'ubuntu-latest' &&
+          matrix.python-version == '3.12' &&
+          matrix.experimental == false
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        # Потребитель этого артефакта (`coverage-combine`) уже скачивает его с
+        # `continue-on-error`, то есть готов к его отсутствию.
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-xml-ubuntu
+          path: coverage.xml
+
+  # issue #283: merges the three OS jobs' coverage data into one report that
+  # reflects what's actually exercised across the whole matrix (each
+  # core/sandbox/ backend covered by its native OS), instead of any single
+  # job's structurally-partial view. Also owns the README badge commit (moved
+  # here from the `test` job, issue #283) — one place doing badge commits
+  # avoids two jobs racing to push .github/badges/*.json independently.
+  coverage-combine:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
+    # issue #420: + sandbox-linux — его .coverage.sandbox-linux (покрытие
+    # _linux.py, недостижимое в матрице без bwrap) подхватывается download'ом
+    # по маске coverage-data-* и вливается в cross-OS combine.
+    #
+    # issue #559: раньше `needs: [test, sandbox-linux]` был ЖЁСТКИМ — падение
+    # flaky privileged-контейнера sandbox-linux тихо СКИПАЛО весь combine (немой
+    # skip: ни gate, ни бейджа, ни сигнала). Теперь job запускается всегда, когда
+    # прошёл `test` (sandbox-linux остаётся в needs лишь для ОРДЕРА — дождаться
+    # его артефакта, если он есть). combine_coverage.py детектит отсутствие
+    # .coverage.sandbox-linux и ГРОМКО сигналит (::warning:: + degraded=true), а
+    # строгий --fail-under=90 применяет только при полных данных.
+    needs: [test, sandbox-linux]
+    if: ${{ !cancelled() && needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # issue #162: version badge needs full history + tags (same reasoning
+        # as the old badge step this job replaces).
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # issue #808: сюда переехали ВСЕ бейджи, а бейдж глоссария считает карточки
+      # через stepik_grader.glossary — пакет нужен установленным, одного
+      # `coverage` уже недостаточно.
+      - name: Install coverage and the package
+        timeout-minutes: 10
+        run: pip install coverage -e .
+
+      - name: Download coverage data from all OS jobs
+        timeout-minutes: 5
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: coverage-data-*
+          path: coverage-artifacts
+          merge-multiple: true
+
+      # issue #808 (SUP-04): per-OS отчёт ubuntu-job'а — в отдельный каталог,
+      # чтобы combine ниже не перезаписал его своим общим coverage.xml.
+      - name: Download ubuntu coverage.xml (issue #808)
+        timeout-minutes: 5
+        if: github.event_name == 'push' || github.event_name == 'schedule'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: coverage-xml-ubuntu
+          path: ubuntu-coverage
+
+      # issue #559: combine + строгий gate вынесены в scripts/combine_coverage.py
+      # (тестируемо, под mypy как #558). Скрипт детектит отсутствие ожидаемых
+      # .coverage.<suffix> (напр. sandbox-linux упал) → ::warning:: + degraded=true
+      # вместо немого недосчёта; строгий --fail-under=90 только при полных данных.
+      - name: Combine and report (issue #283/#559)
+        id: combine
+        # issue #1227: на коротком прогоне main матрица — одна ОС, поэтому
+        # требовать windows/macos значило бы выдавать ::warning:: на каждом
+        # мерже. Предупреждение, которое горит всегда, перестают читать —
+        # и настоящую деградацию тогда тоже пропустят.
+        # issue #1231: источники одинаковы для любого события — матрица снова
+        # полная, значит на `push` артефакты всех трёх ОС есть, и требовать их
+        # больше не «шум, который горит всегда», а настоящая проверка.
+        env:
+          REQUIRED: >-
+            --require ubuntu-latest --require windows-latest
+            --require macos-latest --require sandbox-linux
+        run: |
+          python scripts/combine_coverage.py \
+            --artifacts coverage-artifacts --fail-under 90 $REQUIRED
+
+      # issue #808 (SUP-04): единственное место, которое коммитит бейджи. Раньше
+      # их было два — этот job и шаг матрицы `test`, ради которого всей матрице
+      # выдавался `contents: write`. Теперь право записи есть только здесь, а
+      # заодно исчезла гонка двух badge-коммитов между собой: остаётся лишь
+      # гонка с ЧУЖИМ параллельным push'ем, которую и разруливает retry-цикл
+      # (на конфликте — abort rebase, сброс на свежий origin/main, регенерация;
+      # обычно после этого выходит «Badges unchanged»). Три неудачные попытки —
+      # предупреждение, а не падение job'а: следующий push догонит бейджи.
+      - name: Update badges (main only)
+        # issue #559: комбинированный бейдж при деградации (нет ожидаемых
+        # coverage-данных, напр. упал sandbox-linux) НЕ публикуем — иначе
+        # показали бы недосчитанное число как «правду». Пометка о пропуске — в
+        # ::warning:: из combine_coverage.py выше; прошлый честный бейдж
+        # остаётся в силе. Остальные бейджи от sandbox-данных не зависят и
+        # обновляются в любом случае.
+        if: github.event_name == 'push' || github.event_name == 'schedule'
+        # issue #835: токен нужен только бейджу пула — search API без него
+        # упирается в лимит для анонимных запросов с общих IP раннеров.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            # issue #1231: прогон `push` снова видит все три ОС, поэтому его
+            # число — настоящее cross-OS, и бейдж больше не отстаёт на сутки.
+            # Защита от ДЕГРАДАЦИИ остаётся и здесь главная: если ожидаемых
+            # coverage-данных нет (упал, например, sandbox-linux), недосчитанное
+            # число под бейджем «all OS» было бы точной ложью — тогда молчим, а
+            # прошлый честный бейдж остаётся в силе.
+            if [ "${{ steps.combine.outputs.degraded }}" != "true" ]; then
+              python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json --label "coverage (all OS)"
+            fi
+            if [ -f ubuntu-coverage/coverage.xml ]; then
+              python scripts/generate_coverage_badge.py --coverage-xml ubuntu-coverage/coverage.xml --label "coverage (ubuntu)"
+            else
+              echo "::warning::coverage.xml ubuntu-job'а недоступен — per-OS бейдж пропущен, прошлое значение остаётся."
+            fi
+            python scripts/generate_version_badge.py
+            python scripts/generate_glossary_badge.py
+            # Факты проекта для соседних репозиториев: витрина иначе клонирует
+            # нас целиком ради двух подсчётов по tests/ и разбирает наш ci.yml
+            # регулярным выражением. Едет тем же `cp .github/badges/*.json`
+            # ниже, что и бейджи, — новой трубы для этого не нужно.
+            #
+            # issue #1505: покрытие уезжает соседям тем же файлом — но только
+            # при ПОЛНЫХ данных. Отчёт `coverage.xml` пишется и после
+            # деградации (`coverage xml` идёт в любом случае), поэтому судить
+            # по наличию файла нельзя: недосчитанное число было бы не пробелом,
+            # а точной ложью. Признак знает этот шаг — он и решает, звать ли с
+            # аргументом; без него ключа в фактах не будет вовсе. То же
+            # условие, что и у комбинированного бейджа выше.
+            facts_coverage=""
+            if [ "${{ steps.combine.outputs.degraded }}" != "true" ] && [ -f coverage.xml ]; then
+              facts_coverage="--coverage-xml coverage.xml"
+            fi
+            python scripts/generate_facts.py $facts_coverage || true
+            # issue #1063: бейдж «тег ↔ опубликованный пакет». Ходит в PyPI,
+            # поэтому сетевой сбой не должен ронять остальные бейджи: скрипт
+            # сам отвечает серым «pypi ?» и завершается успешно, а `|| true`
+            # прикрывает уже совсем неожиданное падение.
+            python scripts/generate_release_badge.py || true
+            # issue #835: пул задач для новичка. Сетевой сбой не должен ронять
+            # обновление ОСТАЛЬНЫХ бейджей — прошлое честное число остаётся.
+            python scripts/generate_good_first_issues_badge.py || true
+            # issue #1235: бейджи публикуются в ветку `badges`, а НЕ в `main`.
+            # Защита `main` (обязательные проверки + «up to date») запрещает
+            # прямой push кому угодно, а обход для GitHub Actions личному
+            # репозиторию недоступен: GitHub отвечает «must be part of the
+            # ruleset source or owner organization». Отдельная ветка снимает
+            # противоречие целиком — и заодно убирает badge-коммиты из `main`,
+            # каждый из которых запускал ещё один прогон и вытеснял из очереди
+            # предыдущий, ожидающий (issue #1227).
+            publish="${RUNNER_TEMP:-/tmp}/badges-publish"
+            rm -rf "$publish"
+            if git fetch --depth=1 origin badges 2>/dev/null; then
+              git worktree add -B badges "$publish" FETCH_HEAD >/dev/null
+            else
+              # Ветки ещё нет (первый прогон после перехода) или её удалили:
+              # заводим сиротскую. История `main` бейджам не нужна — они
+              # артефакт сборки, а не исходник.
+              git worktree add --detach "$publish" HEAD >/dev/null
+              git -C "$publish" switch --orphan badges
+              git -C "$publish" rm -rq --cached . 2>/dev/null || true
+              find "$publish" -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
+            fi
+            mkdir -p "$publish/.github/badges"
+            cp .github/badges/*.json "$publish/.github/badges/"
+            git -C "$publish" add .github/badges
+            # --cached, not plain `git diff`: coverage-combined.json is a
+            # brand-new file the first time this job ever runs -- untracked,
+            # so plain `git diff --quiet` (tracked files only) silently sees
+            # no change and never commits it (issue #286, the actual bug that
+            # left this badge missing/404 on README since #283/#284 merged).
+            # Staging first makes the check see additions too.
+            if git -C "$publish" diff --cached --quiet; then
+              echo "Badges unchanged."
+              git worktree remove --force "$publish"
+              break
+            fi
+            git -C "$publish" commit -q -m "chore(ci): update badges [skip ci]"
+            if git -C "$publish" push origin badges; then
+              echo "Badges pushed to the badges branch (attempt $attempt)."
+              git worktree remove --force "$publish"
+              break
+            fi
+            # Гонка с параллельным прогоном: рабочий каталог сносим целиком,
+            # следующая попытка начнётся со свежего fetch — то же, что делал
+            # прежний `reset --hard origin/main`, только для своей ветки.
+            git worktree remove --force "$publish"
+            if [ "$attempt" = 3 ]; then
+              echo "::warning::Badge update push raced with a concurrent update and failed after 3 attempts — a later push will catch it up."
+            else
+              echo "Attempt $attempt: badge push raced with a concurrent update — retrying."
+              sleep $((attempt * 5))
+            fi
+          done
+
+  # issue #263: Playwright e2e smoke tests for the web UI (--serve) -- 4 user
+  # journeys (mode 2 folder grading, mode 1 file picker + editable window,
+  # glossary search, command palette) plus an XSS regression test for app.js's
+  # esc() escaping. Deliberately a SEPARATE job, not folded into the `test`
+  # matrix above: Linux-only (one browser/OS combo is enough for a DOM-level
+  # smoke suite), and tests/e2e/ needs the opt-in "e2e" extra + a downloaded
+  # Chromium binary that the main matrix jobs must not pay for. Playwright
+  # itself is a dev-only extra (see pyproject.toml's `e2e` group) -- it is
+  # NOT a new runtime dependency.
+  e2e:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    # issue #1231: journey выполняются и на `push`. Их пропуск был частью
+    # короткого прогона: «уже прошли на PR по тому же коду» верно ровно до
+    # первого мержа, который меняет соседний код, — а web-слой ломается именно
+    # так. Единственная проверка страницы целиком не должна зависеть от того,
+    # каким событием пришёл коммит.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # issue #162: setuptools-scm needs full history + tags to resolve
+        # the package version during `pip install -e .` (same reasoning as
+        # the `test` job above).
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (dev + e2e extras)
+        timeout-minutes: 10
+        run: pip install -e ".[dev,e2e]"
+
+      # Ключ кеша — ФАКТИЧЕСКАЯ версия playwright, а не хеш pyproject.toml.
+      # Прежний ключ обещал «version bump invalidates the cache automatically»,
+      # но спецификатор в pyproject плавающий (`playwright>=1.40`): апстрим
+      # обновляется БЕЗ единой правки файла, хеш прежний, кеш рапортует hit — а
+      # нужного билда браузера в нём нет. Установка при этом скипалась, и e2e
+      # падал 23 ошибками «Executable doesn't exist».
+      - name: Resolve Playwright version
+        timeout-minutes: 10
+        id: pw
+        run: |
+          version=$(python -c "import importlib.metadata as m; print(m.version('playwright'))")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Playwright $version"
+
+      # Cache Chromium's downloaded binary (~100+ MB) across runs.
+      - name: Cache Playwright browsers
+        timeout-minutes: 10
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      # Установка безусловная: при попадании кеша `playwright install` видит
+      # готовый бинарь и сразу выходит, а OS-deps эфемерному раннеру нужны в
+      # любом случае. Так работоспособность job'а не зависит от того, угадал ли
+      # кеш, — он остаётся ускорением, а не условием корректности.
+      #
+      # issue #1566: единый `playwright install --with-deps chromium` дважды за
+      # вечер повисал до таймаута шага (10 мин) — тесты не запускались, а
+      # обязательная проверка краснела. Какая половина висит, снаружи видно не
+      # было: шаг один, а логи облачной сессии недоступны. Теперь половины —
+      # отдельные шаги (их исход читается через `actions/jobs/{id}`), и у каждой
+      # до трёх попыток по 3 минуты вместо одного ожидания на десять.
+      # `--kill-after`: установщик зовёт `apt-get`, и попытка, пережившая TERM,
+      # держала бы dpkg-лок для следующей.
+      - name: Install Playwright OS deps (issue #1566)
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=15 180 playwright install-deps chromium; then exit 0; fi
+            echo "::warning::зависимости ОС для Playwright: попытка $attempt не уложилась в 3 мин или упала"
+          done
+          exit 1
+
+      - name: Install Playwright Chromium (issue #1566)
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --kill-after=15 180 playwright install chromium; then exit 0; fi
+            echo "::warning::браузер Playwright: попытка $attempt не уложилась в 3 мин или упала"
+          done
+          exit 1
+
+      # issue #790: STEPIK_REQUIRE_E2E_TESTS=1 включает guard'ы
+      # tests/e2e/test_not_silently_skipped.py — тот же приём, что у песочницы
+      # (#420/#558). Без него любая поломка окружения (не разрешившийся extra,
+      # несовместимая версия, сбой кеша браузеров) превращала весь набор в
+      # «N skipped» с кодом 0, и job оставался зелёным, ничего не проверив.
+      # issue #1500: `--junitxml` тем же именем-образцом `test-results-*`, что и
+      # у матрицы. Разбор в `scripts/report_failed_tests.py` идёт по маске и об
+      # источнике отчёта ничего не знает, поэтому джоб входит в сводку даром.
+      # Без отчёта красный `e2e` сообщал ровно `Process completed with exit
+      # code 1` — на единственной поверхности, где падение не воспроизводится
+      # чтением кода.
+      - name: Run e2e tests
+        env:
+          STEPIK_REQUIRE_E2E_TESTS: "1"
+        run: pytest tests/e2e/ -v --no-cov --junitxml=test-results-e2e.xml
+
+      # `if: always()` — ради красного случая отчёт и нужен: выгрузка «только
+      # при успехе» оставляет без следа ровно тот прогон, который разбирают.
+      - name: Upload e2e test results (#1500)
+        if: always()
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-e2e
+          path: test-results-e2e.xml
+          if-no-files-found: ignore
+          retention-days: 14
+  # issue #1382: облачная сессия не читает ни логи джоба, ни артефакты прогона —
+  # оба живут в скоупе `actions`, на который прокси отвечает 403. То есть
+  # junit-отчёт (#1378) отвечает «какой тест упал» только владельцу, у которого
+  # есть веб-интерфейс. Открытый канал ровно один — комментарий PR, и этот job
+  # его использует: разбирает отчёты матрицы и держит в PR ОДНУ сводку.
+  #
+  # Отдельным job'ом, а не шагом внутри матрицы: девять джобов, пишущих в один
+  # комментарий, гонялись бы за ним наперегонки. Здесь же они уже закончились, и
+  # сводка собирается со всех сразу.
+  report-failures:
+    needs: [test, e2e]
+    # Только при падении: зелёный прогон вопросов не вызывает.
+    #
+    # issue #1500: падение ЛЮБОГО из двух, а не только матрицы. Прежнее условие
+    # оставляло красный `e2e` при зелёной матрице вовсе без сводки — а это
+    # единственный джоб, чьё падение нельзя разобрать локально.
+    #
+    # issue #1519: и на `push` в main тоже. Прежде условие отсекало всё, кроме
+    # pull request, с объяснением «на push комментировать нечего» — а
+    # комментировать есть что и куда: у коммита свои комментарии, тем же REST и
+    # тем же токеном. Цена прежнего вывода измерена:
+    # красная база замораживает очередь, чинить её надо зная, ЧТО упало, а
+    # логи и артефакты облачной сессии закрыты (403). Разорвать круг было
+    # нечем — новый прогон main рождается только новым мержем, которого
+    # заморозка и не даёт.
+    if: >-
+      ${{ always()
+      && (needs.test.result == 'failure' || needs.e2e.result == 'failure') }}
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      # `contents: write` — ради комментария к коммиту: он живёт в скоупе
+      # содержимого, а не в `pull-requests`, и на чтении отвечает 403.
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Download test reports from all matrix jobs
+        timeout-minutes: 5
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: test-results-*
+          path: test-reports
+          merge-multiple: true
+        # Отчётов может не быть вовсе — джоб умер до тестов. Это законный
+        # случай, и сводка про него говорит отдельной строкой.
+        continue-on-error: true
+
+      # issue #1541: без `--apply` скрипт только печатает сводку в лог — а лог
+      # облачной сессии недоступен (403). Шаг для PR так и работал: зелёный,
+      # «сводка сделана», а комментария нет. Флаг стережёт тест
+      # `test_every_addressed_call_publishes` в tests/test_report_failed_tests.py.
+      - name: Name the failed tests in the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/report_failed_tests.py --dir test-reports
+          --pr ${{ github.event.number }}
+          --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --apply
+
+      # issue #1519: у push в main адресата-PR нет — сводка уходит комментарием
+      # к коммиту. Шаг отдельный, а не ветвление внутри одной команды: два
+      # разных адресата и два разных набора прав, и `if` здесь читается, а
+      # выражение в аргументе — нет.
+      - name: Name the failed tests on the commit
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/report_failed_tests.py --dir test-reports
+          --commit ${{ github.sha }}
+          --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --apply
+
+
+
+  # issue #420: Linux SandboxRunner (bwrap) реально гоняется в CI под ПОЛНОЙ
+  # изоляцией, включая сетевую. Раннеры GitHub Actions запрещают
+  # непривилегированные user namespaces целиком (`bwrap: setting up uid map:
+  # Permission denied`) и netns loopback (`RTM_NEWADDR EPERM`) — поэтому job
+  # идёт в PRIVILEGED-контейнере, где userns и netns доступны (проверено:
+  # test_network_blocked проходит, реальная сетевая изоляция). Гоняет весь
+  # tests/test_sandbox_runner.py: запуск в песочнице, ФС-изоляция, сеть, память,
+  # output-size, timeout. fork-bomb (RLIMIT_NPROC) исключена — её сдерживание
+  # зависит от сброса kernel-ucounts и во вложенном userns нестабильно.
+  # Отдельный job (не строка в матрице test): не бьём по per-OS gate (#294) /
+  # cross-OS combine (#283); .coverage вливается в combine → _linux.py > 0%.
+  sandbox-linux:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-slim
+      options: --privileged
+    steps:
+      # git нужен ДО checkout: без него actions/checkout тянет tarball через REST
+      # API без .git, а setuptools-scm требует историю+теги. bwrap — тем же шагом.
+      - name: Install git + bubblewrap (before checkout)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git bubblewrap
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # setuptools-scm читает версию из git; в контейнере repo принадлежит
+      # другому uid → git ругается на "dubious ownership" без этого.
+      - name: Trust workspace for git (setuptools-scm)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: pip install -e ".[dev]"
+
+      # STEPIK_REQUIRE_SANDBOX_TESTS=1 превращает молчаливый skip Linux-песочницы
+      # в жёсткое падение (test_linux_sandbox_not_silently_skipped проверяет
+      # bwrap+netns). fork-bomb deselect'ится (см. коммент к job'у).
+      #
+      # issue #976: прежде здесь стоял `--cov-fail-under=0` — job гоняет только
+      # sandbox-тесты, и порог полного прогона был бы к ним неприменим. После
+      # issue #954 порога в конфиге нет вовсе (он задаётся флагом в шаге полного
+      # прогона), поэтому флаг стал избыточным: частичный прогон и без него
+      # выходит с нулевым кодом. Убран, чтобы не выглядел как «отключённый
+      # гейт» — читающий не должен гадать, что здесь подавлено.
+      - name: Run full Linux sandbox tests (privileged, netns on)
+        env:
+          STEPIK_REQUIRE_SANDBOX_TESTS: "1"
+        run: |
+          pytest tests/test_sandbox_runner.py \
+            --deselect "tests/test_sandbox_runner.py::TestLinuxSandboxRunner::test_fork_bomb_contained" \
+            -p no:cacheprovider
+
+      - name: Rename coverage data for combine (#283/#420)
+        run: mv .coverage .coverage.sandbox-linux
+
+      - name: Upload coverage data (#420)
+        # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-data-sandbox-linux
+          path: .coverage.sandbox-linux
+          # v4 исключает dotfiles по умолчанию; .coverage.* нужно явно.
+          include-hidden-files: true
+
+  # issue #693 (аудит 2026-07-20, раунд 2): supply-chain — информационный аудит
+  # runtime-зависимостей на известные уязвимости (pip-audit по PyPI Advisory DB).
+  # continue-on-error: НЕ блокирует merge — новая CVE в requests/urllib3/… не
+  # должна валить несвязанный PR, но обязана краснеть в логах (сигнал мейнтейнеру
+  # обновить границы версий). Полный инвентарь и ручной аудит — docs/dev/supply-chain.md.
+  # pip-audit ставится ad-hoc, НЕ в pyproject.toml (не runtime и не dev-зависимость).
+  supply-chain:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший шаг держит не только свой job, но и всю очередь мержа.
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      # fetch-depth: 0 — setuptools-scm вычисляет версию из git-истории+тегов при
+      # pip install . (иначе сборка пакета падает без .git).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install package (runtime deps) + pip-audit
+        timeout-minutes: 10
+        run: |
+          python -m pip install --upgrade pip
+          pip install . pip-audit
+      # issue #988 (REV-4-06): «краснеет в логах» — слишком слабый сигнал. Job
+      # объявлен continue-on-error, поэтому его провал не виден ни в статусе PR,
+      # ни в списке проверок: чтобы узнать про найденную CVE, надо было открыть
+      # лог именно этого job'а и дочитать его. Аннотация ::warning:: всплывает в
+      # сводке прогона и в интерфейсе PR — тот же не-блокирующий сигнал, но
+      # замеченный. Блокировать по-прежнему не блокируем осознанно: новая CVE в
+      # транзитивной зависимости не должна валить несвязанный чужой PR.
+      # issue #921 (находка REL-3-05): «уязвимостей нет» и «аудит не отработал»
+      # выглядели одинаково. `pip-audit` выходит ненулевым и на находке, и на
+      # собственном крахе (не разрешился индекс, оборвалась сеть, Advisory DB
+      # не ответила) — а прежний шаг печатал на оба случая «найдена
+      # уязвимость». Job объявлен continue-on-error, поэтому тихий отказ
+      # инструмента читался как чистое замыкание.
+      #
+      # Отличаем по НАЛИЧИЮ ОТЧЁТА, а не по коду: код совпадает, отчёт краш не
+      # оставляет. Разбор — скриптом, у которого есть тесты: иначе получился бы
+      # ещё один guard, зелёный независимо от того, работает ли он.
+      - name: pip-audit (informational, non-blocking)
+        timeout-minutes: 10
+        run: |
+          pip-audit --skip-editable --progress-spinner=off \
+            --format=json --output=pip-audit.json || true
+          python scripts/check_pip_audit_report.py pip-audit.json

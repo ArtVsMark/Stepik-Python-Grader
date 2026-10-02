@@ -1,0 +1,1018 @@
+"""Тесты scripts/check_workflow_guardrails.py — инварианты CI и релиза (issue #988).
+
+Смысл этих тестов — не в том, что guard зелен на текущем репозитории (это
+проверяет и сам прогон в CI), а в том, что он **краснеет** на каждом дефекте,
+ради которого заведён. Guard, зелёный при любом входе, ничем не лучше его
+отсутствия — именно так и жил дефект REL-1-01: ошибка в workflow не видна ни
+линтеру, ни тестам и проявляется один раз, в момент релиза.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import pathlib
+import sys
+from types import ModuleType
+
+_SCRIPT = pathlib.Path(__file__).parent.parent / "scripts" / "check_workflow_guardrails.py"
+
+
+def _load_module() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("_check_workflow_guardrails", _SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_MODULE = _load_module()
+
+
+# Релизный job в исправном виде: checkout первым, проверка dist, twine, permissions.
+_HEALTHY_RELEASE = """name: Release
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check built artifacts
+        run: twine check dist/*
+
+  github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Download dist artifact
+        uses: actions/download-artifact@v8
+      - name: Fail if dist is empty
+        run: |
+          if [ -z "$(ls -A dist 2>/dev/null)" ]; then exit 1; fi
+
+  pypi-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+"""
+
+
+class TestReleasePipeline:
+    """Каждая проверка обязана падать на своём дефекте."""
+
+    def test_healthy_pipeline_passes(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_pipeline(errors, source=_HEALTHY_RELEASE)
+        assert errors == []
+
+    def test_checkout_after_download_is_caught(self) -> None:
+        """Тот самый дефект: checkout стирает скачанный dist/, релиз без ассетов."""
+        broken = _HEALTHY_RELEASE.replace(
+            "      - uses: actions/checkout@v7\n"
+            "      - name: Download dist artifact\n"
+            "        uses: actions/download-artifact@v8\n",
+            "      - name: Download dist artifact\n"
+            "        uses: actions/download-artifact@v8\n"
+            "      - uses: actions/checkout@v7\n",
+        )
+        errors: list[str] = []
+
+        _MODULE.check_release_pipeline(errors, source=broken)
+
+        assert any("ПОСЛЕ" in error for error in errors), errors
+
+    def test_missing_empty_dist_check_is_caught(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_pipeline(
+            errors, source=_HEALTHY_RELEASE.replace('if [ -z "$(ls -A dist 2>/dev/null)" ]', "true")
+        )
+        assert any("непуст" in error for error in errors), errors
+
+    def test_missing_twine_check_is_caught(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_pipeline(
+            errors, source=_HEALTHY_RELEASE.replace("twine check dist/*", "echo built")
+        )
+        assert any("twine" in error for error in errors), errors
+
+    def test_missing_permissions_is_caught(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_pipeline(
+            errors, source=_HEALTHY_RELEASE.replace("permissions:\n  contents: read\n", "")
+        )
+        assert any("permissions" in error for error in errors), errors
+
+    def test_renamed_job_fails_loudly(self) -> None:
+        """Переименованный job — ошибка, а не тихий пропуск проверки.
+
+        Это и есть «пустой вход»: если бы guard молча пропускал отсутствующий
+        job, любое переименование обнулило бы проверку порядка шагов, оставив её
+        зелёной, — тот самый шаблон, из-за которого дефект и дожил до релиза.
+        """
+        errors: list[str] = []
+
+        _MODULE.check_release_pipeline(
+            errors, source=_HEALTHY_RELEASE.replace("  github-release:", "  publish-release:")
+        )
+
+        assert any("не найден" in error for error in errors), errors
+
+    def test_empty_workflow_is_not_silently_green(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_pipeline(errors, source="")
+        assert errors
+
+
+class TestExtractJob:
+    """Разбор job'ов не должен захватывать соседей."""
+
+    def test_stops_at_next_job(self) -> None:
+        job = _MODULE.extract_job(_HEALTHY_RELEASE, "github-release")
+
+        assert any("download-artifact" in line for line in job)
+        assert not any("pypi-publish" in line for line in job)
+
+    def test_unknown_job_is_empty(self) -> None:
+        assert _MODULE.extract_job(_HEALTHY_RELEASE, "нет-такого") == []
+
+
+_HEALTHY_GATES = """name: Release
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Documentation guardrails
+        run: python scripts/check_docs_guardrails.py
+      - name: Release notes exist
+        run: python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --out /dev/null
+
+  github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+"""
+
+
+class TestReleaseGatesMatchPromises:
+    """Обещанное документацией стоит гейтом до ЛЮБОЙ публикации (issue #988)."""
+
+    def test_healthy_gates_pass(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_gates_match_promises(errors, source=_HEALTHY_GATES)
+        assert errors == []
+
+    def test_missing_changelog_rotation_gate_is_caught(self) -> None:
+        """versioning.md обещает «без ротации CHANGELOG релиз падает» — это должно быть правдой."""
+        errors: list[str] = []
+
+        _MODULE.check_release_gates_match_promises(
+            errors, source=_HEALTHY_GATES.replace("check_docs_guardrails.py", "echo skip")
+        )
+
+        assert any("check_docs_guardrails" in error for error in errors), errors
+
+    def test_release_notes_gate_must_be_in_verify(self) -> None:
+        """Проверка в job'е публикации GitHub Release не мешает PyPI опубликоваться.
+
+        Оба публикующих job'а зависят от `verify` и независимы друг от друга по
+        построению — значит гейт обязан стоять в `verify`, иначе PyPI выйдет с
+        любым состоянием CHANGELOG.
+        """
+        errors: list[str] = []
+
+        _MODULE.check_release_gates_match_promises(
+            errors, source=_HEALTHY_GATES.replace("extract_release_notes.py", "echo skip")
+        )
+
+        assert any("release notes" in error for error in errors), errors
+
+    def test_renamed_verify_job_fails_loudly(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_release_gates_match_promises(
+            errors, source=_HEALTHY_GATES.replace("  verify:", "  preflight:")
+        )
+        assert any("не найден" in error for error in errors), errors
+
+
+class TestCiTriggers:
+    """PR, созданный черновиком, обязан получать проверки."""
+
+    def test_ready_for_review_present(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_ci_listens_to_ready_for_review(
+            errors,
+            source=(
+                "on:\n  workflow_dispatch:\n"
+                "  pull_request:\n    types: [opened, ready_for_review]\n"
+            ),
+        )
+        assert errors == []
+
+    def test_default_types_are_caught(self) -> None:
+        """Дефолтные типы GitHub не включают ready_for_review — это и ловим."""
+        errors: list[str] = []
+
+        _MODULE.check_ci_listens_to_ready_for_review(
+            errors, source="on:\n  pull_request:\n    branches: [main]\n"
+        )
+
+        assert any("ready_for_review" in error for error in errors), errors
+
+    def test_missing_manual_dispatch_is_caught(self) -> None:
+        """Без workflow_dispatch единственный способ перезапустить CI — холостой пуш."""
+        errors: list[str] = []
+
+        _MODULE.check_ci_listens_to_ready_for_review(
+            errors,
+            source="on:\n  pull_request:\n    types: [opened, ready_for_review]\n",
+        )
+
+        assert any("workflow_dispatch" in error for error in errors), errors
+
+    def test_missing_pull_request_trigger_is_caught(self) -> None:
+        errors: list[str] = []
+        _MODULE.check_ci_listens_to_ready_for_review(errors, source="on:\n  push:\n")
+        assert any("pull_request" in error for error in errors), errors
+
+
+def test_repo_workflows_pass_guard() -> None:
+    """Действующие workflow репозитория соответствуют инвариантам."""
+    assert _MODULE.main() == 0
+
+
+class TestCoverageGateIsExplicit:
+    """Порог покрытия задан флагом в шаге прогона — и не исчезает молча (issue #954)."""
+
+    def test_missing_flag_is_caught(self) -> None:
+        """Без --cov-fail-under гейта покрытия нет вовсе."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(
+            errors, source="jobs:\n  test:\n    steps:\n      - run: pytest -q\n"
+        )
+
+        assert any("--cov-fail-under" in error for error in errors), errors
+
+    def test_lowered_threshold_is_caught(self) -> None:
+        """Тихое снижение порога — тот же «зелёный независимо от кода»."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(
+            errors, source="      - run: pytest -q --cov-fail-under=10\n"
+        )
+
+        assert any("ниже принятого порога" in error for error in errors), errors
+
+    def test_explicit_threshold_passes(self) -> None:
+        """Заявленный порог проходит проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(
+            errors, source="      - run: pytest -q --cov-fail-under=85\n"
+        )
+
+        assert errors == []
+
+    def test_real_ci_declares_the_gate(self) -> None:
+        """Guard-the-guard: настоящий ci.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_coverage_gate_is_explicit(errors)
+
+        assert errors == []
+
+
+class TestReleasePublishesVerifiedAssets:
+    """Пропажа ассетов и содержимое колеса под гейтом (issue #953)."""
+
+    def test_missing_fail_on_unmatched_is_caught(self) -> None:
+        """Без флага пустой glob публикует релиз без файлов и молчит."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(
+            errors,
+            source="      - uses: softprops/action-gh-release\n        with:\n"
+            "          files: dist/*\n"
+            "      - run: python scripts/check_wheel_contents.py dist/*.whl\n",
+        )
+
+        assert any("fail_on_unmatched_files" in error for error in errors), errors
+
+    def test_missing_wheel_check_is_caught(self) -> None:
+        """Без проверки содержимого сломанный package-data уезжает на PyPI."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(
+            errors,
+            source="      - uses: softprops/action-gh-release\n        with:\n"
+            "          fail_on_unmatched_files: true\n",
+        )
+
+        assert any("check_wheel_contents" in error for error in errors), errors
+
+    def test_healthy_release_passes(self) -> None:
+        """Обе защиты на месте — претензий нет."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(
+            errors,
+            source="      - run: python scripts/check_wheel_contents.py dist/*.whl\n"
+            "      - uses: softprops/action-gh-release\n        with:\n"
+            "          fail_on_unmatched_files: true\n",
+        )
+
+        assert errors == []
+
+    def test_real_release_workflow_is_guarded(self) -> None:
+        """Guard-the-guard: настоящий release.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_release_publishes_verified_assets(errors)
+
+        assert errors == []
+
+
+class TestJobTimeouts:
+    """У каждого job'а свой предел (issue #1271).
+
+    Без `timeout-minutes` действует умолчание GitHub — шесть часов. Замер 19.08:
+    `e2e` встал на установке Playwright и три с половиной часа держал прогон
+    `main`, а с ним всю очередь мержа; красных проверок при этом не было ни
+    одной — гейт очереди читает «идёт прогон» как нормальную работу.
+    """
+
+    _WITH = "jobs:\n  build:\n    timeout-minutes: 20\n    runs-on: ubuntu-latest\n"
+    _WITHOUT = "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+
+    def test_job_without_timeout_is_named(self) -> None:
+        assert _MODULE.jobs_without_timeout(self._WITHOUT) == ["build"]
+
+    def test_job_with_timeout_passes(self) -> None:
+        assert _MODULE.jobs_without_timeout(self._WITH) == []
+
+    def test_trigger_keys_are_not_jobs(self) -> None:
+        """`push` и `schedule` стоят на том же отступе — таймаут у них не требуется.
+
+        Первая редакция проверки требовала: гейт краснел на триггерах, то есть
+        на том, у чего таймаута не бывает вовсе.
+        """
+        source = (
+            "on:\n  push:\n    branches: [main]\n  schedule:\n"
+            "    - cron: '0 0 * * *'\n\n" + self._WITH
+        )
+
+        assert _MODULE.jobs_without_timeout(source) == []
+
+    def test_keys_after_jobs_section_are_ignored(self) -> None:
+        """Разбор кончается на первом ключе верхнего уровня после `jobs:`."""
+        source = self._WITH + "\nconcurrency:\n  group: x\n"
+
+        assert _MODULE.jobs_without_timeout(source) == []
+
+    def test_missing_jobs_section_is_not_a_crash(self) -> None:
+        assert _MODULE.jobs_without_timeout("on:\n  push:\n") == []
+
+    def test_check_reports_every_offender(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_every_job_has_a_timeout(errors, {"ci.yml": self._WITHOUT})
+
+        assert len(errors) == 1
+        assert "build" in errors[0] and "6 часов" in errors[0]
+
+    def test_missing_files_are_red(self, monkeypatch) -> None:
+        """Пустой вход обязан быть красным: проверка без файлов зеленела бы на пустоте."""
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_WORKFLOWS", pathlib.Path("нет-такого-каталога"))
+
+        _MODULE.check_every_job_has_a_timeout(errors)
+
+        assert len(errors) == 1
+        assert "файлов нет" in errors[0]
+
+    def test_every_workflow_is_looked_at(self) -> None:
+        """Смотрим на ВСЕ файлы, а не на два поимённо.
+
+        Первая редакция знала только `ci.yml` и `release.yml`, и новый workflow
+        заводился без таймаута незамеченным — сторож, видящий не всё, хуже
+        отсутствующего.
+        """
+        errors: list[str] = []
+        seen = sorted(path.name for path in _MODULE._WORKFLOWS.glob("*.yml"))
+
+        _MODULE.check_every_job_has_a_timeout(errors)
+
+        assert errors == []
+        assert len(seen) > 2, f"в каталоге всего {len(seen)} файл(ов) — проверять нечего"
+
+    def test_real_workflows_pass(self) -> None:
+        """И живые файлы проекта — тоже: гейт обязан быть зелёным на настоящем входе."""
+        errors: list[str] = []
+
+        _MODULE.check_every_job_has_a_timeout(errors)
+
+        assert errors == []
+
+
+class TestQueueMoverToken:
+    """Двигатель очереди не должен обновлять ветку штатным токеном (issue #1287).
+
+    Пуш от `GITHUB_TOKEN` не запускает другие workflow — защита от рекурсии.
+    Подставь его сюда, и голова очереди обновится, а прогон на PR не стартует:
+    PR застрянет **без единой красной проверки**, то есть беда опять будет
+    выглядеть нормальной работой.
+    """
+
+    _GOOD = (
+        "jobs:\n  move:\n    steps:\n"
+        "      - name: Обновить голову очереди из main\n"
+        "        env:\n          GH_TOKEN: ${{ env.MERGE_QUEUE_TOKEN }}\n"
+        "        run: python scripts/gh_rest.py update-branch 1\n"
+    )
+
+    def test_dedicated_token_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, self._GOOD)
+
+        assert errors == []
+
+    def test_github_token_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = self._GOOD.replace("env.MERGE_QUEUE_TOKEN", "secrets.GITHUB_TOKEN")
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "GITHUB_TOKEN" in errors[0]
+
+    def test_step_without_token_is_rejected(self) -> None:
+        """Без GH_TOKEN скрипт возьмёт чужой токен из окружения или упадёт."""
+        errors: list[str] = []
+        source = (
+            "jobs:\n  move:\n    steps:\n"
+            "      - name: Обновить\n        run: python scripts/gh_rest.py update-branch 1\n"
+        )
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "GH_TOKEN" in errors[0]
+
+    def test_renamed_step_is_loud(self) -> None:
+        """Шага не нашли — это «проверка сторожит пустоту», а не «всё хорошо»."""
+        errors: list[str] = []
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors, "jobs:\n  move:\n    steps: []\n")
+
+        assert len(errors) == 1
+        assert "update-branch" in errors[0]
+
+    def test_missing_file_is_red(self, monkeypatch) -> None:
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_QUEUE_MOVER", pathlib.Path("нет-такого.yml"))
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors)
+
+        assert len(errors) == 1
+        assert "файла нет" in errors[0]
+
+    def test_real_workflow_passes(self) -> None:
+        """И живой файл проекта: гейт обязан быть зелёным на настоящем входе."""
+        errors: list[str] = []
+
+        _MODULE.check_queue_mover_uses_its_own_token(errors)
+
+        assert errors == []
+
+
+class TestReleaseNotesAreTranslated:
+    """Гейт перевода стоит в `verify` и стоит там со `--strict` (issue #1290)."""
+
+    _GOOD = (
+        "jobs:\n  verify:\n    steps:\n"
+        "      - name: Release notes\n"
+        '        run: python scripts/extract_release_notes.py "$REF" --out release-notes.md\n'
+        "      - name: Translated\n"
+        "        run: python scripts/check_changelog_translated.py --strict release-notes.md\n"
+        "  build:\n    steps: []\n"
+    )
+
+    def test_strict_gate_in_verify_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_release_notes_are_translated(errors, self._GOOD)
+
+        assert errors == []
+
+    def test_missing_gate_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = (
+            "jobs:\n  verify:\n    steps:\n      - run: python scripts/extract_release_notes.py\n"
+        )
+
+        _MODULE.check_release_notes_are_translated(errors, source)
+
+        assert len(errors) == 1
+        assert "check_changelog_translated.py" in errors[0]
+
+    def test_gate_without_strict_is_rejected(self) -> None:
+        """Без `--strict` скрипт возвращает 0 — гейт, который ничего не держит."""
+        errors: list[str] = []
+        source = self._GOOD.replace(
+            "check_changelog_translated.py --strict release-notes.md",
+            "check_changelog_translated.py release-notes.md",
+        )
+
+        _MODULE.check_release_notes_are_translated(errors, source)
+
+        assert len(errors) == 1
+        assert "--strict" in errors[0]
+
+    def test_missing_file_is_red(self, monkeypatch) -> None:
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_RELEASE", pathlib.Path("нет-такого.yml"))
+
+        _MODULE.check_release_notes_are_translated(errors)
+
+        assert len(errors) == 1
+        assert "файла нет" in errors[0]
+
+    def test_real_workflow_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_release_notes_are_translated(errors)
+
+        assert errors == []
+
+
+class TestPrOpenerUsesItsOwnToken:
+    """Открыватель PR ходит PAT владельца: с GITHUB_TOKEN автором станет бот."""
+
+    _GOOD = (
+        "jobs:\n  open-pulls:\n    steps:\n"
+        "      - name: Открыть PR\n"
+        "        env:\n          GH_TOKEN: ${{ env.MERGE_QUEUE_TOKEN }}\n"
+        "        run: python scripts/open_agent_prs.py\n"
+    )
+
+    def test_dedicated_token_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, self._GOOD)
+
+        assert errors == []
+
+    def test_github_token_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = self._GOOD.replace("env.MERGE_QUEUE_TOKEN", "secrets.GITHUB_TOKEN")
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "бот" in errors[0]
+
+    def test_step_without_token_is_rejected(self) -> None:
+        errors: list[str] = []
+        source = (
+            "jobs:\n  open-pulls:\n    steps:\n"
+            "      - name: Открыть PR\n        run: python scripts/open_agent_prs.py\n"
+        )
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, source)
+
+        assert len(errors) == 1
+        assert "GH_TOKEN" in errors[0]
+
+    def test_renamed_step_is_loud(self) -> None:
+        """Шага не нашли — это «сторожим пустоту», а не «всё хорошо»."""
+        errors: list[str] = []
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors, "jobs:\n  open:\n    steps: []\n")
+
+        assert len(errors) == 1
+        assert "open_agent_prs.py" in errors[0]
+
+    def test_missing_file_is_red(self, monkeypatch) -> None:
+        errors: list[str] = []
+        monkeypatch.setattr(_MODULE, "_PR_OPENER", pathlib.Path("нет-такого.yml"))
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors)
+
+        assert len(errors) == 1
+        assert "файла нет" in errors[0]
+
+    def test_real_workflow_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_pr_opener_uses_its_own_token(errors)
+
+        assert errors == []
+
+
+class TestRunBlocksAreValidShell:
+    """Шаг `run:` обязан разбираться как shell (issue #1384).
+
+    Прецедент: шаг открывал группировку `{` и не закрывал её. YAML при этом
+    валиден, ревью не спотыкается, линтер молчит — падает прогон, где шага
+    никто не ждёт.
+    """
+
+    _BROKEN = (
+        "jobs:\n  x:\n    steps:\n      - name: сломанный\n"
+        "        run: |\n          {\n            echo «привет»\n"
+    )
+    _WHOLE = (
+        "jobs:\n  x:\n    steps:\n      - name: целый\n"
+        '        run: |\n          {\n            echo "готово"\n'
+        '          } >> "$GITHUB_STEP_SUMMARY"\n'
+    )
+
+    def test_unclosed_group_is_red(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors, {"злой.yml": self._BROKEN})
+
+        assert len(errors) == 1
+        assert "сломанный" in errors[0]
+
+    def test_whole_script_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors, {"добрый.yml": self._WHOLE})
+
+        assert errors == []
+
+    def test_platform_expression_is_not_a_syntax_error(self) -> None:
+        """`${{ ... }}` для bash не синтаксис — до разбора оно заменяется."""
+        source = (
+            "jobs:\n  x:\n    steps:\n      - name: с выражением\n"
+            '        run: |\n          echo "${{ github.event.number }}"\n'
+        )
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors, {"выражение.yml": source})
+
+        assert errors == []
+
+    def test_block_body_ends_with_the_indent(self) -> None:
+        """Тело блока — до первой строки с отступом не глубже `run:`."""
+        source = (
+            "jobs:\n  x:\n    steps:\n      - name: первый\n"
+            "        run: |\n          echo один\n"
+            "      - name: второй\n        run: |\n          echo два\n"
+        )
+
+        found = _MODULE.run_scripts(source)
+
+        assert [name for name, _ in found] == ["первый", "второй"]
+        assert found[0][1].strip() == "echo один"
+
+    def test_repo_workflows_are_whole(self) -> None:
+        """Живые файлы: гейт, который не гоняли по настоящему предмету, — обещание."""
+        errors: list[str] = []
+
+        _MODULE.check_run_blocks_are_valid_shell(errors)
+
+        assert errors == []
+
+
+class TestPinningMatchesTheEvent:
+    """Правило 152: закрепление вызываемого согласовано с источником вызывающего.
+
+    Оба направления, потому что правило асимметрично и именно на асимметрии
+    ломается: на `pull_request` закрепление бессмысленно, на `workflow_run` —
+    обязательно, и перепутать их значит либо запереть дверь в открытой стене,
+    либо отдать свой токен тому, кто правит PR.
+    """
+
+    _PRIVILEGED = (
+        "name: x\non:\n  workflow_run:\n    workflows: [CI]\njobs:\n  a:\n"
+        "    steps:\n      - uses: actions/checkout@v7\n        with:\n"
+        "          ref: ${{ github.event.pull_request.head.sha }}\n"
+    )
+    _PLAIN_PINNED = (
+        "name: y\non:\n  pull_request:\n    types: [opened]\njobs:\n  a:\n"
+        "    steps:\n      - uses: actions/checkout@v7\n        with:\n"
+        "          ref: ${{ github.event.pull_request.base.sha }}\n"
+    )
+    _PLAIN = (
+        "name: z\non:\n  pull_request:\njobs:\n  a:\n"
+        "    steps:\n      - uses: actions/checkout@v7\n"
+    )
+
+    def test_privileged_event_checking_out_the_pr_head_is_flagged(self) -> None:
+        found = _MODULE.pinning_mismatches({"a.yml": self._PRIVILEGED})
+
+        assert found and "исполнение отдаётся" in found[0]
+
+    def test_pinning_on_a_plain_pull_request_is_flagged(self) -> None:
+        """Файл прогона всё равно берётся из изменения — защита нулевая."""
+        found = _MODULE.pinning_mismatches({"b.yml": self._PLAIN_PINNED})
+
+        assert found and "не защищает ни от чего" in found[0]
+
+    def test_default_checkout_passes(self) -> None:
+        assert _MODULE.pinning_mismatches({"c.yml": self._PLAIN}) == []
+
+    def test_events_are_read_from_the_on_block_only(self) -> None:
+        """`pull_request` в теле шага — не подписка: иначе гард ловил бы условия."""
+        source = (
+            "name: q\non:\n  push:\njobs:\n  a:\n    steps:\n"
+            "      - run: echo ${{ github.event.pull_request.head.sha }}\n"
+        )
+
+        assert _MODULE._events_of(source) == {"push"}
+        assert _MODULE.pinning_mismatches({"q.yml": source}) == []
+
+    def test_repo_workflows_pass(self) -> None:
+        """Живые файлы: у нас `workflow_run` берёт общую ветку по умолчанию."""
+        errors: list[str] = []
+
+        _MODULE.check_pinning_matches_the_event(errors)
+
+        assert errors == []
+
+
+# --- правило 167: имена переменных оболочки латиницей (issue #1421) --------------
+
+
+class TestShellNamesAreAscii:
+    """Внутренний язык проекта на оболочку не распространяется.
+
+    Ошибка проявляется двумя способами, и второй опаснее: присваивание с
+    не-ASCII именем падает кодом 127 и это видно, а переменная окружения с таким
+    именем создаётся штатно, `$ИМЯ` не раскрывается вовсе, подстановка пуста —
+    и шаг зелёный, не проверив ничего.
+    """
+
+    def test_repository_is_clean(self) -> None:
+        """Приёмка: в наших прогонах таких имён нет."""
+        assert _MODULE.non_ascii_shell_names() == []
+
+    def test_a_cyrillic_assignment_is_rejected(self) -> None:
+        """Присваивание — громкая форма: bash запустит команду с таким именем."""
+        source = (
+            "jobs:\n  a:\n    steps:\n      - name: шаг\n"
+            "        run: |\n          файлы=$(git diff)\n"
+        )
+
+        found = _MODULE.non_ascii_shell_names({"x.yml": source})
+
+        assert len(found) == 1
+        assert "файлы=" in found[0]
+
+    def test_a_cyrillic_env_key_is_rejected(self) -> None:
+        """Тихая форма: переменная создастся, а подстановка будет пустой."""
+        source = "jobs:\n  a:\n    env:\n      ТИП: bug\n    steps:\n      - run: echo\n"
+
+        found = _MODULE.non_ascii_shell_names({"x.yml": source})
+
+        assert len(found) == 1
+        assert "ТИП" in found[0]
+
+    def test_an_ascii_name_passes(self) -> None:
+        """Латинское имя — не находка, каким бы ни было значение."""
+        source = (
+            "jobs:\n  a:\n    env:\n      KIND: ошибка\n"
+            "    steps:\n      - run: |\n          files=$(git diff)\n"
+        )
+
+        assert _MODULE.non_ascii_shell_names({"x.yml": source}) == []
+
+    def test_an_option_is_not_a_variable_name(self) -> None:
+        """`--format=json` присваиванием не является.
+
+        Первая редакция проверки считала его именем переменной: под правило
+        попадала любая строка перед `=`, и гейт краснел на собственном ci.yml.
+        """
+        source = "jobs:\n  a:\n    steps:\n      - run: |\n          ruff check --format=json .\n"
+
+        assert _MODULE.non_ascii_shell_names({"x.yml": source}) == []
+
+    def test_prose_in_step_names_is_not_the_subject(self) -> None:
+        """Правило про имя, а не про содержимое: имена шагов остаются русскими."""
+        source = (
+            "jobs:\n  a:\n    steps:\n"
+            "      - name: собрать список изменённых файлов\n        run: echo ok\n"
+        )
+
+        assert _MODULE.non_ascii_shell_names({"x.yml": source}) == []
+
+
+class TestCancellingGroupsNameTheHead:
+    """Группа отмены называет голову, а не только изменение (правило 179).
+
+    Для события ``pull_request`` ``github.ref`` — это ``refs/pull/N/merge``, один
+    ref у всех коммитов PR. События площадки доставляются не в том порядке, в
+    каком сделаны коммиты, поэтому вытеснить может более новый: последнее слово
+    остаётся за прогоном на устаревшем коммите, а на актуальном обязательной
+    проверки нет вовсе — и создать её нечем, новый прогон рождается только от
+    нового события.
+    """
+
+    def test_the_repository_is_clean(self) -> None:
+        """Приёмка: ни одна отменяющая группа не забыла голову."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(errors)
+
+        assert errors == []
+
+    def test_a_group_without_the_head_is_rejected(self) -> None:
+        """Тот самый дефект: отменяем по ref, а он один на все коммиты."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {"new.yml": "concurrency:\n  group: x-${{ github.ref }}\n  cancel-in-progress: true\n"},
+        )
+
+        assert len(errors) == 1
+        assert "не называет голову" in errors[0]
+
+    def test_a_group_with_the_head_passes(self) -> None:
+        """Голова названа — предмета нет; отмену при этом не выключали."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {
+                "new.yml": "concurrency:\n  group: x-${{ github.event.pull_request.head.sha }}\n"
+                "  cancel-in-progress: true\n"
+            },
+        )
+
+        assert errors == []
+
+    def test_a_group_that_does_not_cancel_is_not_the_subject(self) -> None:
+        """Без отмены вытеснить нечего — требовать головы значило бы краснеть зря."""
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {
+                "new.yml": "concurrency:\n  group: x-${{ github.ref }}\n"
+                "  cancel-in-progress: false\n"
+            },
+        )
+
+        assert errors == []
+
+    def test_a_declaration_that_outlived_the_cancellation_is_rejected(self) -> None:
+        """Обратная половина: отмену убрали, исключение осталось.
+
+        Иначе следующая группа проедет под чужой, уже недействительной причиной.
+        """
+        errors: list[str] = []
+        _MODULE.check_cancelling_groups_name_the_head(
+            errors,
+            {
+                "rules-digest.yml": "concurrency:\n  group: rules-digest\n"
+                "  cancel-in-progress: false\n"
+            },
+        )
+
+        assert len(errors) == 1
+        assert "больше не" in errors[0]
+
+    def test_every_exception_names_a_reason(self) -> None:
+        """Объявление без причины — разрешение без основания."""
+        for name, reason in _MODULE._GROUPS_WITHOUT_A_HEAD.items():
+            assert len(reason.split()) >= 10, name
+
+
+class TestFailuresAreNamed:
+    """Красный джоб называет упавший тест, а не код возврата (issue #1500)."""
+
+    #: Обе стороны канала на месте — эталон, от которого отнимают по одной.
+    _WHOLE = (
+        "jobs:\n"
+        "  e2e:\n"
+        "    steps:\n"
+        "      - run: pytest tests/e2e/ --junitxml=test-results-e2e.xml\n"
+        "  report-failures:\n"
+        "    needs: [test, e2e]\n"
+        "    if: ${{ needs.test.result == 'failure' || needs.e2e.result == 'failure' }}\n"
+    )
+
+    def test_e2e_without_a_report_is_caught(self) -> None:
+        """Без ``--junitxml`` разбирать красный e2e нечем: логи Actions — 403."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(
+            errors, source=self._WHOLE.replace(" --junitxml=test-results-e2e.xml", "")
+        )
+
+        assert any("--junitxml" in error for error in errors), errors
+
+    def test_reporter_deaf_to_e2e_is_caught(self) -> None:
+        """Отчёт, о котором сводку не разбудили, лежит в недоступном артефакте."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(
+            errors, source=self._WHOLE.replace(" || needs.e2e.result == 'failure'", "")
+        )
+
+        assert any("report-failures" in error for error in errors), errors
+
+    def test_both_ends_present_passes(self) -> None:
+        """Канал целиком — отчёт пишется и сводка на него просыпается."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(errors, source=self._WHOLE)
+
+        assert errors == []
+
+    def test_real_ci_names_its_failures(self) -> None:
+        """Guard-the-guard: настоящий ci.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_failures_are_named(errors)
+
+        assert errors == []
+
+
+class TestUploadsDoNotVeto:
+    """Сбой выгрузки артефакта не выносит вердикт по джобу (issue #1509)."""
+
+    #: Шаг выгрузки в исправном виде — с разрешением упасть.
+    _HEALTHY = (
+        "jobs:\n"
+        "  test:\n"
+        "    steps:\n"
+        "      - name: Run tests\n"
+        "        run: pytest -q\n"
+        "      - name: Upload test results\n"
+        "        if: always()\n"
+        "        continue-on-error: true\n"
+        "        uses: actions/upload-artifact@v7.0.1\n"
+        "        with:\n"
+        "          name: test-results\n"
+    )
+
+    def test_upload_that_can_veto_is_caught(self) -> None:
+        """Выгрузка без разрешения упасть валит джоб при зелёных тестах."""
+        errors: list[str] = []
+
+        _MODULE.check_uploads_do_not_veto(
+            errors, source=self._HEALTHY.replace("        continue-on-error: true\n", "")
+        )
+
+        assert any("Upload test results" in error for error in errors), errors
+
+    def test_healthy_upload_passes(self) -> None:
+        errors: list[str] = []
+
+        _MODULE.check_uploads_do_not_veto(errors, source=self._HEALTHY)
+
+        assert errors == []
+
+    def test_the_verdict_step_is_left_alone(self) -> None:
+        """Проверяются производители артефактов, а не тесты рядом с ними.
+
+        ``Run tests`` в том же джобе идёт без ``continue-on-error`` и обязан
+        таким остаться: вердикт — это он. Guard, требующий разрешения падать от
+        всех шагов подряд, разрешил бы красным тестам молчать.
+        """
+        assert _MODULE.uploads_that_veto(self._HEALTHY) == []
+
+    def test_a_download_is_not_a_producer(self) -> None:
+        """Скачивание под правило не подпадает — у него своя защита."""
+        source = (
+            "jobs:\n"
+            "  report:\n"
+            "    steps:\n"
+            "      - name: Download reports\n"
+            "        uses: actions/download-artifact@v8.0.1\n"
+        )
+
+        assert _MODULE.uploads_that_veto(source) == []
+
+    def test_every_upload_is_seen_not_just_the_first(self) -> None:
+        """Шагов выгрузки в ci.yml пять, и назвать нужно каждый.
+
+        Разбор по шагам — не «есть ли в файле хоть одно разрешение упасть»:
+        одно на весь файл читалось бы как защита всех пяти.
+        """
+        two_bad = (
+            "jobs:\n"
+            "  test:\n"
+            "    steps:\n"
+            "      - name: Upload one\n"
+            "        uses: actions/upload-artifact@v7.0.1\n"
+            "      - name: Upload two\n"
+            "        continue-on-error: true\n"
+            "        uses: actions/upload-artifact@v7.0.1\n"
+            "      - name: Upload three\n"
+            "        uses: actions/upload-artifact@v7.0.1\n"
+        )
+
+        assert _MODULE.uploads_that_veto(two_bad) == ["Upload one", "Upload three"]
+
+    def test_real_ci_does_not_let_an_upload_veto(self) -> None:
+        """Guard-the-guard: настоящий ci.yml проходит собственную проверку."""
+        errors: list[str] = []
+
+        _MODULE.check_uploads_do_not_veto(errors)
+
+        assert errors == []

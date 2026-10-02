@@ -1,0 +1,1040 @@
+#!/usr/bin/env python3
+"""scripts/check_workflow_guardrails.py — инварианты CI и релизного конвейера.
+
+Зачем отдельная проверка. Ошибка в workflow не видна ни линтеру, ни тестам: она
+проявляется один раз, в момент релиза, и стоит дорого — версия в PyPI
+неперезаписываема, а страницу релиза видят раньше, чем кто-то заметит, что
+ассетов нет. Ровно так и случилось (issue #988): в job'е публикации
+``actions/checkout`` стоял ПОСЛЕ ``download-artifact`` и очищал рабочую
+директорию вместе со скачанным ``dist/``.
+
+Проверяются факты, которые ломаются молча:
+
+* порядок ``checkout`` → ``download-artifact`` в job'е публикации релиза;
+* перед публикацией есть шаг, отвергающий пустой ``dist/``;
+* собранные артефакты проходят ``twine check``;
+* у workflow объявлены ``permissions`` (иначе токен получает права по умолчанию);
+* ``ci.yml`` слушает ``ready_for_review`` — без него PR, созданный черновиком,
+  не получает проверок ни при создании, ни при снятии черновика.
+
+Разбор текстовый, без PyYAML: тянуть зависимость ради нескольких фактов незачем,
+а формат этих файлов свой и стабильный. Проверка идёт по имени job'а, поэтому
+переименование job'а не проходит молча — guard падает с явной ошибкой, а не
+зеленеет на пустом входе.
+
+Запуск::
+
+    python scripts/check_workflow_guardrails.py
+"""
+
+from __future__ import annotations
+
+import contextlib
+import pathlib
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
+__all__ = [
+    "GITHUB_RELEASE_JOB",
+    "VERIFY_JOB",
+    "cancelling_groups",
+    "check_cancelling_groups_name_the_head",
+    "check_ci_listens_to_ready_for_review",
+    "check_consent_workflow_uses_its_own_token",
+    "check_coverage_gate_is_explicit",
+    "check_every_job_has_a_timeout",
+    "check_pinning_matches_the_event",
+    "check_pr_opener_uses_its_own_token",
+    "check_queue_mover_uses_its_own_token",
+    "check_release_gates_match_promises",
+    "check_release_notes_are_translated",
+    "check_release_pipeline",
+    "check_release_publishes_verified_assets",
+    "check_run_blocks_are_valid_shell",
+    "check_uploads_do_not_veto",
+    "extract_job",
+    "jobs_without_timeout",
+    "main",
+    "pinning_mismatches",
+    "run_scripts",
+    "uploads_that_veto",
+]
+
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+_WORKFLOWS = _ROOT / ".github" / "workflows"
+_CI = _WORKFLOWS / "ci.yml"
+_RELEASE = _WORKFLOWS / "release.yml"
+_QUEUE_MOVER = _WORKFLOWS / "merge-queue.yml"
+_PR_OPENER = _WORKFLOWS / "agent-pr.yml"
+_CONSENT = _WORKFLOWS / "merge-when-green.yml"
+
+# Порог per-OS гейта покрытия (issue #954). Держится синхронно с флагом
+# `--cov-fail-under` в шаге `Run tests`; cross-OS агрегат строже (90) и живёт
+# в `combine_coverage.py`.
+_MIN_COVERAGE_GATE = 85
+
+GITHUB_RELEASE_JOB = "github-release"
+VERIFY_JOB = "verify"
+
+# Job внутри `jobs:` — строка с двумя пробелами отступа и двоеточием на конце.
+_JOB_HEADER_RE = re.compile(r"^  (?P<name>[a-zA-Z0-9_-]+):\s*$")
+
+#: Начало шага: шесть пробелов и дефис (``- name:``/``- uses:``).
+_STEP_START_RE = re.compile(r"^ {6}- \S")
+
+#: Имя шага — из ``- name:``, если оно у шага есть.
+_STEP_NAME_RE = re.compile(r"^ {6}- name:\s*(?P<name>.+?)\s*$")
+
+#: Выгрузка артефакта: имя действия без версии — она закрепляется отдельно.
+_UPLOAD_RE = re.compile(r"^\s*uses:\s*actions/upload-artifact", re.MULTILINE)
+
+#: Разрешение шагу упасть, не роняя джоб.
+_PASS_RE = re.compile(r"^\s*continue-on-error:\s*true\s*$", re.MULTILINE)
+
+#: Чекаут кода из самого изменения: голова PR по ref или sha.
+_HEAD_REF_RE = re.compile(r"ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.(ref|sha)")
+
+#: Чекаут кода с общей ветки — то самое «закрепление вызываемого».
+_BASE_REF_RE = re.compile(r"ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.(ref|sha)")
+
+
+def extract_job(source: str, job_name: str) -> list[str]:
+    """Строки одного job'а из workflow (без его заголовка).
+
+    Пустой список означает «job'а с таким именем нет» — вызывающая сторона
+    обязана считать это ошибкой, а не поводом пропустить проверку: guard,
+    молчащий на пропавшем входе, зеленеет ровно тогда, когда всё сломано.
+    """
+    collected: list[str] = []
+    inside = False
+    for line in source.splitlines():
+        header = _JOB_HEADER_RE.match(line)
+        if header:
+            if inside:
+                break
+            inside = header.group("name") == job_name
+            continue
+        if inside:
+            collected.append(line)
+    return collected
+
+
+def _first_index(lines: list[str], needle: str) -> int | None:
+    """Индекс первой строки, содержащей ``needle``; ``None``, если такой нет."""
+    for index, line in enumerate(lines):
+        if needle in line:
+            return index
+    return None
+
+
+def check_release_pipeline(errors: list[str], source: str | None = None) -> None:
+    """Релиз не должен публиковаться пустым (issue #988)."""
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — релизный конвейер не проверен")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    job = extract_job(source, GITHUB_RELEASE_JOB)
+    if not job:
+        errors.append(
+            f"release.yml: job '{GITHUB_RELEASE_JOB}' не найден. Если его переименовали — "
+            "обновите GITHUB_RELEASE_JOB в этом скрипте, иначе проверка порядка шагов "
+            "молча перестанет что-либо проверять."
+        )
+        return
+
+    checkout_at = _first_index(job, "actions/checkout")
+    download_at = _first_index(job, "actions/download-artifact")
+
+    if checkout_at is None:
+        errors.append(f"release.yml / {GITHUB_RELEASE_JOB}: нет шага actions/checkout")
+    if download_at is None:
+        errors.append(f"release.yml / {GITHUB_RELEASE_JOB}: нет шага actions/download-artifact")
+    if checkout_at is not None and download_at is not None and checkout_at > download_at:
+        errors.append(
+            f"release.yml / {GITHUB_RELEASE_JOB}: actions/checkout стоит ПОСЛЕ "
+            "download-artifact и очистит рабочую директорию вместе со скачанным dist/ — "
+            "релиз опубликуется без ассетов. Переставьте checkout первым шагом."
+        )
+
+    if "ls -A dist" not in "\n".join(job):
+        errors.append(
+            f"release.yml / {GITHUB_RELEASE_JOB}: нет проверки, что dist/ непуст перед "
+            "публикацией. Пустой релиз хуже несостоявшегося: тег уже проставлен."
+        )
+
+    if "twine check" not in source:
+        errors.append(
+            "release.yml: собранные артефакты не проходят twine check. Версия в PyPI "
+            "неперезаписываема — то, что отвергнется на загрузке, надо ловить до неё."
+        )
+
+    if not re.search(r"^permissions:\s*$", source, re.MULTILINE):
+        errors.append(
+            "release.yml: нет блока permissions на верхнем уровне — job'ы получают "
+            "токен с правами по умолчанию."
+        )
+
+    print(f"release pipeline: job '{GITHUB_RELEASE_JOB}' проверен ({len(job)} строк).")
+
+
+def check_release_gates_match_promises(errors: list[str], source: str | None = None) -> None:
+    """Обещанное документацией обязано стоять гейтом ДО публикации (issue #988).
+
+    ``docs/dev/versioning.md`` обещает две вещи: «без ротации CHANGELOG релиз
+    падает» и «забытая запись под тег роняет релиз». Обе были неправдой. Guard
+    документации в релизе не запускался вовсе, а извлечение release notes жило в
+    job'е публикации GitHub Release — и PyPI, независимый от него по построению,
+    публиковался при любом состоянии CHANGELOG. Проверка стоит именно в
+    ``verify``: от него зависят оба публикующих job'а, поэтому обещание держится
+    для обоих путей сразу.
+    """
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — релизные гейты не проверены")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    verify = extract_job(source, VERIFY_JOB)
+    if not verify:
+        errors.append(
+            f"release.yml: job '{VERIFY_JOB}' не найден. Если его переименовали — обновите "
+            "VERIFY_JOB в этом скрипте, иначе релизные гейты перестанут проверяться молча."
+        )
+        return
+
+    verify_text = "\n".join(verify)
+    if "check_docs_guardrails.py" not in verify_text:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: нет запуска check_docs_guardrails.py. "
+            "docs/dev/versioning.md обещает, что без ротации CHANGELOG релиз падает — "
+            "обещание обязано быть гейтом."
+        )
+    if "extract_release_notes.py" not in verify_text:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: нет проверки release notes для тега. "
+            "docs/dev/versioning.md обещает, что забытая запись под тег роняет релиз, а "
+            "проверка в job'е публикации GitHub Release не мешает PyPI опубликоваться."
+        )
+
+    print(f"release gates: job '{VERIFY_JOB}' держит обещания документации.")
+
+
+def check_release_notes_are_translated(errors: list[str], source: str | None = None) -> None:
+    """Перед публикацией стоит отказ на непереведённых записях (issue #1290).
+
+    Английский вклад принимается как есть, а русскую запись CHANGELOG делает
+    мержащий — значит, пропуск перевода стал штатным способом ошибиться, и
+    ловить его обязан механизм, а не память. Место у гейта одно: ``verify``, от
+    которого зависят оба публикующих job'а. Проверка требует ИМЕННО ``--strict``:
+    без него скрипт печатает предупреждение и возвращает 0 — на PR это верно, а
+    на релизе означало бы гейт, который ничего не держит.
+    """
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — гейт перевода не проверен")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    verify = "\n".join(extract_job(source, VERIFY_JOB))
+    if "check_changelog_translated.py" not in verify:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: нет запуска check_changelog_translated.py. "
+            "Непереведённая запись уедет в GitHub Release и на PyPI, где версия "
+            "неперезаписываема."
+        )
+        return
+    if "check_changelog_translated.py --strict" not in verify:
+        errors.append(
+            f"release.yml / {VERIFY_JOB}: check_changelog_translated.py зовётся без --strict. "
+            "Без него гейт возвращает 0 и публикацию не останавливает."
+        )
+        return
+
+    print(f"release gates: job '{VERIFY_JOB}' отвергает непереведённые записи.")
+
+
+def check_ci_listens_to_ready_for_review(errors: list[str], source: str | None = None) -> None:
+    """CI обязан просыпаться при снятии черновика с PR (issue #988)."""
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — триггеры CI не проверены")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    if "pull_request:" not in source:
+        errors.append("ci.yml: нет триггера pull_request — проверки на PR не запускаются вовсе")
+        return
+
+    if "workflow_dispatch:" not in source:
+        errors.append(
+            "ci.yml: нет триггера workflow_dispatch. Часть событий не превращается в "
+            "прогоны, и без кнопки ручного запуска единственный способ добудиться CI — "
+            "холостой пуш, то есть коммит-пустышка в ветке."
+        )
+
+    if "ready_for_review" not in source:
+        errors.append(
+            "ci.yml: в types триггера pull_request нет ready_for_review. Дефолт GitHub — "
+            "opened/synchronize/reopened, поэтому PR, созданный черновиком, остаётся "
+            "без проверок и после снятия черновика."
+        )
+        return
+
+    print("ci.yml: pull_request слушает ready_for_review.")
+
+
+def check_coverage_gate_is_explicit(errors: list[str], source: str | None = None) -> None:
+    """Порог покрытия задан флагом в шаге прогона, а не только в конфиге.
+
+    issue #954: раньше порог жил в ``[tool.coverage.report] fail_under``, и
+    из-за безусловного ``--cov`` в ``addopts`` любой частичный прогон падал по
+    покрытию — зелёные тесты с кодом возврата 1. Порог перенесён в шаг CI, и
+    вот эта проверка следит, что перенос не превратился в отмену: без флага
+    гейт исчезает молча, а «молча исчезнувший guard» — ровно тот класс, ради
+    которого заведён подэпик #921.
+    """
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — гейт покрытия не проверен")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    match = re.search(r"--cov-fail-under=(\d+)", source)
+    if match is None:
+        errors.append(
+            "ci.yml: в прогоне матрицы нет --cov-fail-under. Порог убран из "
+            "pyproject.toml намеренно (issue #954: он делал ложно-красным любой "
+            "частичный прогон), поэтому без флага гейта покрытия нет вообще."
+        )
+        return
+
+    threshold = int(match.group(1))
+    if threshold < _MIN_COVERAGE_GATE:
+        errors.append(
+            f"ci.yml: --cov-fail-under={threshold} ниже принятого порога "
+            f"{_MIN_COVERAGE_GATE}. Снижать его молча нельзя — это и есть «guard, "
+            "который зелен независимо от кода»."
+        )
+        return
+
+    print(f"ci.yml: гейт покрытия задан явно (--cov-fail-under={threshold}).")
+
+
+def check_failures_are_named(errors: list[str], source: str | None = None) -> None:
+    """Каждый джоб, чьё падение разбирают, оставляет junit-отчёт и будит сводку.
+
+    issue #1500: сводка упавших тестов (#1382) собиралась только по матрице
+    ``test``. У ``e2e`` не было ни ``--junitxml``, ни строки в ``needs``
+    джоба ``report-failures`` — красный браузерный прогон сообщал ровно
+    ``Process completed with exit code 1``. Именно там это дороже всего:
+    падение матрицы обычно воспроизводится локально, падение ``e2e`` — нет
+    (замер на PR #1480: на раннере красный, на той же голове локально
+    128 passed).
+
+    Проверяются оба конца канала. Одного мало: отчёт без пробуждения сводки
+    лежит в артефакте, который облачной сессии недоступен (403), а
+    пробуждение без отчёта даёт сводку «ни один тест не назвал себя упавшим».
+    """
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — канал диагностики не проверен")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    e2e = "\n".join(extract_job(source, "e2e"))
+    if "--junitxml=" not in e2e:
+        errors.append(
+            "ci.yml: у джоба e2e нет --junitxml. Без отчёта его падение "
+            "называется только кодом возврата, а логи Actions облачной сессии "
+            "недоступны (403) — разбирать красный e2e будет нечем."
+        )
+
+    reporter = "\n".join(extract_job(source, "report-failures"))
+    if "needs.e2e.result" not in reporter:
+        errors.append(
+            "ci.yml: report-failures не просыпается на красном e2e. При зелёной "
+            "матрице джоб пропускается, и сводка не публикуется вовсе."
+        )
+
+    if not errors:
+        print("ci.yml: падение матрицы и e2e называет упавший тест в PR.")
+
+
+def _steps(source: str) -> list[list[str]]:
+    """Разбить workflow на шаги: список строк каждого ``- name:``/``- uses:``."""
+    steps: list[list[str]] = []
+    current: list[str] = []
+    for line in source.splitlines():
+        if _STEP_START_RE.match(line):
+            if current:
+                steps.append(current)
+            current = [line]
+        elif current:
+            # Шаг кончился, когда пошёл текст с отступом мельче тела шага.
+            if line.strip() and not line.startswith(" " * 8):
+                steps.append(current)
+                current = []
+            else:
+                current.append(line)
+    if current:
+        steps.append(current)
+    return steps
+
+
+def _step_name(step: list[str]) -> str:
+    """Имя шага для сообщения: из ``- name:``, иначе из ``uses:``."""
+    for line in step:
+        match = _STEP_NAME_RE.match(line)
+        if match:
+            return match.group("name").strip()
+    return step[0].strip().lstrip("- ")
+
+
+def uploads_that_veto(source: str) -> list[str]:
+    """Шаги выгрузки артефактов, чей сбой валит джоб целиком."""
+    veto: list[str] = []
+    for step in _steps(source):
+        text = "\n".join(step)
+        if _UPLOAD_RE.search(text) is None:
+            continue
+        if _PASS_RE.search(text) is None:
+            veto.append(_step_name(step))
+    return veto
+
+
+def check_uploads_do_not_veto(errors: list[str], source: str | None = None) -> None:
+    """Сбой выгрузки артефакта не выносит вердикт по джобу.
+
+    issue #1509: выгружаются здесь только отчёты — junit матрицы и ``e2e``,
+    слагаемые ``coverage combine``, ``coverage.xml`` для бейджа. Ни один из них
+    не является вердиктом, и **потребители это уже знают**: ``report-failures``
+    и ``coverage-combine`` скачивают их с ``continue-on-error``, а
+    ``combine_coverage.py`` отвечает на недостачу ``::warning:: degraded``
+    (#559). Не хватало второй стороны — у производителей защиты не было ни у
+    одного.
+
+    Цена асимметрии измерена 08.09.2026: два красных ``main`` за час при
+    зелёном шаге ``Run tests``, каждый раз ровно один не доехавший артефакт из
+    четырнадцати. Красная ``main`` замораживает очередь мержа, а перезапуск
+    прогона облачной сессии недоступен (403 на ``actions:write``), то есть
+    разблокировка упирается в клик человека.
+
+    Проверяются производители, а не потребители: недостача уже описана как
+    законный случай, и вопрос ровно в том, валит ли она джоб.
+    """
+    if source is None:
+        if not _CI.is_file():
+            errors.append("ci.yml: файла нет — выгрузка артефактов не проверена")
+            return
+        source = _CI.read_text(encoding="utf-8")
+
+    veto = uploads_that_veto(source)
+    if veto:
+        errors.append(
+            "ci.yml: сбой выгрузки артефакта валит джоб у шагов: "
+            + ", ".join(f"«{name}»" for name in veto)
+            + ". Нужен continue-on-error: true — артефакт несёт диагностику, "
+            "а не вердикт, и все его потребители уже переживают его отсутствие "
+            "(issue #1509)."
+        )
+        return
+
+    print("ci.yml: сбой выгрузки артефакта не красит джоб.")
+
+
+def check_release_publishes_verified_assets(errors: list[str], source: str | None = None) -> None:
+    """Релиз падает при пропаже ассетов и проверяет содержимое колеса.
+
+    issue #953: обе защиты закрывают один и тот же провал — «релизный job
+    зелёный независимо от того, что опубликовалось». Пустой glob у
+    ``softprops/action-gh-release`` по умолчанию даёт релиз без единого файла
+    молча, а ``twine check`` читает метаданные и не замечает сломанный glob в
+    ``package-data`` — тесты его тоже не замечают, потому что смотрят дерево
+    исходников, а не артефакт.
+    """
+    if source is None:
+        if not _RELEASE.is_file():
+            errors.append("release.yml: файла нет — публикация не проверена")
+            return
+        source = _RELEASE.read_text(encoding="utf-8")
+
+    found_before = len(errors)
+    if "fail_on_unmatched_files: true" not in source:
+        errors.append(
+            "release.yml: у action-gh-release нет fail_on_unmatched_files: true. "
+            "По умолчанию пустой glob публикует релиз БЕЗ файлов и оставляет job "
+            "зелёным — тег проставлен, страница видна, скачать нечего."
+        )
+
+    if "check_wheel_contents.py" not in source:
+        errors.append(
+            "release.yml: нет шага проверки содержимого колеса "
+            "(scripts/check_wheel_contents.py). Сломанный glob в package-data не виден "
+            "ни twine check, ни тестам — они читают дерево исходников, а не артефакт."
+        )
+
+    if len(errors) == found_before:
+        print("release.yml: пропажа ассетов и содержимое колеса под гейтом.")
+
+
+def jobs_without_timeout(source: str) -> list[str]:
+    """Имена job'ов без ``timeout-minutes`` (issue #1271).
+
+    Разбор построчный, как и остальные проверки этого файла: PyYAML в
+    зависимостях нет намеренно, а YAML workflow'ов у нас плоский. Job — строка
+    вида ``  имя:`` на двух пробелах; его тело — всё до следующей такой строки.
+    """
+    lines = source.split("\n")
+    # Считаем только внутри `jobs:`. Ключи `on:` (`push`, `schedule`,
+    # `workflow_dispatch`) стоят на том же отступе и на первый взгляд неотличимы
+    # от job'ов — без этой границы гейт требовал таймаут у триггера.
+    try:
+        first = next(index for index, line in enumerate(lines) if line.rstrip() == "jobs:")
+    except StopIteration:
+        return []
+    end = next(
+        (
+            index
+            for index in range(first + 1, len(lines))
+            if lines[index] and not lines[index][0].isspace()
+        ),
+        len(lines),
+    )
+    lines = lines[first:end]
+    starts = [
+        (index, match.group(1))
+        for index, line in enumerate(lines)
+        if (match := re.match(r"^  ([a-z][a-z0-9-]*):\s*$", line))
+    ]
+    bounds = [index for index, _ in starts] + [len(lines)]
+    missing = []
+    for position, (index, name) in enumerate(starts):
+        body = lines[index : bounds[position + 1]]
+        if not any(line.strip().startswith("timeout-minutes:") for line in body):
+            missing.append(name)
+    return missing
+
+
+def check_every_job_has_a_timeout(errors: list[str], sources: dict[str, str] | None = None) -> None:
+    """У каждого job'а есть свой предел (issue #1271).
+
+    Без ``timeout-minutes`` действует умолчание GitHub — **шесть часов**, и
+    зависший шаг держит не только свой job. Замер 19.08: `e2e` встал на
+    установке Playwright и три с половиной часа держал прогон `main`, а вместе с
+    ним всю очередь мержа — при этом ни одна проверка не была красной. Гейт
+    очереди читает такое состояние как «идёт прогон, ждите», то есть беда
+    выглядит нормальной работой.
+
+    Проверка ровно в духе этого файла: ломается молча, проявляется один раз — и
+    именно в момент, когда ждать дороже всего.
+    """
+    if sources is None:
+        sources = {}
+        # Все workflow, а не два поимённо: первая редакция смотрела только на
+        # `ci.yml` и `release.yml`, и любой новый файл заводился без таймаута
+        # незамеченным — сторож, видящий не всё, хуже отсутствующего (#1287).
+        files = sorted(_WORKFLOWS.glob("*.yml")) if _WORKFLOWS.is_dir() else []
+        if not files:
+            errors.append(".github/workflows: файлов нет — таймауты job'ов не проверены")
+            return
+        for path in files:
+            sources[path.name] = path.read_text(encoding="utf-8")
+
+    if not sources:
+        return
+
+    for name, source in sources.items():
+        missing = jobs_without_timeout(source)
+        if missing:
+            errors.append(
+                f"{name}: без timeout-minutes остались job'ы: {', '.join(sorted(missing))}. "
+                "Умолчание GitHub — 6 часов: зависший шаг держит очередь мержа целиком."
+            )
+
+
+def check_queue_mover_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Двигатель очереди обновляет ветку НЕ штатным ``GITHUB_TOKEN`` (issue #1287).
+
+    Пуш, сделанный ``GITHUB_TOKEN``, не запускает другие workflow — защита
+    GitHub от рекурсии. Подставь его в шаг обновления, и ветка головы очереди
+    обновится, событие ``synchronize`` придёт, а прогон на PR не стартует:
+    PR застрянет иначе, но так же намертво, и **без единой красной проверки** —
+    то есть беда снова будет выглядеть нормальной работой.
+
+    Ровно тот класс, ради которого этот файл и заведён: ломается молча,
+    проявляется один раз и не там, где правили.
+    """
+    if source is None:
+        if not _QUEUE_MOVER.is_file():
+            errors.append(
+                f"{_QUEUE_MOVER.name}: файла нет — двигатель очереди не проверен (issue #1287)"
+            )
+            return
+        source = _QUEUE_MOVER.read_text(encoding="utf-8")
+
+    step = _update_step(source)
+    if step is None:
+        errors.append(
+            f"{_QUEUE_MOVER.name}: не найден шаг, двигающий очередь "
+            "(move_merge_queue.py или update-branch). Если его переименовали — "
+            "обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_QUEUE_MOVER.name}: обновление ветки идёт штатным GITHUB_TOKEN — "
+            "его пуш не запускает прогон на PR, и голова очереди застрянет без "
+            "красных проверок. Нужен отдельный токен (issue #1287)"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_QUEUE_MOVER.name}: шаг обновления не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
+def check_pr_opener_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Открыватель PR ходит своим токеном, а не штатным ``GITHUB_TOKEN`` (issue #1302).
+
+    Смысл открывателя ровно один: автором PR должен стать человек, потому что
+    squash атрибутирует итоговый коммит автору pull request. С ``GITHUB_TOKEN``
+    автором станет бот — и гейт ``check_pr_ready.py`` откажется мержить,
+    то есть механизм сломается именно в том месте, ради которого заведён, и
+    молча: PR откроется, проверки пройдут, а очередь встанет.
+    """
+    if source is None:
+        if not _PR_OPENER.is_file():
+            errors.append(f"{_PR_OPENER.name}: файла нет — открыватель PR не проверен")
+            return
+        source = _PR_OPENER.read_text(encoding="utf-8")
+
+    step = _step_calling(source, "open_agent_prs.py")
+    if step is None:
+        errors.append(
+            f"{_PR_OPENER.name}: не найден шаг с 'open_agent_prs.py'. Если его "
+            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_PR_OPENER.name}: PR открывается штатным GITHUB_TOKEN — автором станет "
+            "бот, и мерж-гейт такой PR не пропустит. Нужен отдельный токен"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_PR_OPENER.name}: шаг открытия PR не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
+def check_consent_workflow_uses_its_own_token(errors: list[str], source: str | None = None) -> None:
+    """Авто-мерж по метке включается НЕ штатным ``GITHUB_TOKEN`` (issue #1303).
+
+    ``GITHUB_TOKEN`` не имеет прав включать авто-мерж на чужом PR, и отказ
+    выглядит буднично: шаг зелёный, метка стоит, PR не уезжает. То есть беда
+    снова маскируется под нормальную работу — тот же класс, что у открывателя
+    PR и двигателя очереди.
+    """
+    if source is None:
+        if not _CONSENT.is_file():
+            errors.append(f"{_CONSENT.name}: файла нет — авто-мерж по метке не проверен")
+            return
+        source = _CONSENT.read_text(encoding="utf-8")
+
+    step = _step_calling(source, "merge_when_green.py")
+    if step is None:
+        errors.append(
+            f"{_CONSENT.name}: не найден шаг с 'merge_when_green.py'. Если его "
+            "переименовали — обновите эту проверку, иначе она сторожит пустоту"
+        )
+        return
+
+    if "secrets.GITHUB_TOKEN" in step:
+        errors.append(
+            f"{_CONSENT.name}: авто-мерж включается штатным GITHUB_TOKEN — прав не "
+            "хватит, шаг останется зелёным, а PR не уедет. Нужен отдельный токен"
+        )
+    if "GH_TOKEN:" not in step:
+        errors.append(
+            f"{_CONSENT.name}: шаг не получает токен через GH_TOKEN — "
+            "скрипт возьмёт чужой токен из окружения или упадёт"
+        )
+
+
+def _step_calling(source: str, needle: str) -> str | None:
+    """Текст шага, который зовёт ``needle``; ``None`` — такого шага нет."""
+    steps = re.split(r"^      - ", source, flags=re.MULTILINE)
+    for step in steps[1:]:
+        if needle in step:
+            return step
+    return None
+
+
+def _update_step(source: str) -> str | None:
+    """Текст шага, который двигает очередь; ``None`` — такого шага нет.
+
+    issue #1313: обновление переехало из YAML в ``move_merge_queue.py`` — он
+    обходит конфликтный PR вместо того, чтобы ронять прогон. Ищем оба вызова:
+    имя скрипта и прямой ``update-branch``, если он однажды вернётся. Строка
+    ``run:`` обязательна — иначе шагом-обновлением считался бы соседний, у
+    которого имя механизма всего лишь упомянуто в комментарии.
+    """
+    steps = re.split(r"^      - ", source, flags=re.MULTILINE)
+    for step in steps[1:]:
+        commands = "\n".join(
+            line for line in step.splitlines() if not line.lstrip().startswith("#")
+        )
+        if "move_merge_queue.py" in commands or "update-branch" in commands:
+            return step
+    return None
+
+
+# Выражения площадки (`${{ ... }}`) для bash — не синтаксис: `${` открывает
+# подстановку, которую нечем закрыть. Перед разбором они заменяются словом,
+# иначе проверка ругалась бы на каждый шаг с переменной.
+_EXPRESSION_RE = re.compile(r"\$\{\{[^}]*\}\}")
+
+
+def run_scripts(source: str) -> list[tuple[str, str]]:
+    """Тела всех блоков ``run: |`` файла — как (имя шага, скрипт).
+
+    Разбор построчный, в стиле остального файла: блок начинается строкой
+    ``run: |`` (или ``run: |-``) и продолжается, пока отступ больше, чем у неё.
+    """
+    lines = source.split("\n")
+    found: list[tuple[str, str]] = []
+    step = "?"
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if (match := re.match(r"^\s*- name:\s*(.+?)\s*$", line)) is not None:
+            step = match.group(1)
+        if (match := re.match(r"^(\s*)run:\s*\|-?\s*$", line)) is not None:
+            indent = len(match.group(1))
+            body: list[str] = []
+            index += 1
+            while index < len(lines):
+                current = lines[index]
+                if current.strip() and len(current) - len(current.lstrip()) <= indent:
+                    break
+                body.append(current)
+                index += 1
+            found.append((step, "\n".join(body)))
+            continue
+        index += 1
+    return found
+
+
+def check_run_blocks_are_valid_shell(
+    errors: list[str], sources: dict[str, str] | None = None
+) -> None:
+    """Каждый ``run:`` — синтаксически целый скрипт (issue #1384).
+
+    Незакрытая фигурная скобка, кавычка или ``if`` без ``fi`` не видны ни
+    линтеру, ни ревью: YAML остаётся валидным, а падает шаг — на прогоне, где
+    его никто не ждёт. Прецедент: шаг «Задача знает, что породила правило»
+    открывал группировку ``{`` и не закрывал её; ошибка приехала в `main` и
+    жила там, пока файл не понадобилось править по другому поводу.
+
+    Проверяет ``bash -n`` — то есть тот же разбор, что и на площадке, а не
+    самодельный подсчёт скобок. Нет ``bash`` (Windows-машина без него) —
+    проверка не отработала, и об этом говорится вслух: молчаливый пропуск
+    выглядел бы как «всё чисто».
+    """
+    if sources is None:
+        sources = {
+            path.name: path.read_text(encoding="utf-8") for path in sorted(_WORKFLOWS.glob("*.yml"))
+        }
+    bash = shutil.which("bash")
+    if bash is None:
+        print("· пропущено: bash недоступен — синтаксис шагов не проверен", file=sys.stderr)
+        return
+    for name, source in sources.items():
+        for step, script in run_scripts(source):
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".sh", encoding="utf-8", delete=False
+            ) as handle:
+                handle.write(_EXPRESSION_RE.sub("EXPR", script))
+                path = handle.name
+            try:
+                result = subprocess.run(
+                    [bash, "-n", path],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            finally:
+                pathlib.Path(path).unlink(missing_ok=True)
+            if result.returncode != 0:
+                detail = (result.stderr or "").strip().splitlines()
+                reason = detail[-1] if detail else f"код {result.returncode}"
+                errors.append(f"{name}: шаг «{step}» — не разбирается как shell: {reason}")
+
+
+#: Имя переменной оболочки: ASCII-идентификатор и ничего больше.
+_ASCII_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+#: Кандидат в идентификаторы: сплошные словесные символы, включая не-ASCII.
+#: Предмет проверки — попытка назвать переменную, а не всякая строка перед
+#: ``=``: без этого условия под правило попадали ``--format=`` из командной
+#: строки и продолжения многострочных значений YAML.
+_IDENTIFIER_LIKE_RE = re.compile(r"^\w+$", re.UNICODE)
+
+#: Присваивание в начале строки шага: ``имя=значение``. Отступ допустим.
+_ASSIGNMENT_RE = re.compile(r"^\s*([^\s=#]+)=", re.MULTILINE)
+
+#: Ключ блока ``env:`` — строка вида ``  ИМЯ: значение`` внутри него.
+_ENV_BLOCK_RE = re.compile(r"^(\s*)env:\s*$", re.MULTILINE)
+
+
+def non_ascii_shell_names(sources: dict[str, str] | None = None) -> list[str]:
+    """Имена переменных оболочки и ключей ``env:`` не из ASCII (issue #1421).
+
+    Правило 167 каталога. Внутренний язык проекта на оболочку не
+    распространяется, и ошибка проявляется двумя способами, из которых опаснее
+    второй. Присваивание с не-ASCII именем bash разбирает как **имя команды** —
+    прогон падает кодом 127, и это видно. А переменная окружения с таким именем
+    создаётся штатно, но ``$ИМЯ`` не раскрывается вовсе: парсеру нужен
+    ASCII-идентификатор после ``$``, подстановка выходит пустой, условие всегда
+    даёт одну ветку — и шаг при этом **зелёный**, не проверив ничего.
+
+    Соблазн создаётся соседним языком: в Python идентификатор кириллицей
+    законен и работает, и правило «пишем на языке проекта» переносится в
+    ``.yml`` по инерции — там же рядом лежат сообщения и имена шагов, где оно
+    верно. Правило про **имя**, а не про содержимое: значение переменной,
+    проза, имена шагов и тексты остаются на языке проекта.
+
+    Returns:
+        Находки; пустой список — чисто.
+    """
+    if sources is None:
+        sources = {
+            path.name: path.read_text(encoding="utf-8") for path in sorted(_WORKFLOWS.glob("*.yml"))
+        }
+    found: list[str] = []
+    for name, source in sorted(sources.items()):
+        for _step, script in run_scripts(source):
+            for match in _ASSIGNMENT_RE.finditer(script):
+                variable = match.group(1)
+                if _IDENTIFIER_LIKE_RE.match(variable) and not _ASCII_NAME_RE.match(variable):
+                    found.append(
+                        f"{name}: присваивание «{variable}=» — имя переменной не из ASCII; "
+                        "bash разберёт строку как запуск команды с таким именем (код 127)"
+                    )
+        for block in _ENV_BLOCK_RE.finditer(source):
+            indent = len(block.group(1))
+            lines = source[block.end() :].splitlines()
+            for line in lines:
+                if not line.strip() or line.lstrip().startswith("#"):
+                    continue
+                current = len(line) - len(line.lstrip())
+                if current <= indent:
+                    break
+                key = line.strip().split(":", 1)[0].strip()
+                if _IDENTIFIER_LIKE_RE.match(key) and not _ASCII_NAME_RE.match(key):
+                    found.append(
+                        f"{name}: ключ env «{key}» не из ASCII — переменная создастся, "
+                        "но $ИМЯ не раскроется: подстановка пуста, условие всегда даёт "
+                        "одну ветку, а шаг зелёный"
+                    )
+    return found
+
+
+def check_shell_names_are_ascii(errors: list[str], sources: dict[str, str] | None = None) -> None:
+    """Имена переменных оболочки — латиницей (правило 167, issue #1421)."""
+    errors.extend(non_ascii_shell_names(sources))
+
+
+def _events_of(source: str) -> set[str]:
+    """События, на которые подписан workflow (блок ``on:`` до первого ключа)."""
+    events: set[str] = set()
+    inside = False
+    for line in source.splitlines():
+        if line.startswith("on:"):
+            inside = True
+            continue
+        if inside:
+            if line and not line.startswith((" ", "\t", "#")):
+                break
+            stripped = line.strip()
+            if line.startswith("  ") and not line.startswith("    ") and stripped.endswith(":"):
+                events.add(stripped.rstrip(":"))
+    return events
+
+
+def pinning_mismatches(sources: dict[str, str]) -> list[str]:
+    """Где закрепление вызываемого расходится с тем, откуда берётся вызывающий.
+
+    Правило 152 каталога. На событии ``pull_request`` площадка берёт файл
+    прогона **из самого изменения**: правящий изменение правит и шаг, и то, что
+    шаг зовёт, — закреплять вызываемый скрипт с общей ветки бессмысленно, дверь
+    заперта в открытой стене. На ``workflow_run`` и ``pull_request_target`` всё
+    наоборот: файл прогона берётся с общей ветки, и чекаут кода **из изменения**
+    отдаёт правящему изменение и токен, и исполнение.
+
+    Args:
+        sources: содержимое файлов workflow по имени.
+
+    Returns:
+        Строки «файл: что не сходится».
+    """
+    found: list[str] = []
+    for name, source in sorted(sources.items()):
+        events = _events_of(source)
+        privileged = {"workflow_run", "pull_request_target"} & events
+        if privileged and _HEAD_REF_RE.search(source):
+            found.append(
+                f"{name}: событие {', '.join(sorted(privileged))} даёт шагу общую ветку и "
+                "свой токен, а чекаут берёт код из изменения — исполнение отдаётся тому, "
+                "кто правит PR"
+            )
+        if "pull_request" in events and not privileged and _BASE_REF_RE.search(source):
+            found.append(
+                f"{name}: на pull_request сам файл прогона берётся из изменения, поэтому "
+                "закрепление вызываемого кода на общей ветке не защищает ни от чего"
+            )
+    return found
+
+
+#: Отменяющие группы, которым голова не нужна, — и почему. Объявление, а не
+#: молчание: правило 179 бьёт по прогонам, чей результат привязан к КОММИТУ, и
+#: там, где привязки нет, требование головы дало бы гейт, краснеющий на верном
+#: ответе. Новый файл сюда не попадает сам — незаявленная группа краснеет.
+_GROUPS_WITHOUT_A_HEAD: dict[str, str] = {
+    "claude-code-review.yml": (
+        "одно ревью на PR — намеренно (issue #1036): каждый пуш отменял предыдущее, "
+        "а оно продолжало дописывать комментарии к уже переписанному диффу. Голова в "
+        "группе вернула бы ревью на каждый коммит; проверка при этом не обязательная, "
+        "и потеря её на голове очередь не держит"
+    ),
+    "rules-digest.yml": (
+        "дайджест собирается из каталога по расписанию и к коммиту не привязан вовсе: "
+        "устаревший прогон отменять правильно, а голова в группе делала бы каждый "
+        "запуск отдельным"
+    ),
+}
+
+
+def cancelling_groups(sources: dict[str, str]) -> dict[str, str]:
+    """Группы ``concurrency``, которые ОТМЕНЯЮТ, — имя группы по файлу.
+
+    Предмет узкий: группа без отмены вытеснить ничего не может, и требовать от
+    неё головы значило бы краснеть на верном ответе.
+    """
+    found: dict[str, str] = {}
+    for name, source in sources.items():
+        group: str | None = None
+        cancels = False
+        inside = False
+        for line in source.split("\n"):
+            if line.startswith("concurrency:"):
+                inside = True
+                continue
+            if inside:
+                if line.strip().startswith("group:"):
+                    group = line.split("group:", 1)[1].strip()
+                elif line.strip().startswith("cancel-in-progress:"):
+                    cancels = "false" not in line.split(":", 1)[1]
+                elif line and not line.startswith((" ", "\t", "#")):
+                    inside = False
+        if group is not None and cancels:
+            found[name] = group
+    return found
+
+
+def check_cancelling_groups_name_the_head(
+    errors: list[str], sources: dict[str, str] | None = None
+) -> None:
+    """Группа, отменяющая прогон, называет голову, а не только изменение.
+
+    Правило 179 каталога. Для события ``pull_request`` ``github.ref`` — это
+    ``refs/pull/N/merge``, один и тот же ref у всех коммитов: прогоны на РАЗНЫХ
+    головах попадают в одну группу. События площадки доставляются не в том
+    порядке, в каком сделаны коммиты, поэтому вытеснить может более новый — и
+    последнее слово остаётся за прогоном на устаревшем коммите, а на актуальном
+    обязательной проверки нет вовсе. Создать её после этого нечем: новый прогон
+    рождается только от нового события.
+
+    Обратная половина требования держится тем, что предмет — только отменяющие
+    группы: отмену не выключают, голову добавляют.
+    """
+    if sources is None:
+        sources = {
+            path.name: path.read_text(encoding="utf-8") for path in sorted(_WORKFLOWS.glob("*.yml"))
+        }
+    cancelling = cancelling_groups(sources)
+    for name, reason in sorted(_GROUPS_WITHOUT_A_HEAD.items()):
+        if name in sources and name not in cancelling:
+            errors.append(
+                f"{name}: объявлено исключение из правила 179, но группа больше не "
+                f"отменяет — уберите строку, иначе следующая проедет под чужой причиной "
+                f"({reason[:60]}…)"
+            )
+    for name, group in sorted(cancelling.items()):
+        if name in _GROUPS_WITHOUT_A_HEAD:
+            continue
+        if not any(marker in group for marker in ("head.sha", "github.sha", "head_sha")):
+            errors.append(
+                f"{name}: группа отмены не называет голову — {group}. Прогоны на разных "
+                "коммитах попадают в одну группу, и вытеснить может событие другого "
+                "коммита: на актуальной голове обязательной проверки не останется, а "
+                "создать её будет нечем (правило 179)"
+            )
+
+
+def check_pinning_matches_the_event(
+    errors: list[str], sources: dict[str, str] | None = None
+) -> None:
+    """Закрепление вызываемого согласовано с тем, откуда берётся вызывающий."""
+    if sources is None:
+        sources = {path.name: path.read_text(encoding="utf-8") for path in _WORKFLOWS.glob("*.yml")}
+    errors.extend(pinning_mismatches(sources))
+
+
+def main() -> int:
+    """Вернуть 0, если инварианты workflow держатся; 1 — если нарушены."""
+    errors: list[str] = []
+
+    check_release_pipeline(errors)
+    check_release_gates_match_promises(errors)
+    check_release_notes_are_translated(errors)
+    check_ci_listens_to_ready_for_review(errors)
+    check_coverage_gate_is_explicit(errors)
+    check_failures_are_named(errors)
+    check_uploads_do_not_veto(errors)
+    check_release_publishes_verified_assets(errors)
+    check_every_job_has_a_timeout(errors)
+    check_queue_mover_uses_its_own_token(errors)
+    check_pr_opener_uses_its_own_token(errors)
+    check_consent_workflow_uses_its_own_token(errors)
+    check_run_blocks_are_valid_shell(errors)
+    check_shell_names_are_ascii(errors)
+    check_pinning_matches_the_event(errors)
+    check_cancelling_groups_name_the_head(errors)
+
+    if errors:
+        print("\nFAIL: workflow guardrails violated:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        return 1
+
+    print("OK: релизный конвейер и триггеры CI держат заявленное.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

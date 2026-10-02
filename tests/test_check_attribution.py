@@ -1,0 +1,350 @@
+"""Тесты scripts/check_attribution.py — атрибуция сверяется до мержа (issue #1343).
+
+Дефект, ради которого всё написано: изменение уехало в `main` с трейлером
+`Co-authored-by: Claude <noreply@anthropic.com>` вместо согласованного
+`Claude Opus 5 <noreply@anthropic.com>`. Подставила его платформа при squash,
+взяв git-идентичность окна, — и один соавтор оказался в истории под двумя
+именами. Переписать нечем: `main` защищена.
+
+Поэтому проверяется именно **то, что станет итоговым коммитом**: авторы
+коммитов ветки — и трейлеры из их сообщений, которые squash переносит дословно.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from types import ModuleType
+
+import pytest
+
+_SCRIPTS = Path(__file__).parent.parent / "scripts"
+_SCRIPT = _SCRIPTS / "check_attribution.py"
+
+
+def _load_module() -> ModuleType:
+    sys.path.insert(0, str(_SCRIPTS))
+    spec = importlib.util.spec_from_file_location("_check_attribution", _SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture
+def attribution() -> ModuleType:
+    """Свежий модуль на каждый тест."""
+    return _load_module()
+
+
+# ---------------------------------------------------------------------------
+# Разбор строк: приходят из рук человека, падать на них нельзя
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "name", "email"),
+    [
+        ("Claude Opus 5 <noreply@anthropic.com>", "Claude Opus 5", "noreply@anthropic.com"),
+        ("  Имя Фамилия  <a@b.c>  ", "Имя Фамилия", "a@b.c"),
+        ("Claude <NoReply@Anthropic.COM>", "Claude", "noreply@anthropic.com"),
+    ],
+)
+def test_identity_is_parsed_tolerantly(
+    attribution: ModuleType, raw: str, name: str, email: str
+) -> None:
+    """Лишние пробелы и регистр почты не мешают — иначе гейт даёт ложные отказы."""
+    identity = attribution.parse_identity(raw)
+    assert identity is not None
+    assert identity.name == name
+    assert identity.email == email
+
+
+@pytest.mark.parametrize("raw", ["без скобок", "", "<only@email>", "Имя <без закрывающей"])
+def test_garbage_is_none_not_an_exception(attribution: ModuleType, raw: str) -> None:
+    """Мусор — `None`: строка пришла из сообщения коммита, а не из схемы."""
+    assert attribution.parse_identity(raw) is None
+
+
+def test_identity_compares_name_and_email_together(attribution: ModuleType) -> None:
+    """Расхождение было в ИМЕНИ при совпадающей почте — сверять только почту нельзя."""
+    short = attribution.Identity("Claude", "noreply@anthropic.com")
+    full = attribution.Identity("Claude Opus 5", "noreply@anthropic.com")
+    assert short != full
+    assert len({short, full}) == 2
+
+
+# ---------------------------------------------------------------------------
+# Согласованный список читается из одного места
+# ---------------------------------------------------------------------------
+
+
+def test_agreed_list_comes_from_settings(attribution: ModuleType, tmp_path: Path) -> None:
+    """Список берётся из того же ключа, который харнесс подставляет в коммиты."""
+    settings = tmp_path / "settings.json"
+    settings.write_text(
+        json.dumps(
+            {
+                "attribution": {
+                    "commit": (
+                        "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>\n"
+                        "Co-Authored-By: Кто-то Ещё <someone@example.com>"
+                    )
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    agreed = attribution.agreed_identities(settings)
+
+    assert attribution.Identity("Claude Opus 5", "noreply@anthropic.com") in agreed
+    assert attribution.Identity("Кто-то Ещё", "someone@example.com") in agreed
+
+
+def test_missing_settings_is_empty_not_a_crash(attribution: ModuleType, tmp_path: Path) -> None:
+    """Файла нет — пустой список; решение «сверять не с чем» принимает вызывающий."""
+    assert attribution.agreed_identities(tmp_path / "нет.json") == set()
+
+
+def test_owner_comes_from_pyproject_not_git(attribution: ModuleType, tmp_path: Path) -> None:
+    """Владелец — из pyproject: git-идентичность у окна, контейнера и CI разная."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nauthors = [{name = "Артём", email = "a@b.c"}]\n', encoding="utf-8"
+    )
+
+    owner = attribution.owner_identity(pyproject)
+
+    assert owner is not None
+    assert owner.name == "Артём"
+
+
+# ---------------------------------------------------------------------------
+# Главное: несогласованная подпись видна
+# ---------------------------------------------------------------------------
+
+
+def test_wrong_agent_name_is_caught(attribution: ModuleType) -> None:
+    """Тот самый случай: почта совпадает, имя — нет."""
+    agreed = {attribution.Identity("Claude Opus 5", "noreply@anthropic.com")}
+    found = {attribution.Identity("Claude", "noreply@anthropic.com")}
+
+    wrong = attribution.mismatched(found, agreed=agreed, owner=None)
+
+    assert [str(identity) for identity in wrong] == ["Claude <noreply@anthropic.com>"]
+
+
+def test_agreed_identity_passes(attribution: ModuleType) -> None:
+    """Согласованная подпись расхождением не считается."""
+    agreed = {attribution.Identity("Claude Opus 5", "noreply@anthropic.com")}
+    assert attribution.mismatched(set(agreed), agreed=agreed, owner=None) == []
+
+
+def test_owner_is_always_agreed(attribution: ModuleType) -> None:
+    """Владелец в списке не перечисляется — он берётся из pyproject."""
+    owner = attribution.Identity("Артём", "a@b.c")
+    assert attribution.mismatched({owner}, agreed=set(), owner=owner) == []
+
+
+def test_external_contributor_is_not_our_defect(attribution: ModuleType) -> None:
+    """Внешний соавтор законен: требовать от него нашей строки — то же, что русский текст.
+
+    Без этого разделения ревизия истории считала бы чужой вклад поломкой, и
+    число «сколько испорчено» перестало бы что-либо значить.
+    """
+    outsider = attribution.Identity("mercael91", "mercael91@users.noreply.github.com")
+    agent = attribution.Identity("Claude", "noreply@anthropic.com")
+
+    strict = attribution.mismatched({outsider, agent}, agreed=set(), owner=None)
+    agents_only = attribution.mismatched(
+        {outsider, agent}, agreed=set(), owner=None, agents_only=True
+    )
+
+    assert outsider in strict, "на своей ветке сверка строгая"
+    assert agents_only == [agent], "в ревизии истории чужие имена — не наш дефект"
+
+
+@pytest.mark.parametrize(
+    ("name", "email", "expected"),
+    [
+        ("Claude", "noreply@anthropic.com", True),
+        ("claude[bot]", "209825114+claude[bot]@users.noreply.github.com", True),
+        ("Кто-то", "someone@anthropic.com", True),
+        ("mercael91", "mercael91@users.noreply.github.com", False),
+    ],
+)
+def test_agent_signature_is_recognised(
+    attribution: ModuleType, name: str, email: str, expected: bool
+) -> None:
+    """Агентская подпись узнаётся в любом написании — под ней и пряталось расхождение."""
+    assert attribution.is_agent(attribution.Identity(name, email)) is expected
+
+
+def test_trailers_are_read_case_insensitively(attribution: ModuleType) -> None:
+    """`Co-authored-by` пишут по-разному — платформа одним регистром, харнесс другим."""
+    message = (
+        "fix: что-то\n\n"
+        "Co-authored-by: Claude <noreply@anthropic.com>\n"
+        "Co-Authored-By: Артём <a@b.c>\n"
+        "Claude-Session: https://example.invalid\n"
+    )
+
+    found = attribution.trailer_identities(message)
+
+    assert attribution.Identity("Claude", "noreply@anthropic.com") in found
+    assert attribution.Identity("Артём", "a@b.c") in found
+    assert len(found) == 2, "не-трейлерные строки в список не попадают"
+
+
+class TestTrailerBlock:
+    """Трейлер читается из хвостового блока, а не из любой строки (правило 156).
+
+    Разбор по образцу «строка начинается с имени трейлера» принимает за
+    директиву прозаическое упоминание — и тем чаще, чем подробнее написано
+    сообщение. У нас подробные сообщения норма, а `CLAUDE.md` содержит образец
+    строки соавторства дословно.
+    """
+
+    def test_prose_mention_is_not_a_trailer(self, attribution: ModuleType) -> None:
+        """Упоминание в теле — не трейлер, даже если строка начинается с ключа."""
+        # Строка ПРАВИЛЬНОЙ формы, но в теле: так выглядит цитата образца из
+        # CLAUDE.md, попавшая в сообщение коммита. Прежний разбор считал её
+        # трейлером, потому что смотрел на любую строку.
+        message = (
+            "fix(rules): разбор трейлеров\n"
+            "\n"
+            "Согласованная строка выглядит так:\n"
+            "\n"
+            "Co-Authored-By: Цитата Образца <quoted@example.com>\n"
+            "\n"
+            "и ставится в каждом коммите.\n"
+            "\n"
+            "Co-Authored-By: Настоящий <real@example.com>\n"
+        )
+
+        found = {identity.email for identity in attribution.trailer_identities(message)}
+
+        assert found == {"real@example.com"}, found
+
+    def test_a_paragraph_with_prose_is_not_a_block(self, attribution: ModuleType) -> None:
+        """Абзац, где есть хоть одна не-`Ключ: значение` строка, блоком не является."""
+        message = "тема\n\nCo-authored-by: Кто-То <no@example.com>\nи ещё абзац прозой\n"
+
+        assert attribution.trailer_block(message) == []
+        assert attribution.trailer_identities(message) == set()
+
+    def test_the_trailing_block_is_read(self, attribution: ModuleType) -> None:
+        """Хвостовой блок из нескольких пар читается целиком."""
+        message = "тема\n\nтело\n\nCo-Authored-By: А <a@e.com>\nClaude-Session: https://e/1\n"
+
+        assert len(attribution.trailer_block(message)) == 2
+        assert {i.email for i in attribution.trailer_identities(message)} == {"a@e.com"}
+
+
+# ---------------------------------------------------------------------------
+# Трейлеры ветки: squash переносит их в `main` дословно
+# ---------------------------------------------------------------------------
+
+_AGREED_AGENT = "Claude Opus 5 <noreply@anthropic.com>"
+
+
+def _log(*messages: str) -> str:
+    """Вывод ``git log --format=%B%x1e`` для набора сообщений."""
+    return "".join(f"{message}\x1e" for message in messages)
+
+
+class TestBranchTrailers:
+    """Смена модели окна меняет подсказку харнесса — и строку в трейлере.
+
+    Харнесс начал подсказывать `Claude Opus 5.5`, а гейты сверяли трейлеры
+    только в `check_pr_ready.py`, которого на пути авто-мержа `agent/**` нет.
+    """
+
+    def test_trailers_of_every_commit_are_collected(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Каждый коммит ветки — свой хвостовой блок."""
+        log = _log(
+            f"feat: раз\n\nCo-Authored-By: {_AGREED_AGENT}",
+            "fix: два\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+        )
+        monkeypatch.setattr(attribution, "_git", lambda *_args, **_kw: log)
+
+        found = {str(identity) for identity in attribution.branch_trailer_identities()}
+
+        assert found == {_AGREED_AGENT, "Claude Opus 5.5 <noreply@anthropic.com>"}
+
+    def _run(
+        self,
+        attribution: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        authors: set[str],
+        trailers: set[str],
+        argv: list[str],
+    ) -> int:
+        def parsed(raw: set[str]) -> set[object]:
+            return {attribution.parse_identity(item) for item in raw}
+
+        monkeypatch.setattr(attribution, "branch_identities", lambda *_a: parsed(authors))
+        monkeypatch.setattr(attribution, "branch_trailer_identities", lambda *_a: parsed(trailers))
+        return int(attribution.main(argv))
+
+    def test_an_unagreed_agent_trailer_fails_the_branch(
+        self,
+        attribution: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Автор верный, а трейлер с чужой строкой — всё равно отказ."""
+        code = self._run(
+            attribution,
+            monkeypatch,
+            authors={_AGREED_AGENT},
+            trailers={"Claude Opus 5.5 <noreply@anthropic.com>"},
+            argv=["--check-branch"],
+        )
+
+        assert code == 1
+        assert "Claude Opus 5.5" in capsys.readouterr().out
+
+    def test_a_human_co_author_in_a_trailer_is_legal(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Соавтор-человек в трейлере — не наш дефект: сверяются только агенты."""
+        code = self._run(
+            attribution,
+            monkeypatch,
+            authors={_AGREED_AGENT},
+            trailers={"Внешний Участник <someone@example.org>"},
+            argv=["--check-branch"],
+        )
+
+        assert code == 0
+
+    def test_ci_mode_lets_dependabot_through(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """В CI ветку ведёт и dependabot: его авторство законно (`--agents-only`)."""
+        bot = "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>"
+        argv = ["--check-branch", "--agents-only", "--base", "origin/main", "--head", "abc"]
+
+        assert self._run(attribution, monkeypatch, authors={bot}, trailers=set(), argv=argv) == 0
+
+    def test_ci_mode_still_catches_the_agent(
+        self, attribution: ModuleType, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`--agents-only` пропускает чужих, но не агента под другим именем."""
+        argv = ["--check-branch", "--agents-only"]
+        code = self._run(
+            attribution,
+            monkeypatch,
+            authors={"Claude <noreply@anthropic.com>"},
+            trailers=set(),
+            argv=argv,
+        )
+
+        assert code == 1

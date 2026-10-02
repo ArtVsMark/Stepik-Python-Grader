@@ -1,0 +1,545 @@
+"""Сводка упавших тестов в комментарии PR (issue #1382).
+
+Предмет — разбор и форма сводки, а не сеть: в GitHub не ходит ни один тест.
+Главное свойство проверяется первым: сводка **обновляет** прежний комментарий,
+а не добавляет новый. Иначе на пятом красном прогоне тред PR перестанет
+читаться, и механизм, заведённый ради ответа на вопрос, начнёт мешать его
+задавать.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import pathlib
+import re
+import sys
+from typing import Any
+
+import pytest
+
+_ROOT = pathlib.Path(__file__).parent.parent
+
+
+def _load() -> Any:
+    path = _ROOT / "scripts" / "report_failed_tests.py"
+    spec = importlib.util.spec_from_file_location("report_failed_tests", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("report_failed_tests", module)
+    spec.loader.exec_module(module)
+    return module
+
+
+reporter = _load()
+
+
+def _report(directory: pathlib.Path, name: str, body: str) -> pathlib.Path:
+    path = directory / name
+    path.write_text(
+        f'<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest">{body}'
+        "</testsuite></testsuites>",
+        encoding="utf-8",
+    )
+    return path
+
+
+_FAILING_CASE = (
+    '<testcase classname="tests.test_web" name="test_grade">'
+    '<failure message="AssertionError: 1 != 2">трассировка</failure></testcase>'
+)
+
+
+def test_failure_is_named_with_job_test_and_message(tmp_path: pathlib.Path) -> None:
+    _report(tmp_path, "test-results-macos-latest-3.13.xml", _FAILING_CASE)
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert failure.job == "macos-latest-3.13"
+    assert failure.test == "tests/test_web.py::test_grade"
+    assert failure.kind == "failure"
+    assert failure.message == "AssertionError: 1 != 2"
+
+
+def test_class_based_test_keeps_its_class(tmp_path: pathlib.Path) -> None:
+    """Адрес обязан запускаться как есть — иначе им нельзя воспроизвести."""
+    _report(
+        tmp_path,
+        "test-results-ubuntu-latest-3.12.xml",
+        '<testcase classname="tests.test_runs.TestSubmitJob" name="test_folder">'
+        '<failure message="Failed: временный файл"/></testcase>',
+    )
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert failure.test == "tests/test_runs.py::TestSubmitJob::test_folder"
+
+
+def test_error_counts_too(tmp_path: pathlib.Path) -> None:
+    """Сломавшаяся фикстура — тот же вопрос «что именно», что и падение."""
+    _report(
+        tmp_path,
+        "test-results-windows-latest-3.12.xml",
+        '<testcase classname="tests.test_cli" name="test_menu">'
+        '<error message="OSError: занято"/></testcase>',
+    )
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert failure.kind == "error"
+
+
+def test_passing_cases_are_not_reported(tmp_path: pathlib.Path) -> None:
+    _report(
+        tmp_path,
+        "test-results-ubuntu-latest-3.13.xml",
+        '<testcase classname="tests.test_ok" name="test_fine"/>',
+    )
+
+    assert reporter.collect(tmp_path) == []
+
+
+def test_truncated_report_is_not_a_crash(tmp_path: pathlib.Path) -> None:
+    """Отчёт пишется на аварийном пути и вполне может оборваться."""
+    (tmp_path / "test-results-macos-latest-3.12.xml").write_text("<testsuites", encoding="utf-8")
+
+    assert reporter.collect(tmp_path) == []
+
+
+def test_reports_from_several_jobs_are_merged(tmp_path: pathlib.Path) -> None:
+    _report(tmp_path, "test-results-macos-latest-3.12.xml", _FAILING_CASE)
+    _report(tmp_path, "test-results-macos-latest-3.13.xml", _FAILING_CASE)
+
+    assert {failure.job for failure in reporter.collect(tmp_path)} == {
+        "macos-latest-3.12",
+        "macos-latest-3.13",
+    }
+
+
+def test_overflow_is_counted_not_silently_cut() -> None:
+    """Молчаливая обрезка читалась бы как «это всё»."""
+    failures = [
+        reporter.Failure("ubuntu", f"tests/test_{i}.py::test", "failure", "…") for i in range(30)
+    ]
+
+    text = reporter.render(failures, limit=5)
+
+    assert "и ещё 25" in text
+    assert text.count("tests/test_") == 5
+
+
+def test_red_run_without_failures_says_so() -> None:
+    """«Тестов не упало» при красном прогоне — это про смерть до тестов."""
+    text = reporter.render([])
+
+    assert "ни один тест не назвал себя упавшим" in text
+
+
+def test_marker_is_the_first_line() -> None:
+    """По нему сводка находится в следующий раз — не по автору и не по тексту."""
+    assert reporter.render([]).splitlines()[0] == reporter.MARKER
+
+
+def test_without_apply_nothing_is_written(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("написали в GitHub без --apply")
+
+    monkeypatch.setattr(reporter.gh_rest, "comment_issue", refuse)
+    monkeypatch.setattr(reporter.gh_rest, "update_comment", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--pr", "1"]) == 0
+    assert reporter.MARKER in capsys.readouterr().out
+
+
+def test_existing_summary_is_updated_not_duplicated(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Главное свойство: один комментарий на PR, сколько бы ни было прогонов."""
+    updated: list[int] = []
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "issue_comments",
+        lambda *a, **k: [
+            {"id": 7, "body": "чужой комментарий"},
+            {"id": 9, "body": f"{reporter.MARKER}\n\nстарая сводка"},
+        ],
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "comment_issue",
+        lambda *a, **k: pytest.fail("добавлен второй комментарий вместо обновления"),
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest, "update_comment", lambda _repo, ident, _text, **k: updated.append(ident)
+    )
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(tmp_path), "--pr", "1", "--apply"])
+
+    assert updated == [9]
+
+
+def test_first_summary_is_created(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    created: list[int] = []
+    monkeypatch.setattr(reporter.gh_rest, "issue_comments", lambda *a, **k: [])
+    monkeypatch.setattr(
+        reporter.gh_rest, "comment_issue", lambda _repo, number, _text, **k: created.append(number)
+    )
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(tmp_path), "--pr", "42", "--apply"])
+
+    assert created == [42]
+
+
+def test_refused_github_is_the_third_outcome(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """«Сводку опубликовали» и «GitHub не ответил» — разные вещи (правило 039).
+
+    Ветка прогоняется, а не только пишется: без этого о молчании канала не
+    узнал бы никто, а канал здесь и есть весь смысл.
+    """
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise reporter.gh_rest.GitHubError("403: прав нет")
+
+    monkeypatch.setattr(reporter.gh_rest, "issue_comments", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--pr", "1", "--apply"]) == 2
+
+
+def test_exhausted_quota_says_wait(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise reporter.gh_rest.RateLimited("лимит", reset_at=0, resource="core")
+
+    monkeypatch.setattr(reporter.gh_rest, "issue_comments", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--pr", "1", "--apply"]) == (
+        reporter.gh_rest.EXIT_WAIT
+    )
+
+
+# --- сообщение доезжает целиком (issue #1514) ------------------------------------
+
+#: Падение, у которого диагноз лежит НИЖЕ заголовка — как у теста очереди
+#: SQLite: после #924 туда доносится stderr упавшего воркера.
+_MULTILINE_CASE = (
+    '<testcase classname="tests.test_missing_queue_sqlite" name="test_concurrent">'
+    '<failure message="AssertionError: воркеры завершились с ненулевым кодом:&#10;'
+    'воркер 2: код 1&#10;sqlite3.OperationalError: database is locked">'
+    "трассировка</failure></testcase>"
+)
+
+
+def test_the_headline_is_still_the_first_line(tmp_path: pathlib.Path) -> None:
+    """Заголовок не поменялся — сводка по-прежнему читается одной строкой."""
+    _report(tmp_path, "test-results-windows-latest-3.12.xml", _MULTILINE_CASE)
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert failure.message == "AssertionError: воркеры завершились с ненулевым кодом:"
+
+
+def test_the_rest_of_the_message_is_kept(tmp_path: pathlib.Path) -> None:
+    """А остальное больше не выбрасывается — ради него сообщение и писали.
+
+    Прежде сводка обрывалась на двоеточии, и живой случай (PR #1506) остался
+    без диагноза во второй раз подряд: логи Actions облачной сессии недоступны
+    (403), то есть комментарий — единственный носитель ответа.
+    """
+    _report(tmp_path, "test-results-windows-latest-3.12.xml", _MULTILINE_CASE)
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert "воркер 2: код 1" in failure.details
+    assert "sqlite3.OperationalError: database is locked" in failure.details
+
+
+def test_a_single_line_message_has_no_details(tmp_path: pathlib.Path) -> None:
+    """`assert 1 != 2` умещается в заголовок — блоку взяться неоткуда."""
+    _report(tmp_path, "test-results-macos-latest-3.13.xml", _FAILING_CASE)
+
+    (failure,) = reporter.collect(tmp_path)
+
+    assert failure.details == ()
+
+
+def test_the_details_are_folded_not_spread(tmp_path: pathlib.Path) -> None:
+    """Блок свёрнут: десяток трассировок иначе превратит сводку в простыню."""
+    _report(tmp_path, "test-results-windows-latest-3.12.xml", _MULTILINE_CASE)
+
+    text = reporter.render(reporter.collect(tmp_path))
+
+    assert "<details><summary>сообщение целиком</summary>" in text
+    assert "database is locked" in text
+
+
+def test_a_single_line_failure_renders_without_a_block(tmp_path: pathlib.Path) -> None:
+    """Обратная сторона: там, где показывать нечего, блок не рисуется."""
+    _report(tmp_path, "test-results-macos-latest-3.13.xml", _FAILING_CASE)
+
+    text = reporter.render(reporter.collect(tmp_path))
+
+    assert "<details>" not in text
+
+
+def test_a_very_long_message_is_cut_with_a_count() -> None:
+    """Глубина ограничена, и обрезка названа числом, а не молчанием.
+
+    Молчаливая обрезка читается как «это всё» — та же ошибка, от которой уже
+    защищён список упавших тестов.
+    """
+    long_tail = tuple(f"строка {i}" for i in range(200))
+    failure = reporter.Failure(
+        "ubuntu-latest-3.12", "tests/t.py::x", "failure", "AssertionError", long_tail
+    )
+
+    text = reporter.render([failure])
+
+    assert "…и ещё" in text
+    assert "строка 199" not in text
+
+
+# --- красная main тоже получает диагноз (issue #1519) --------------------------
+
+
+def test_a_push_run_comments_on_the_commit(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """У `push` в main адресата-PR нет — сводка уходит к коммиту.
+
+    Прежде здесь стояло «на push комментировать нечего», и красная база не
+    называла упавший тест ВОВСЕ: логи и артефакты облачной сессии закрыты
+    (403), а очередь мержа при этом заморожена до починки.
+    """
+    posted: list[tuple[str, str]] = []
+    monkeypatch.setattr(reporter.gh_rest, "commit_comments", lambda *a, **k: [])
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "comment_commit",
+        lambda _repo, sha, text, **k: posted.append((sha, text)),
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "comment_issue",
+        lambda *a, **k: pytest.fail("сводка ушла в issue вместо коммита"),
+    )
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef", "--apply"]) == 0
+
+    assert len(posted) == 1
+    sha, text = posted[0]
+    assert sha == "deadbeef"
+    assert reporter.MARKER in text
+
+
+def test_a_commit_summary_is_updated_not_duplicated(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Одна сводка на коммит: прогон бывает перезапущен.
+
+    Второй комментарий читался бы как второе падение — то же свойство, что и
+    у сводки в PR, и тот же скрытый маркер его обеспечивает.
+    """
+    updated: list[int] = []
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "commit_comments",
+        lambda *a, **k: [
+            {"id": 3, "body": "чужой комментарий"},
+            {"id": 5, "body": f"{reporter.MARKER}\n\nстарая сводка"},
+        ],
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "comment_commit",
+        lambda *a, **k: pytest.fail("добавлен второй комментарий вместо обновления"),
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "update_commit_comment",
+        lambda _repo, ident, _text, **k: updated.append(ident),
+    )
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef", "--apply"]) == 0
+
+    assert updated == [5], "обновлена не та сводка"
+
+
+def test_a_commit_run_without_apply_writes_nothing(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--apply` держит оба адресата одинаково."""
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("написали в GitHub без --apply")
+
+    monkeypatch.setattr(reporter.gh_rest, "comment_commit", refuse)
+    monkeypatch.setattr(reporter.gh_rest, "update_commit_comment", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef"]) == 0
+    assert reporter.MARKER in capsys.readouterr().out
+
+
+def test_a_refusal_on_the_commit_channel_is_not_silent(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Третий исход (правило 039) действует и здесь.
+
+    «Сводку опубликовали» и «GitHub не ответил» — разные вещи: канал и есть
+    весь смысл шага, и молчание о его отказе означало бы, что о нём не узнает
+    никто.
+    """
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise reporter.gh_rest.GitHubError("403 Resource not accessible by integration")
+
+    monkeypatch.setattr(reporter.gh_rest, "commit_comments", lambda *a, **k: [])
+    monkeypatch.setattr(reporter.gh_rest, "comment_commit", refuse)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    assert reporter.main(["--dir", str(tmp_path), "--commit", "deadbeef", "--apply"]) == 2
+
+
+class TestWorkflowWakesOnPush:
+    """Механизм без исполнителя — гард, который никто не зовёт (issue #1348)."""
+
+    @staticmethod
+    def _ci() -> str:
+        return (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    def test_the_job_is_no_longer_limited_to_pull_requests(self) -> None:
+        """Условие джоба больше не отсекает push в main."""
+        text = self._ci()
+        block = text[text.index("\n  report-failures:") :]
+        block = block[: block.index("\n    steps:")]
+
+        assert "github.event_name == 'pull_request'" not in block, (
+            "джоб снова просыпается только на PR — красная main опять без диагноза"
+        )
+        assert "needs.test.result == 'failure'" in block, "зелёный прогон комментировать нечего"
+
+    def test_the_commit_step_exists_and_passes_the_sha(self) -> None:
+        text = self._ci()
+
+        assert "--commit ${{ github.sha }}" in text
+
+    def test_the_job_may_write_to_contents(self) -> None:
+        """Комментарий коммита живёт в скоупе содержимого, а не pull-requests."""
+        text = self._ci()
+        block = text[text.index("\n  report-failures:") :]
+        block = block[: block.index("\n    steps:")]
+
+        assert "contents: write" in block
+
+
+# ---------------------------------------------------------------------------
+# issue #1541: сводка запускалась, зеленела — и молчала
+# ---------------------------------------------------------------------------
+
+
+def _ci_calls() -> list[str]:
+    """Шаги ``ci.yml``, зовущие сводку, — каждый склеен в одну строку.
+
+    Разбор текстом, а не YAML-парсером: PyYAML не зависимость проекта. Шаг
+    начинается строкой ``- `` на отступе шагов, а аргументы вызова идут
+    сложенными строками ``>-`` — склейка делает их одной командой.
+    """
+    text = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    steps = re.split(r"(?m)^      - ", text)
+    calls: list[str] = []
+    for step in steps:
+        code = " ".join(
+            line.strip() for line in step.splitlines() if not line.strip().startswith("#")
+        )
+        if "scripts/report_failed_tests.py" in code:
+            calls.append(code)
+    return calls
+
+
+def test_every_addressed_call_publishes() -> None:
+    """Адресат без `--apply` — сводка уходит в лог, которого облако не видит.
+
+    Ровно так шаг для pull request и работал: шаг для коммита флаг нёс, а
+    соседний — нет, и PR-сводка не опубликовалась ни разу.
+    """
+    calls = _ci_calls()
+
+    assert calls, "ci.yml больше не зовёт сводку — сторож смотрит не туда"
+    for call in calls:
+        if "--pr" in call or "--commit" in call:
+            assert "--apply" in call, call
+
+
+def test_no_downloaded_reports_is_its_own_outcome() -> None:
+    """«Отчётов не скачалось» — поломка доставки, а не «тесты не упали»."""
+    empty = reporter.render([], reports=0)
+    silent = reporter.render([], reports=3)
+
+    assert "не скачалось ни одного" in empty
+    assert "ни один тест не назвал себя упавшим" in silent
+    assert "Прочитано отчётов: 3." in silent
+
+
+def test_the_count_of_reports_is_named(tmp_path: pathlib.Path) -> None:
+    """Число прочитанных отчётов различает два диагноза с разным виновником."""
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+    _report(tmp_path, "test-results-e2e.xml", "")
+
+    assert reporter.count_reports(tmp_path) == 2
+    assert reporter.count_reports(tmp_path / "нет-такого") == 0
+
+
+def test_an_address_without_apply_is_said_aloud(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Сухой прогон с адресатом — предупреждение в лог прогона, а не тишина."""
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    _report(tmp_path, "test-results-ubuntu-latest-3.12.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(tmp_path), "--pr", "1"])
+
+    assert "::warning::" in capsys.readouterr().out
+
+
+def test_the_summary_reaches_the_run_page(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Summary прогона — канал, не зависящий от прав на комментарий."""
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    _report(reports, "test-results-e2e.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(reports)])
+
+    text = summary.read_text(encoding="utf-8")
+    assert "tests/test_web.py::test_grade" in text
+    assert "Прочитано отчётов: 1." in text
+
+
+def test_an_e2e_failure_reaches_the_pull_request(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Приёмка #1541: XML есть, падение в нём есть — комментарий обязан появиться."""
+    posted: list[str] = []
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.setattr(reporter.gh_rest, "issue_comments", lambda *a, **k: [])
+    monkeypatch.setattr(
+        reporter.gh_rest, "comment_issue", lambda _repo, _number, text, **k: posted.append(text)
+    )
+    _report(tmp_path, "test-results-e2e.xml", _FAILING_CASE)
+
+    reporter.main(["--dir", str(tmp_path), "--pr", "1541", "--apply"])
+
+    assert len(posted) == 1
+    assert "`e2e` — `tests/test_web.py::test_grade`" in posted[0]

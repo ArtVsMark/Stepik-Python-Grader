@@ -1,0 +1,384 @@
+"""coverage.py — сопоставление stdlib inventory с локальной базой (issue #197).
+
+Архитектурный слой: Domain (leaf — только stdlib + другие leaf-модули пакета
+``glossary``; не тянет ``core/*``, DAG остаётся ацикличным).
+
+Сравнивает офлайн-инвентарь официального Python/stdlib
+(``stdlib_inventory.build_stdlib_inventory()``) с известными терминами
+локальной базы карточек (``JsonGlossaryProvider.known_terms()``) и строит:
+
+- **coverage report** — сколько сущностей `builtins`/`exceptions`/`stdlib`
+  уже описано карточками, а сколько нет (``CoverageReport``);
+- **missing entries** — недостающие сущности как ``GlossaryMissingEntry``
+  с ``origin="stdlib_scan"`` для очереди пополнения (дальше пишутся через
+  ``json_provider.append_missing_entries``, который уже дедуплицирует по
+  ``concept`` и идемпотентен при повторном запуске).
+
+Модуль вычисляет данные и (при прямом запуске) выводит краткую сводку —
+запуск: ``python -m stepik_grader.glossary.coverage [--cards PATH]
+[--missing-out PATH] [--modules a,b,c]`` (issue #198). Вывод — через
+локальный rich-опциональный принтер с graceful fallback на ``print()`` (свой,
+а не ``core/reporter._console`` — модуль остаётся leaf'ом и не тянет ``core/*``).
+"""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import pathlib
+import sys
+from dataclasses import dataclass
+from datetime import date
+
+from .json_provider import (
+    BUNDLED_GLOSSARY_DIR,
+    GlossaryError,
+    JsonGlossaryProvider,
+    append_missing_entries,
+)
+from .models import GlossaryMissingEntry, MissingKind
+from .stdlib_inventory import (
+    NOTABLE_STDLIB_MODULES,
+    InventoryKind,
+    StdlibItem,
+    build_stdlib_inventory,
+)
+
+__all__ = [
+    "CATEGORIES",
+    "CategoryCoverage",
+    "CoverageReport",
+    "build_coverage_report",
+    "main",
+    "missing_entries_from_inventory",
+]
+
+try:
+    from rich.console import Console
+
+    _console: Console | None = Console()
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
+
+# Категории отчёта покрытия — не совпадают 1:1 с InventoryKind: "exceptions"
+# группирует все kind="exception" независимо от модуля, "builtins" — только
+# builtins-функции/классы (не исключения), "methods" — методы встроенных типов
+# (kind="method", issue #327), "stdlib" — всё остальное.
+CATEGORIES: tuple[str, ...] = ("builtins", "methods", "exceptions", "stdlib")
+
+# MissingKind не знает "method" — метод для очереди пополнения function-подобен
+# (callable), полный контекст несут поля module/qualname записи (issue #327).
+_INVENTORY_TO_MISSING_KIND: dict[InventoryKind, MissingKind] = {
+    "function": "function",
+    "class": "class",
+    "exception": "exception",
+    "method": "function",
+}
+
+
+def _category_of(item: StdlibItem) -> str:
+    if item.kind == "exception":
+        return "exceptions"
+    if item.kind == "method":
+        return "methods"
+    if item.module == "builtins":
+        return "builtins"
+    return "stdlib"
+
+
+def _is_known(item: StdlibItem, known_norm: set[str]) -> bool:
+    qualname_lc = item.qualname.lower()
+    if qualname_lc in known_norm:
+        return True
+    if item.kind == "method":
+        # str.split и bytes.split — разные методы/карточки: сверяем ТОЛЬКО полный
+        # qualname, без «хвостовой» эвристики (issue #327), иначе одна карточка
+        # "split" ложно закрыла бы методы всех типов.
+        return False
+    tail = qualname_lc.rsplit(".", 1)[-1]  # "functools.reduce" -> "reduce"
+    return tail in known_norm
+
+
+def _normalize_known(known: set[str] | None) -> set[str]:
+    return {k.strip().lower() for k in known if k.strip()} if known else set()
+
+
+@dataclass(frozen=True)
+class CategoryCoverage:
+    """Покрытие одной категории (``builtins``/``exceptions``/``stdlib``)."""
+
+    category: str
+    total: int
+    covered: int
+    missing: tuple[str, ...]  # qualnames без карточки, отсортированы
+
+    @property
+    def missing_count(self) -> int:
+        """Число сущностей категории без карточки."""
+        return len(self.missing)
+
+    @property
+    def ratio(self) -> float:
+        """Доля покрытых сущностей (0.0..1.0); 1.0, если категория пуста."""
+        return self.covered / self.total if self.total else 1.0
+
+
+@dataclass(frozen=True)
+class CoverageReport:
+    """Отчёт покрытия по всем категориям + python-версия инвентаря."""
+
+    categories: dict[str, CategoryCoverage]
+    python_version: str
+
+    @property
+    def total(self) -> int:
+        """Суммарное число сущностей инвентаря по всем категориям."""
+        return sum(cat.total for cat in self.categories.values())
+
+    @property
+    def total_missing(self) -> int:
+        """Суммарное число недостающих сущностей по всем категориям."""
+        return sum(cat.missing_count for cat in self.categories.values())
+
+
+def missing_entries_from_inventory(
+    inventory: list[StdlibItem],
+    known: set[str] | None = None,
+    *,
+    today: str | None = None,
+) -> list[GlossaryMissingEntry]:
+    """Построить список пробелов (``origin="stdlib_scan"``) из инвентаря.
+
+    Args:
+        inventory: результат ``build_stdlib_inventory()``.
+        known: покрытые термины (``JsonGlossaryProvider.known_terms()``),
+            любой регистр; сущности с известным именем (или его "хвостом"
+            после точки) в результат не попадают.
+        today: ISO-дата для ``first_seen`` (по умолчанию — сегодня).
+
+    Returns:
+        Список ``GlossaryMissingEntry``, отсортированный по ``concept``
+        (инвентарь уже отсортирован и дедуплицирован по ``qualname`` —
+        порядок и уникальность наследуются без дополнительной сортировки).
+    """
+    known_norm = _normalize_known(known)
+    first_seen = today or date.today().isoformat()
+    entries: list[GlossaryMissingEntry] = []
+    for item in inventory:
+        if _is_known(item, known_norm):
+            continue
+        entries.append(
+            GlossaryMissingEntry(
+                concept=item.qualname,
+                kind=_INVENTORY_TO_MISSING_KIND[item.kind],
+                status="new",
+                reason="Обнаружено сканированием официального Python/stdlib; "
+                "нет карточки в глоссарии.",
+                first_seen=first_seen,
+                origin="stdlib_scan",
+                module=item.module,
+                qualname=item.qualname,
+            )
+        )
+    return entries
+
+
+def build_coverage_report(
+    inventory: list[StdlibItem],
+    known: set[str] | None = None,
+    *,
+    today: str | None = None,
+) -> CoverageReport:
+    """Построить отчёт покрытия глоссария относительно официального stdlib.
+
+    Args:
+        inventory: результат ``build_stdlib_inventory()``.
+        known: покрытые термины (``JsonGlossaryProvider.known_terms()``).
+        today: ISO-дата для расчёта пробелов (передаётся в
+            ``missing_entries_from_inventory``; на сами счётчики не влияет).
+
+    Returns:
+        ``CoverageReport`` с разбивкой по категориям ``CATEGORIES``.
+    """
+    missing_qualnames = {
+        entry.concept for entry in missing_entries_from_inventory(inventory, known, today=today)
+    }
+
+    totals: dict[str, int] = {category: 0 for category in CATEGORIES}
+    missing_by_category: dict[str, list[str]] = {category: [] for category in CATEGORIES}
+    for item in inventory:
+        category = _category_of(item)
+        totals[category] += 1
+        if item.qualname in missing_qualnames:
+            missing_by_category[category].append(item.qualname)
+
+    categories = {
+        category: CategoryCoverage(
+            category=category,
+            total=totals[category],
+            covered=totals[category] - len(missing_by_category[category]),
+            missing=tuple(sorted(missing_by_category[category])),
+        )
+        for category in CATEGORIES
+    }
+    python_version = inventory[0].python_version if inventory else ""
+    return CoverageReport(categories=categories, python_version=python_version)
+
+
+# issue #1394 (и красный windows-джоб на issue #919): консоль Windows работает в
+# cp1251/cp866, и печать символов вне этой кодировки роняет процесс
+# `UnicodeEncodeError`. Сводка покрытия стала русской (issue #919, DATA-1-01) —
+# и `python -m stepik_grader.glossary.coverage` начал падать на всех трёх
+# windows-джобах, хотя сам подсчёт был верен. Тот же приём, что в скриптах
+# гейтов: поток перенастраивается один раз при импорте, а не оборачивается
+# try/except на каждой печати.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
+
+def _print(text: str) -> None:
+    if _RICH and _console is not None:
+        _console.print(text)
+    else:
+        print(text)
+
+
+def _percent(covered: int, total: int) -> str:
+    """Доля покрытия строкой, где 100% значит РОВНО сто процентов.
+
+    issue #919 (``DATA-1-01``): ``f"{0.9967:.0%}"`` даёт «100%», и 607 из 609
+    читалось как полное покрытие. Округление вверх до сотни — худший вид
+    неточности в показателе: цифра, ради которой отчёт и смотрят, говорит
+    «работа закончена» ровно там, где она не закончена.
+    """
+    if total <= 0:
+        return "—"
+    if covered == total:
+        return "100%"
+    return f"{min(covered / total * 100, 99.9):.1f}%"
+
+
+def format_report_summary(report: CoverageReport) -> str:
+    """Отформатировать краткую human-readable сводку покрытия по категориям.
+
+    Заголовок называет ОБЪЁМ измерения (issue #919, ``DATA-1-01``): инвентарь
+    строится по курируемому набору модулей, а не по всей стандартной
+    библиотеке, и прежняя подпись «Glossary stdlib coverage» вместе со строкой
+    «stdlib … (100%)» читалась как «стандартная библиотека покрыта целиком».
+    Показатель обязан называть то, что измеряет, иначе он не показатель.
+    """
+    version = report.python_version or "unknown"
+    lines = [
+        f"Glossary coverage (Python {version})",
+        "  Измерено: встроенные имена, исключения, методы встроенных типов,",
+        f"  {len(NOTABLE_STDLIB_MODULES)} курируемых модулей stdlib "
+        f"(NOTABLE_STDLIB_MODULES) — не вся stdlib.",
+    ]
+    for category in CATEGORIES:
+        cat = report.categories[category]
+        # «stdlib» без уточнения читалось как «вся стандартная библиотека» —
+        # отсюда и находка. Число курируемых модулей стоит прямо в метке:
+        # это честно и не ломает тех, кто читает сводку по началу строки.
+        label = f"stdlib({len(NOTABLE_STDLIB_MODULES)})" if category == "stdlib" else category
+        lines.append(
+            f"  {label:<10} {cat.covered}/{cat.total} covered "
+            f"({_percent(cat.covered, cat.total)}), {cat.missing_count} missing"
+        )
+    covered_total = report.total - report.total_missing
+    lines.append(
+        f"  {'total':<10} {covered_total}/{report.total} covered "
+        f"({_percent(covered_total, report.total)}), {report.total_missing} missing"
+    )
+    return "\n".join(lines)
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m stepik_grader.glossary.coverage",
+        description=(
+            "Офлайн coverage-скан локального глоссария относительно "
+            "официального Python/stdlib (issue #197/#198). Не ходит в сеть и "
+            "не исполняет пользовательский код."
+        ),
+    )
+    parser.add_argument(
+        "--cards",
+        default=None,
+        help="Путь к базе карточек глоссария (файл или директория с *.json); "
+        "по умолчанию — встроенная база пакета.",
+    )
+    parser.add_argument(
+        "--empty-base",
+        action="store_true",
+        help="Считать покрытие относительно ПУСТОЙ базы (прежнее поведение без "
+        "--cards): каждая сущность stdlib окажется пробелом.",
+    )
+    parser.add_argument(
+        "--missing-out",
+        default=None,
+        help="Путь для SQLite-очереди пробелов (origin=stdlib_scan, issue #552); "
+        "дозаписывается идемпотентно через append_missing_entries. Legacy "
+        "JSON-очередь по этому пути разово мигрируется в SQLite.",
+    )
+    parser.add_argument(
+        "--modules",
+        default=None,
+        help="Через запятую — подмножество stdlib-модулей для скана "
+        "(по умолчанию NOTABLE_STDLIB_MODULES).",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Точка входа: ``python -m stepik_grader.glossary.coverage``.
+
+    Печатает сводку покрытия по категориям и, если задан ``--missing-out``,
+    дозаписывает недостающие сущности в очередь пополнения.
+    """
+    parser = _build_arg_parser()
+    args = parser.parse_args(argv)
+
+    # issue #957: без ``--cards`` база считалась пустой, и команда из
+    # документации печатала «0/1009 covered» — то есть отчёт о полностью
+    # непокрытом глоссарии при полной базе рядом, в самом пакете. Хуже:
+    # вместе с ``--missing-out`` в очередь пополнения уходила почти тысяча
+    # ложных пробелов. Дефолт — встроенная база; пустая осталась доступной
+    # явным ``--empty-base``, потому что как режим отладки она осмысленна.
+    known: set[str] = set()
+    if not args.empty_base:
+        cards = pathlib.Path(args.cards) if args.cards else BUNDLED_GLOSSARY_DIR
+        try:
+            provider = JsonGlossaryProvider.load(cards)
+        except GlossaryError as exc:
+            parser.error(str(exc))
+            return  # недостижимо (parser.error поднимает SystemExit); для mypy
+        known = provider.known_terms()
+
+    modules = (
+        frozenset(name.strip() for name in args.modules.split(",") if name.strip())
+        if args.modules
+        else None
+    )
+    inventory = build_stdlib_inventory(modules)
+    report = build_coverage_report(inventory, known=known)
+    _print(format_report_summary(report))
+
+    if args.missing_out:
+        missing = missing_entries_from_inventory(inventory, known=known)
+        missing_out = pathlib.Path(args.missing_out)
+        # issue #551/#552: битая очередь / ошибка ФС / sqlite не должна ронять
+        # coverage-CLI — best-effort, как и сама запись (append_missing_entries →
+        # SQLite, ошибки завёрнуты в GlossaryError).
+        try:
+            append_missing_entries(missing_out, missing)
+        except (GlossaryError, OSError) as exc:
+            _print(f"Warning: не удалось записать очередь пополнения в {missing_out}: {exc}")
+        else:
+            _print(f"Missing entries written to {missing_out} ({len(missing)} stdlib_scan gaps)")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,274 @@
+"""Гейт защиты ``main`` (issue #1296).
+
+Проверка сверяет ruleset с тем, что проект утверждает публично: список обходов
+пуст, обязательных проверок ровно столько, сколько объявлено, ветка обязана быть свежей.
+Тесты гоняют разбор на фикстурах — в сеть не ходит ни один из них: предмет
+проверки здесь логика сверки, а не доступность GitHub.
+"""
+
+from __future__ import annotations
+
+import copy
+import importlib.util
+import pathlib
+import sys
+from typing import Any
+
+import pytest
+
+_ROOT = pathlib.Path(__file__).parent.parent
+
+
+def _load() -> Any:
+    """Загрузить скрипт как модуль: `scripts/` не пакет."""
+    path = _ROOT / "scripts" / "check_branch_protection.py"
+    spec = importlib.util.spec_from_file_location("check_branch_protection", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("check_branch_protection", module)
+    spec.loader.exec_module(module)
+    return module
+
+
+guard = _load()
+
+
+def _ruleset() -> dict[str, Any]:
+    """Здоровый ruleset — снимок настоящего, снятый 26.08.2026."""
+    return {
+        "name": "main: зелёный CI на актуальном состоянии",
+        "target": "branch",
+        "enforcement": "active",
+        "bypass_actors": [],
+        "rules": [
+            {"type": "deletion"},
+            {"type": "non_fast_forward"},
+            {
+                "type": "required_status_checks",
+                "parameters": {
+                    "strict_required_status_checks_policy": True,
+                    "required_status_checks": [{"context": name} for name in guard.EXPECTED_CHECKS],
+                },
+            },
+        ],
+    }
+
+
+def test_healthy_ruleset_has_no_problems() -> None:
+    assert guard.check_ruleset(_ruleset()) == []
+
+
+def test_non_empty_bypass_list_is_reported() -> None:
+    """Ровно то утверждение, которое витрина профиля делает публично."""
+    data = _ruleset()
+    data["bypass_actors"] = [{"actor_id": 5, "actor_type": "RepositoryRole"}]
+
+    problems = guard.check_ruleset(data)
+
+    assert len(problems) == 1
+    assert "список обходов НЕ пуст" in problems[0]
+
+
+def test_missing_required_check_is_reported() -> None:
+    """Проверку убрали из ruleset — мерж перестал её ждать."""
+    data = _ruleset()
+    checks = data["rules"][2]["parameters"]["required_status_checks"]
+    dropped = checks.pop()["context"]
+
+    problems = guard.check_ruleset(data)
+
+    assert any(dropped in problem and "не хватает" in problem for problem in problems)
+
+
+def test_extra_required_check_is_reported() -> None:
+    """Лишняя проверка — либо ruleset правили молча, либо устарел скрипт."""
+    data = _ruleset()
+    data["rules"][2]["parameters"]["required_status_checks"].append(
+        {"context": "test (ubuntu-latest, 3.14, true)"}
+    )
+
+    problems = guard.check_ruleset(data)
+
+    assert any("больше заявленного" in problem for problem in problems)
+
+
+def test_stale_branch_policy_is_reported() -> None:
+    data = _ruleset()
+    data["rules"][2]["parameters"]["strict_required_status_checks_policy"] = False
+
+    assert any("свежей" in problem for problem in guard.check_ruleset(data))
+
+
+@pytest.mark.parametrize("kind", guard.REQUIRED_RULES)
+def test_missing_protection_rule_is_reported(kind: str) -> None:
+    data = _ruleset()
+    data["rules"] = [rule for rule in data["rules"] if rule.get("type") != kind]
+
+    assert any(kind in problem for problem in guard.check_ruleset(data))
+
+
+def test_disabled_ruleset_is_reported() -> None:
+    """Выключенный набор правил отдаётся API целиком и выглядит здоровым."""
+    data = _ruleset()
+    data["enforcement"] = "disabled"
+
+    assert any("не активен" in problem for problem in guard.check_ruleset(data))
+
+
+def test_ruleset_without_status_checks_is_reported() -> None:
+    data = _ruleset()
+    data["rules"] = [rule for rule in data["rules"] if rule.get("type") != "required_status_checks"]
+
+    problems = guard.check_ruleset(data)
+
+    assert any("обязательных проверок нет вовсе" in problem for problem in problems)
+
+
+def test_ci_jobs_are_checked_against_workflow() -> None:
+    """Джоб переименовали в ci.yml, а в ruleset осталось старое имя."""
+    text = "jobs:\n  static:\n  e2e:\n  docs-guardrails:\n  supply-chain:\n"
+
+    problems = guard.check_ci_jobs(text)
+
+    assert any("sandbox-linux" in problem for problem in problems)
+    assert not any("static" in problem for problem in problems)
+
+
+def test_real_workflow_declares_every_plain_job() -> None:
+    """Не фикстура, а настоящий `ci.yml`: дрейф имён ловится здесь же."""
+    text = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert guard.check_ci_jobs(text) == []
+
+
+def test_the_required_set_is_one_permanent_name() -> None:
+    """Переход #1420 завершён: обязательная проверка одна, и имя её постоянно.
+
+    Перечисление ячеек вернуло бы связь с ЧУЖИМ календарём: выход 3.14 из
+    предрелиза добавлял сюда три строки, выход 3.15 добавит ещё три и уберёт
+    другие. Каждый такой сдвиг правится в двух местах сразу — здесь и во внешней
+    настройке репозитория, — а расходятся они молча.
+    """
+    assert guard.EXPECTED_CHECKS == (guard.AGGREGATE_CHECK,)
+
+
+def test_the_aggregate_is_declared_required() -> None:
+    """Постоянное имя объявлено обязательным — первый шаг перехода сделан."""
+    assert guard.AGGREGATE_CHECK in guard.EXPECTED_CHECKS
+
+
+def test_the_aggregate_is_not_looked_for_in_ci_yml() -> None:
+    """Агрегатор живёт в своём workflow, и искать его в чужом файле нельзя.
+
+    Иначе гейт краснел бы на верном ответе — а такой гейт снимают первой же
+    правкой.
+    """
+    assert guard.AGGREGATE_CHECK not in guard.PLAIN_JOBS
+
+
+def test_a_renamed_aggregate_job_is_a_finding() -> None:
+    """Опечатка в постоянном имени даёт не красное, а вечное ожидание.
+
+    Поэтому она ловится дешёвым признаком до слияния: имя обязано существовать
+    в своём workflow. Гейт прогнан на том, что обязан отвергать (правило 140).
+    """
+    workflow = _ROOT / ".github" / "workflows" / "ci-complete.yml"
+    original = workflow.read_text(encoding="utf-8")
+    ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    try:
+        workflow.write_text(original.replace("\n  ci-complete:", "\n  ci-done:"), encoding="utf-8")
+        problems = guard.check_ci_jobs(ci)
+    finally:
+        workflow.write_text(original, encoding="utf-8")
+
+    assert any("ci-complete" in problem for problem in problems)
+
+
+def test_fixture_is_not_mutated_between_cases() -> None:
+    """Страховка от теста, зелёного из-за общего изменяемого состояния."""
+    first = _ruleset()
+    second = copy.deepcopy(first)
+    guard.check_ruleset(first)
+
+    assert first == second
+
+
+# --- правило 171: эталон берётся из дерева самого изменения ----------------------
+
+
+_CI = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "ci.yml"
+
+
+class TestReferenceComesFromTheTree:
+    """Эталон обязательных проверок — производное от `ci.yml`, а не копия.
+
+    Копия верна ровно до первой правки матрицы и расходится **молча**: ruleset
+    и константа остаются согласными друг с другом, а работы называются иначе.
+    Класс поломки здесь не ложное срабатывание, а самоблокировка — PR уходит в
+    вечное ожидание, и требуемое условие достижимо только после слияния.
+    """
+
+    def test_the_live_tree_agrees_with_the_declared_list(self) -> None:
+        """Приёмка: объявленное сегодня порождается этим же деревом."""
+        assert guard.check_matrix_names(_CI.read_text(encoding="utf-8")) == []
+
+    def test_names_are_derived_in_the_platform_order(self) -> None:
+        """Имя площадка складывает из значений в порядке объявления измерений."""
+        names = guard.matrix_checks(_CI.read_text(encoding="utf-8"))
+
+        assert "test (ubuntu-latest, 3.12, false)" in names
+        assert "test (macos-latest, 3.15, true)" in names
+
+    def test_experimental_combinations_are_not_required(self) -> None:
+        """Предрелизная ячейка под `continue-on-error` мерж блокировать не должна."""
+        declared = {name for name in guard.EXPECTED_CHECKS if name.startswith("test (")}
+
+        assert not any(name.endswith(", true)") for name in declared)
+
+    def test_a_matrix_name_back_in_the_required_set_is_a_finding(self) -> None:
+        """Возвращение ячейки в обязательные — шаг назад, и он назван вслух.
+
+        После перехода #1420 состав выводит агрегатор из `ci.yml`. Имя,
+        перечисленное во внешней настройке, снова пришлось бы править дважды на
+        каждый выпуск CPython — и расходились бы эти две правки молча.
+        """
+        problems = guard.check_matrix_names(
+            _CI.read_text(encoding="utf-8"),
+            expected=(guard.AGGREGATE_CHECK, "test (ubuntu-latest, 3.13, false)"),
+        )
+
+        assert any("матричные имена вернулись" in problem for problem in problems)
+
+    def test_the_aggregate_alone_is_clean(self) -> None:
+        """Одно постоянное имя — то состояние, ради которого переход и делался."""
+        assert guard.check_matrix_names(_CI.read_text(encoding="utf-8")) == []
+
+    def test_an_unparsable_matrix_is_a_finding_not_silence(self) -> None:
+        """Матрицу не разобрали — говорим об этом, а не зеленеем на пустоте.
+
+        Пустой результат разбора и «расхождений нет» — разные состояния
+        (правило 010): второе читалось бы как проверенное.
+        """
+        problems = guard.check_matrix_names("jobs:\n  test:\n    runs-on: ubuntu-latest\n")
+
+        assert problems and "эталон сверять не с чем" in problems[0]
+
+    def test_a_missing_workflow_is_the_third_outcome(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """`ci.yml` не найден — «сверять не с чем» (код 2), а не «совпало».
+
+        «Не знать» и «знать плохое» — разные исходы (правило 039). Зелёное на
+        отсутствующем эталоне читалось бы как проверенное.
+        """
+        monkeypatch.setattr(guard, "_CI_WORKFLOW", tmp_path / "нет.yml")
+
+        assert guard.main(["--tree-only"]) == guard.EXIT_UNKNOWN
+
+    def test_tree_only_needs_no_network(self) -> None:
+        """Половина без сети возвращает вердикт, а не «прочитать нечем».
+
+        Полная проверка без PAT отвечает кодом 2, и на каждом PR это был бы
+        отказ, а не проверка, — поэтому у половины отдельный вход.
+        """
+        assert guard.main(["--tree-only"]) == guard.EXIT_OK

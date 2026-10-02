@@ -1,0 +1,28 @@
+# issue #808: actions запинены по commit SHA — без автоматического бампа такой
+# пиннинг быстро превращается в «навсегда старую версию», включая пропущенные
+# security-фиксы самих actions. Dependabot умеет обновлять SHA и подставлять в
+# комментарий новую версию, так что читаемость `# vX.Y.Z` сохраняется.
+#
+# Только github-actions: Python-зависимости живут в pyproject.toml и обновляются
+# вручную (CLAUDE.md запрещает добавлять/менять их без явной задачи), а
+# вендоренные JS/CSS ассеты Dependabot не отслеживает по определению.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Одна PR-ветка на все обновления actions вместо пяти отдельных: бамп SHA
+    # почти всегда рутинный, а пять параллельных PR каждую неделю — шум, из-за
+    # которого их перестают читать.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "area/ci"
+      - "tech-debt"

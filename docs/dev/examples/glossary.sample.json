@@ -1,0 +1,50 @@
+[
+  {
+    "id": "recursionerror",
+    "title": "RecursionError",
+    "kind": "exception",
+    "summary": "Слишком глубокая рекурсия — нет условия выхода?",
+    "body": "Возникает, когда глубина вложенных вызовов превышает лимит интерпретатора (`sys.getrecursionlimit()`). Обычно причина — отсутствие или недостижимость базового случая рекурсии.",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#RecursionError",
+    "section": "Исключения",
+    "subcat": "во время выполнения",
+    "aliases": ["maximum recursion depth", "stack overflow"],
+    "keywords": ["рекурсия", "recursion", "стек"],
+    "tags": ["exception", "recursion"],
+    "examples": ["def f(n): return f(n - 1)  # нет базового случая → RecursionError"],
+    "related": ["stopiteration"],
+    "related_errors": ["RecursionError"]
+  },
+  {
+    "id": "functools.reduce",
+    "title": "functools.reduce",
+    "kind": "function",
+    "summary": "Свёртка последовательности слева направо одной функцией-аккумулятором.",
+    "body": "`reduce(func, iterable[, initial])` применяет бинарную функцию к элементам, накапливая результат.",
+    "syntax": "reduce(function, iterable[, initial])",
+    "status": "draft",
+    "docs_url": "https://docs.python.org/3/library/functools.html#functools.reduce",
+    "section": "Функции",
+    "subcat": "functools",
+    "aliases": ["reduce"],
+    "keywords": ["свёртка", "fold", "аккумулятор"],
+    "tags": ["function", "functools"],
+    "examples": ["from functools import reduce; reduce(lambda a, b: a + b, [1, 2, 3])  # 6"]
+  },
+  {
+    "id": "match-case",
+    "title": "match/case",
+    "kind": "construct",
+    "summary": "Структурное сопоставление с образцом (Python 3.10+).",
+    "syntax": "match subject:\n    case pattern:\n        ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/compound_stmts.html#the-match-statement",
+    "version": "3.10",
+    "section": "Синтаксис",
+    "subcat": "ветвление",
+    "aliases": ["match", "structural pattern matching"],
+    "keywords": ["сопоставление", "pattern matching"],
+    "tags": ["construct", "syntax"]
+  }
+]

@@ -1,0 +1,1349 @@
+#!/usr/bin/env python3
+"""scripts/preflight.py — один вход вместо чек-листа «перед PR» (issue #997).
+
+Разбор сессии 2026-08-13 дал одиннадцать инцидентов, и почти каждый — не
+незнание правила, а его пропуск: правило «прогонять ВЕСЬ набор» уже было в
+``CLAUDE.md``, когда чужой тест сломали профильной выборкой. Текст, который
+надо вспомнить, соблюдается ровно до первой спешки, поэтому здесь он заменён
+командой, которая проверяет то же самое сама.
+
+Что закрывает (в скобках — инцидент, из которого правило выросло):
+
+* **свежесть ветки** — гейты гоняются на состоянии «моя ветка + свежий
+  ``origin/main``», а не на ветке, созданной до чужого мержа: «зелено у меня»
+  ≠ «зелено после мержа» (красный ``main`` из-за незадокументированного ребра
+  DAG);
+* **имя ветки не занято** — ветка с таким именем уже живёт на ``origin`` и
+  ведётся другим окном: пуш отлетит «tip is behind», а правка уедет в чужой PR
+  (дубль работы двух окон);
+* **один прогон за раз** — параллельные ``pytest`` исчерпывают дескрипторы, и
+  тесты с subprocess падают пачкой; полдня уходит на разбор 72 «регрессий»,
+  которых нет (файл блокировки ``preflight.lock``);
+* **весь набор, а не выборка** — чужие тесты патчат наши имена, и переименование
+  ломает их молча;
+* **вывод прогона целиком в файле** — ``pytest | tail -8`` в фоне отбрасывает
+  всё остальное, и шестиминутный прогон приходится повторять;
+* **запись о изменении** — фрагмент ``changelog.d/<slug>.<секция>.md`` требуется
+  в каждом PR, но его наличие CI не проверяет, значит проверка держалась на
+  памяти (строка в ``## Буфер`` тоже принимается — ветки, начатые до перехода
+  на фрагменты, не должны краснеть на ровном месте).
+
+Запуск::
+
+    python scripts/preflight.py                # всё: гигиена ветки + линтеры + весь pytest
+    python scripts/preflight.py --branch-only  # только гигиена ветки, до начала работы
+    python scripts/preflight.py --no-tests     # без pytest (правки только в докáх)
+
+Успешный полный прогон оставляет штамп ``preflight-stamp.json`` с отпечатком
+проверенного СОДЕРЖИМОГО рабочего дерева — по нему pre-push хук отличает
+«проверено» от «забыл». Привязка к содержимому, а не к ``HEAD``, намеренная:
+прогон всегда идёт до коммита, и штамп на SHA обесценивался бы ближайшим
+``git commit`` — то есть хук отклонял бы пуш ровно того состояния, которое сам
+же и проверил.
+
+Штамп, блокировка и логи живут в служебном каталоге git, и путь к нему спрашивают
+у самого git (``stamp_path``/``lock_path``/``logs_dir``), а не собирают как
+``<корень>/.git`` (PR #1251). В рабочем дереве ``git worktree`` ``.git`` — это
+ФАЙЛ со строкой ``gitdir: ...``, поэтому собранный путь не просто ведёт не туда:
+``mkdir(parents=True, exist_ok=True)`` падает ``FileExistsError`` — ``exist_ok``
+прощает существующий каталог, а не файл, — и гейт умирал до первой проверки.
+"""
+
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import hashlib
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from collections.abc import Callable, Mapping, Sequence
+from typing import TypeVar
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import _require_python
+
+__all__ = [
+    "Check",
+    "added_changelog_fragments",
+    "added_changelog_lines",
+    "authored_by_tool",
+    "basetemp_dir",
+    "basetemp_problem",
+    "buffer_section",
+    "changed_public_names",
+    "check_agent_signature",
+    "check_branch_fresh",
+    "check_branch_not_main",
+    "check_branch_not_taken",
+    "check_changelog_buffer",
+    "check_commit_authorship",
+    "check_package_is_this_tree",
+    "commits_without_owner",
+    "fingerprint_coverage",
+    "git_paths",
+    "lock_is_active",
+    "lock_path",
+    "logs_dir",
+    "main",
+    "owner_name",
+    "owner_trailer_misplaced",
+    "package_origin",
+    "read_stamp",
+    "stamp_is_current",
+    "stamp_path",
+    "worktree_fingerprint",
+    "write_stamp",
+]
+
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+_BASE = "origin/main"
+_STAMP_NAME = "preflight-stamp.json"
+_LOCK_NAME = "preflight.lock"
+_LOGS_NAME = "preflight-logs"
+
+# Корень временных каталогов pytest: своё имя вместо `pytest-of-<user>` и
+# переопределение для тех, у кого свои порядки (CI, чужая ОС).
+_TMP_NAME = "grader-preflight"
+_BASETEMP_ENV = "PREFLIGHT_BASETEMP"
+# Запас до MAX_PATH: pytest достраивает <base>/<имя теста><N>/, а тесты самого
+# гейта кладут туда git-репозитории — origin.git/objects/... съедает под сотню
+# знаков сверху. Порог сторожит не аккуратность, а работоспособность (см.
+# basetemp_problem).
+_MAX_BASETEMP_LEN = 100
+
+# Аварийный выход: пуш срочного фикса, когда прогон физически негде сделать.
+# Осознанное решение человека, а не значение по умолчанию.
+_SKIP_ENV = "PREFLIGHT_SKIP"
+
+_HOOK_BODY = """#!/bin/sh
+# issue #997: пуш только с проверенного коммита.
+# Аварийный выход: PREFLIGHT_SKIP=1 git push ...
+python scripts/preflight.py --gate-push || exit 1
+"""
+
+# Блокировка считается протухшей через два часа: полный набор на медленной
+# машине идёт минуты, а не часы, поэтому более старый файл почти наверняка
+# остался от процесса, который убили, а не от живого прогона.
+_LOCK_TTL_SECONDS = 2 * 60 * 60
+
+GitRunner = Callable[..., str]
+
+
+@dataclasses.dataclass(frozen=True)
+class Check:
+    """Результат одной проверки: имя, вердикт, подробность и совет."""
+
+    name: str
+    ok: bool
+    detail: str = ""
+    hint: str = ""
+    blocking: bool = True
+
+
+# issue #1149: сколько ждём САМ запуск `git`. Здоровый спавн укладывается в
+# миллисекунды; порог отличает «подвисло навсегда» от «система под нагрузкой».
+_GIT_LAUNCH_TIMEOUT_S = 20.0
+
+# issue #1232: та же переменная, что у `core/spawn` — один порог на весь класс
+# «медленный раннер», а не два независимых. Значение читается здесь заново по
+# той же причине, по которой продублирован сам приём: гейт обязан работать,
+# когда пакет не установлен или сломан.
+_ENV_LAUNCH_TIMEOUT = "STEPIK_GRADER_LAUNCH_TIMEOUT_S"
+
+
+def _git_launch_timeout_s() -> float:
+    """Действующий дедлайн запуска `git`: переменная окружения или дефолт."""
+    try:
+        value = float(os.environ.get(_ENV_LAUNCH_TIMEOUT, "").strip())
+    except ValueError:
+        return _GIT_LAUNCH_TIMEOUT_S
+    return value if value > 0 else _GIT_LAUNCH_TIMEOUT_S
+
+
+# issue #1507: параметр типа объявлен по-старому, а не синтаксисом PEP 695
+# (`def _run_guarded[T](...)`), И ЭТО НАМЕРЕННО. Разбор файла идёт целиком и
+# ДО исполнения, поэтому одна 3.12-конструкция превращала запуск гейта под
+# неподходящим интерпретатором в `SyntaxError: expected '('` — сообщение про
+# номер строки вместо сообщения про среду. Гейт, который не умеет объяснить
+# собственный отказ, обходят как сломанный: человек чинит скрипт, а не среду.
+# Ради этой возможности здесь и держится TypeVar.
+_T = TypeVar("_T")
+
+
+def _run_guarded(call: Callable[[], _T]) -> _T | None:  # noqa: UP047 (см. комментарий выше)
+    """Выполнить ``call`` с дедлайном, покрывающим и ЗАПУСК процесса (issue #1149).
+
+    ``timeout=`` у ``subprocess`` покрывает ожидание уже стартовавшего процесса,
+    а подвиснуть можно раньше — в ``Popen.__init__``, на чтении errpipe после
+    fork/exec. Ровно так гейт и висел на macOS + Python 3.14, пока pytest не
+    снимал прогон по своему таймауту.
+
+    Приём тот же, что в ``core/spawn.py`` (там канон и подробное объяснение), но
+    продублирован намеренно: ``preflight.py`` обязан работать и тогда, когда сам
+    пакет не установлен или сломан — импорт из него превратил бы гейт в
+    заложника проверяемого кода.
+
+    Returns:
+        Результат вызова или ``None``, если он не уложился в дедлайн.
+    """
+    outcome: list[_T | BaseException] = []
+
+    def _worker() -> None:
+        try:
+            outcome.append(call())
+        except BaseException as exc:  # переносим в вызывающий поток как есть
+            outcome.append(exc)
+
+    thread = threading.Thread(target=_worker, daemon=True, name="preflight-git")
+    thread.start()
+    thread.join(_git_launch_timeout_s())
+    if thread.is_alive() or not outcome:
+        return None
+    result = outcome[0]
+    if isinstance(result, BaseException):
+        raise result
+    return result
+
+
+def _git(*args: str) -> str:
+    """``git`` в корне репозитория; пустая строка при любой ошибке.
+
+    Кодировка задана явно: ``text=True`` декодирует вывод локальной кодировкой
+    (на Windows это cp1251/cp866), и русские строки диффа приезжают искажёнными
+    — сравнение с текстом файла, прочитанным как UTF-8, тихо перестаёт
+    совпадать. Гейт при этом не падает, а **врёт**, что записи в CHANGELOG нет.
+
+    Зависший запуск (issue #1149) даёт пустую строку — тот же исход, что у
+    любого другого сбоя ``git``, вместо бесконечного ожидания.
+    """
+
+    def _call() -> str:
+        return subprocess.check_output(
+            ["git", *args],
+            cwd=_ROOT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stderr=subprocess.DEVNULL,
+            # Обрезаются только разделители, а НЕ пробелы: под ``-z`` первым и
+            # последним в выводе стоит путь, и голый ``.strip()`` съел бы у него
+            # ведущий или хвостовой пробел — ту же потерю имени, ради которой
+            # заведён сам ``-z`` (issue #1417).
+        ).strip("\n\r\0")
+
+    try:
+        return _run_guarded(_call) or ""
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+
+def git_paths(git: GitRunner, *args: str) -> list[str]:
+    """Пути из ``git``, прочитанные по NUL, — а не по строкам (правило 165).
+
+    ``core.quotePath=true`` — умолчание git, поэтому имя с не-ASCII символами
+    отдаётся **экранированным**: ``"\\321\\203\\321\\202..."``. Разбор по
+    строкам принимает эту строку за путь, ``Path`` из неё не разрешается, и
+    файл молча выпадает из обработки. У нас это стоило дороже, чем выглядит:
+    :func:`worktree_fingerprint` читает файлы из такого списка, то есть штамп
+    «состояние проверено» не замечал правок в файлах с кириллическими именами —
+    в проекте, который ведётся по-русски (issue #1417).
+
+    ``-z`` отключает экранирование и разделяет пути NUL'ом, которого в имени
+    файла быть не может.
+
+    Args:
+        git: Запускатель ``git`` (подменяется в тестах).
+        *args: Аргументы команды БЕЗ ``-z`` — он добавляется здесь.
+
+    Returns:
+        Непустые пути в порядке выдачи ``git``.
+    """
+    return [path for path in git(*args, "-z").split("\0") if path]
+
+
+def _git_ok(*args: str) -> bool:
+    """Истина, когда команда завершилась успешно (проверки вида ``--is-ancestor``)."""
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError:
+        return False
+    return completed.returncode == 0
+
+
+def current_branch(git: GitRunner = _git) -> str:
+    """Имя текущей ветки (``HEAD`` в detached-состоянии)."""
+    return git("rev-parse", "--abbrev-ref", "HEAD")
+
+
+def check_branch_not_main(git: GitRunner = _git) -> Check:
+    """Прямые коммиты в ``main`` запрещены — работа идёт через PR."""
+    branch = current_branch(git)
+    ok = branch not in {"main", "HEAD"}
+    return Check(
+        name="ветка не main",
+        ok=ok,
+        detail=f"текущая ветка: {branch or 'неизвестна'}",
+        hint="git checkout -b <type>/<short-slug>",
+    )
+
+
+def check_branch_fresh(git: GitRunner = _git, *, ancestor: Callable[..., bool] = _git_ok) -> Check:
+    """``origin/main`` должен быть предком ``HEAD``.
+
+    Гейт, прогнанный на ветке от вчерашнего ``main``, проверяет состояние,
+    которого после мержа не будет: так на ``main`` уехал импорт без записи в
+    графе зависимостей — локально 18 passed, в CI красные все ubuntu-джобы.
+    """
+    ok = ancestor("merge-base", "--is-ancestor", _BASE, "HEAD")
+    behind = git("rev-list", "--count", f"HEAD..{_BASE}") or "?"
+    return Check(
+        name="ветка от свежего main",
+        ok=ok,
+        detail="в основе свежий main" if ok else f"main ушёл вперёд на {behind} коммит(ов)",
+        hint=f"git fetch origin main && git merge --ff-only {_BASE}",
+    )
+
+
+def check_branch_not_taken(
+    git: GitRunner = _git, *, ancestor: Callable[..., bool] = _git_ok
+) -> Check:
+    """Одноимённая ветка на ``origin`` не должна быть чужой работой.
+
+    Совпадение имени — это либо своя же ветка (тогда её вершина достижима из
+    ``HEAD``), либо соседнее окно, которое ведёт свой PR: пуш туда отлетает
+    «tip is behind», а при ``--force`` затирает чужое.
+    """
+    branch = current_branch(git)
+    remote = f"origin/{branch}"
+    exists = bool(git("rev-parse", "--verify", "--quiet", remote))
+    if not exists:
+        return Check(name="имя ветки свободно", ok=True, detail=f"{remote} на origin нет")
+    ok = ancestor("merge-base", "--is-ancestor", remote, "HEAD")
+    return Check(
+        name="имя ветки свободно",
+        ok=ok,
+        detail=f"{remote} — продолжение моей работы" if ok else f"{remote} разошлась с этой веткой",
+        hint=(
+            "проверьте, не ведёт ли её соседнее окно: в чужую ветку не пушить. "
+            "После squash-мержа своего же PR расхождение нормально — squash не "
+            "сохраняет прежнюю вершину предком"
+        ),
+        blocking=False,
+    )
+
+
+def _mypy_command(*, platform: str = sys.platform) -> list[str]:
+    """Команда проверки типов — той же платформы, что и в CI.
+
+    Гейт обещает зеркалить CI, а шаг ``static`` там идёт **только на Linux**.
+    На Windows тот же вызов без ``--platform`` даёт семь ошибок, которых в CI
+    нет вовсе: ``fcntl.flock`` и ``signal.SIGKILL`` в win32-заглушках stdlib
+    отсутствуют, а код, который их зовёт, живёт под проверкой ОС в рантайме.
+
+    Разница не косметическая: у владельца на Windows гейт краснел **всегда**,
+    то есть зелёного состояния не существовало в принципе — а гейт, который
+    невозможно пройти, обходят целиком, вместе со всеми остальными проверками.
+
+    Args:
+        platform: платформа запуска; подменяется в тестах.
+
+    Returns:
+        Аргументы запуска ``mypy``; на не-Linux добавляется ``--platform linux``.
+    """
+    command = [sys.executable, "-m", "mypy"]
+    if not platform.startswith("linux"):
+        command += ["--platform", "linux"]
+    return [*command, "src/stepik_grader", "scripts"]
+
+
+def _pytest_command(base: pathlib.Path) -> list[str]:
+    """Команда прогона набора — со своим корнем временных каталогов (#1291)."""
+    return [
+        sys.executable,
+        "-m",
+        "pytest",
+        "tests/",
+        "-q",
+        "--tb=short",
+        "--basetemp",
+        str(base),
+    ]
+
+
+def owner_name(*, pyproject: str | None = None) -> str:
+    """Имя владельца проекта — из ``[project].authors`` в ``pyproject.toml``.
+
+    Источник один и тот же для всех окон: git-идентичность у локальной машины,
+    облачного контейнера и CI разная (и по имени, и по почте), а вопрос
+    «участвует ли автор» — про человека, а не про то, из какой среды ушёл
+    коммит.
+    """
+    raw = pyproject if pyproject is not None else _read(_ROOT / "pyproject.toml")
+    match = re.search(r'authors\s*=\s*\[\s*\{\s*name\s*=\s*"([^"]+)"', raw)
+    return match.group(1) if match else ""
+
+
+def authored_by_tool(author: str) -> bool:
+    """Похож ли автор коммита на инструмент, а не на человека.
+
+    Проверка узкая намеренно: слово «bot» встречается в человеческих
+    никах, поэтому засчитываются только имя Claude и суффикс ``[bot]``,
+    которым GitHub помечает приложения.
+    """
+    name = author.casefold().strip()
+    return "claude" in name or name.endswith("[bot]")
+
+
+def commits_without_owner(log: str, owner: str) -> list[str]:
+    """Коммиты инструмента, в которых человек не назван ни автором, ни соавтором.
+
+    Проверяются **только** коммиты, ушедшие от инструмента: вопрос стоит не
+    «указан ли владелец везде» (у внешнего контрибьютора свои коммиты, и
+    требовать там чужое имя незачем), а «не приписана ли совместная работа
+    одному инструменту».
+
+    Args:
+        log: вывод ``git log`` в формате ``%h%x1f%an%x1f%B%x1e``.
+        owner: имя владельца проекта.
+
+    Returns:
+        Короткие хеши коммитов, где человека нет вовсе.
+    """
+    if not owner:
+        return []
+    return [short for short, _ in _lost_commits(log, owner)]
+
+
+def owner_trailer_misplaced(log: str, owner: str) -> list[str]:
+    """Коммиты, где строка про соавтора есть, но стоит НЕ последним абзацем.
+
+    Отдельный исход, потому что чинится он иначе (issue #1472). ``git merge``
+    при конфликте сохраняет в сообщении блок комментариев::
+
+        Merge origin/main into agent/...
+
+        Co-Authored-By: Artem Markitanov <...>
+
+        # Conflicts:
+        #	docs/use/configuration.md
+
+    ``--amend --trailer`` дописывает трейлер перед этим блоком, а не после:
+    комментарии вырезает только редактор при интерактивном коммите, и после
+    ``--amend -m``/``-F`` они остаются. Последним абзацем оказывается
+    ``# Conflicts:``, а трейлер по определению — часть последнего абзаца.
+
+    Итог до этой правки был худшим из возможных: гейт печатал совет, совет
+    выполнялся дословно, и гейт падал СНОВА с тем же текстом — «трейлера нет»
+    и «трейлер есть, но не в том абзаце» выглядели одинаково.
+
+    Args:
+        log: вывод ``git log`` в формате ``%h%x1f%an%x1f%B%x1e``.
+        owner: имя владельца проекта.
+
+    Returns:
+        Короткие хеши — подмножество :func:`commits_without_owner`.
+    """
+    return [short for short, misplaced in _lost_commits(log, owner) if misplaced]
+
+
+def _lost_commits(log: str, owner: str) -> list[tuple[str, bool]]:
+    """Пары ``(хеш, трейлер есть, но не в хвостовом абзаце)``.
+
+    Один разбор на оба вопроса: «человека нет вовсе» и «человек назван мимо
+    трейлерного блока» — это одно и то же чтение сообщения, и расходиться они
+    не должны.
+    """
+    if not owner:
+        return []
+    lost: list[tuple[str, bool]] = []
+    for record in log.split("\x1e"):
+        if not record.strip():
+            continue
+        parts = record.strip().split("\x1f")
+        if len(parts) < 3:
+            continue
+        short, author, message = parts[0], parts[1], parts[2]
+        if not authored_by_tool(author):
+            continue
+        # Правило 156: трейлер читается из ХВОСТОВОГО блока. Прежний разбор брал
+        # любую строку, начинающуюся с «co-authored», — то есть прозаическое
+        # упоминание в теле сообщения удовлетворяло гейт, и он зеленел на
+        # коммите без настоящего трейлера.
+        if _names_owner(_trailer_block(message), owner):
+            continue
+        lost.append((short, _names_owner(message.splitlines(), owner)))
+    return lost
+
+
+def _names_owner(lines: list[str], owner: str) -> bool:
+    """Есть ли среди строк ``Co-Authored-By`` с именем владельца."""
+    return any(
+        line.lower().lstrip().startswith("co-authored") and owner.casefold() in line.casefold()
+        for line in lines
+    )
+
+
+_TRAILER_LINE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:\s")
+
+
+def _trailer_block(message: str) -> list[str]:
+    """Последний абзац сообщения, если он целиком из строк ``Ключ: значение``.
+
+    Тот же разбор, что в ``scripts/check_attribution.py`` (правило 156).
+    Дублируется намеренно и подписан: ``preflight`` обязан работать без
+    импорта соседних гейтов — он и есть то, что запускают первым.
+    """
+    paragraphs = [block for block in message.strip().split("\n\n") if block.strip()]
+    if not paragraphs:
+        return []
+    lines = [line for line in paragraphs[-1].splitlines() if line.strip()]
+    if not lines or not all(_TRAILER_LINE_RE.match(line.strip()) for line in lines):
+        return []
+    return lines
+
+
+def check_commit_authorship(git: GitRunner = _git) -> Check:
+    """Коммит инструмента обязан называть человека — автором или соавтором.
+
+    Работа делается вместе, и история обязана это показывать. Коммит, ушедший
+    от Claude без трейлера с человеком, приписывает всю работу инструменту:
+    после squash-мержа такой след остаётся в ``main`` навсегда.
+
+    Чинится трейлером, а не переписыванием авторства:
+    ``git commit --amend --trailer "Co-Authored-By: ..."``.
+
+    Исходов у провала два, и совет у них разный (issue #1472): трейлера может
+    не быть вовсе, а может быть — но не последним абзацем, куда его загоняет
+    блок ``# Conflicts:`` от ``git merge``. Во втором случае ``--trailer``
+    не помогает и повторяется бесконечно, поэтому исход называется прямо.
+    """
+    owner = owner_name()
+    title = "автор участвует в коммитах"
+    if not owner:
+        return Check(name=title, ok=True, detail="владелец в pyproject не назван", blocking=False)
+    log = git("log", "--format=%h%x1f%an%x1f%B%x1e", f"{_BASE}..HEAD")
+    lost = commits_without_owner(log, owner)
+    if not lost:
+        return Check(name=title, ok=True, detail=f"{owner} не потерян в коммитах ветки")
+    misplaced = owner_trailer_misplaced(log, owner)
+    if misplaced:
+        return Check(
+            name=title,
+            ok=False,
+            detail=(
+                f"трейлер есть, но после него идёт другой абзац — и потому это не "
+                f"трейлер: {', '.join(misplaced)}"
+            ),
+            hint=(
+                "так бывает после merge с конфликтом: git оставил в сообщении блок "
+                "«# Conflicts:», и он стал последним абзацем. Дописать трейлер мало — "
+                "перепишите сообщение целиком без этого блока: "
+                "git commit --amend -F <файл с сообщением>"
+            ),
+        )
+    return Check(
+        name=title,
+        ok=False,
+        detail=f"нет ни автором, ни соавтором: {', '.join(lost)}",
+        hint=(
+            f'git commit --amend --trailer "Co-Authored-By: {owner} '
+            '<86671904+ArtVsMark@users.noreply.github.com>" — и так для каждого '
+            "названного коммита (rebase -i при нескольких)"
+        ),
+    )
+
+
+#: Запуск соседнего гейта: тот же вид, что у `subprocess.run`, — тесты подменяют.
+SignatureRunner = Callable[[list[str]], "subprocess.CompletedProcess[str]"]
+
+
+def _run_signature_gate(argv: list[str]) -> subprocess.CompletedProcess[str]:
+    """Запустить ``check_attribution.py`` и вернуть его вывод целиком."""
+    return subprocess.run(  # argv собран здесь, оболочка не участвует
+        argv,
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def check_agent_signature(run: SignatureRunner = _run_signature_gate) -> Check:
+    """Агент подписан согласованной строкой — и в авторах, и в трейлерах ветки.
+
+    Squash переносит в ``main`` дословно и то и другое, а исправить потом
+    нечем. Строку подсказывает харнесс, и она меняется вместе с моделью окна:
+    после смены модели подсказка стала ``Claude Opus 5.5``, а соседняя
+    проверка («автор участвует в коммитах») смотрит только на владельца.
+
+    Разбор не дублируется, а зовётся подпроцессом: ``preflight`` не
+    импортирует соседние гейты (он работает и там, где их окружение сломано),
+    а вторая копия сверки с ``.claude/settings.json`` разошлась бы с первой.
+    Тот же скрипт стоит шагом в ``ci.yml`` — здесь он нужен, чтобы узнать
+    до пуша, а не по красному прогону.
+    """
+    title = "подпись агента согласована"
+    script = _ROOT / "scripts" / "check_attribution.py"
+    if not script.exists():
+        return Check(name=title, ok=True, detail="сверка недоступна", blocking=False)
+    done = run([sys.executable, str(script), "--check-branch", "--base", _BASE])
+    if done.returncode == 0:
+        return Check(name=title, ok=True, detail="авторы и трейлеры ветки согласованы")
+    wrong = [line.strip() for line in done.stdout.splitlines() if line.strip().startswith("—")]
+    return Check(
+        name=title,
+        ok=False,
+        detail="; ".join(wrong) or "сверка подписи не прошла",
+        hint=(
+            "строка — из .claude/settings.json (attribution.commit), не из подсказки "
+            "харнесса; подробности: python scripts/check_attribution.py --check-branch"
+        ),
+    )
+
+
+def buffer_section(changelog: str) -> list[str]:
+    """Строки секции ``## Буфер`` (до следующего заголовка ``##``)."""
+    lines = changelog.splitlines()
+    collected: list[str] = []
+    inside = False
+    for line in lines:
+        if line.startswith("## "):
+            if inside:
+                break
+            inside = line.startswith("## Буфер")
+            continue
+        if inside:
+            collected.append(line)
+    return collected
+
+
+def added_changelog_lines(diff: str) -> list[str]:
+    """Добавленные диффом строки-записи ``- Fixed: ...`` без ведущего ``+``."""
+    added = []
+    for line in diff.splitlines():
+        if line.startswith("+") and not line.startswith("+++"):
+            body = line[1:]
+            if body.lstrip().startswith("- "):
+                added.append(body)
+    return added
+
+
+def added_changelog_fragments(git: GitRunner = _git) -> list[str]:
+    """Фрагменты ``changelog.d/``, добавленные этой веткой."""
+    return sorted(
+        path
+        for path in _changed_files(git)
+        if path.startswith("changelog.d/") and not path.endswith("README.md")
+    )
+
+
+def check_changelog_buffer(git: GitRunner = _git, *, changelog: str | None = None) -> Check:
+    """Запись о изменении обязательна в каждом PR, и CI её не проверяет.
+
+    Принимается любая из двух форм: файл-фрагмент в ``changelog.d/`` (основная,
+    не конфликтует между PR) или строка в ``## Буфер`` — так ветки, начатые до
+    перехода на фрагменты, не становятся красными на ровном месте.
+
+    Требование мягкое ровно в одном случае: когда ветка не трогает ничего,
+    кроме самого ``CHANGELOG.md`` — тогда проверять нечего.
+    """
+    changed = _changed_files(git)
+    meaningful = {path for path in changed if path != "CHANGELOG.md"}
+    if not meaningful:
+        return Check(name="запись в CHANGELOG", ok=True, detail="менять нечего")
+
+    fragments = added_changelog_fragments(git)
+    if fragments:
+        return Check(
+            name="запись в CHANGELOG",
+            ok=True,
+            detail=f"фрагмент(ы): {', '.join(path.split('/')[-1] for path in fragments)}",
+        )
+
+    diff = git("diff", f"{_BASE}...HEAD", "--", "CHANGELOG.md")
+    diff += "\n" + git("diff", "--", "CHANGELOG.md")
+    diff += "\n" + git("diff", "--cached", "--", "CHANGELOG.md")
+    added = added_changelog_lines(diff)
+    text = changelog if changelog is not None else _read(_ROOT / "CHANGELOG.md")
+    buffer = {line.strip() for line in buffer_section(text) if line.strip()}
+    landed = [line for line in added if line.strip() in buffer]
+    return Check(
+        name="запись в CHANGELOG",
+        ok=bool(landed),
+        detail=f"{len(landed)} запись(ей) в буфере"
+        if landed
+        else "ни фрагмента, ни строки в буфере",
+        hint="файл changelog.d/<slug>.<секция>.md — одна строка текста записи (#PR)",
+    )
+
+
+def changed_public_names(diff: str) -> set[str]:
+    """Имена функций и классов, затронутые диффом (обе стороны ``+``/``-``)."""
+    names: set[str] = set()
+    pattern = re.compile(r"^[+-]\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)")
+    for line in diff.splitlines():
+        if line.startswith(("+++", "---")):
+            continue
+        match = pattern.match(line)
+        if match:
+            names.add(match.group(1))
+    return names
+
+
+def check_tests_mentioning_changed_names(git: GitRunner = _git) -> Check:
+    """Показать тесты, которые называют изменённые имена, — они и ломаются молча.
+
+    Не блокирует: это карта, а не вердикт. Смысл — не искать тестовый файл по
+    угаданному имени (``test_test_loader.py``, которого нет), а увидеть, кто
+    вообще ссылается на правку.
+    """
+    title = "кто ссылается на правку"
+    diff = git("diff", f"{_BASE}...HEAD") + "\n" + git("diff")
+    names = changed_public_names(diff)
+    if not names:
+        return Check(name=title, ok=True, detail="публичных имён не тронуто", blocking=False)
+    hits: dict[str, list[str]] = {}
+    for path in sorted((_ROOT / "tests").glob("test_*.py")):
+        text = _read(path)
+        for name in sorted(names):
+            if re.search(rf"\b{re.escape(name)}\b", text):
+                hits.setdefault(path.name, []).append(name)
+    detail = ", ".join(f"{file} ({', '.join(found)})" for file, found in sorted(hits.items()))
+    return Check(name=title, ok=True, detail=detail or "прямых упоминаний нет", blocking=False)
+
+
+def check_work_overlap(
+    overlapping: Callable[[], dict[str, set[str]]] | None = None,
+) -> Check:
+    """Кто ещё трогает те же файлы — карта чужой работы, а не вердикт.
+
+    Не блокирует намеренно. Пересечение по файлам — штатное состояние
+    конвейера, а не нарушение: механизм, не отличающий одно от другого, не
+    механизм. Смысл шага в том, что пересечение показывается САМО, а не когда
+    кто-то вспомнит команду.
+
+    До этого `scripts/check_work_overlap.py` не запускал никто — ни прогон, ни
+    pre-commit, ни preflight, — а три ответа каталогу (051, 132, 133) называли
+    его гейтом. Скрипт существовал, и этого хватало, чтобы утверждение
+    выглядело правдой (issue #1400).
+    """
+    title = "кто ещё трогает те же файлы"
+    try:
+        if overlapping is None:
+            sys.path.insert(0, str(_ROOT / "scripts"))
+            import check_work_overlap as overlap_module
+
+            found = overlap_module.overlaps(overlap_module.changed_files())
+            visible = bool(overlap_module.living_branches(exclude=current_branch()))
+        else:
+            found = overlapping()
+            visible = True
+    except Exception as exc:  # карта необязательна: отказ чтения — не вердикт шага
+        return Check(name=title, ok=True, detail=f"веток не прочитать: {exc}", blocking=False)
+
+    if not visible:
+        # Третий исход, а не разновидность «чисто»: узкий клон (`--depth 1` с
+        # одной ссылкой) чужих веток не видит вовсе, и пустая карта означала бы
+        # «пересечений нет» там, где их просто не на чем искать.
+        return Check(
+            name=title,
+            ok=True,
+            detail="чужих веток на origin не видно — карта пуста не потому, что пересечений нет",
+            blocking=False,
+        )
+    if not found:
+        return Check(name=title, ok=True, detail="пересечений с живыми ветками нет", blocking=False)
+    detail = "; ".join(
+        f"{branch} ({', '.join(sorted(files)[:3])}{'…' if len(files) > 3 else ''})"
+        for branch, files in sorted(found.items())
+    )
+    return Check(name=title, ok=True, detail=detail, blocking=False)
+
+
+def check_adr_records(
+    runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> Check:
+    """Запись о решении полна, и ветка не переписывает её задним числом.
+
+    Правила 042 и 043 каталога. Здесь, а не только в CI: правку ADR автор
+    делает локально, и «меняется решение — новый ADR, а старый Superseded»
+    стоит узнать до пуша, а не после. Сравнение с ``origin/main`` требует
+    истории, которой у мелкого клона CI нет, — там гоняется та же проверка без
+    базы (полнота записей).
+    """
+    title = "запись о решении полна"
+    run = runner or (
+        lambda: subprocess.run(
+            [sys.executable, str(_ROOT / "scripts" / "check_adr_records.py"), "--base", _BASE],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            encoding="utf-8",
+        )
+    )
+    done = run()
+    if done.returncode == 0:
+        return Check(
+            name=title,
+            ok=True,
+            detail=done.stdout.strip().splitlines()[-1] if done.stdout.strip() else "чисто",
+        )
+    if done.returncode == 2:
+        # «Проверить не с чем» — не то же самое, что «нашла»: блокировать
+        # пуш из-за отсутствующей базы значило бы наказывать за среду.
+        return Check(
+            name=title,
+            ok=True,
+            detail=done.stderr.strip().splitlines()[-1] if done.stderr.strip() else "не отработала",
+            blocking=False,
+        )
+    return Check(
+        name=title,
+        ok=False,
+        detail="; ".join(
+            line.strip(" •") for line in done.stderr.splitlines() if line.strip().startswith("•")
+        ),
+        hint="python scripts/check_adr_records.py --base origin/main — полный разбор",
+    )
+
+
+def _git_dir(root: pathlib.Path, *, shared: bool = False) -> pathlib.Path:
+    """Служебный каталог git рабочего дерева ``root`` (PR #1251).
+
+    Путь спрашивается у самого git, а не собирается как ``root / ".git"``: в
+    рабочем дереве ``git worktree`` по этому имени лежит ФАЙЛ со строкой
+    ``gitdir: ...``, а настоящий каталог — в основном репозитории.
+
+    Args:
+        root: Корень рабочего дерева.
+        shared: Общий каталог репозитория (``--git-common-dir``) вместо
+            собственного каталога этого дерева (``--git-dir``). У обычного
+            клона это одно и то же место; расходятся они только в worktree.
+
+    Returns:
+        Каталог служебных файлов; ``root / ".git"`` — если ``git`` недоступен
+        или ``root`` не репозиторий (прежнее поведение, а не отказ: гейт не
+        должен становиться заложником ``git``).
+    """
+    flag = "--git-common-dir" if shared else "--git-dir"
+    resolved = _git("-C", str(root), "rev-parse", flag)
+    if not resolved:
+        return root / ".git"
+    found = pathlib.Path(resolved)
+    return found if found.is_absolute() else root / found
+
+
+def stamp_path(root: pathlib.Path) -> pathlib.Path:
+    """Файл штампа прогона — у КАЖДОГО рабочего дерева свой.
+
+    Штамп описывает содержимое конкретного дерева, поэтому общий файл означал
+    бы, что прогон в одном окне обесценивает штамп другого и pre-push отклоняет
+    пуш уже проверенного состояния.
+    """
+    return _git_dir(root) / _STAMP_NAME
+
+
+def lock_path(root: pathlib.Path) -> pathlib.Path:
+    """Файл блокировки прогона — ОДИН на репозиторий, включая все worktree.
+
+    Блокировка защищает не дерево, а дескрипторы машины: два параллельных
+    ``pytest`` роняют тесты с subprocess пачкой независимо от того, из основного
+    каталога запущен второй прогон или из соседнего рабочего дерева.
+    """
+    return _git_dir(root, shared=True) / _LOCK_NAME
+
+
+def logs_dir(root: pathlib.Path) -> pathlib.Path:
+    """Каталог полных логов прогона — свой у каждого рабочего дерева."""
+    return _git_dir(root) / _LOGS_NAME
+
+
+def basetemp_dir(*, env: Mapping[str, str] | None = None) -> pathlib.Path:
+    """Корень временных каталогов ``pytest`` — свой, короткий, предсказуемый.
+
+    Сам pytest берёт ``<tempdir>/pytest-of-<user>`` и ПЕРЕИСПОЛЬЗУЕТ его между
+    прогонами. Каталог переживает смену контекста запуска, и стоит ему один раз
+    достаться другому владельцу, как весь набор падает пачкой ещё на сборе:
+    ``PermissionError`` из ``tmp_path_factory.mktemp`` — пять тысяч ошибок при
+    исправном коде (issue #1291). Свой каталог убирает эту зависимость от
+    истории машины.
+
+    ``PREFLIGHT_BASETEMP`` перекрывает выбор: у CI и чужих ОС свои порядки, и
+    навязывать им наш каталог незачем.
+    """
+    source = (env if env is not None else os.environ).get(_BASETEMP_ENV)
+    if source:
+        return pathlib.Path(source)
+    return pathlib.Path(tempfile.gettempdir()) / _TMP_NAME
+
+
+def basetemp_problem(path: pathlib.Path, *, name: str = os.name) -> str | None:
+    """Почему каталог не годится под ``--basetemp``; ``None`` — годится.
+
+    Длина проверяется не из педантизма. Первый обход дефекта #1291 — направить
+    временный каталог в глубокий сессионный путь — вылечил пять тысяч ошибок и
+    породил сорок пять новых: ``git push`` в тестовых репозиториях
+    ``tests/test_preflight.py`` перестал создавать объекты, потому что
+    ``<base>/pytest-N/test_..._0/origin.git/objects/...`` не влезал в MAX_PATH.
+    Короткий каталог — часть требования, а не пожелание.
+    """
+    if name == "nt" and len(str(path)) > _MAX_BASETEMP_LEN:
+        return (
+            f"путь длиннее {_MAX_BASETEMP_LEN} знаков — вложенные пути pytest "
+            f"не уложатся в MAX_PATH ({len(str(path))})"
+        )
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".probe"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        return f"{type(exc).__name__}: {exc}"
+    return None
+
+
+def lock_is_active(path: pathlib.Path, *, now: float | None = None) -> bool:
+    """Активна ли чужая блокировка прогона (протухшая — не помеха)."""
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    try:
+        started = float(json.loads(raw).get("at", 0))
+    except (ValueError, AttributeError, TypeError):
+        return False
+    moment = time.time() if now is None else now
+    return moment - started < _LOCK_TTL_SECONDS
+
+
+def _acquire_lock(path: pathlib.Path, *, force: bool = False) -> bool:
+    """Занять файл блокировки; ``False`` — прогон уже идёт."""
+    if lock_is_active(path) and not force:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"pid": os.getpid(), "at": time.time()}
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return True
+
+
+def worktree_fingerprint(root: pathlib.Path, git: GitRunner = _git) -> str:
+    """Отпечаток СОДЕРЖИМОГО рабочего дерева: отслеживаемое плюс новые файлы.
+
+    Штамп привязан к содержимому, а не к ``HEAD``, потому что прогон всегда
+    идёт ДО коммита: привяжи его к SHA — и коммит тут же обесценит только что
+    сделанную проверку, а хук отклонит пуш ровно того состояния, которое
+    проверял. Гейт, который мешает при правильном порядке действий, обходят.
+
+    Новые, ещё не добавленные в индекс файлы учитываются наравне с
+    отслеживаемыми: чаще всего правка приезжает именно так — новым тестом рядом
+    с новым модулем.
+    """
+    listed = git_paths(git, "ls-files")
+    listed += git_paths(git, "ls-files", "--others", "--exclude-standard")
+    digest = hashlib.sha256()
+    for name in sorted(set(listed)):
+        digest.update(name.encode("utf-8"))
+        try:
+            digest.update(hashlib.sha256((root / name).read_bytes()).digest())
+        except OSError:
+            digest.update(b"<missing>")
+    return digest.hexdigest()
+
+
+def fingerprint_coverage(root: pathlib.Path, git: GitRunner = _git) -> tuple[int, int]:
+    """Сколько путей учтено в отпечатке и сколько прочитать не удалось.
+
+    Вторая половина правила 165: молчание проверки означает и «ничего не
+    нашла», и «ничего не смотрела», а различить их читателю нечем. Отпечаток
+    без числа выглядел одинаково при полном обходе дерева и при обходе, из
+    которого выпал файл (issue #1417).
+
+    Returns:
+        (просмотрено, не прочитано).
+    """
+    listed = set(git_paths(git, "ls-files"))
+    listed |= set(git_paths(git, "ls-files", "--others", "--exclude-standard"))
+    missing = sum(1 for name in listed if not (root / name).exists())
+    return len(listed), missing
+
+
+def write_stamp(
+    root: pathlib.Path, sha: str, *, tests: bool, fingerprint: str = ""
+) -> pathlib.Path:
+    """Записать штамп удачного прогона (``sha`` — коммит на момент прогона)."""
+    path = stamp_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "sha": sha,
+        "at": time.time(),
+        "tests": tests,
+        "fingerprint": fingerprint or worktree_fingerprint(root),
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def read_stamp(root: pathlib.Path) -> dict[str, object]:
+    """Прочитать штамп; пустой словарь, если его нет или он битый."""
+    try:
+        loaded = json.loads(stamp_path(root).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def stamp_is_current(root: pathlib.Path, git: GitRunner = _git) -> bool:
+    """Проверено ли ровно ЭТО содержимое рабочего дерева.
+
+    Коммит между прогоном и пушем штамп не обесценивает — содержимое то же.
+    Любая правка файла после прогона обесценивает: проверяли не это.
+    """
+    stamp = read_stamp(root)
+    recorded = stamp.get("fingerprint")
+    return bool(recorded) and recorded == worktree_fingerprint(root, git)
+
+
+def _read(path: pathlib.Path) -> str:
+    """Текст файла; пустая строка, если прочитать не удалось."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _changed_files(git: GitRunner = _git) -> set[str]:
+    """Файлы ветки против базы плюс рабочее дерево, индекс и НОВЫЕ файлы.
+
+    Неотслеживаемые считаются наравне: правка часто состоит ровно из новых
+    файлов (модуль с тестом, фрагмент changelog), и до ``git add`` они в
+    ``git diff`` не видны — проверка «запись о изменении есть» на этом молча
+    ошибалась.
+    """
+    files: set[str] = set()
+    for args in (
+        ("diff", "--name-only", f"{_BASE}...HEAD"),
+        ("diff", "--name-only"),
+        ("diff", "--name-only", "--cached"),
+        ("ls-files", "--others", "--exclude-standard"),
+    ):
+        files |= set(git_paths(git, *args))
+    return files
+
+
+def _pytest_check(log_dir: pathlib.Path) -> Check:
+    """Шаг прогона набора: сперва пригодность каталога, потом сам ``pytest``.
+
+    Непригодный каталог отсекается ДО запуска намеренно. Иначе он проявляется
+    лавиной ``ERROR at setup`` — по ошибке на каждый тест, — и настоящая
+    причина («каталог не отдаётся процессу») теряется среди тысяч строк, из
+    которых её приходится выкапывать (issue #1291).
+    """
+    base = basetemp_dir()
+    problem = basetemp_problem(base)
+    if problem is not None:
+        return Check(
+            name="pytest (весь набор)",
+            ok=False,
+            detail=f"временный каталог {base} непригоден — {problem}",
+            hint=f"убрать помеху либо задать другой каталог: {_BASETEMP_ENV}=<путь>",
+        )
+    return _run_stage("pytest (весь набор)", _pytest_command(base), log_dir)
+
+
+def _run_stage(title: str, command: Sequence[str], log_dir: pathlib.Path) -> Check:
+    """Прогнать команду, положив вывод ЦЕЛИКОМ в файл, на экран — хвост."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log = log_dir / f"{title.replace(' ', '-')}.log"
+    print(f"  … {title}: {' '.join(command)}")
+    try:
+        completed = subprocess.run(
+            list(command),
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        return Check(name=title, ok=False, detail=f"не удалось запустить: {exc}")
+    log.write_text(completed.stdout + completed.stderr, encoding="utf-8")
+    tail = [line for line in (completed.stdout + completed.stderr).splitlines() if line.strip()]
+    summary = tail[-1] if tail else "пустой вывод"
+    return Check(
+        name=title,
+        ok=completed.returncode == 0,
+        detail=f"{summary}  → полный лог: {log}",
+        hint=f"разбирать по файлу целиком: {log}",
+    )
+
+
+def package_origin() -> pathlib.Path | None:
+    """Каталог, из которого импортируется сам пакет; ``None`` — не импортируется.
+
+    Спрашивается у интерпретатора, а не собирается из корня: ответ на вопрос
+    «что именно проверит прогон» знает только он.
+    """
+    done = _run_guarded(
+        lambda: subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import stepik_grader, pathlib;"
+                " print(pathlib.Path(stepik_grader.__file__).resolve().parent.parent)",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_GIT_LAUNCH_TIMEOUT_S,
+            check=False,
+        )
+    )
+    if done is None or done.returncode != 0:
+        return None
+    line = (done.stdout or "").strip()
+    return pathlib.Path(line) if line else None
+
+
+def check_package_is_this_tree(root: pathlib.Path | None = None) -> Check:
+    """Прогон проверяет код ЭТОГО дерева, а не соседнего (issue #1521).
+
+    ``pip install -e`` ставит пакет из одного клона на весь интерпретатор,
+    поэтому в ``git worktree`` ``import stepik_grader`` ведёт обратно в
+    основной клон. Тесты и скрипты при этом берутся из текущего дерева — и
+    прогон честно отрабатывает гибрид «мои тесты против чужого кода», ничего
+    об этом не сообщая.
+
+    Оба исхода наблюдались в один день. **Ложно-зелёный**: фикс лежал в
+    worktree, прогон показывал прежнее поведение — правка ядра не участвовала,
+    и это читалось как «фикс не работает». **Ложно-красный**: ветка, правившая
+    только ``scripts/``, упала на чужом тесте, потому что основной клон стоял
+    на третьей ветке с другим вердиктом.
+
+    Заметка, а не отказ: worktree для ``scripts/``/``tests/``/документации
+    корректен и заводится ради параллельной работы. Гейт, краснеющий на
+    законном приёме, снимают первой же правкой — здесь нужно, чтобы подмену
+    было ВИДНО до разбора, а не чтобы её запретили.
+    """
+    # Пакет живёт в src-layout, поэтому сравнивается именно `src`: корень
+    # репозитория с каталогом пакета не совпадёт никогда, и проверка вечно
+    # кричала бы о подмене.
+    base = ((root or _ROOT) / "src").resolve()
+    origin = package_origin()
+    if origin is None:
+        return Check(
+            name="пакет из этого дерева",
+            ok=True,
+            detail="пакет не импортируется — проверять нечего",
+            blocking=False,
+        )
+    if origin == base:
+        return Check(
+            name="пакет из этого дерева",
+            ok=True,
+            detail=f"код берётся отсюда: {origin}",
+            blocking=False,
+        )
+    return Check(
+        name="пакет из этого дерева",
+        ok=False,
+        detail=(
+            f"прогон идёт в {base}, а пакет импортируется из {origin} — "
+            "правки src/ здесь НЕ проверяются"
+        ),
+        hint=(
+            "правки ядра ведите в том клоне, откуда поставлен пакет; "
+            "worktree годится для scripts/, tests/ и документации"
+        ),
+        blocking=False,
+    )
+
+
+def _print_report(checks: Sequence[Check]) -> bool:
+    """Напечатать отчёт; вернуть ``True``, если блокирующих провалов нет."""
+    print("\nПредпушевые проверки\n" + "─" * 60)
+    for check in checks:
+        mark = "OK " if check.ok else ("ПРОВАЛ" if check.blocking else "ЗАМЕТКА")
+        print(f"  [{mark:^6}] {check.name}: {check.detail}")
+        if not check.ok and check.hint:
+            print(f"            → {check.hint}")
+    failed = [check for check in checks if not check.ok and check.blocking]
+    print("─" * 60)
+    if failed:
+        print(f"Не пройдено: {len(failed)}. Пуш будет отклонён pre-push хуком.\n")
+        return False
+    print("Всё чисто — можно коммитить и пушить.\n")
+    return True
+
+
+def _install_hook() -> int:
+    """Поставить ``pre-push`` хук, отклоняющий пуш непроверенного коммита."""
+    hooks_dir = pathlib.Path(_git("rev-parse", "--git-path", "hooks") or ".git/hooks")
+    if not hooks_dir.is_absolute():
+        hooks_dir = _ROOT / hooks_dir
+    try:
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        hook = hooks_dir / "pre-push"
+        hook.write_text(_HOOK_BODY, encoding="utf-8")
+        hook.chmod(0o755)
+    except OSError as exc:
+        print(f"Не удалось поставить хук: {exc}", file=sys.stderr)
+        return 1
+    print(f"pre-push хук поставлен: {hook}")
+    print("Пуш непроверенного коммита будет отклонён; аварийный выход — PREFLIGHT_SKIP=1.")
+    return 0
+
+
+def _gate_push() -> int:
+    """Быстрая проверка перед пушем: штамп относится к текущему ``HEAD``.
+
+    Ничего не гоняет — прогон уже был. Проверяется ровно то, что забывается:
+    что проверенное состояние и есть то, которое уезжает на origin.
+    """
+    if os.environ.get(_SKIP_ENV):
+        print(f"{_SKIP_ENV}=1 — проверка пропущена осознанно.", file=sys.stderr)
+        return 0
+    if stamp_is_current(_ROOT):
+        return 0
+    stamp = read_stamp(_ROOT)
+    known = "штампа нет" if not stamp else "содержимое изменилось после прогона"
+    print(
+        f"Пуш отклонён: {known}.\n"
+        "Запустите: python scripts/preflight.py\n"
+        f"Аварийный выход, если прогон негде сделать: {_SKIP_ENV}=1 git push ...",
+        file=sys.stderr,
+    )
+    return 1
+
+
+def _force_utf8_stdio() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли (issue #1108).
+
+    Отчёт гейта — русский, в рамке из ``─`` и со стрелками ``→``; в консоли
+    cp1251 таких символов нет, и ``print`` падал ``UnicodeEncodeError`` вместе
+    со всей проверкой. Гейт при этом сообщал СВОЮ ошибку вместо результата —
+    ровно то, ради чего его запускают, узнать было нельзя, включая ``--help``.
+
+    Собственная копия приёма, а не общий ``stepik_grader.stdio_encoding``:
+    скрипт принципиально не импортирует пакет — он работает и там, где пакет не
+    установлен. No-op на потоках без ``reconfigure`` (перехваченных pytest).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Прогнать гигиену ветки и (по умолчанию) весь набор проверок CI."""
+    # Раньше любой печати, включая справку argparse: описание флагов русское.
+    _force_utf8_stdio()
+    # issue #1507: и раньше любой работы. Гейт, отработавший под версией,
+    # которой нет ни в `requires-python`, ни в матрице CI, отвечает не на тот
+    # вопрос, который ему задали. Проверка живёт здесь, а не на уровне модуля:
+    # набор импортирует этот файл как библиотеку, и `SystemExit` при импорте
+    # убил бы сбор тестов вместо того, чтобы остановить один запуск.
+    _require_python.require("preflight.py")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--branch-only", action="store_true", help="только гигиена ветки, без прогонов"
+    )
+    parser.add_argument(
+        "--no-tests", action="store_true", help="без pytest (правки только в докáх)"
+    )
+    parser.add_argument("--force-lock", action="store_true", help="перехватить блокировку прогона")
+    parser.add_argument("--install-hook", action="store_true", help="поставить pre-push хук")
+    parser.add_argument("--gate-push", action="store_true", help="режим хука: проверить штамп")
+    args = parser.parse_args(argv)
+
+    if args.install_hook:
+        return _install_hook()
+    if args.gate_push:
+        return _gate_push()
+
+    subprocess.run(["git", "fetch", "origin", "main"], cwd=_ROOT, capture_output=True, check=False)
+
+    checks: list[Check] = [
+        # issue #1521: первым — «что вообще проверит прогон». Остальные ответы
+        # имеют смысл только после этого: гибрид «мои тесты против чужого
+        # кода» выглядит обычным прогоном и выдаёт вердикт про состояние,
+        # которого нет ни в одной ветке.
+        check_package_is_this_tree(),
+        check_branch_not_main(),
+        check_branch_fresh(),
+        check_branch_not_taken(),
+        check_changelog_buffer(),
+        check_commit_authorship(),
+        check_agent_signature(),
+        check_tests_mentioning_changed_names(),
+        check_work_overlap(),
+        check_adr_records(),
+    ]
+
+    if args.branch_only:
+        return 0 if _print_report(checks) else 1
+
+    lock = lock_path(_ROOT)
+    if not _acquire_lock(lock, force=args.force_lock):
+        print(
+            f"Прогон уже идёт (блокировка {lock}). Два параллельных pytest исчерпывают\n"
+            "дескрипторы, и тесты с subprocess падают пачкой — это среда, а не регрессия.\n"
+            "Дождитесь первого прогона или перехватите: --force-lock",
+            file=sys.stderr,
+        )
+        return 1
+
+    log_dir = logs_dir(_ROOT)
+    try:
+        checks.append(
+            _run_stage("ruff check", [sys.executable, "-m", "ruff", "check", "."], log_dir)
+        )
+        checks.append(
+            _run_stage(
+                "ruff format", [sys.executable, "-m", "ruff", "format", "--check", "."], log_dir
+            )
+        )
+        checks.append(_run_stage("mypy", _mypy_command(), log_dir))
+        if not args.no_tests:
+            checks.append(_pytest_check(log_dir))
+    finally:
+        lock.unlink(missing_ok=True)
+
+    ok = _print_report(checks)
+    if ok:
+        head = _git("rev-parse", "HEAD")
+        stamp = write_stamp(_ROOT, head, tests=not args.no_tests)
+        seen, missing = fingerprint_coverage(_ROOT)
+        # Правило 165: охват называется числом. Без него слепота отпечатка
+        # неотличима от чистого обхода — ровно так он и не замечал файлы с
+        # кириллическими именами (issue #1417).
+        coverage = f"учтено путей: {seen}"
+        if missing:
+            coverage += f", НЕ РАЗРЕШИЛИСЬ: {missing}"
+        print(f"Штамп проверенного коммита: {stamp} ({head[:8]}); {coverage}")
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

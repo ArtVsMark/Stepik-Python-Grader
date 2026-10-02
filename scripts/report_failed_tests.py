@@ -1,0 +1,383 @@
+"""report_failed_tests.py — упавшие тесты названы там, где их видно (issue #1382).
+
+Артефакты и логи Actions читаются только со скоупом ``actions``, которого у
+облачной сессии нет: прокси отвечает 403. Поэтому junit-отчёт (#1378) отвечает
+на вопрос «какой тест упал» только владельцу, у которого есть веб-интерфейс, а
+тот, кто чинит из облака, видит ровно одну строку — ``Process completed with
+exit code 1``. Цена этой слепоты измерена: причину падения трёх macOS-джобов
+пришлось искать тремя полными прогонами набора локально, подбирая условия.
+
+Открытый канал ровно один — **комментарий PR** (REST issues). Скрипт разбирает
+junit-отчёты, собранные джобами матрицы, и кладёт в PR короткую сводку: какой
+джоб, какой тест, первая строка ошибки.
+
+Три решения, которые здесь важнее кода:
+
+1. **Комментарий один и обновляется**, а не добавляется каждым прогоном. Ищется
+   он по скрытому маркеру :data:`MARKER` — тот же приём, что у
+   ``scripts/rules_inbox.py``: номер пришлось бы где-то хранить, а хранимое
+   состояние разъезжается.
+2. **Объём ограничен** (:data:`_DEFAULT_LIMIT`). Сводка нужна, чтобы понять,
+   куда смотреть, а не чтобы заменить отчёт: остальные упавшие названы числом.
+   Молчаливой обрезки нет — она читалась бы как «это всё».
+3. **Пишет только с** ``--apply``. Без него печатает то, что отправил бы.
+   Но адресат без ``--apply`` — почти наверняка ошибка вызова, а не сухой
+   прогон: так шаг ``ci.yml`` для pull request месяц печатал сводку в лог,
+   недоступный облачной сессии, и ни разу её не опубликовал (issue #1541).
+   Поэтому такой вызов предупреждает вслух, а сводка в любом исходе пишется
+   ещё и в summary прогона.
+
+Исходов у сводки три, и сливаться им нельзя (правило 039): «отчётов не
+скачалось» — это поломка доставки отчётов, «отчёты прочитаны, падений в них
+нет» — смерть джоба до тела тестов, «упало K тестов» — само падение. Число
+прочитанных отчётов называется всегда: «прочитал 14, падений 0» и «прочитал 0»
+— разные диагнозы с разным виновником.
+
+Скрипт не решает, красный прогон или зелёный: его зовут из шага, который и так
+запускается только при падении.
+"""
+
+import argparse
+import os
+import pathlib
+import sys
+import xml.etree.ElementTree as ET
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+
+import contextlib
+
+import gh_rest
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
+__all__ = [
+    "MARKER",
+    "Failure",
+    "collect",
+    "count_reports",
+    "main",
+    "parse_report",
+    "render",
+]
+
+#: Скрытый маркер, по которому комментарий находится в следующий раз.
+MARKER = "<!-- ci-failures -->"
+
+#: Сколько упавших тестов называется поимённо. Остальные — числом.
+_DEFAULT_LIMIT = 25
+
+#: Сколько строк остатка сообщения показывается под одним тестом (issue #1514).
+#: Комментарий GitHub ограничен 65536 символами, и сводка уже режет список по
+#: `_DEFAULT_LIMIT`; здесь второй предел — по глубине, а не по числу пунктов.
+_DETAIL_LINES = 30
+
+#: Имя файла отчёта: `test-results-<os>-<python>.xml` (см. `ci.yml`).
+_REPORT_GLOB = "test-results-*.xml"
+_REPORT_PREFIX = "test-results-"
+
+
+@dataclass(frozen=True)
+class Failure:
+    """Один упавший тест: где, что и с чего началось.
+
+    Attributes:
+        job: комбинация матрицы, из имени файла отчёта.
+        test: путь до теста в форме, пригодной для `pytest ...`.
+        kind: `failure` (упал) или `error` (сломался на фикстуре/сборе).
+        message: первая содержательная строка сообщения — заголовок.
+        details: остальные строки сообщения; пусто, если их нет (issue #1514).
+    """
+
+    job: str
+    test: str
+    kind: str
+    message: str
+    details: tuple[str, ...] = ()
+
+
+def _job_name(path: pathlib.Path) -> str:
+    """`test-results-ubuntu-latest-3.12.xml` → `ubuntu-latest-3.12`."""
+    name = path.stem
+    return name[len(_REPORT_PREFIX) :] if name.startswith(_REPORT_PREFIX) else name
+
+
+def _first_line(text: str | None) -> str:
+    """Первая непустая строка сообщения — заголовок ошибки, а не весь traceback."""
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return "без сообщения"
+
+
+def _rest_of_message(text: str | None) -> list[str]:
+    """Строки сообщения ПОСЛЕ заголовка — то, ради чего его и писали.
+
+    issue #1514: заголовка хватает обычному падению (``assert 3 == 4`` умещается
+    в строку), но не тому, где диагноз положили ниже намеренно. Живой случай —
+    ``test_concurrent_cross_process_appends_lose_nothing``: после #924 туда
+    доносится ``stderr`` упавшего воркера, и сводка печатала ровно
+    «воркеры завершились с ненулевым кодом:», обрывая текст на двоеточии.
+
+    Это не косметика: логи Actions и содержимое артефактов облачной сессии
+    недоступны (403), то есть комментарий — единственный носитель ответа.
+    """
+    lines = (text or "").splitlines()
+    seen_head = False
+    tail: list[str] = []
+    for line in lines:
+        if not seen_head:
+            if line.strip():
+                seen_head = True
+            continue
+        tail.append(line.rstrip())
+    while tail and not tail[0].strip():
+        tail.pop(0)
+    while tail and not tail[-1].strip():
+        tail.pop()
+    return tail
+
+
+def _details_block(details: Sequence[str]) -> list[str]:
+    """Свёрнутый блок с остатком сообщения; нет остатка — нет и блока.
+
+    Свёрнутый, а не развёрнутый: у обычного падения остаток — хвост traceback,
+    и десяток таких превратил бы сводку в простыню, из-за которой её перестанут
+    читать. Развернуть — один клик, и он делается тогда, когда заголовка не
+    хватило.
+    """
+    if not details:
+        return []
+    shown = list(details[:_DETAIL_LINES])
+    if len(details) > _DETAIL_LINES:
+        shown.append(f"…и ещё {len(details) - _DETAIL_LINES} строк(и).")
+    return [
+        "",
+        "  <details><summary>сообщение целиком</summary>",
+        "",
+        "  ```",
+        *(f"  {line}" for line in shown),
+        "  ```",
+        "",
+        "  </details>",
+    ]
+
+
+def _test_id(case: ET.Element) -> str:
+    """`classname` + `name` → адрес, по которому тест запускается вручную."""
+    classname = (case.get("classname") or "").replace(".", "/")
+    name = case.get("name") or "?"
+    if not classname:
+        return name
+    # `tests/test_x/TestClass` → `tests/test_x.py::TestClass`: последний
+    # сегмент, начинающийся с заглавной, — класс, остальное путь к модулю.
+    parts = classname.split("/")
+    if len(parts) > 1 and parts[-1][:1].isupper():
+        return f"{'/'.join(parts[:-1])}.py::{parts[-1]}::{name}"
+    return f"{classname}.py::{name}"
+
+
+def parse_report(path: pathlib.Path) -> list[Failure]:
+    """Разобрать один junit-отчёт; нечитаемый файл — пустой список, не отказ.
+
+    Args:
+        path: файл отчёта, записанный `pytest --junitxml`.
+
+    Returns:
+        Упавшие и сломавшиеся тесты этого джоба.
+    """
+    job = _job_name(path)
+    try:
+        tree = ET.parse(path)
+    except (ET.ParseError, OSError):
+        # Обрезанный отчёт — не повод падать: он и пишется на аварийном пути.
+        return []
+
+    failures: list[Failure] = []
+    for case in tree.getroot().iter("testcase"):
+        for kind in ("failure", "error"):
+            node = case.find(kind)
+            if node is None:
+                continue
+            raw = node.get("message") or node.text
+            message = _first_line(raw)
+            failures.append(
+                Failure(job, _test_id(case), kind, message, tuple(_rest_of_message(raw)))
+            )
+            break
+    return failures
+
+
+def collect(directory: pathlib.Path) -> list[Failure]:
+    """Собрать упавшие тесты со всех отчётов каталога, по джобам и именам."""
+    found: list[Failure] = []
+    for report in sorted(directory.rglob(_REPORT_GLOB)):
+        found.extend(parse_report(report))
+    return sorted(found, key=lambda item: (item.job, item.test))
+
+
+def count_reports(directory: pathlib.Path) -> int:
+    """Сколько junit-отчётов лежит в каталоге — тем же образцом, что и разбор."""
+    return sum(1 for _ in directory.rglob(_REPORT_GLOB)) if directory.is_dir() else 0
+
+
+def render(
+    failures: Iterable[Failure],
+    *,
+    run_url: str | None = None,
+    limit: int = _DEFAULT_LIMIT,
+    reports: int | None = None,
+) -> str:
+    """Собрать текст комментария со скрытым маркером в первой строке.
+
+    ``reports`` — сколько отчётов прочитано; ``None`` — не считали (вызов из
+    кода, которому число не нужно).
+    """
+    items = list(failures)
+    lines = [MARKER, ""]
+    if not items and reports == 0:
+        lines += [
+            "**Прогон красный, а отчётов тестов не скачалось ни одного.**",
+            "",
+            "Это поломка доставки, а не тестов: джобы не выгрузили "
+            "`test-results-*` (выгрузка с `if-no-files-found: ignore` молчит), "
+            "либо скачивание не нашло артефактов. Какой тест упал, отсюда не "
+            "видно — смотреть логи прогона.",
+        ]
+    elif not items:
+        lines += [
+            "**Прогон красный, но ни один тест не назвал себя упавшим.**",
+            "",
+            "Значит джоб умер до тела тестов — установка, сборка, сам раннер — "
+            "либо отчёт не успел записаться. Смотреть логи прогона.",
+        ]
+    else:
+        jobs = sorted({item.job for item in items})
+        lines += [
+            f"**Упало тестов: {len(items)}** — в джобах: {', '.join(f'`{job}`' for job in jobs)}.",
+            "",
+        ]
+        for item in items[:limit]:
+            lines.append(f"- `{item.job}` — `{item.test}`  \n  {item.kind}: {item.message}")
+            lines.extend(_details_block(item.details))
+        if len(items) > limit:
+            lines += ["", f"…и ещё {len(items) - limit}. Полный список — в артефакте прогона."]
+    if reports is not None:
+        lines += ["", f"Прочитано отчётов: {reports}."]
+    if run_url:
+        lines += ["", f"Прогон: {run_url}"]
+    lines += [
+        "",
+        "---",
+        "_Сводка обновляется на каждом красном прогоне этого PR "
+        "(`scripts/report_failed_tests.py`, issue #1382)._",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _existing_comment(repo: str, number: int, **kwargs: object) -> int | None:
+    """Номер прежней сводки в этом PR — по маркеру, а не по автору."""
+    return _marked(gh_rest.issue_comments(repo, number, **kwargs))
+
+
+def _existing_commit_comment(repo: str, sha: str, **kwargs: object) -> int | None:
+    """Номер прежней сводки у коммита — тем же маркером (issue #1519)."""
+    return _marked(gh_rest.commit_comments(repo, sha, **kwargs))
+
+
+def _marked(comments: list[dict[str, object]]) -> int | None:
+    """Первый комментарий со скрытым маркером — общий разбор для обоих адресатов.
+
+    Ищем по маркеру, а не по автору: прогон бывает перезапущен, и вторая
+    сводка читалась бы как второе падение.
+    """
+    for comment in comments:
+        if MARKER in str(comment.get("body") or ""):
+            identifier = comment.get("id")
+            if isinstance(identifier, int):
+                return identifier
+    return None
+
+
+def _write_step_summary(body: str) -> None:
+    """Сводку — ещё и в summary прогона: этот канал не зависит ни от прав, ни от адресата."""
+    target = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not target:
+        return
+    try:
+        with pathlib.Path(target).open("a", encoding="utf-8") as handle:
+            handle.write(body)
+    except OSError as exc:
+        print(f"::warning::summary прогона не записан: {exc}", file=sys.stderr)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Точка входа: разобрать отчёты и (с ``--apply``) обновить сводку в PR."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dir", type=pathlib.Path, default=pathlib.Path("."))
+    parser.add_argument("--repo", default=gh_rest.DEFAULT_REPO)
+    parser.add_argument("--pr", type=int, help="номер pull request")
+    parser.add_argument(
+        "--commit",
+        help="sha коммита — адресат сводки там, где PR нет вовсе (push в main)",
+    )
+    parser.add_argument("--run-url", help="ссылка на прогон")
+    parser.add_argument("--limit", type=int, default=_DEFAULT_LIMIT)
+    parser.add_argument("--apply", action="store_true", help="писать в PR, а не печатать")
+    args = parser.parse_args(argv)
+
+    reports = count_reports(args.dir)
+    failures = collect(args.dir)
+    body = render(failures, run_url=args.run_url, limit=args.limit, reports=reports)
+    print(f"прочитано отчётов: {reports}, упавших тестов: {len(failures)}")
+    _write_step_summary(body)
+    if not args.apply or (args.pr is None and not args.commit):
+        if args.pr is not None or args.commit:
+            print(
+                "::warning::адресат сводки задан (--pr/--commit), но без --apply она "
+                "НЕ опубликована — только напечатана в лог (issue #1541)"
+            )
+        print(body)
+        return gh_rest.EXIT_OK
+
+    # Третий исход (правило 039): «сводку опубликовали» и «GitHub не ответил» —
+    # разные вещи. Без этого шаг зеленел бы при отсутствии прав, то есть о
+    # молчании канала не узнал бы никто — а канал здесь и есть весь смысл.
+    try:
+        if args.pr is not None:
+            existing = _existing_comment(args.repo, args.pr)
+            if existing is None:
+                gh_rest.comment_issue(args.repo, args.pr, body)
+                print(f"сводка добавлена в PR #{args.pr}")
+            else:
+                gh_rest.update_comment(args.repo, existing, body)
+                print(f"сводка обновлена в PR #{args.pr} (комментарий {existing})")
+        else:
+            # У `push` в main адресата-PR нет, а разбирать красноту всё равно
+            # кому-то придётся: комментарий коммита — тот же канал, тот же
+            # токен, тот же маркер (issue #1519).
+            existing = _existing_commit_comment(args.repo, args.commit)
+            if existing is None:
+                gh_rest.comment_commit(args.repo, args.commit, body)
+                print(f"сводка добавлена к коммиту {args.commit[:8]}")
+            else:
+                gh_rest.update_commit_comment(args.repo, existing, body)
+                print(f"сводка обновлена у коммита {args.commit[:8]} (комментарий {existing})")
+    except gh_rest.RateLimited as exc:
+        print(f"квота исчерпана, сводка не опубликована: {exc}", file=sys.stderr)
+        return gh_rest.EXIT_WAIT
+    except gh_rest.GitHubError as exc:
+        print(f"сводка не опубликована — GitHub отказал: {exc}", file=sys.stderr)
+        return 2
+    return gh_rest.EXIT_OK
+
+
+if __name__ == "__main__":  # pragma: no cover — точка входа
+    raise SystemExit(main())

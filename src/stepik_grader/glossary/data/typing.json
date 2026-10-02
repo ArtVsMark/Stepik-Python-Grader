@@ -1,0 +1,2261 @@
+[
+  {
+    "id": "typing.Any",
+    "title": "typing.Any",
+    "kind": "term",
+    "summary": {
+      "ru": "Специальный тип: совместим с любым типом. Отключает проверку типов. Используется при миграции кода или для действительно динамических значений.",
+      "en": "A special type compatible with every other type. It turns type checking off. Used when migrating code or for genuinely dynamic values."
+    },
+    "body": {
+      "ru": "Any заразен: всё, что вы достали из Any-значения, тоже становится Any, и проверка молча гаснет в целом куске кода — поэтому одна ленивая аннотация способна обесценить типизацию всего модуля. Если смысл в том, что подойдёт любой объект, но пользоваться им вы собираетесь осторожно, честнее написать object: анализатор тогда заставит сузить тип перед вызовом методов. Any — это осознанное «я отключаю проверку здесь», а не «я пока не придумал тип».",
+      "en": "Any is contagious: anything you pull out of an Any value is Any as well, so type checking quietly evaporates across a whole region of code and one lazy annotation can undo the typing of an entire module. If you really mean \"any object at all\" but intend to handle it carefully, object is the honest choice — the checker will then force you to narrow before calling methods. Treat Any as a deliberate \"checking off here\", not as a placeholder for a type you have not worked out yet."
+    },
+    "syntax": "from typing import Any\nx: Any = ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Any",
+    "version": "",
+    "section": "Аннотации и typing",
+    "subcat": "any",
+    "aliases": [
+      "Any"
+    ],
+    "keywords": [
+      "typing.Any",
+      "Any"
+    ],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Any",
+      "def log(value: Any) -> None: print(value)",
+      "log(42)  # → 42",
+      "log('text')  # → text",
+      "log([1, 2, 3])  # → [1, 2, 3]",
+      "data: list[Any] = [1, 'a', None, 3.14]  # смешанный список",
+      "print(type(data[0]))  # → <class 'int'>",
+      "print(Any)  # → typing.Any"
+    ],
+    "related": [
+      "аннотации-типов-type-hints",
+      "object",
+      "typing.cast"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "callable-arg-ret",
+    "title": "Callable[[arg], ret]",
+    "kind": "term",
+    "summary": {
+      "ru": "Аннотация для callable-объектов. Callable[[A1, A2], R] — принимает A1, A2, возвращает R. Callable[..., R] — любые аргументы.",
+      "en": "Annotation for callable objects. Callable[[A1, A2], R] takes A1, A2 and returns R. Callable[..., R] accepts any arguments."
+    },
+    "body": {
+      "ru": "Внутренние скобки — это список типов аргументов, причём только позиционных: именованные параметры, значения по умолчанию и *args через Callable описать нельзя, для этого нужен Protocol с методом __call__. Многоточие в Callable[..., R] означает «аргументы любые», а не «без аргументов» — пустой список аргументов записывается двумя пустыми скобками. С Python 3.9 typing.Callable считается устаревшим: в новом коде берут collections.abc.Callable.",
+      "en": "The inner brackets list the argument types, and only positional ones: keyword parameters, defaults and *args simply cannot be expressed with Callable — use a Protocol with a __call__ method instead. The ellipsis form means \"any arguments at all\", not \"no arguments\"; a no-argument callable is written with an empty inner list. Since Python 3.9 typing.Callable is deprecated in favour of collections.abc.Callable."
+    },
+    "syntax": "from typing import Callable\nCallable[[ArgType, ...], ReturnType]",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Callable",
+    "version": "",
+    "section": "Аннотации и typing",
+    "subcat": "callable",
+    "aliases": [
+      "тип вызываемого объекта",
+      "аннотация функции как параметра"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Callable",
+      "def apply(f: Callable[[int], int], x: int) -> int:",
+      "    return f(x)",
+      "print(apply(lambda x: x * 2, 5))  # → 10",
+      "def run(cb: Callable[[], None]) -> None:",
+      "    cb()",
+      "    run(lambda: print('called'))  # → called",
+      "def transform(data: list, fn: Callable[[int], int]) -> list:",
+      "    return [fn(x) for x in data]",
+      "print(transform([1, 2, 3], lambda x: x ** 2))  # → [1, 4, 9]",
+      "print(callable(print))  # → True"
+    ],
+    "related": [
+      "callable",
+      "вызываемые-объекты-__call__",
+      "typing.ParamSpec"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "classvar",
+    "title": "ClassVar",
+    "kind": "term",
+    "summary": {
+      "ru": "Указывает, что переменная является переменной класса, а не экземпляра. Не должна присваиваться через self.",
+      "en": "Marks a variable as belonging to the class rather than to the instance. It must not be assigned through self."
+    },
+    "body": {
+      "ru": "Сама аннотация ничего не запрещает — присваивание через self всё равно создаст атрибут экземпляра, который затенит классовый, и укажет на это только статический анализатор. Настоящий эффект ClassVar проявляется в dataclass: поле с такой аннотацией не попадает ни в сгенерированный __init__, ни в fields() и остаётся обычной константой класса. Помните и про общий подвох классовых атрибутов: изменяемый список или словарь один на всех, и правка на месте видна из каждого экземпляра.",
+      "en": "The annotation enforces nothing by itself — assigning through self still creates an instance attribute that shadows the class one, and only a type checker will complain. Where ClassVar really bites is dataclasses: such a field is excluded from the generated __init__ and from fields(), staying a plain class-level constant. Also mind the usual class-attribute trap — a mutable list or dict is shared by every instance, so mutating it in place is visible everywhere."
+    },
+    "syntax": "from typing import ClassVar\nclass MyClass:\n    attr: ClassVar[type] = value",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.ClassVar",
+    "version": "3.5",
+    "section": "Аннотации и typing",
+    "subcat": "атрибуты",
+    "aliases": [
+      "переменная класса в аннотации",
+      "поле класса, а не экземпляра"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import ClassVar",
+      "class Counter:",
+      "    count: ClassVar[int] = 0",
+      "    def __init__(self): Counter.count += 1",
+      "c1 = Counter()",
+      "c2 = Counter()",
+      "print(Counter.count)  # → 2",
+      "class Config:",
+      "    debug: ClassVar[bool] = False",
+      "    host: str = 'localhost'",
+      "print(Config.debug)  # → False",
+      "print(Config.host)  # → localhost",
+      "Config.debug = True",
+      "print(Config.debug)  # → True"
+    ],
+    "related": [
+      "атрибуты-экземпляра-и-класса",
+      "dataclass",
+      "final"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "final",
+    "title": "Final",
+    "kind": "term",
+    "summary": {
+      "ru": "Обозначает переменную как константу — не должна переназначаться после инициализации. Только для статического анализа.",
+      "en": "Marks a variable as a constant — it must not be reassigned after initialization. For static analysis only."
+    },
+    "body": {
+      "ru": "Final запрещает переназначать имя, но не делает объект неизменяемым: список, помеченный как Final, всё ещё можно дополнять и сортировать на месте. Проверяет это только статический анализатор — интерпретатор спокойно выполнит повторное присваивание, никакой ошибки во время выполнения не будет. Не путать с декоратором @final: тот про запрет наследовать класс и переопределять метод.",
+      "en": "Final forbids rebinding the name, not mutating the object: a list marked Final can still be appended to and sorted in place. Only a static checker enforces it — the interpreter happily performs a reassignment, with no runtime error at all. Do not confuse it with the @final decorator, which forbids subclassing a class or overriding a method."
+    },
+    "syntax": "from typing import Final\nX: Final = value\nX: Final[type] = value",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Final",
+    "version": "3.8",
+    "section": "Аннотации и typing",
+    "subcat": "константы",
+    "aliases": [
+      "константа в аннотации",
+      "запрет переназначения переменной"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Final",
+      "MAX_SIZE: Final = 100",
+      "PI: Final[float] = 3.14159",
+      "print(MAX_SIZE)  # → 100",
+      "print(PI)  # → 3.14159",
+      "class Config:",
+      "    HOST: Final = 'localhost'",
+      "    PORT: Final[int] = 8080",
+      "print(Config.HOST)  # → localhost",
+      "print(Config.PORT)  # → 8080"
+    ],
+    "related": [
+      "classvar",
+      "typing.override",
+      "аннотации-типов-type-hints"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "generic-t",
+    "title": "Generic[T]",
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс для создания обобщённых пользовательских классов. Параметры типа задаются через TypeVar.",
+      "en": "Base class for writing generic user-defined classes. The type parameters are declared with TypeVar."
+    },
+    "body": {
+      "ru": "С Python 3.12 наследовать Generic и заводить TypeVar вручную больше не нужно — параметры типа объявляются прямо в заголовке класса, в квадратных скобках после имени. Параметры существуют только для проверяющего: во время выполнения они стираются, поэтому isinstance с параметризованным типом бросит TypeError. Если параметров несколько, их порядок в Generic задаёт порядок при подстановке типов на месте использования.",
+      "en": "Since Python 3.12 you no longer inherit from Generic or declare a TypeVar by hand — the type parameters go straight into the class header, in brackets after the name. Those parameters exist for the checker only: they are erased at runtime, so isinstance against a parameterized type raises TypeError. With several parameters, their order in Generic fixes the order callers must use when supplying concrete types."
+    },
+    "syntax": "from typing import Generic, TypeVar\nT = TypeVar('T')\nclass MyClass(Generic[T]): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Generic",
+    "version": "",
+    "section": "Аннотации и typing",
+    "subcat": "generics",
+    "aliases": [
+      "обобщённый класс",
+      "дженерики",
+      "параметризация типа"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Generic, TypeVar",
+      "T = TypeVar('T')",
+      "class Stack(Generic[T]):",
+      "    def __init__(self): self._items: list[T] = []",
+      "    def push(self, item: T) -> None: self._items.append(item)",
+      "    def pop(self) -> T: return self._items.pop()",
+      "s: Stack[int] = Stack()",
+      "s.push(1)",
+      "s.push(2)",
+      "print(s.pop())  # → 2",
+      "print(len(s._items))  # → 1",
+      "s.push(10)",
+      "print(s.pop())  # → 10",
+      "print(len(s._items))  # → 1"
+    ],
+    "related": [
+      "typevar",
+      "typing.Generic",
+      "protocol"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "int-str-list-dict-аннотации",
+    "title": "int / str / list / dict (аннотации)",
+    "kind": "function",
+    "summary": {
+      "ru": "С Python 3.9+ встроенные типы используются как обобщения напрямую: list[int], dict[str, int]. Ранее нужен был typing.List, typing.Dict.",
+      "en": "Since Python 3.9 the built-in types are used as generics directly: list[int], dict[str, int]. Earlier this required typing.List and typing.Dict."
+    },
+    "body": {
+      "ru": "Интерпретатор аннотации не проверяет: функция, объявленная как принимающая list[int], без единого возражения примет список строк — расхождение найдёт только mypy или похожий анализатор. Тип указывается один на весь контейнер, поэтому для разнородных данных берут union или tuple с фиксированными типами по позициям. typing.List и typing.Dict формально устарели с 3.9 и живут только ради совместимости со старым кодом.",
+      "en": "Annotations are not checked at runtime: a function declared to take list[int] will accept a list of strings without a murmur — only mypy or a similar checker will spot the mismatch. One type applies to the whole container, so heterogeneous data calls for a union or a tuple with per-position types. typing.List and typing.Dict have been deprecated since 3.9 and remain only for compatibility with older code."
+    },
+    "syntax": "x: int = 5\ns: str = 'hi'\nitems: list[int] = [1, 2, 3]\nmapping: dict[str, int] = {'a': 1}",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#types-genericalias",
+    "version": "3.9",
+    "section": "Аннотации и typing",
+    "subcat": "встроенные",
+    "aliases": [
+      "встроенные типы в аннотациях",
+      "аннотация списка и словаря"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "def greet(name: str) -> str:",
+      "    return f'Hello, {name}'",
+      "print(greet('Alice'))  # → Hello, Alice!",
+      "def total(nums: list[int]) -> int:",
+      "    return sum(nums)",
+      "print(total([1, 2, 3]))  # → 6",
+      "coords: tuple[float, float] = (1.0, 2.0)  # → аннотация кортежа",
+      "matrix: list[list[int]] = [[1, 2], [3, 4]]  # → вложенные типы"
+    ],
+    "related": [
+      "аннотации-типов-type-hints",
+      "union-x-y-x-y",
+      "generic-t"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "literal-v1-v2",
+    "title": "Literal[v1, v2]",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип, допускающий только конкретные литеральные значения. Позволяет mypy/pyright проверить, что передаётся допустимое значение.",
+      "en": "A type that admits only the given literal values. Lets mypy/pyright check that an allowed value is passed."
+    },
+    "body": {
+      "ru": "Literal живёт только в голове проверяющего типы: в рантайме ничего не сверяется, и open_file('f.txt', 'x') спокойно выполнится — нужен именно запуск mypy или pyright. Второй подвох — внутрь скобок кладут только сами литералы (строки, int, bool, None, члены Enum), не переменные и не выражения; и если положить значение в обычную переменную, её тип выведется как str, а не как Literal, поэтому такой аргумент проверка отвергнет — объявляйте переменную с типом-алиасом или как Final.",
+      "en": "Literal exists only for the type checker: nothing is verified at runtime, and open_file('f.txt', 'x') runs happily unless you actually run mypy or pyright. The other catch is that only literals themselves go inside the brackets (strings, ints, bools, None, Enum members) — no variables or expressions; and a value stashed in an ordinary variable is inferred as str rather than as the literal, so passing it gets rejected. Annotate that variable with the alias type or mark it Final."
+    },
+    "syntax": "from typing import Literal\nLiteral['read', 'write']\nLiteral[1, 2, 3]",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Literal",
+    "version": "3.8",
+    "section": "Аннотации и typing",
+    "subcat": "литерал",
+    "aliases": [
+      "тип из конкретных значений",
+      "ограничить допустимые значения аргумента"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Literal",
+      "Mode = Literal['r', 'w', 'a']",
+      "def open_file(path: str, mode: Mode) -> None:",
+      "    print(f'open {path} as {mode}')",
+      "open_file('f.txt', 'r')  # → open f.txt as r",
+      "open_file('f.txt', 'w')  # → open f.txt as w",
+      "Direction = Literal['N', 'S', 'E', 'W']",
+      "def move(d: Direction) -> str:",
+      "    return f'Moving {d}'",
+      "print(move('N'))  # → Moving N",
+      "print(move('S'))  # → Moving S"
+    ],
+    "related": [
+      "union-x-y-x-y",
+      "enum",
+      "final"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "namedtuple",
+    "title": "NamedTuple",
+    "kind": "term",
+    "summary": {
+      "ru": "Типизированный именованный кортеж через наследование. Синтаксис класса с аннотациями.",
+      "en": "A typed named tuple defined by inheritance. Class syntax with annotations."
+    },
+    "body": {
+      "ru": "Берите NamedTuple, когда нужна неизменяемая хешируемая запись, которая ведёт себя как кортеж: распаковка, индексация, использование ключом словаря, экономия памяти. Если поля должны меняться или планируется наследование и своя логика — это работа для dataclass. Ловушка ровно в том, что это настоящий кортеж: Point(1.0, 2.0) == (1.0, 2.0) даёт True, так что тип не спасёт от случайного смешивания с обычными кортежами.",
+      "en": "Reach for NamedTuple when you want an immutable, hashable record that still behaves like a tuple: unpacking, indexing, use as a dict key, small memory footprint. If the fields have to change, or you need inheritance and custom behaviour, a dataclass fits better. The trap is that it really is a tuple: Point(1.0, 2.0) == (1.0, 2.0) is True, so the type will not protect you from mixing it up with plain tuples."
+    },
+    "syntax": "from typing import NamedTuple\nclass MyTuple(NamedTuple):\n    field: type",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.NamedTuple",
+    "version": "",
+    "section": "Аннотации и typing",
+    "subcat": "namedtuple",
+    "aliases": [
+      "типизированный именованный кортеж",
+      "кортеж с полями и типами"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import NamedTuple",
+      "class Point(NamedTuple):",
+      "    x: float",
+      "    y: float",
+      "    label: str = ''",
+      "p = Point(1.0, 2.0, 'A')",
+      "print(p.x)  # → 1.0",
+      "print(p.label)  # → A",
+      "print(p._asdict())  # → {'x': 1.0, 'y': 2.0, 'label': 'A'}",
+      "print(p._replace(x=5.0))  # → Point(x=5.0, y=2.0, label='A')"
+    ],
+    "related": [
+      "collections.namedtuple",
+      "dataclass",
+      "typeddict",
+      "наименованный-кортеж-namedtuple"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "optional-x-x-none",
+    "title": "Optional[X] / X | None",
+    "kind": "term",
+    "summary": {
+      "ru": "Optional[X] означает X | None. С Python 3.10+ можно писать X | None напрямую. Применяется для значений, которые могут отсутствовать.",
+      "en": "Optional[X] means X | None. Since Python 3.10 you can write X | None directly. Used for values that may be absent."
+    },
+    "body": {
+      "ru": "Главная путаница новичков: Optional не значит «аргумент можно не передавать». Он говорит лишь о том, что значением бывает None, а необязательным параметр делает значение по умолчанию — def f(x: Optional[int]) по-прежнему требует аргумент. И mypy давно не дописывает Optional сам: x: int = None теперь ошибка, пишите x: int | None = None.",
+      "en": "The usual beginner mix-up: Optional does not mean \"you may omit the argument\". It only says the value can be None; what makes a parameter optional is a default value, so def f(x: Optional[int]) still demands an argument. Also, mypy no longer adds Optional implicitly — x: int = None is an error these days, so spell out x: int | None = None."
+    },
+    "syntax": "from typing import Optional\nOptional[X]  # эквивалентно X | None\n# Python 3.10+: X | None",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Optional",
+    "version": "3.10",
+    "section": "Аннотации и typing",
+    "subcat": "опциональный",
+    "aliases": [
+      "необязательное значение в аннотации",
+      "тип, допускающий отсутствие значения"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Optional",
+      "def find(name: str) -> Optional[str]:",
+      "    return name if name else None",
+      "print(find('Alice'))  # → Alice",
+      "print(find(''))  # → None",
+      "result: Optional[int] = None  # → допустимо",
+      "def greet(name: str | None = None) -> str:",
+      "    return f'Hi, {name or \"stranger\"}'",
+      "print(greet())  # → Hi, stranger"
+    ],
+    "related": [
+      "union-x-y-x-y",
+      "nonetype",
+      "аннотации-типов-type-hints",
+      "int-str-list-dict-аннотации"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "protocol",
+    "title": "Protocol",
+    "kind": "term",
+    "summary": {
+      "ru": "Определяет интерфейс через структуру (duck typing). Класс считается совместимым, если реализует все методы Protocol, без явного наследования.",
+      "en": "Defines an interface by structure (duck typing). A class is compatible if it implements every method of the Protocol, with no explicit inheritance."
+    },
+    "body": {
+      "ru": "Protocol пригодится, когда нужно типизировать чужие классы, которые не переделать под наследование от ABC: совместимость определяется набором методов, а не родословной. По умолчанию это чисто статическая история — isinstance с протоколом бросит TypeError, пока класс не помечен декоратором @runtime_checkable, и даже тогда сверяется только наличие атрибутов, а не их сигнатуры.",
+      "en": "Protocol earns its keep when you need to type third-party classes you cannot make inherit from an ABC: compatibility comes from the set of methods, not from ancestry. By default it is a purely static affair — isinstance against a protocol raises TypeError until the protocol is decorated with @runtime_checkable, and even then only the presence of the attributes is checked, never their signatures."
+    },
+    "syntax": "from typing import Protocol\nclass MyProtocol(Protocol):\n    def method(self) -> type: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Protocol",
+    "version": "3.8",
+    "section": "Аннотации и typing",
+    "subcat": "протокол",
+    "aliases": [
+      "утиная типизация",
+      "структурная типизация",
+      "интерфейс без наследования"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Protocol",
+      "class Drawable(Protocol):",
+      "    def draw(self) -> None: ...",
+      "class Circle:",
+      "    def draw(self) -> None: print('O')",
+      "class Square:",
+      "    def draw(self) -> None: print('[]')",
+      "    def render(shape: Drawable) -> None:",
+      "        shape.draw()",
+      "        render(Circle())  # → O",
+      "        render(Square())  # → []",
+      "        print(isinstance(Circle(), object))  # → True",
+      "        print(hasattr(Circle(), 'draw'))  # → True"
+    ],
+    "related": [
+      "abc.ABC",
+      "typing.runtime_checkable",
+      "абстрактные-классы"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "type_checking",
+    "title": "TYPE_CHECKING",
+    "kind": "term",
+    "summary": {
+      "ru": "Булева константа, True только при статическом анализе (mypy, pyright). Позволяет импортировать типы лишь для аннотаций, избегая циклических импортов в рантайме.",
+      "en": "A boolean constant that is True only during static analysis (mypy, pyright). Lets you import types for annotations alone, avoiding circular imports at runtime."
+    },
+    "body": {
+      "ru": "Раз импорт под if TYPE_CHECKING в рантайме не выполняется, имя из него не должно попадать в вычисляемое выражение: аннотацию берут в кавычки либо ставят from __future__ import annotations в начале файла, иначе будет NameError при загрузке модуля. Побочный эффект — такие аннотации остаются строками, и всё, что читает типы во время работы программы (typing.get_type_hints, dataclasses, валидаторы), может не суметь их разрешить.",
+      "en": "Because the import under if TYPE_CHECKING never runs, the name must not end up in an expression that is actually evaluated: quote the annotation or put from __future__ import annotations at the top of the file, otherwise the module raises NameError on import. The side effect is that such annotations stay strings, so anything that inspects types at runtime — typing.get_type_hints, dataclasses, validation libraries — may fail to resolve them."
+    },
+    "syntax": "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from module import SomeType",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING",
+    "version": "3.5",
+    "section": "Аннотации и typing",
+    "subcat": "импорт",
+    "aliases": [
+      "импорт только для аннотаций",
+      "циклический импорт при типизации"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import TYPE_CHECKING",
+      "print(TYPE_CHECKING)  # → False  (в рантайме)",
+      "if TYPE_CHECKING:",
+      "    from collections import OrderedDict",
+      "def process(path: 'str') -> None:",
+      "    print(path)  # → строковая аннотация",
+      "    process('test')  # → test",
+      "    print(bool(TYPE_CHECKING))  # → False"
+    ],
+    "related": [
+      "аннотации-типов-type-hints",
+      "typing.ForwardRef",
+      "typing.get_type_hints"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typeddict",
+    "title": "TypedDict",
+    "kind": "term",
+    "summary": {
+      "ru": "Словарь с фиксированными типизированными ключами. Только для статического анализа; в рантайме — обычный dict.",
+      "en": "A dictionary with a fixed set of typed keys. For static analysis only; at runtime it is an ordinary dict."
+    },
+    "body": {
+      "ru": "Главная ловушка: проверок в рантайме нет — лишний ключ, отсутствующий ключ или строка вместо float спокойно пройдут, ошибку покажет только mypy или другой статический анализатор. Это не класс: экземпляр создаётся как обычный литерал словаря, доступ идёт через p['x'], а не p.x, и isinstance с TypedDict не работает. Берите его для готовых dict-данных (JSON от API, конфиг), а если структуру вы создаёте сами — удобнее dataclass или NamedTuple с атрибутами.",
+      "en": "The main trap: nothing is checked at runtime — an extra key, a missing key or a string where a float was declared all pass silently, and only mypy or another static checker will complain. It is not a real class: you build it as a plain dict literal, read it as p['x'] rather than p.x, and isinstance against a TypedDict is not allowed. Reach for it when the data already arrives as a dict (JSON from an API, a config); if you design the structure yourself, a dataclass or NamedTuple with real attributes is usually nicer."
+    },
+    "syntax": "from typing import TypedDict\nclass MyDict(TypedDict):\n    key: type",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.TypedDict",
+    "version": "",
+    "section": "Аннотации и typing",
+    "subcat": "typeddict",
+    "aliases": [
+      "типизированный словарь",
+      "словарь с фиксированными ключами"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import TypedDict",
+      "class Point(TypedDict):",
+      "    x: float",
+      "    y: float",
+      "p: Point = {'x': 1.0, 'y': 2.0}",
+      "print(p['x'])  # → 1.0",
+      "print(p['y'])  # → 2.0",
+      "class User(TypedDict, total=False):",
+      "    name: str",
+      "    age: int",
+      "u: User = {'name': 'Alice'}  # → age необязателен",
+      "print(u)  # → {'name': 'Alice'}"
+    ],
+    "related": [
+      "namedtuple",
+      "dataclass",
+      "typing.is_typeddict"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typevar",
+    "title": "TypeVar",
+    "kind": "term",
+    "summary": {
+      "ru": "Переменная типа для создания обобщённых функций и классов. Ограничения задаются через bound= или явный список типов.",
+      "en": "A type variable used to write generic functions and classes. Constraints are given with bound= or as an explicit list of types."
+    },
+    "body": {
+      "ru": "Смысл TypeVar появляется только тогда, когда одна и та же переменная встречается в сигнатуре минимум дважды — так вы связываете вход с выходом. Если T стоит в одном месте, толку от него нет, это фактически то же самое, что Any. Различайте два вида ограничений: bound=X разрешает X и любых наследников, а перечисление TypeVar('T', int, str) — только ровно int или ровно str, без промежуточных вариантов. В Python 3.12 то же самое пишется короче: def first[T](lst: list[T]) -> T, без отдельного объявления переменной.",
+      "en": "A TypeVar only earns its keep when the same variable appears at least twice in a signature — that is how you tie the return type to the argument type. A T used in just one place buys you nothing and is effectively Any. Note the two kinds of restriction: bound=X accepts X and any subclass, while the value form TypeVar('T', int, str) allows exactly int or exactly str and nothing in between. Python 3.12 offers a shorter spelling, def first[T](lst: list[T]) -> T, with no separate variable to declare."
+    },
+    "syntax": "from typing import TypeVar\nT = TypeVar('T')\nT = TypeVar('T', bound=SomeType)\nT = TypeVar('T', int, str)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.TypeVar",
+    "version": "",
+    "section": "Аннотации и typing",
+    "subcat": "generics",
+    "aliases": [
+      "переменная типа",
+      "параметр типа"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import TypeVar",
+      "T = TypeVar('T')",
+      "def first(lst: list[T]) -> T:",
+      "    return lst[0]",
+      "print(first([1, 2, 3]))  # → 1",
+      "print(first(['a', 'b']))  # → 'a'",
+      "N = TypeVar('N', int, float)",
+      "def double(x: N) -> N:",
+      "    return x * 2",
+      "print(double(3))  # → 6",
+      "print(double(1.5))  # → 3.0"
+    ],
+    "related": [
+      "generic-t",
+      "typing.TypeVarTuple",
+      "typing.ParamSpec"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "union-x-y-x-y",
+    "title": "Union[X, Y] / X | Y",
+    "kind": "term",
+    "summary": {
+      "ru": "Union[X, Y] — значение может быть типа X или Y. С Python 3.10+ поддерживается сокращённая запись X | Y.",
+      "en": "Union[X, Y] — the value may be of type X or of type Y. Since Python 3.10 the shorthand X | Y is supported."
+    },
+    "body": {
+      "ru": "Классическая путаница: Optional[X] (то же самое, что X | None) говорит только о том, что значением может быть None, и никак не связан с необязательностью аргумента — за неё отвечает значение по умолчанию. Аннотация сама ничего не проверяет: анализатор просто потребует сузить тип, например через isinstance, прежде чем вы вызовете метод, который есть лишь у одной из веток. Запись X | Y работает в аннотациях и в isinstance с Python 3.10; в более старых версиях нужен Union из typing.",
+      "en": "A classic mix-up: Optional[X], which is just X | None, only says the value may be None — it has nothing to do with the argument being optional, that is what a default value is for. The annotation checks nothing by itself; the type checker will simply demand that you narrow, typically with isinstance, before calling a method that exists on only one branch. The X | Y spelling works in annotations and in isinstance from Python 3.10 onward; older versions need Union from typing."
+    },
+    "syntax": "from typing import Union\nUnion[int, str]   # int или str\n# Python 3.10+: int | str",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Union",
+    "version": "3.10",
+    "section": "Аннотации и typing",
+    "subcat": "объединение",
+    "aliases": [
+      "объединение типов",
+      "несколько допустимых типов аргумента"
+    ],
+    "keywords": [
+      "typing.Union"
+    ],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Union",
+      "def double(x: Union[int, float]) -> Union[int, float]:",
+      "    return x * 2",
+      "print(double(3))  # → 6",
+      "print(double(1.5))  # → 3.0",
+      "def parse(val: int | str) -> str:",
+      "    return str(val)",
+      "print(parse(42))  # → '42'",
+      "print(parse('hi'))  # → 'hi'"
+    ],
+    "related": [
+      "optional-x-x-none",
+      "literal-v1-v2",
+      "typing.get_args"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.get_args",
+    "title": "typing.get_args",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает кортеж аргументов обобщённого типа: get_args(list[int]) → (int,).",
+      "en": "Return the tuple of type arguments of a generic: get_args(list[int]) → (int,)."
+    },
+    "body": {
+      "ru": "На обычном непараметризованном типе возвращает пустой кортеж: get_args(int) → (). Обычно применяют в паре с get_origin, чтобы на лету разобрать аннотацию; для Callable первый элемент — целый список аргументов, а не отдельные типы: get_args(Callable[[int], str]) → ([int], str).",
+      "en": "On a plain, unsubscripted type it returns an empty tuple: get_args(int) → (). It's typically used together with get_origin to pick an annotation apart at runtime; for Callable the first element is the whole argument list rather than separate types: get_args(Callable[[int], str]) → ([int], str)."
+    },
+    "syntax": "typing.get_args(tp)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.get_args",
+    "version": "3.8",
+    "section": "Модуль typing",
+    "subcat": "интроспекция",
+    "aliases": [
+      "аргументы обобщённого типа",
+      "узнать тип элементов из аннотации",
+      "разобрать аннотацию на составные типы"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import get_args, get_origin, Literal",
+      "print(get_args(list[int]) == (int,))   # → True",
+      "print([t.__name__ for t in get_args(dict[str, int])])   # → ['str', 'int']",
+      "print(get_args(Literal['a', 'b']))   # → ('a', 'b')",
+      "print(get_args(int))   # → ()",
+      "print(get_origin(list[int]))   # → <class 'list'>"
+    ],
+    "related": [
+      "typing.get_origin",
+      "typing.get_type_hints",
+      "union-x-y-x-y"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.get_origin",
+    "title": "typing.get_origin",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает «происхождение» обобщённого типа: get_origin(list[int]) → list (без параметров).",
+      "en": "Return the unsubscripted origin of a generic: get_origin(list[int]) → list."
+    },
+    "body": {
+      "ru": "Для всего, что не является параметризованным дженериком, возвращает None (get_origin(int) → None) — это штатный способ на рантайме понять, дженерик ли перед тобой. Почти всегда идёт в связке с get_args: origin отвечает «какой контейнер», args — «с чем внутри».",
+      "en": "For anything that isn't a subscripted generic it returns None (get_origin(int) → None), which is the standard runtime test for whether a value is a parameterized generic. It's almost always paired with get_args: the origin says which container, the args say what's inside."
+    },
+    "syntax": "typing.get_origin(tp)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.get_origin",
+    "version": "3.8",
+    "section": "Модуль typing",
+    "subcat": "интроспекция",
+    "aliases": [
+      "базовый тип аннотации",
+      "какой контейнер указан в аннотации",
+      "убрать параметры у обобщённого типа"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import get_origin, get_args, Union",
+      "print(get_origin(list[int]) is list)   # → True",
+      "print(get_origin(dict[str, int]) is dict)   # → True",
+      "print(get_origin(tuple[int, ...]) is tuple)   # → True",
+      "print(get_origin(Union[int, str]) is Union)   # → True",
+      "print(get_origin(int))   # → None",
+      "print(get_args(list[int]))   # → (<class 'int'>,)"
+    ],
+    "related": [
+      "typing.get_args",
+      "typing.get_type_hints",
+      "generic-t"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.get_type_hints",
+    "title": "typing.get_type_hints",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает словарь аннотаций объекта (функции/класса/модуля) с разрешёнными строковыми ссылками.",
+      "en": "Return a dict of an object's type hints, with forward references resolved."
+    },
+    "body": {
+      "ru": "Отличается от прямого чтения obj.__annotations__ тем, что вычисляет строковые аннотации в настоящие объекты: под from __future__ import annotations (PEP 563) все аннотации хранятся как строки, и только get_type_hints превращает их обратно в типы, разрешая forward-ссылки в глобалах объекта (иначе NameError, если имя недоступно). Для класса вдобавок собирает аннотации по всей цепочке наследования, а метаданные Annotated по умолчанию отбрасывает — чтобы их сохранить, передай include_extras=True.",
+      "en": "Unlike reading obj.__annotations__ directly, it evaluates string annotations into real type objects: under from __future__ import annotations (PEP 563) every annotation is stored as a string, and only get_type_hints turns them back into types, resolving forward references in the object's globals (raising NameError if a name isn't reachable). For a class it also merges annotations across the whole inheritance chain, and it drops Annotated metadata by default — pass include_extras=True to keep it."
+    },
+    "syntax": "typing.get_type_hints(obj)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.get_type_hints",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "интроспекция",
+    "aliases": [
+      "получить аннотации функции",
+      "прочитать типы параметров во время выполнения",
+      "разрешить строковые аннотации"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import get_type_hints",
+      "def f(x: int) -> bool: ...",
+      "print(get_type_hints(f)['x'] is int)   # → True",
+      "print(get_type_hints(f)['return'] is bool)   # → True",
+      "def g(x: 'int') -> 'str': ...",
+      "print(g.__annotations__['x'])   # → int",
+      "print(get_type_hints(g)['x'] is int)   # → True",
+      "class Point: x: int; y: int",
+      "print(sorted(get_type_hints(Point)))   # → ['x', 'y']",
+      "def h(a, b): ...",
+      "print(get_type_hints(h))   # → {}"
+    ],
+    "related": [
+      "аннотации-типов-type-hints",
+      "typing.get_origin",
+      "typing.get_args",
+      "type_checking"
+    ],
+    "related_errors": [
+      "NameError"
+    ]
+  },
+  {
+    "id": "typing.get_overloads",
+    "title": "typing.get_overloads",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список ранее зарегистрированных @overload-реализаций функции (пустой, если их нет; Python 3.11+).",
+      "en": "Return the list of registered @overload implementations of a function (3.11+)."
+    },
+    "body": {
+      "ru": "Передавать нужно итоговую реализацию функции, а не @overload-заглушку; если перегрузок нет, вернётся пустой список. До Python 3.11 перегрузки на рантайме были не видны вовсе — теперь @overload их регистрирует, а очистить реестр можно через typing.clear_overloads().",
+      "en": "Pass the final implementation function, not an @overload stub; with no overloads registered you get an empty list. Before Python 3.11 overloads were invisible at runtime — now @overload records them, and typing.clear_overloads() clears the registry."
+    },
+    "syntax": "typing.get_overloads(func)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.get_overloads",
+    "version": "3.11",
+    "section": "Модуль typing",
+    "subcat": "интроспекция",
+    "aliases": [
+      "список перегрузок функции",
+      "все зарегистрированные варианты перегруженной функции"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import overload, get_overloads, clear_overloads",
+      "print(get_overloads(len) == [])   # → True",
+      "@overload",
+      "def parse(x: int) -> int: ...",
+      "@overload",
+      "def parse(x: str) -> str: ...",
+      "def parse(x): return x   # единственная реальная реализация",
+      "print(len(get_overloads(parse)))   # → 2",
+      "print(get_overloads(parse)[0].__annotations__['x'] is int)   # → True",
+      "print(parse('ok'))   # → ok",
+      "clear_overloads()",
+      "print(get_overloads(parse) == [])   # → True"
+    ],
+    "related": [
+      "typing.overload",
+      "typing.clear_overloads"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.get_protocol_members",
+    "title": "typing.get_protocol_members",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает frozenset имён членов протокола (методов и атрибутов; Python 3.13+).",
+      "en": "Return a frozenset of a protocol's member names (3.13+)."
+    },
+    "body": {
+      "ru": "Возвращает только объявленные тобой методы и атрибуты, отсеивая служебные дандеры самого механизма Protocol. До версии 3.13 публичного способа получить этот список не было; на классе, который протоколом не является, функция бросает TypeError.",
+      "en": "It returns only the members you declared, filtering out the dunder machinery that Protocol itself adds. Before 3.13 there was no public way to obtain this list, and calling it on a class that isn't a Protocol raises TypeError."
+    },
+    "syntax": "typing.get_protocol_members(proto)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.get_protocol_members",
+    "version": "3.13",
+    "section": "Модуль typing",
+    "subcat": "интроспекция",
+    "aliases": [
+      "какие методы требует протокол",
+      "имена членов протокола"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "import typing",
+      "from typing import Protocol",
+      "class P(Protocol):",
+      "    def foo(self) -> int: ...",
+      "fn = getattr(typing, 'get_protocol_members', None)",
+      "print('foo' in fn(P) if fn else True)   # → True"
+    ],
+    "related": [
+      "typing.is_protocol",
+      "protocol",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": [
+      "TypeError"
+    ]
+  },
+  {
+    "id": "typing.is_protocol",
+    "title": "typing.is_protocol",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, является ли класс протоколом (Protocol); True для классов, наследующих typing.Protocol (Python 3.13+).",
+      "en": "Check whether a class is a Protocol; True for typing.Protocol subclasses (3.13+)."
+    },
+    "body": {
+      "ru": "Проверяет объявление, а не соответствие: True только если класс сам наследует typing.Protocol, а не для обычного класса, структурно подходящего под протокол — чтобы узнать, удовлетворяет ли объект протоколу, нужны @runtime_checkable и isinstance. Появилась в 3.13; на более ранних версиях приходится читать закрытый атрибут _is_protocol, как и делает fallback в примере.",
+      "en": "It checks declaration, not conformance: it returns True only when the class itself inherits typing.Protocol, not for an ordinary class that merely fits the protocol structurally — to test whether an object satisfies a protocol you need @runtime_checkable plus isinstance. Added in 3.13; on older versions you fall back to the private _is_protocol attribute, as the example does."
+    },
+    "syntax": "typing.is_protocol(cls)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.is_protocol",
+    "version": "3.13",
+    "section": "Модуль typing",
+    "subcat": "интроспекция",
+    "aliases": [
+      "проверить, является ли класс протоколом",
+      "это протокол или обычный класс"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "import typing",
+      "from typing import Protocol",
+      "class P(Protocol):",
+      "    def f(self) -> int: ...",
+      "check = getattr(typing, 'is_protocol', lambda c: getattr(c, '_is_protocol', False))",
+      "print(check(P))   # → True"
+    ],
+    "related": [
+      "protocol",
+      "typing.get_protocol_members",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.is_typeddict",
+    "title": "typing.is_typeddict",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, создан ли объект через TypedDict.",
+      "en": "Check whether an object is a TypedDict."
+    },
+    "body": {
+      "ru": "Нужна потому, что с TypedDict не работают ни isinstance, ни issubclass, а во время выполнения экземпляр TypedDict — обычный dict, неотличимый от других словарей. Функция распознаёт сам тип-класс, а не его экземпляр: is_typeddict(TD) даёт True, но is_typeddict({'x': 1}) — False. Доступна с Python 3.10.",
+      "en": "It exists because neither isinstance nor issubclass work with TypedDict, and at runtime a TypedDict instance is just a plain dict, indistinguishable from any other. The function recognises the type object itself, not an instance: is_typeddict(TD) is True, but is_typeddict({'x': 1}) is False. Available since Python 3.10."
+    },
+    "syntax": "typing.is_typeddict(tp)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.is_typeddict",
+    "version": "3.10",
+    "section": "Модуль typing",
+    "subcat": "интроспекция",
+    "aliases": [
+      "проверить, типизированный ли это словарь",
+      "создан ли класс словарём с аннотациями"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import TypedDict, is_typeddict",
+      "class TD(TypedDict):",
+      "    x: int",
+      "print(is_typeddict(TD))   # → True"
+    ],
+    "related": [
+      "typeddict",
+      "typing.is_protocol",
+      "dataclasses.is_dataclass"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.cast",
+    "title": "typing.cast",
+    "kind": "function",
+    "summary": {
+      "ru": "Подсказывает средству проверки типов, что значение имеет указанный тип; во время выполнения просто возвращает значение без изменений.",
+      "en": "Tell the type checker a value has a given type; at runtime returns the value unchanged."
+    },
+    "body": {
+      "ru": "Главная ловушка: cast ничего не преобразует и не проверяет — в отличие от int(x), он не трогает значение, а только затыкает средство проверки типов. Злоупотребление им прячет настоящие ошибки, ведь checker молча поверит любому вашему утверждению. И порядок аргументов обратный привычному: сначала тип, потом значение (у assert_type — наоборот).",
+      "en": "The main trap: cast converts and checks nothing — unlike int(x), it never touches the value, it only silences the type checker. Overusing it hides real bugs, since the checker blindly trusts whatever you assert. Note the argument order is type first, then value — the reverse of assert_type."
+    },
+    "syntax": "typing.cast(typ, value)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.cast",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "приведение и отладка",
+    "aliases": [
+      "указать тип вручную",
+      "подсказать тип анализатору",
+      "обмануть проверку типов"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import cast",
+      "print(cast(int, 42))   # → 42",
+      "print(type(cast(str, 42)).__name__)   # → int",
+      "print(cast('list[int]', [1, 2]))   # → [1, 2]",
+      "data = {'x': 1}; print(cast(dict[str, int], data) is data)   # → True",
+      "print(cast(int, '42') + 1)   # → TypeError"
+    ],
+    "related": [
+      "typing.assert_type",
+      "typing.reveal_type",
+      "typing.Any"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.reveal_type",
+    "title": "typing.reveal_type",
+    "kind": "function",
+    "summary": {
+      "ru": "Отладочный помощник: средство проверки типов печатает выведенный тип аргумента; во время выполнения возвращает сам аргумент (и пишет тип в stderr; Python 3.11+).",
+      "en": "A debugging helper; the type checker prints the inferred type. At runtime returns the argument (3.11+)."
+    },
+    "body": {
+      "ru": "Это зонд времени проверки, а не рантайма: mypy или pyright напечатают выведенный тип и обычно пометят строку, чтобы вы её не забыли. Во время выполнения функция просто возвращает свой аргумент и пишет тип в stderr, так что оставлять её в готовом коде не нужно — это временный инструмент при отладке аннотаций.",
+      "en": "This is a checker-time probe, not a runtime feature: mypy or pyright print the inferred type and usually flag the line so you won't leave it behind. At runtime it merely returns its argument and writes the type to stderr, so strip it out once you've finished debugging your annotations."
+    },
+    "syntax": "typing.reveal_type(value)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.reveal_type",
+    "version": "3.11",
+    "section": "Модуль typing",
+    "subcat": "приведение и отладка",
+    "aliases": [
+      "показать выведенный тип",
+      "узнать тип переменной",
+      "отладка аннотаций"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import reveal_type",
+      "print(reveal_type(42))                    # → 42",
+      "print(reveal_type('hi').upper())          # → HI",
+      "print(reveal_type([1, 2]) == [1, 2])      # → True",
+      "print(type(reveal_type(3.5)).__name__)    # → float",
+      "print(callable(reveal_type))              # → True"
+    ],
+    "related": [
+      "typing.assert_type",
+      "typing.cast",
+      "typing.get_type_hints"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.assert_type",
+    "title": "typing.assert_type",
+    "kind": "function",
+    "summary": {
+      "ru": "Утверждение для средства проверки типов: значение должно иметь указанный тип; во время выполнения возвращает значение без изменений (Python 3.11+).",
+      "en": "Assert to the type checker that a value has a given type; a runtime no-op returning the value (3.11+)."
+    },
+    "body": {
+      "ru": "Это инструмент не для рантайма, а скорее тест над самими аннотациями: он заставляет средство проверки типов подтвердить, что у значения выведен ровно ожидаемый тип, и падает статически при расхождении. Во время выполнения не делает ничего — просто возвращает значение, поэтому в обычном коде смысла в нём нет. Не путать с cast: cast навязывает тип, assert_type лишь проверяет уже выведенный.",
+      "en": "This isn't a runtime tool but rather a test for your annotations themselves: it forces the type checker to confirm the value was inferred as exactly the type you expected, and fails statically on any mismatch. At runtime it does nothing — it just returns the value — so it has no place in ordinary code. Don't confuse it with cast: cast imposes a type, assert_type only checks the one already inferred."
+    },
+    "syntax": "typing.assert_type(value, typ)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.assert_type",
+    "version": "3.11",
+    "section": "Модуль typing",
+    "subcat": "приведение и отладка",
+    "aliases": [
+      "утверждение о типе",
+      "сверить тип с ожидаемым",
+      "проверка типа при статическом анализе"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import assert_type",
+      "print(assert_type(5, int))   # → 5",
+      "print(assert_type([1, 2], list[int]))   # → [1, 2]",
+      "print(repr(assert_type('42', int)))   # → '42'",
+      "nums = [1, 2]; print(assert_type(nums, list[int]) is nums)   # → True",
+      "print(assert_type(5))   # → TypeError"
+    ],
+    "related": [
+      "typing.reveal_type",
+      "typing.assert_never",
+      "typing.cast"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.assert_never",
+    "title": "typing.assert_never",
+    "kind": "function",
+    "summary": {
+      "ru": "Маркер недостижимой ветки (напр. в исчерпывающем match): средство проверки типов проверит недостижимость, а во время выполнения всегда бросает AssertionError (Python 3.11+).",
+      "en": "A marker for unreachable code; always raises AssertionError at runtime (3.11+)."
+    },
+    "body": {
+      "ru": "Приём для исчерпывающих match или цепочек if-elif: в финальной, якобы недостижимой ветке средство проверки типов убеждается, что туда не попадает ни один вариант, а стоит добавить новый — и оно ткнёт носом именно в этот вызов. Во время выполнения полезной работы не несёт: раз управление сюда дошло, это уже баг, поэтому всегда бросает AssertionError.",
+      "en": "A trick for exhaustive match or if-elif chains: in the final, supposedly unreachable branch the type checker verifies no case can reach it, and the moment you add a new variant it flags this exact call. At runtime it does nothing useful — reaching it already means a bug, so it always raises AssertionError."
+    },
+    "syntax": "typing.assert_never(value)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.assert_never",
+    "version": "3.11",
+    "section": "Модуль typing",
+    "subcat": "приведение и отладка",
+    "aliases": [
+      "недостижимая ветка",
+      "недостижимый код",
+      "исчерпывающая проверка вариантов"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import assert_never",
+      "try:",
+      "    assert_never(1)",
+      "except AssertionError:",
+      "    print('unreachable')   # → unreachable"
+    ],
+    "related": [
+      "typing.assert_type",
+      "match-case",
+      "assertionerror"
+    ],
+    "related_errors": [
+      "AssertionError"
+    ]
+  },
+  {
+    "id": "typing.Generic",
+    "title": "typing.Generic",
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс для создания обобщённых (параметризуемых) пользовательских классов: class Box(Generic[T]).",
+      "en": "The base class for user-defined generic classes: class Box(Generic[T])."
+    },
+    "body": {
+      "ru": "Начиная с Python 3.12 явное наследование Generic[T] почти не нужно — новый синтаксис class Box[T]: (PEP 695) объявляет параметр прямо в заголовке. Учтите, что в рантайме параметр стирается: Box[int] и Box[str] — один и тот же класс, никаких проверок типа при выполнении не происходит.",
+      "en": "Since Python 3.12 you rarely inherit Generic[T] explicitly — the new class Box[T]: syntax (PEP 695) declares the parameter right in the header. Note the parameter is erased at runtime: Box[int] and Box[str] are the same class, with no type checks happening at run time."
+    },
+    "syntax": "class C(typing.Generic[T]): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Generic",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [
+      "обобщённый класс",
+      "свой класс с параметром типа",
+      "дженерики"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Generic, TypeVar",
+      "T = TypeVar('T')",
+      "class Box(Generic[T]):",
+      "    pass",
+      "print(issubclass(Box, Generic))   # → True"
+    ],
+    "related": [
+      "generic-t",
+      "typevar",
+      "typing.TypeVarTuple",
+      "typing.ParamSpec"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.NewType",
+    "title": "typing.NewType",
+    "kind": "term",
+    "summary": {
+      "ru": "Фабрика различимых типов-псевдонимов: создаёт «отдельный» тип поверх базового для проверки типов; во время выполнения вызов возвращает аргумент как есть.",
+      "en": "A factory for distinct type aliases; at runtime the call returns its argument unchanged."
+    },
+    "body": {
+      "ru": "NewType живёт только для проверяльщика типов: во время выполнения UserId — не класс, isinstance с ним падает, наследоваться от него нельзя, и никакой валидации он не делает. Смысл — отличать UserId от обычного int: простой псевдоним UserId = int взаимозаменяем с int, а NewType заставит проверяльщик ругаться на перепутанные значения.",
+      "en": "NewType exists purely for the type checker: at runtime UserId is not a class, isinstance against it raises, you can't subclass it, and it validates nothing. Its whole point is keeping UserId distinct from a bare int — a plain alias UserId = int is interchangeable with int, whereas NewType makes mixing the two an error."
+    },
+    "syntax": "UserId = typing.NewType('UserId', int)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.NewType",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [
+      "новый тип поверх существующего",
+      "тип-обёртка для проверки типов"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import NewType",
+      "UserId = NewType('UserId', int)",
+      "print(UserId(5))   # → 5",
+      "print(type(UserId(5)))   # → <class 'int'>",
+      "print(UserId.__name__, UserId.__supertype__)   # → UserId <class 'int'>",
+      "print(UserId(5) + 1)   # → 6",
+      "print(isinstance(5, UserId))   # → TypeError"
+    ],
+    "related": [
+      "typing.TypeAliasType",
+      "typevar",
+      "аннотации-типов-type-hints"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.ParamSpec",
+    "title": "typing.ParamSpec",
+    "kind": "term",
+    "summary": {
+      "ru": "Переменная-спецификация параметров: захватывает сигнатуру вызова (позиционные и именованные) для типизации декораторов/обёрток (Python 3.10+).",
+      "en": "A parameter specification variable capturing a callable's signature (3.10+)."
+    },
+    "body": {
+      "ru": "Нужен, когда пишешь декоратор-обёртку и хочешь сохранить исходную сигнатуру: без ParamSpec обёртку типизируют как Callable[..., T] и теряют параметры, из-за чего проверяльщик перестаёт ловить неправильные вызовы. Работает в паре с Callable и Concatenate; доступен с Python 3.10 (раньше — через typing_extensions).",
+      "en": "Use it for a decorator/wrapper that must keep the wrapped function's signature: without ParamSpec you fall back to Callable[..., T], lose the parameter types, and the checker stops catching bad calls. It pairs with Callable and Concatenate and needs Python 3.10+ (typing_extensions on older versions)."
+    },
+    "syntax": "P = typing.ParamSpec('P')",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.ParamSpec",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [
+      "типизация декоратора",
+      "сохранить сигнатуру функции",
+      "параметры вызова в аннотации"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import ParamSpec",
+      "P = ParamSpec('P')",
+      "print(P.__name__)   # → P",
+      "print(P.args)   # → P.args",
+      "print(P.kwargs)   # → P.kwargs",
+      "def wrapper(*args: P.args, **kwargs: P.kwargs) -> None: pass",
+      "print(wrapper.__annotations__['args'])   # → P.args"
+    ],
+    "related": [
+      "typing.ParamSpecArgs",
+      "typing.ParamSpecKwargs",
+      "декораторы",
+      "typevar"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.ParamSpecArgs",
+    "title": "typing.ParamSpecArgs",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип атрибута P.args у ParamSpec — представляет позиционные аргументы захваченной сигнатуры.",
+      "en": "The type of P.args on a ParamSpec — the positional arguments of the captured signature."
+    },
+    "body": {
+      "ru": "По имени этот тип почти не пишут: в обёртке ставят *args: P.args, **kwargs: P.kwargs, а ParamSpecArgs получается сам. Проверяльщик требует, чтобы P.args и P.kwargs шли парой на одной и той же функции — одно без другого считается ошибкой.",
+      "en": "You almost never spell this type out by name — a wrapper writes *args: P.args, **kwargs: P.kwargs and ParamSpecArgs falls out automatically. A type checker requires P.args and P.kwargs to appear together on the same function; one without the other is an error."
+    },
+    "syntax": "P.args  # тип ParamSpecArgs",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.ParamSpecArgs",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import ParamSpec, ParamSpecArgs",
+      "P = ParamSpec('P')",
+      "print(isinstance(P.args, ParamSpecArgs))   # → True",
+      "print(P.args)   # → P.args",
+      "print(P.args.__origin__ is P)   # → True",
+      "def wrapper(*args: P.args, **kwargs: P.kwargs) -> None: pass",
+      "print(wrapper.__annotations__['args'])   # → P.args"
+    ],
+    "related": [
+      "typing.ParamSpec",
+      "typing.ParamSpecKwargs",
+      "args"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.ParamSpecKwargs",
+    "title": "typing.ParamSpecKwargs",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип атрибута P.kwargs у ParamSpec — представляет именованные аргументы захваченной сигнатуры.",
+      "en": "The type of P.kwargs on a ParamSpec — the keyword arguments of the captured signature."
+    },
+    "body": {
+      "ru": "Как и с P.args, сам тип по имени не пишут — в обёртке достаточно **kwargs: P.kwargs. И P.args, и P.kwargs должны присутствовать вместе на одной функции: одиночное использование проверяльщик считает ошибкой.",
+      "en": "As with P.args, you don't name this type directly — a wrapper just uses **kwargs: P.kwargs. Both P.args and P.kwargs must appear together on the same function; a type checker treats using one alone as an error."
+    },
+    "syntax": "P.kwargs  # тип ParamSpecKwargs",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.ParamSpecKwargs",
+    "version": "3.10",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import ParamSpec, ParamSpecKwargs",
+      "P = ParamSpec('P')",
+      "print(isinstance(P.kwargs, ParamSpecKwargs))   # → True",
+      "print(P.kwargs)   # → P.kwargs",
+      "print(P.kwargs.__origin__ is P)   # → True",
+      "def wrapper(*args: P.args, **kwargs: P.kwargs) -> None: pass",
+      "print(isinstance(P.args, ParamSpecKwargs))   # → False"
+    ],
+    "related": [
+      "typing.ParamSpec",
+      "typing.ParamSpecArgs",
+      "kwargs"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.TypeVarTuple",
+    "title": "typing.TypeVarTuple",
+    "kind": "term",
+    "summary": {
+      "ru": "Переменная переменной арности (variadic): захватывает произвольное число типов для типизации обобщений с изменяемым числом параметров (Python 3.11+).",
+      "en": "A variadic type variable capturing an arbitrary number of types (3.11+)."
+    },
+    "body": {
+      "ru": "TypeVarTuple почти никогда не используют в одиночку — его разворачивают звёздочкой или через Unpack внутри Generic, чтобы захватить хвост из произвольного числа типов (канонический случай — форма многомерного массива с заранее неизвестным числом осей). Обычный TypeVar ловит ровно один тип, этот — целую последовательность. С Python 3.12 то же самое пишется встроенным синтаксисом параметров, без обращения к typing.",
+      "en": "A TypeVarTuple is almost never used alone — you unpack it with a star or via Unpack inside a Generic to capture a tail of arbitrarily many types (the canonical case is an array shape whose number of axes isn't known in advance). A plain TypeVar binds exactly one type, this one binds a whole sequence. Since Python 3.12 the same thing can be written with the built-in type-parameter syntax, without touching typing."
+    },
+    "syntax": "Ts = typing.TypeVarTuple('Ts')",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.TypeVarTuple",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [
+      "переменное число типов",
+      "обобщение с любым числом параметров"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import TypeVarTuple, Unpack",
+      "Ts = TypeVarTuple('Ts')",
+      "print(Ts.__name__)   # → Ts",
+      "print(Unpack[Ts])   # → typing.Unpack[Ts]",
+      "def pack[*Us](*args: *Us) -> tuple[*Us]: return args",
+      "print(pack(1, 'a', True))   # → (1, 'a', True)",
+      "print(pack())   # → ()",
+      "print(pack.__type_params__[0].__name__)   # → Us"
+    ],
+    "related": [
+      "typevar",
+      "typing.Generic",
+      "typing.ParamSpec"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.TypeAliasType",
+    "title": "typing.TypeAliasType",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип объектов, создаваемых инструкцией `type X = ...` (псевдонимы типов; Python 3.12+).",
+      "en": "The type of objects created by the `type X = ...` statement (type aliases; 3.12+)."
+    },
+    "body": {
+      "ru": "Экземпляры создаёт не конструктор, а инструкция type X = ... (PEP 695). Её правая часть вычисляется лениво — только при обращении к X.__value__, — поэтому псевдоним может ссылаться на ещё не определённые имена или на самого себя (рекурсивные типы) без кавычек-строк.",
+      "en": "Instances come from the type X = ... statement (PEP 695), not from a constructor. Its right-hand side is evaluated lazily — only when you access X.__value__ — so an alias can reference names not yet defined, or itself for recursive types, without quoting them as strings."
+    },
+    "syntax": "type X = int  # X — экземпляр TypeAliasType",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.TypeAliasType",
+    "version": "3.12",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [
+      "псевдоним типа",
+      "синоним типа",
+      "своё имя для типа"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import TypeAliasType",
+      "type MyInt = int",
+      "print(isinstance(MyInt, TypeAliasType))   # → True",
+      "print(MyInt.__name__)   # → MyInt",
+      "print(MyInt.__value__)   # → <class 'int'>",
+      "print(MyInt is int)   # → False",
+      "type Vector = list[float]",
+      "print(Vector.__value__)   # → list[float]"
+    ],
+    "related": [
+      "typing.NewType",
+      "typevar",
+      "аннотации-типов-type-hints"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.ForwardRef",
+    "title": "typing.ForwardRef",
+    "kind": "term",
+    "summary": {
+      "ru": "Внутреннее представление строковой (отложенной) аннотации; хранит исходную строку в __forward_arg__.",
+      "en": "The internal representation of a string (forward) annotation; keeps the source in __forward_arg__."
+    },
+    "body": {
+      "ru": "Руками его почти никогда не создают — Python сам заворачивает в ForwardRef любую аннотацию, записанную строкой (например 'Node' для ссылки на ещё не определённый класс). Разворачивает эти отложенные ссылки в настоящие типы уже typing.get_type_hints().",
+      "en": "You almost never build one by hand — Python wraps any annotation written as a string (say 'Node', referring to a not-yet-defined class) into a ForwardRef itself. It is typing.get_type_hints() that later resolves these deferred references back into real types."
+    },
+    "syntax": "typing.ForwardRef('SomeType')",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.ForwardRef",
+    "version": "3.7",
+    "section": "Модуль typing",
+    "subcat": "обобщения и параметры",
+    "aliases": [
+      "аннотация типа строкой",
+      "отложенная ссылка на тип",
+      "тип объявлен ниже по коду"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import ForwardRef, Optional, get_type_hints",
+      "print(ForwardRef('int').__forward_arg__)   # → int",
+      "print(type(Optional['Node'].__args__[0]) is ForwardRef)   # → True",
+      "print(type(list['Node'].__args__[0]) is ForwardRef)   # → False",
+      "def f(x: 'int') -> None: pass",
+      "print(get_type_hints(f)['x'] is int)   # → True",
+      "print(isinstance(ForwardRef('int'), type))   # → False"
+    ],
+    "related": [
+      "typing.get_type_hints",
+      "type_checking",
+      "аннотации-типов-type-hints"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.IO",
+    "title": "typing.IO",
+    "kind": "term",
+    "summary": {
+      "ru": "Обобщённый тип файловых объектов (потоков) для аннотаций; параметризуется типом элемента (str или bytes).",
+      "en": "A generic type for file-like objects (streams) in annotations."
+    },
+    "body": {
+      "ru": "На практике вместо IO[str] и IO[bytes] чаще берут специализированные TextIO и BinaryIO — те же потоки, но с дополнительными атрибутами (encoding, buffer и т.п.) и более читаемым именем. Сам IO нужен, когда параметру важен только факт «это поток» независимо от конкретного класса — результат open(), io.StringIO, обёртка над сокетом.",
+      "en": "In practice people reach for the specialized TextIO and BinaryIO instead of IO[str]/IO[bytes] — the same streams but with extra members (encoding, buffer, and so on) and a clearer name. IO itself is for parameters that only care that something is a stream regardless of its concrete class — an open() result, io.StringIO, a socket wrapper."
+    },
+    "syntax": "def f(stream: typing.IO[str]) -> None: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.IO",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "потоки ввода-вывода",
+    "aliases": [
+      "аннотация типа файла",
+      "тип файлового объекта"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import IO",
+      "import io",
+      "print(IO.__name__)   # → IO",
+      "print(IO[str])   # → typing.IO[str]",
+      "def read_all(stream: IO[str]) -> str: return stream.read()",
+      "print(read_all(io.StringIO('hello world')))   # → hello world",
+      "print(isinstance(io.StringIO(), IO))   # → False"
+    ],
+    "related": [
+      "typing.TextIO",
+      "typing.BinaryIO",
+      "open",
+      "io.IOBase"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.BinaryIO",
+    "title": "typing.BinaryIO",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип бинарных файловых потоков (открытых в режиме 'b') для аннотаций.",
+      "en": "The type for binary file streams (opened in 'b' mode) in annotations."
+    },
+    "body": {
+      "ru": "По сути это IO[bytes]: то, что возвращает open(path, 'rb'), и работает оно с bytes, а не str — для текстовых потоков есть отдельный TextIO. Сам класс не инстанцируют и не наследуют, он нужен только как аннотация типа.",
+      "en": "It is effectively IO[bytes]: the kind of object open(path, 'rb') returns, working with bytes rather than str — text streams have a separate TextIO. You do not instantiate or subclass it; it exists only as a type annotation."
+    },
+    "syntax": "def f(stream: typing.BinaryIO) -> None: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.BinaryIO",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "потоки ввода-вывода",
+    "aliases": [
+      "тип бинарного потока",
+      "аннотация двоичного файла"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import IO, BinaryIO",
+      "import io",
+      "print(BinaryIO.__name__)   # → BinaryIO",
+      "print(issubclass(BinaryIO, IO))   # → True",
+      "def read_head(f: BinaryIO) -> bytes: return f.read(4)",
+      "print(read_head.__annotations__['f'] is BinaryIO)   # → True",
+      "print(read_head(io.BytesIO(b'binary data')))   # → b'bina'",
+      "print(isinstance(io.BytesIO(), BinaryIO))   # → False"
+    ],
+    "related": [
+      "typing.TextIO",
+      "typing.IO",
+      "open"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.TextIO",
+    "title": "typing.TextIO",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип текстовых файловых потоков для аннотаций.",
+      "en": "The type for text file streams in annotations."
+    },
+    "body": {
+      "ru": "Это абстрактный тип-заглушка для аннотаций, а не класс для создания объектов (оттого в примере обращаются к TextIO.__name__, а не к экземпляру). Ставьте его, когда функции годится любой текстовый поток — файл из open() в текстовом режиме, io.StringIO или sys.stdout, — а не один конкретный тип файла.",
+      "en": "This is an abstract stand-in type for annotations, not a class you instantiate (hence the example touches TextIO.__name__ rather than an instance). Annotate with it when your function accepts any text stream — a file from open() in text mode, io.StringIO, or sys.stdout — rather than one concrete file type."
+    },
+    "syntax": "def f(stream: typing.TextIO) -> None: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.TextIO",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "потоки ввода-вывода",
+    "aliases": [
+      "тип текстового потока",
+      "аннотация текстового файла"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import IO, TextIO",
+      "import io",
+      "print(TextIO.__name__)   # → TextIO",
+      "def read_all(f: TextIO) -> str: return f.read()",
+      "print(read_all(io.StringIO('hello')))   # → hello",
+      "def first_word(f: TextIO) -> str: return f.read().split()[0]",
+      "print(first_word(io.StringIO('раз два три')))   # → раз",
+      "print(issubclass(TextIO, IO))   # → True",
+      "print(isinstance(io.StringIO(), TextIO))   # → False"
+    ],
+    "related": [
+      "typing.BinaryIO",
+      "typing.IO",
+      "open",
+      "io.textiowrapper"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.Text",
+    "title": "typing.Text",
+    "kind": "term",
+    "summary": {
+      "ru": "Псевдоним str, оставшийся для совместимости с кодом на Python 2; в Python 3 эквивалентен str.",
+      "en": "An alias of str kept for Python 2 compatibility; equals str in Python 3."
+    },
+    "body": {
+      "ru": "Deprecated с Python 3.11: Python 2 больше не поддерживается, и смысла в этом псевдониме не осталось. Удалять его пока не планируют, но в новом коде пишите просто str.",
+      "en": "Deprecated since Python 3.11: Python 2 is no longer supported, so this alias has lost its purpose. Removal isn't currently planned, but in new code just write str."
+    },
+    "syntax": "typing.Text  # == str",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.Text",
+    "version": "3.5",
+    "section": "Модуль typing",
+    "subcat": "потоки ввода-вывода",
+    "aliases": [
+      "устаревший синоним строки",
+      "строковый тип ради совместимости"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Text",
+      "print(Text is str)   # → True",
+      "print(Text.__name__)   # → str",
+      "print(Text(42) + '!')   # → 42!",
+      "print(isinstance('hello', Text))   # → True",
+      "def shout(s: Text) -> Text: return s.upper()",
+      "print(shout('hi'))   # → HI"
+    ],
+    "related": [
+      "str",
+      "int-str-list-dict-аннотации",
+      "typing.TextIO"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.SupportsInt",
+    "title": "typing.SupportsInt",
+    "kind": "term",
+    "summary": {
+      "ru": "Runtime-проверяемый протокол «поддерживает int()» (есть __int__).",
+      "en": "A runtime-checkable protocol for objects supporting int() (has __int__)."
+    },
+    "body": {
+      "ru": "Проверка isinstance(x, SupportsInt) смотрит лишь на наличие метода __int__, а не на то, что int(x) реально сработает. Классическая ловушка: у строки __int__ нет, поэтому isinstance('123', SupportsInt) даёт False, хотя int('123') прекрасно работает — строки разбираются отдельным путём внутри конструктора int.",
+      "en": "isinstance(x, SupportsInt) only checks that __int__ exists, not that int(x) will actually succeed. The classic trap: str has no __int__, so isinstance('123', SupportsInt) is False even though int('123') works fine — strings are parsed through a separate path inside the int constructor."
+    },
+    "syntax": "isinstance(obj, typing.SupportsInt)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.SupportsInt",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "протоколы Supports*",
+    "aliases": [
+      "протокол целого числа",
+      "объект приводится к целому"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import SupportsInt",
+      "print(isinstance(5, SupportsInt))   # → True",
+      "print(isinstance(2.9, SupportsInt))  # → True",
+      "print(isinstance('5', SupportsInt))  # → False",
+      "class Rome: __int__ = lambda self: 4",
+      "print(isinstance(Rome(), SupportsInt))  # → True",
+      "print(int(Rome()))  # → 4"
+    ],
+    "related": [
+      "int",
+      "typing.SupportsIndex",
+      "typing.SupportsFloat"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.SupportsFloat",
+    "title": "typing.SupportsFloat",
+    "kind": "term",
+    "summary": {
+      "ru": "Runtime-проверяемый протокол «поддерживает float()» (есть __float__).",
+      "en": "A runtime-checkable protocol for objects supporting float() (has __float__)."
+    },
+    "body": {
+      "ru": "Ловушка: str не реализует __float__ — float('3.14') разбирает строку отдельным путём, поэтому isinstance('3.14', SupportsFloat) даёт False. А int, bool и Decimal протокол проходят: у них __float__ есть.",
+      "en": "Gotcha: str has no __float__ — float('3.14') parses the string through a separate path, so isinstance('3.14', SupportsFloat) is False. But int, bool and Decimal pass, since they do define __float__."
+    },
+    "syntax": "isinstance(obj, typing.SupportsFloat)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.SupportsFloat",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "протоколы Supports*",
+    "aliases": [
+      "протокол вещественного числа",
+      "объект приводится к дробному числу"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import SupportsFloat",
+      "print(isinstance(5, SupportsFloat))   # → True",
+      "print(isinstance('3.14', SupportsFloat))  # → False",
+      "print(issubclass(complex, SupportsFloat))  # → False",
+      "class Celsius: __float__ = lambda self: 36.6",
+      "print(isinstance(Celsius(), SupportsFloat))  # → True",
+      "print(float(Celsius()))  # → 36.6"
+    ],
+    "related": [
+      "float",
+      "typing.SupportsInt",
+      "typing.SupportsComplex"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.SupportsComplex",
+    "title": "typing.SupportsComplex",
+    "kind": "term",
+    "summary": {
+      "ru": "Runtime-проверяемый протокол «поддерживает complex()» (есть __complex__).",
+      "en": "A runtime-checkable protocol for objects supporting complex() (has __complex__)."
+    },
+    "body": {
+      "ru": "Ловушка: int и float не имеют __complex__ — complex(5) и complex(2.0) работают через __index__/__float__, но isinstance(5, SupportsComplex) даёт False. Протокол срабатывает лишь на типах с явно определённым __complex__ (сам complex, ваши классы), а не на всём, что удаётся передать в complex().",
+      "en": "Gotcha: int and float have no __complex__ — complex(5) and complex(2.0) work through __index__/__float__, yet isinstance(5, SupportsComplex) is False. The protocol fires only for types that define __complex__ explicitly (complex itself, your own classes), not for everything complex() accepts."
+    },
+    "syntax": "isinstance(obj, typing.SupportsComplex)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.SupportsComplex",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "протоколы Supports*",
+    "aliases": [
+      "протокол комплексного числа",
+      "объект приводится к комплексному"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import SupportsComplex",
+      "print(isinstance(3j, SupportsComplex))   # → True",
+      "print(isinstance(5, SupportsComplex))  # → False",
+      "print(isinstance('3+4j', SupportsComplex))  # → False",
+      "class Vec: __complex__ = lambda self: 1+2j",
+      "print(isinstance(Vec(), SupportsComplex))  # → True",
+      "print(complex(Vec()))  # → (1+2j)"
+    ],
+    "related": [
+      "complex",
+      "typing.SupportsFloat",
+      "typing.SupportsInt"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.SupportsBytes",
+    "title": "typing.SupportsBytes",
+    "kind": "term",
+    "summary": {
+      "ru": "Runtime-проверяемый протокол «поддерживает bytes()» (есть __bytes__).",
+      "en": "A runtime-checkable protocol for objects supporting bytes() (has __bytes__)."
+    },
+    "body": {
+      "ru": "Ловушка: bytes() принимает и int (bytes(5) → пять нулевых байт), и iterable целых (bytes([1,2,3])), но ни int, ни list не имеют __bytes__ — isinstance(5, SupportsBytes) и isinstance([1,2,3], SupportsBytes) дают False. Протокол ловит лишь объекты с явным __bytes__, а не всё, что удаётся скормить bytes().",
+      "en": "Watch out: bytes() also accepts an int (bytes(5) → five zero bytes) or an iterable of ints (bytes([1,2,3])), yet neither int nor list defines __bytes__ — so isinstance(5, SupportsBytes) and isinstance([1,2,3], SupportsBytes) are False. The protocol only matches objects with an explicit __bytes__, not everything bytes() can consume."
+    },
+    "syntax": "isinstance(obj, typing.SupportsBytes)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.SupportsBytes",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "протоколы Supports*",
+    "aliases": [
+      "протокол преобразования в байты",
+      "объект умеет превращаться в байты"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import SupportsBytes",
+      "class B:",
+      "    def __bytes__(self): return b''",
+      "print(isinstance(B(), SupportsBytes))   # → True"
+    ],
+    "related": [
+      "bytes",
+      "typing.SupportsInt",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.SupportsAbs",
+    "title": "typing.SupportsAbs",
+    "kind": "term",
+    "summary": {
+      "ru": "Runtime-проверяемый протокол «поддерживает abs()» (есть __abs__).",
+      "en": "A runtime-checkable protocol for objects supporting abs() (has __abs__)."
+    },
+    "body": {
+      "ru": "Главное назначение — аннотация параметра: пометить, что функции годится любой объект с abs(), не привязываясь к конкретному классу. Протокол параметризован типом результата — SupportsAbs[float] уточняет, что abs() вернёт float. isinstance здесь проверяет лишь наличие метода __abs__, но не его сигнатуру и не тип возврата.",
+      "en": "Its main use is as a parameter annotation — mark that a function accepts any object with abs(), without tying it to a concrete class. It is generic in the return type: SupportsAbs[float] states that abs() yields a float. The isinstance check only confirms __abs__ exists, not its signature or return type."
+    },
+    "syntax": "isinstance(obj, typing.SupportsAbs)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.SupportsAbs",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "протоколы Supports*",
+    "aliases": [
+      "поддерживает взятие модуля",
+      "протокол абсолютного значения"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import SupportsAbs",
+      "print(isinstance(5, SupportsAbs))   # → True",
+      "print(isinstance('abc', SupportsAbs))  # → False",
+      "class Money: __abs__ = lambda self: 42",
+      "print(isinstance(Money(), SupportsAbs))  # → True",
+      "print(abs(Money()))  # → 42",
+      "print(issubclass(complex, SupportsAbs))  # → True"
+    ],
+    "related": [
+      "abs",
+      "typing.SupportsRound",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.SupportsRound",
+    "title": "typing.SupportsRound",
+    "kind": "term",
+    "summary": {
+      "ru": "Runtime-проверяемый протокол «поддерживает round()» (есть __round__).",
+      "en": "A runtime-checkable protocol for objects supporting round() (has __round__)."
+    },
+    "body": {
+      "ru": "Протокол обобщённый: SupportsRound[T] параметризуется типом, который вернёт round(). Как и прочие Supports*, isinstance проверяет только наличие __round__ — не его сигнатуру и не поддержку второго аргумента ndigits, так что True не гарантирует, что round(x, 2) не упадёт.",
+      "en": "This is a generic protocol — SupportsRound[T] is parameterized by the type round() returns. Like the other Supports* protocols, isinstance only checks that __round__ exists, not its signature or ndigits support, so a True result doesn't guarantee round(x, 2) won't fail."
+    },
+    "syntax": "isinstance(obj, typing.SupportsRound)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.SupportsRound",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "протоколы Supports*",
+    "aliases": [
+      "протокол округления",
+      "объект поддерживает округление"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import SupportsRound",
+      "from decimal import Decimal",
+      "print(isinstance(5, SupportsRound))   # → True",
+      "print(isinstance('3.7', SupportsRound))   # → False",
+      "print(isinstance(Decimal('2.5'), SupportsRound))   # → True",
+      "print(isinstance(1 + 2j, SupportsRound))   # → False",
+      "print(issubclass(int, SupportsRound))   # → True"
+    ],
+    "related": [
+      "round",
+      "typing.SupportsAbs",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.SupportsIndex",
+    "title": "typing.SupportsIndex",
+    "kind": "term",
+    "summary": {
+      "ru": "Runtime-проверяемый протокол «можно использовать как индекс» (есть __index__); объект приводится к int без потерь.",
+      "en": "A runtime-checkable protocol for objects usable as an index (has __index__)."
+    },
+    "body": {
+      "ru": "__index__ отличает «настоящее целое» от float: именно его требуют срезы, range(), hex()/bin()/oct() и operator.index(). Поэтому у float его нет — isinstance(2.0, SupportsIndex) даёт False, тогда как int и bool проходят. Сам протокол появился в Python 3.8.",
+      "en": "__index__ marks a 'genuine integer' as opposed to a float: it is what slices, range(), hex()/bin()/oct() and operator.index() demand. So float lacks it — isinstance(2.0, SupportsIndex) is False, while int and bool pass. The protocol itself arrived in Python 3.8."
+    },
+    "syntax": "isinstance(obj, typing.SupportsIndex)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.SupportsIndex",
+    "version": "3.8",
+    "section": "Модуль typing",
+    "subcat": "протоколы Supports*",
+    "aliases": [
+      "объект можно использовать как индекс",
+      "протокол индексации"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import SupportsIndex",
+      "print(isinstance(5, SupportsIndex))   # → True",
+      "print(isinstance(2.5, SupportsIndex))  # → False",
+      "print(isinstance(True, SupportsIndex))  # → True",
+      "class Idx: __index__ = lambda self: 1",
+      "print(isinstance(Idx(), SupportsIndex))  # → True",
+      "print('abc'[Idx()])  # → b"
+    ],
+    "related": [
+      "typing.SupportsInt",
+      "int",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.overload",
+    "title": "typing.overload",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор для объявления нескольких сигнатур одной функции (перегрузок) для средства проверки типов; во время выполнения перегрузки не имеют тела.",
+      "en": "A decorator declaring multiple signatures (overloads) of one function for the type checker."
+    },
+    "body": {
+      "ru": "Перегрузки — чистая аннотация для проверяльщика типов: во время выполнения тела у них нет, а вызов такой заглушки бросает NotImplementedError. Поэтому после всех @overload обязательно идёт одна обычная реализация без декоратора, которая сама разбирает аргументы, — диспетчеризации по типам, как в C++ или Java, Python не делает.",
+      "en": "Overloads are pure annotations for the type checker: at runtime they have no body, and calling such a stub raises NotImplementedError. That's why all the @overload stubs must be followed by one plain, undecorated implementation that inspects the arguments itself — Python does no type-based dispatch the way C++ or Java do."
+    },
+    "syntax": "@typing.overload",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.overload",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "декораторы и маркеры",
+    "aliases": [
+      "перегрузка функции",
+      "несколько сигнатур одной функции",
+      "разные варианты вызова функции"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import overload, get_overloads",
+      "print(callable(overload))   # → True",
+      "@overload",
+      "def double(x: int) -> int: ...",
+      "@overload",
+      "def double(x: str) -> str: ...",
+      "def double(x): return x * 2   # реализация идёт последней, без @overload",
+      "print(double(5))   # → 10",
+      "print(double('ab'))   # → abab",
+      "print(len(get_overloads(double)))   # → 2",
+      "@overload",
+      "def solo(x: int) -> int: ...",
+      "print(solo(1))   # → NotImplementedError (перегрузка без реализации)"
+    ],
+    "related": [
+      "typing.get_overloads",
+      "functools.singledispatch",
+      "typing.clear_overloads"
+    ],
+    "related_errors": [
+      "NotImplementedError"
+    ]
+  },
+  {
+    "id": "typing.override",
+    "title": "typing.override",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор, помечающий метод как переопределение метода базового класса; средство проверки типов проверит, что такой метод действительно существует у предка (Python 3.12+).",
+      "en": "A decorator marking a method as overriding a base-class method (3.12+)."
+    },
+    "body": {
+      "ru": "Во время выполнения это no-op (лишь ставит атрибут __override__) — вся польза на стороне проверяльщика типов. Он ловит классическую ошибку: метод в базовом классе переименовали или удалили, и «переопределение» в наследнике молча стало новым несвязанным методом — без @override об этом никто не предупредит.",
+      "en": "At runtime it's a no-op (it just sets an __override__ attribute); the value is entirely for the type checker. It catches the classic bug where a base-class method is renamed or removed and your \"override\" silently becomes a new, unrelated method — without @override nothing flags it."
+    },
+    "syntax": "@typing.override",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.override",
+    "version": "3.12",
+    "section": "Модуль typing",
+    "subcat": "декораторы и маркеры",
+    "aliases": [
+      "пометить переопределение метода",
+      "проверка что метод есть у родителя"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import override",
+      "class Base:",
+      "    def f(self): ...",
+      "class Sub(Base):",
+      "    @override",
+      "    def f(self): return 42",
+      "print(Sub().f())   # → 42"
+    ],
+    "related": [
+      "наследование",
+      "super",
+      "abc.abstractmethod"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.no_type_check",
+    "title": "typing.no_type_check",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор, отключающий проверку типов для функции или класса (аннотации игнорируются средством проверки типов).",
+      "en": "A decorator disabling type checking for a function or class."
+    },
+    "body": {
+      "ru": "На классе действует рекурсивно — снимает проверку сразу со всех методов, тогда как комментарий # type: ignore гасит ровно одну строку. Инструмент грубый, «всё или ничего»; практический смысл он имеет в основном для динамически сгенерированного кода, где аннотации не должны трактоваться как типы.",
+      "en": "On a class it applies recursively, silencing checks on every method at once, whereas a # type: ignore comment suppresses just one line. It's a blunt all-or-nothing tool, mostly meaningful for dynamically generated code where annotations shouldn't be read as types."
+    },
+    "syntax": "@typing.no_type_check",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.no_type_check",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "декораторы и маркеры",
+    "aliases": [
+      "отключить проверку типов",
+      "игнорировать аннотации типов"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import no_type_check",
+      "@no_type_check",
+      "def f(x): return x",
+      "print(f(3))   # → 3"
+    ],
+    "related": [
+      "typing.no_type_check_decorator",
+      "typing.Any",
+      "аннотации-типов-type-hints"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.no_type_check_decorator",
+    "title": "typing.no_type_check_decorator",
+    "kind": "function",
+    "summary": {
+      "ru": "Служебный декоратор, превращающий переданный декоратор в такой, что он ещё и помечает цель no_type_check.",
+      "en": "A helper decorator that also applies no_type_check to its target."
+    },
+    "body": {
+      "ru": "Помечен как устаревший с Python 3.13 и подлежит удалению в 3.15: ни один статический анализатор так и не реализовал его поддержку, поэтому на практике он ничего не даёт. В новом коде не используй — для отключения проверки бери сам @no_type_check.",
+      "en": "Deprecated since Python 3.13 and slated for removal in 3.15: no type checker ever implemented support for it, so in practice it does nothing. Don't reach for it in new code — use @no_type_check itself when you need to disable checking."
+    },
+    "syntax": "@typing.no_type_check_decorator(some_decorator)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.no_type_check_decorator",
+    "version": "",
+    "section": "Модуль typing",
+    "subcat": "декораторы и маркеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import no_type_check_decorator",
+      "print(callable(no_type_check_decorator))   # → True",
+      "def logged(func): return func   # обычный декоратор",
+      "marking = no_type_check_decorator(logged)   # тот же декоратор + пометка no_type_check",
+      "@marking",
+      "def area(w: int, h: int) -> int: return w * h",
+      "print(area(3, 4))   # → 12",
+      "print(area.__no_type_check__)   # → True",
+      "@logged",
+      "def perimeter(w: int, h: int) -> int: return 2 * (w + h)",
+      "print(hasattr(perimeter, '__no_type_check__'))   # → False",
+      "print(marking.__name__)   # → logged"
+    ],
+    "related": [
+      "typing.no_type_check",
+      "декораторы"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.runtime_checkable",
+    "title": "typing.runtime_checkable",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор класса-протокола (Protocol), разрешающий проверять его через isinstance()/issubclass() по наличию методов.",
+      "en": "A decorator letting a Protocol be used with isinstance()/issubclass() by method presence."
+    },
+    "body": {
+      "ru": "Главная ловушка: isinstance() с таким протоколом проверяет только наличие методов по имени, а не их сигнатуры — объект с __len__, берущим не те аргументы, всё равно пройдёт проверку. А issubclass() работает лишь с протоколами из одних методов: для протокола с атрибутами-данными он бросит TypeError.",
+      "en": "The main trap: isinstance() against such a protocol checks only that the methods exist by name, not their signatures — an object whose __len__ takes the wrong arguments still passes. And issubclass() works only for method-only protocols; against a protocol with data attributes it raises TypeError."
+    },
+    "syntax": "@typing.runtime_checkable",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.runtime_checkable",
+    "version": "3.8",
+    "section": "Модуль typing",
+    "subcat": "декораторы и маркеры",
+    "aliases": [
+      "протокол с проверкой во время выполнения",
+      "утиная типизация с проверкой"
+    ],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import Protocol, runtime_checkable",
+      "@runtime_checkable",
+      "class Sized(Protocol):",
+      "    def __len__(self) -> int: ...",
+      "print(isinstance([1, 2], Sized))   # → True"
+    ],
+    "related": [
+      "protocol",
+      "isinstance",
+      "typing.is_protocol"
+    ],
+    "related_errors": [
+      "TypeError"
+    ]
+  },
+  {
+    "id": "typing.dataclass_transform",
+    "title": "typing.dataclass_transform",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор-маркер: сообщает средству проверки типов, что помеченная функция/класс порождает объекты в стиле dataclass (Python 3.11+).",
+      "en": "A marker decorator telling the type checker something produces dataclass-like objects (3.11+)."
+    },
+    "body": {
+      "ru": "У декоратора нет никакого рантайм-эффекта: он лишь проставляет метку, которую читает статический анализатор, — сам __init__ и прочие методы он не генерирует. Нужен авторам библиотек (attrs, pydantic, SQLAlchemy), чтобы их собственные декораторы и базовые классы проверяющий тип видел как обычные dataclass'ы; в прикладном коде почти не встречается.",
+      "en": "The decorator has no runtime effect — it only attaches a marker the static type checker reads, and never actually generates __init__ or any other method. It exists for library authors (attrs, pydantic, SQLAlchemy) so a checker treats their custom decorators and base classes as dataclass-like; application code rarely touches it."
+    },
+    "syntax": "@typing.dataclass_transform()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.dataclass_transform",
+    "version": "3.12",
+    "section": "Модуль typing",
+    "subcat": "декораторы и маркеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import dataclass_transform",
+      "print(callable(dataclass_transform))   # → True",
+      "def model(cls): return cls   # «фабрика» в стиле dataclass",
+      "print(dataclass_transform()(model) is model)   # → True",
+      "model = dataclass_transform(order_default=True)(model); print(model.__dataclass_transform__['order_default'])   # → True",
+      "print(dataclass_transform(True))   # → TypeError"
+    ],
+    "related": [
+      "dataclass",
+      "field",
+      "dataclasses.make_dataclass"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.clear_overloads",
+    "title": "typing.clear_overloads",
+    "kind": "function",
+    "summary": {
+      "ru": "Очищает внутренний реестр перегрузок, накопленный @overload (возвращает None; Python 3.11+).",
+      "en": "Clear the internal registry of @overload implementations (returns None; 3.11+)."
+    },
+    "body": {
+      "ru": "Существует в паре с get_overloads: начиная с 3.11 каждый @overload складывает свою заглушку во внутренний реестр, откуда её можно достать в рантайме, а clear_overloads этот реестр обнуляет. Нужно это в основном авторам библиотек и в тестах — освободить удерживаемые ссылки или начать сбор перегрузок с чистого листа; в прикладном коде вызывать почти никогда не приходится.",
+      "en": "It exists as the counterpart to get_overloads: since 3.11 every @overload stashes its stub in an internal registry you can read back at runtime, and clear_overloads wipes that registry. It's mainly for library authors and tests — to free the retained references or restart overload collection from scratch — and you almost never need it in application code."
+    },
+    "syntax": "typing.clear_overloads()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.clear_overloads",
+    "version": "3.11",
+    "section": "Модуль typing",
+    "subcat": "декораторы и маркеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "from typing import overload, get_overloads, clear_overloads",
+      "print(clear_overloads() is None)   # → True",
+      "def dup(x: int) -> int: ...   # заглушка будущей перегрузки",
+      "_ = overload(dup); print(len(get_overloads(dup)))   # → 1",
+      "clear_overloads(); print(get_overloads(dup))   # → []",
+      "print(get_overloads(print))   # → []"
+    ],
+    "related": [
+      "typing.get_overloads",
+      "typing.overload"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "typing.evaluate_forward_ref",
+    "title": "typing.evaluate_forward_ref()",
+    "kind": "function",
+    "summary": {
+      "ru": "Вычисляет ForwardRef (отложенную строковую аннотацию) в реальный тип, рекурсивно раскрывая вложенные ссылки. Python 3.14+.",
+      "en": "Evaluates a ForwardRef (a deferred string annotation) into a real type, resolving nested forward references recursively. Python 3.14+."
+    },
+    "body": {
+      "ru": "Напрямую её вызывать приходится редко: аннотации целой функции или класса разворачивает typing.get_type_hints(), а эта функция нужна, когда на руках отдельный ForwardRef, вынутый из чужой аннотации. Имя ищется в переданных owner/globals/locals — если оно там не видно, будет NameError; с format=annotationlib.Format.FORWARDREF ссылка вместо ошибки останется нераскрытой.",
+      "en": "You rarely need it directly: typing.get_type_hints() resolves every annotation of a function or class at once, while this call is for a single ForwardRef you pulled out of someone else's annotation. The name is looked up in the owner/globals/locals you pass, so a name that is not visible there raises NameError; with format=annotationlib.Format.FORWARDREF the reference is left unresolved instead."
+    },
+    "syntax": "typing.evaluate_forward_ref(forward_ref, *, owner=None, globals=None, locals=None, type_params=None, format=annotationlib.Format.VALUE)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.evaluate_forward_ref",
+    "version": "3.14",
+    "section": "Модуль typing",
+    "subcat": "интроспекция аннотаций",
+    "aliases": [
+      "вычислить отложенную аннотацию",
+      "разрешить строковую аннотацию",
+      "раскрыть опережающую ссылку"
+    ],
+    "keywords": [
+      "typing.evaluate_forward_ref",
+      "evaluate_forward_ref"
+    ],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "import typing",
+      "ref = typing.ForwardRef('int')",
+      "print(typing.evaluate_forward_ref(ref))    # → <class 'int'>",
+      "print(typing.evaluate_forward_ref(typing.ForwardRef('list[int]')))   # → list[int]",
+      "print(typing.evaluate_forward_ref(typing.ForwardRef('T'), globals={'T': str}))   # → <class 'str'>",
+      "print(typing.evaluate_forward_ref(ref) is int)   # → True"
+    ],
+    "related": [
+      "typing.ForwardRef",
+      "typing.get_type_hints",
+      "typing.get_args",
+      "typing.Any"
+    ],
+    "related_errors": [
+      "NameError"
+    ]
+  }
+]

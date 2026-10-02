@@ -1,0 +1,411 @@
+"""scripts/generate_facts.py — факты проекта машиночитаемо, для соседей.
+
+Витрине нужны наши числа: сколько тестов, сколько тест-модулей, сколько
+проверок создаётся на pull request, какие версии Python в матрице. Сегодня она
+берёт их **у себя**: клонирует репозиторий целиком ради двух ``rglob`` по
+``tests/``, разбирает наш ``ci.yml`` регулярным выражением и оценивает число
+проверок медианой по семи последним PR.
+
+Цена такого способа — не расход, а связанность. Знание о том, где лежат наши
+тесты и как устроена наша матрица, живёт в ЧУЖОМ репозитории: переносим
+каталог — у соседа молча меняется число, а не ломается сборка. Медиана же
+существует ровно потому, что снаружи точного ответа не видно, — тогда как
+внутри он есть: тот же набор проверок уже считает ``check_pr_ready.py`` для
+собственного мерж-гейта.
+
+Отсюда приём, который в этой экосистеме уже работает у каталога правил:
+**издатель считает, потребитель читает**. Файл кладётся в ветку ``badges``
+рядом с бейджами — тем же прогоном и тем же способом, каким витрина их уже
+получает (contents-API, без клона и без знания нашего дерева).
+
+ПОЧЕМУ НЕ В ``main``. Числа пересобираются на каждом пуше, то есть чаще, чем
+идут изменения. Производное с такой частотой в общей ветке не хранят: оно
+превращает каждое слияние в конфликт и красит ветку сдвигом числа, а не
+поломкой (правило 160). В ``main`` файла нет — он в ``.gitignore``.
+
+ЗНАЧЕНИЕ ИЛИ ПРИЧИНА, ТРЕТЬЕГО НЕТ (договор фактов 1.2, issue #1551). Ноль
+отсутствия не обозначает: он читался бы как «проверок нет». Но и молча
+пропавший ключ договору больше не отвечает — витрина не отличает «забыли» от
+«не смогли». Поэтому показатель, который измерить не удалось, называется в
+разделе ``none`` вместе с причиной. Требования записаны у потребителя один раз:
+``.rules/facts.schema.json`` в ArtVsMark/ArtVsMark.
+
+Запуск::
+
+    python scripts/generate_facts.py --out .github/badges/facts.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import datetime as _datetime
+import importlib.util
+import json
+import pathlib
+import re
+import subprocess
+import sys
+from types import ModuleType
+
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
+__all__ = [
+    "CI_WORKFLOW",
+    "REPO",
+    "SCHEMA",
+    "build_facts",
+    "count_rule_bindings",
+    "count_test_functions",
+    "count_test_modules",
+    "coverage_percent",
+    "main",
+    "python_versions",
+    "release_facts",
+]
+
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+#: Версия ФОРМАТА ЭТОГО ФАЙЛА — не версия проекта и не версия его выпуска.
+#: Номера разного назначения, названные одним словом, разъезжаются по чужим
+#: полям: сосед по каталогу правил уже записал версию формата выгрузки в поле
+#: версии ответа потребителя, и обе стороны остались формально валидными.
+SCHEMA = "1.2"
+
+#: Файл прогона CI. Статус витрина спрашивает у площадки сама: свой красный
+#: файл честно сказать о себе не может — он просто не опубликуется.
+CI_WORKFLOW = "ci.yml"
+
+REPO = "ArtVsMark/Stepik-Python-Grader"
+
+_TEST_FUNCTION_RE = re.compile(r"^\s*(?:async\s+)?def\s+test_", re.MULTILINE)
+_MATRIX_VERSION_RE = re.compile(r"^\s*python-version:\s*\[([^\]]+)\]", re.MULTILINE)
+_MATRIX_OS_RE = re.compile(r"^\s*os:\s*\[([^\]]+)\]", re.MULTILINE)
+_EXPERIMENTAL_RE = re.compile(r'python-version:\s*"([^"]+)",\s*experimental:\s*true')
+
+
+def count_test_functions(root: pathlib.Path) -> int:
+    """Число тест-функций во всём дереве ``tests/``."""
+    total = 0
+    for path in sorted((root / "tests").rglob("*.py")):
+        total += len(_TEST_FUNCTION_RE.findall(path.read_text(encoding="utf-8", errors="replace")))
+    return total
+
+
+def count_test_modules(root: pathlib.Path) -> int:
+    """Число тест-модулей.
+
+    Считаются файлы ``test_*.py``: ``conftest`` и хелперы тестами не являются.
+    """
+    return len(list((root / "tests").rglob("test_*.py")))
+
+
+def _matrix_list(text: str, pattern: re.Pattern[str]) -> list[str]:
+    """Список из матрицы: ``["a", "b"]`` → ``["a", "b"]``."""
+    matched = pattern.search(text)
+    if not matched:
+        return []
+    return [item.strip().strip("\"'") for item in matched.group(1).split(",") if item.strip()]
+
+
+def python_versions(root: pathlib.Path) -> dict[str, list[str]]:
+    """Версии Python и операционные системы из матрицы.
+
+    Экспериментальных версий нет в правилах ветки по устройству — они идут под
+    ``continue-on-error`` и мерж не блокируют, поэтому единственный источник —
+    сама матрица.
+
+    ``os`` добавлен по просьбе витрины (issue #1448) и по той же причине, что и
+    остальные ключи: число операционных систем она добывала **регулярным
+    выражением по именам наших джобов**, то есть держала знание о нашем формате
+    имён в своём коде. Переименуй мы комбинацию — у соседа молча изменилось бы
+    число, и не упало бы ничего.
+
+    Из ``checks_per_pr.names`` вывести нельзя: там ВСЕ проверки на изменение, а
+    операционные системы показываются по обязательным — разные множества, и
+    ответ вышел бы на другой вопрос.
+    """
+    text = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    return {
+        "supported": _matrix_list(text, _MATRIX_VERSION_RE),
+        "experimental": sorted(set(_EXPERIMENTAL_RE.findall(text))),
+        "os": _matrix_list(text, _MATRIX_OS_RE),
+    }
+
+
+def _binding_key(record: object) -> str:
+    """Куда отнести правило: чем оно держится, а неактивное — своим статусом.
+
+    Дефис в ключе JSON заменяется подчёркиванием (``not-applicable`` →
+    ``not_applicable``): ключ читают как имя поля, а не как строку.
+    """
+    if not isinstance(record, dict):
+        return "unreviewed"
+    status = str(record.get("status") or "unreviewed")
+    #: Активное правило описывается механизмом, остальные — самим статусом:
+    #: у отклонённого механизма нет по определению, и «чем держится» для него
+    #: вопрос без ответа.
+    key = str(record.get("mechanism") or "none") if status == "active" else status
+    return key.replace("-", "_")
+
+
+def count_rule_bindings(root: pathlib.Path) -> dict[str, int] | None:
+    """Доли «чем держится правило» из своего ``.rules/bindings.json``.
+
+    Ключи выводятся ПОДСЧЁТОМ, а не списком в коде: словарь механизмов ведёт
+    каталог, и он растёт — за две недели к четырём долям добавилась пятая.
+    Жёсткий перечень отстал бы молча, показав старую картину как полную.
+
+    Числа берутся из своего файла, а не из сводки каталога
+    (``badges/export/where.json``): та — ответ каталога О НАС, а витрина по
+    контракту читает то, что проект говорит О СЕБЕ. У этих ответов разные
+    владельцы и разный срок жизни.
+
+    Файла нет или он нечитаем — ``None``: ключа в фактах не будет вовсе.
+    """
+    path = root / ".rules" / "bindings.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"::warning::привязки правил не прочитаны: {exc}", file=sys.stderr)
+        return None
+    rules = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(rules, dict) or not rules:
+        return None
+    counts: dict[str, int] = {"total": len(rules)}
+    for record in rules.values():
+        key = _binding_key(record)
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def coverage_percent(coverage_xml: pathlib.Path) -> float | None:
+    """Суммарный процент покрытия из Cobertura-отчёта; нечитаем — ``None``.
+
+    Считается тем же кодом, что и бейдж (``generate_coverage_badge``), а не
+    разбором самого бейджа: у значка формат оформления, и вычитывать число из
+    ``message`` значило бы разбирать вид ради содержания.
+    """
+    sys.path.insert(0, str(_ROOT / "scripts"))
+    try:
+        import generate_coverage_badge
+    except ImportError as exc:
+        print(f"::warning::покрытие не измерено: {exc}", file=sys.stderr)
+        return None
+    try:
+        return generate_coverage_badge.compute_coverage_percent(coverage_xml)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        print(f"::warning::покрытие не измерено: {exc}", file=sys.stderr)
+        return None
+
+
+def _load_script(name: str) -> ModuleType:
+    """Соседний скрипт по пути: ``scripts/`` — не пакет, обычный import не сработает."""
+    path = _ROOT / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"_facts_{name}", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def release_facts(
+    tag: str | None, version: str | None, pypi_version: str | None
+) -> tuple[dict[str, str], dict[str, str]]:
+    """``version`` и ``release`` — значениями либо причинами для ``none``.
+
+    Значение выпуска — то же, что пишет значок ``release.json``: выпуск и пакет
+    сведены там в одну строку (``1.11`` или ``1.11 ≠ pypi 1.10``). Собирается
+    оно тем же кодом (``generate_release_badge.build_badge_payload``), а не
+    разбором готового значка: у значка формат оформления, и вычитывать число
+    из ``message`` значило бы разбирать вид ради содержания.
+
+    Релизного тега не видно — это клон без тегов, а не проект без выпусков:
+    версия тогда неполна (``0.0.N``), и правдоподобное число было бы точной
+    ложью. Обе строки уходят причинами.
+    """
+    if tag is None:
+        reason = "релизного тега в клоне не видно (клон без тегов) — версия неполна"
+        return {}, {"version": reason, "release": reason}
+    badge = _load_script("generate_release_badge").build_badge_payload(tag, pypi_version)
+    values = {"release": str(badge["message"])}
+    reasons: dict[str, str] = {}
+    if version:
+        values["version"] = version
+    else:
+        reasons["version"] = "версия не вычислена: git недоступен"
+    return values, reasons
+
+
+def _measure_release() -> tuple[str | None, str | None, str | None]:
+    """Входы для :func:`release_facts`: тег, версия по схеме проекта, версия на PyPI.
+
+    Единственное место, где факты ходят в git за тегами и в сеть за PyPI, —
+    поэтому тесты подменяют именно его. Определение «релизного тега» живёт в
+    ``version.py`` один раз: вторая копия маски разъехалась бы с первой.
+    """
+    version_module = _load_script("version")
+    tag = version_module.latest_release_tag()
+    version = version_module.project_version() if tag is not None else None
+    pypi = _load_script("generate_release_badge").fetch_pypi_version() if tag else None
+    return tag, version, pypi
+
+
+def _head_commit(root: pathlib.Path) -> str:
+    """SHA состояния, по которому посчитаны числа; пусто — git недоступен."""
+    done = subprocess.run(  # argv собран здесь, оболочка не участвует
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    return done.stdout.strip() if done.returncode == 0 else ""
+
+
+def _checks_per_pr(root: pathlib.Path) -> dict[str, object] | None:
+    """Эталонный набор проверок PR: сколько их и как называются.
+
+    Берётся оттуда же, откуда его берёт собственный мерж-гейт
+    (``check_pr_ready.py``), — из живого состояния ``main``, а не из константы.
+    Спросить не удалось — ``None``: ключа в файле не будет вовсе.
+    """
+    sys.path.insert(0, str(root / "scripts"))
+    try:
+        import check_pr_ready
+        import gh_rest
+    except ImportError as exc:
+        print(f"::warning::эталонный набор не прочитан: {exc}", file=sys.stderr)
+        return None
+
+    try:
+        names = check_pr_ready._expected_names(
+            gh_rest._get,
+            REPO,
+            root / ".github" / "workflows",
+        )
+    except gh_rest.RateLimited as exc:
+        # Отказ ИСТОЧНИКА отличается от чистого результата: квота кончилась —
+        # это не «проверок на PR не создаётся». Ключ пропадает, остальные факты
+        # едут как обычно.
+        print(f"::warning::квота исчерпана, checks_per_pr не измерен: {exc}", file=sys.stderr)
+        return None
+    except gh_rest.GitHubError as exc:
+        print(f"::warning::площадка отказала, checks_per_pr не измерен: {exc}", file=sys.stderr)
+        return None
+    except OSError as exc:
+        print(f"::warning::сеть недоступна, checks_per_pr не измерен: {exc}", file=sys.stderr)
+        return None
+    if not names:
+        return None
+    return {"count": len(names), "names": sorted(names)}
+
+
+def build_facts(
+    root: pathlib.Path | None = None,
+    *,
+    coverage_xml: pathlib.Path | None = None,
+) -> dict[str, object]:
+    """Собрать факты проекта — то, что соседям иначе пришлось бы считать у себя.
+
+    ``coverage_xml`` передаётся ТОЛЬКО когда данные покрытия полны: путь к
+    отчёту существует всегда, в том числе после деградации (``coverage xml``
+    выполняется в любом случае), поэтому судить по наличию файла нельзя.
+    Признак полноты знает прогон — он же и решает, звать ли с этим аргументом.
+    Не передан — вместо ``coverage_percent`` в ``none`` встаёт причина:
+    недосчитанное число было бы не пробелом, а точной ложью, а молча пропавший
+    ключ договору фактов 1.2 не отвечает.
+    """
+    base = root if root is not None else _ROOT
+    facts: dict[str, object] = {
+        "schema": SCHEMA,
+        "schema_of": (
+            "формат ЭТОГО файла — факты проекта для соседних (generate_facts.py). "
+            "Не версия проекта, не его выпуск и не чужая схема: в этой экосистеме "
+            "их уже четыре (выгрузка правил, ответ потребителя, сводка, факты), "
+            "ключ у всех один, предметы разные — правило 164"
+        ),
+        "_": (
+            "Факты этого проекта для соседних. schema — версия ФОРМАТА файла, "
+            "не версия проекта и не его выпуск. Ключа нет — значит не измеряли: "
+            "нулём отсутствие не обозначается."
+        ),
+        "repo": REPO,
+        "generated_at": _datetime.datetime.now(tz=_datetime.UTC).isoformat(timespec="seconds"),
+        "tests": {
+            "functions": count_test_functions(base),
+            "modules": count_test_modules(base),
+        },
+        "python": python_versions(base),
+    }
+    commit = _head_commit(base)
+    if commit:
+        facts["commit"] = commit
+    facts["ci"] = {"workflow": CI_WORKFLOW}
+
+    none: dict[str, str] = {}
+    values, reasons = release_facts(*_measure_release())
+    facts.update(values)
+    none.update(reasons)
+
+    checks = _checks_per_pr(base)
+    if checks is not None:
+        facts["checks_per_pr"] = checks
+    else:
+        none["checks_per_pr"] = "площадка не ответила: квота, отказ или сеть"
+    rules = count_rule_bindings(base)
+    if rules is not None:
+        facts["rules"] = rules
+    percent = coverage_percent(coverage_xml) if coverage_xml is not None else None
+    if percent is not None:
+        facts["coverage_percent"] = percent
+    elif coverage_xml is None:
+        none["coverage_percent"] = (
+            "данные покрытия неполны (упала ячейка матрицы) или не собирались"
+        )
+    else:
+        none["coverage_percent"] = "отчёт покрытия не прочитан"
+    if none:
+        facts["none"] = none
+    return facts
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Записать файл фактов; 0 — записан."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--out",
+        type=pathlib.Path,
+        default=_ROOT / ".github" / "badges" / "facts.json",
+        help="куда положить файл",
+    )
+    parser.add_argument("--root", type=pathlib.Path, default=_ROOT, help="корень проекта")
+    parser.add_argument(
+        "--coverage-xml",
+        type=pathlib.Path,
+        default=None,
+        help=(
+            "Cobertura-отчёт, из которого взять coverage_percent. Передавать "
+            "ТОЛЬКО при полных данных: отчёт пишется и после деградации, и "
+            "недосчитанное число ушло бы к соседям как настоящее"
+        ),
+    )
+    args = parser.parse_args(argv)
+
+    facts = build_facts(args.root, coverage_xml=args.coverage_xml)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(facts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(
+        f"факты собраны: тестов {facts['tests']['functions']}, "  # type: ignore[index]
+        f"модулей {facts['tests']['modules']}, "  # type: ignore[index]
+        f"файл {args.out}"
+    )
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

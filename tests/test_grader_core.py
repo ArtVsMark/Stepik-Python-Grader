@@ -1,0 +1,1296 @@
+"""Tests for grader core helpers identified as coverage gaps in the audit:
+_is_python_code_block, load_test_cases format-detection priority, and
+resolve_test_dir search order.
+
+These pin down behavior that the upcoming refactoring touches indirectly, so
+regressions surface immediately.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import subprocess
+import sys
+import tempfile
+import warnings
+
+import pytest
+
+from stepik_grader import grader
+from stepik_grader.core import grader_core, mode_detector
+
+# ---------------------------------------------------------------------------
+# _is_python_code_block  (parametrized — replaces 4 separate test functions)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "code,expected",
+    [
+        ("print(func(x))", True),
+        ("result = func(5)\nprint(result)", True),
+        ("1\n2\n3", False),
+        ("10", False),
+        ("", False),
+        ("   \n  ", False),
+        ("04.11.2021", False),
+        # Issue #47 R-02: a bare name with no call and no assignment is
+        # degenerate stdin-shaped data, not a call-block or a declaration.
+        ("x", False),
+        ("print", False),
+        ("True\nFalse\nNone", False),
+        # Issue #784: слова-идентификаторы во входных данных (имена, города) —
+        # это stdin, а не драйвер теста: ни вызова, ни присваивания в них нет.
+        ("Anna\nBob", False),
+        ("Anna, Bob, Clara", False),
+        ("x, y", False),
+        ("Moscow\nParis\nTokyo", False),
+        # Признак кода — вызов или присваивание, а не наличие имени как такового.
+        ("x = 5", True),
+        ("chainmap = ChainMap({})", True),
+        ("data = [1, 2]", True),
+        ("total += 1", True),
+        ("count: int = 3", True),
+    ],
+)
+def test_is_python_code_block(code: str, expected: bool) -> None:
+    """_is_python_code_block returns True only when the block contains a Name node."""
+    assert grader._is_python_code_block(code) is expected
+
+
+# ---------------------------------------------------------------------------
+# _verdict — ratio → label
+# Проверяем ТОЛЬКО вердикты, которые реально возвращает _verdict().
+# FASTER не существует в текущей реализации — ratio < 1.0 → SIMILAR.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "ratio,expected_verdict",
+    [
+        (1.0, "SIMILAR"),
+        (1.14, "SIMILAR"),
+        (1.15, "SIMILAR"),  # граница включительно
+        (0.9, "SIMILAR"),  # ratio < 1.0 → всё равно SIMILAR
+        (0.5, "SIMILAR"),  # ratio << 1.0 → всё равно SIMILAR
+        (1.16, "SLOWER"),
+        (1.49, "SLOWER"),
+        (1.50, "SLOWER"),  # граница включительно
+        (1.51, "MUCH_SLOWER"),
+        (2.0, "MUCH_SLOWER"),
+    ],
+)
+def test_verdict(ratio: float, expected_verdict: str) -> None:
+    """_verdict maps a timing ratio to the correct label."""
+    assert grader._verdict(ratio) == expected_verdict
+
+
+# ---------------------------------------------------------------------------
+# _micro_stats — descriptive statistics
+# ---------------------------------------------------------------------------
+
+
+def test_micro_stats_basic() -> None:
+    """_micro_stats returns correct min/max/mean/median/stdev for a simple series."""
+    stats = grader._micro_stats([0.1, 0.2, 0.3, 0.4, 0.5])
+    assert stats["min"] == pytest.approx(0.1)
+    assert stats["max"] == pytest.approx(0.5)
+    assert stats["median"] == pytest.approx(0.3)
+    assert stats["mean"] == pytest.approx(0.3)
+
+
+def test_micro_stats_single_value() -> None:
+    """A single-element series: stdev is 0, min == max == median == mean."""
+    stats = grader._micro_stats([0.42])
+    assert stats["min"] == pytest.approx(0.42)
+    assert stats["max"] == pytest.approx(0.42)
+    assert stats["stdev"] == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# load_test_cases — format detection priority
+# ---------------------------------------------------------------------------
+
+
+def test_load_test_cases_format3_priority(tmp_path: pathlib.Path):
+    """Format 3 (input.txt + output.txt with # TEST_N: blocks) is detected.
+
+    REFACTORING INVARIANT: format-3 must keep top priority and auto-classify
+    each block's test_type (function vs stdin).
+    """
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+    assert len(cases) == 2
+    assert cases[0].index == 1
+    assert cases[0].input_lines == ["2", "3"]
+    assert cases[0].expected_lines == ["5"]
+    assert cases[0].test_type == "stdin"
+
+
+def test_load_test_cases_format3_classifies_function_block(tmp_path: pathlib.Path):
+    """A format-3 block that is Python code is classified test_type='function'."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\nprint(add(1, 2))\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n3\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+    assert len(cases) == 1
+    assert cases[0].test_type == "function"
+
+
+def test_load_test_cases_format3_words_stay_stdin(tmp_path: pathlib.Path):
+    """Формат 3: блок из слов-имён остаётся stdin-кейсом (issue #784).
+
+    `Anna\\nBob` разбирается как два выражения-имени, и прежний критерий
+    «есть ast.Name» уводил кейс на function-маршрут: тот требовал
+    `function_name` и падал с RE на верном stdin-решении.
+    """
+    (tmp_path / "input.txt").write_text("# TEST_1:\nAnna\nBob\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\nПривет, Anna и Bob!\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+    assert [c.test_type for c in cases] == ["stdin"]
+
+
+def test_format3_word_input_runs_as_stdin_solution(tmp_path: pathlib.Path):
+    """Прогон репро #784: решение на `input()` получает слова через stdin и даёт AC."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\nAnna\nBob\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\nПривет, Anna и Bob!\n", encoding="utf-8")
+    sol = tmp_path / "task1.py"
+    sol.write_text(
+        "a = input()\nb = input()\nprint(f'Привет, {a} и {b}!')\n",
+        encoding="utf-8",
+    )
+
+    result = grader.run_tests(sol, tmp_path, timeout=15.0)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_load_test_cases_format1_fallback(tmp_path: pathlib.Path):
+    """Format 1 (numbered N / N.clue files) is used when no input.txt/output.txt."""
+    (tmp_path / "1").write_text("3\n7\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("10\n", encoding="utf-8")
+    (tmp_path / "2").write_text("1\n", encoding="utf-8")
+    (tmp_path / "2.clue").write_text("2\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+    assert [c.index for c in cases] == [1, 2]
+    assert cases[0].input_lines == ["3", "7"]
+    assert cases[0].expected_lines == ["10"]
+
+
+def test_load_test_cases_format1_type_file(tmp_path: pathlib.Path):
+    """A N.type file containing 'function' sets the case test_type."""
+    (tmp_path / "1").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
+    (tmp_path / "1.type").write_text("function\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+    assert len(cases) == 1
+    assert cases[0].test_type == "function"
+
+
+def test_load_test_cases_format2(tmp_path: pathlib.Path):
+    """Format 2 (input_N.txt / expected_N.txt) is detected when no format 3."""
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("25\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+    assert len(cases) == 1
+    assert cases[0].index == 1
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["25"]
+
+
+def test_load_test_cases_format2_missing_expected_warns(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 warns when an input_N.txt has no matching expected_N.txt."""
+    (tmp_path / "input_2.txt").write_text("5\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="expected_2.txt"):
+        grader.load_test_cases(tmp_path)
+
+
+def test_load_test_cases_format2_preserves_leading_zero(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 loads input_03.txt instead of losing the case."""
+    (tmp_path / "input_03.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_03.txt").write_text("25\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].index == 3
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["25"]
+
+
+def test_load_test_cases_format2_distinguishes_leading_zero(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Format 2 does not collapse input_2.txt and input_02.txt."""
+    (tmp_path / "input_2.txt").write_text("2\n", encoding="utf-8")
+    (tmp_path / "expected_2.txt").write_text("20\n", encoding="utf-8")
+    (tmp_path / "input_02.txt").write_text("2\n", encoding="utf-8")
+    (tmp_path / "expected_02.txt").write_text("200\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2
+    assert [c.expected_lines for c in cases] == [["20"], ["200"]]
+
+
+def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
+    """An empty directory yields no cases."""
+    assert grader.load_test_cases(tmp_path) == []
+
+
+def test_load_test_cases_cp1251_does_not_raise(tmp_path: pathlib.Path) -> None:
+    """Файлы тестов не в UTF-8 не роняют прогон трейсбеком (issue #939).
+
+    До фикса `UnicodeDecodeError` уходил наружу, а в режиме 2 обрывал пачку,
+    унося результаты остальных решений.
+    """
+    (tmp_path / "input.txt").write_bytes("# TEST_1:\nМир\n".encode("cp1251"))
+    (tmp_path / "output.txt").write_bytes("# TEST_1:\nОК\n".encode("cp1251"))
+
+    with pytest.warns(UserWarning, match="не в utf-8"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format3_with_bom(tmp_path: pathlib.Path) -> None:
+    """BOM в начале файла не обнуляет набор кейсов (issue #939).
+
+    До фикса `U+FEFF` оставался в строке маркера, `# TEST_1:` не матчился,
+    и прогон печатал «NO TESTS» с кодом возврата 0.
+    """
+    (tmp_path / "input.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n5\n")
+    (tmp_path / "output.txt").write_bytes(b"\xef\xbb\xbf# TEST_1:\n10\n")
+
+    cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+    assert cases[0].input_lines == ["5"]
+    assert cases[0].expected_lines == ["10"]
+
+
+def test_load_test_cases_format3_without_markers_warns(tmp_path: pathlib.Path) -> None:
+    """Файлы формата 3 без маркеров дают подсказку, а не молчаливый пустой набор."""
+    (tmp_path / "input.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("10\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"TEST_1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert cases == []
+
+
+def test_load_test_cases_format3_clean_files_do_not_warn(tmp_path: pathlib.Path) -> None:
+    """Ровный UTF-8 без BOM и с маркерами не поднимает предупреждений (issue #939)."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n10\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_format1_missing_clue_warns(tmp_path: pathlib.Path) -> None:
+    """Формат 1: файл N без N.clue пропускается с предупреждением (issue #932).
+
+    До фикса набор молча усекался, и «OK 1/1» относилось к неполному набору.
+    """
+    (tmp_path / "1").write_text("1\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
+    (tmp_path / "2").write_text("2\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"2\.clue"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert [c.index for c in cases] == [1]
+
+
+def test_load_test_cases_mixed_format1_and_format2_warns(tmp_path: pathlib.Path) -> None:
+    """Форматы 1 и 2 рядом: предупреждение, оба набора загружены (issue #932)."""
+    (tmp_path / "1").write_text("5\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("999\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="форматы 1"):
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2
+
+
+def test_load_test_cases_colliding_indexes_are_unique(tmp_path: pathlib.Path) -> None:
+    """Пересечение индексов не даёт двух «Тестов 1» (issue #932).
+
+    Кейс не выбрасывается — он получает свободный номер, иначе фикс лечил бы
+    один способ потерять кейс, вводя другой.
+    """
+    (tmp_path / "1").write_text("5\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("999\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning):
+        cases = grader.load_test_cases(tmp_path)
+
+    indexes = [c.index for c in cases]
+    assert len(indexes) == len(set(indexes)), f"индексы задвоились: {indexes}"
+
+
+def test_load_test_cases_no_warning_on_clean_set(tmp_path: pathlib.Path) -> None:
+    """Ровный набор не поднимает предупреждений (issue #932).
+
+    Guard на пустом входе: без этой проверки предупреждения могли бы сыпаться
+    на каждой нормальной задаче и обесцениться.
+    """
+    (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("25\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert [c.index for c in cases] == [1]
+
+
+def test_format3_no_longer_swallows_format1_cases(tmp_path: pathlib.Path) -> None:
+    """issue #996 (MTX-4-01): кейсы формата 1 рядом с формат-3 файлами загружаются.
+
+    Прежде формат 3 выигрывал целиком и выходил из загрузчика: `.clue`-кейсы
+    исчезали, а решение получало «OK 1/1» и код возврата 0 — зелёный вердикт
+    на наборе, урезанном до одного кейса. Приоритет формата 3 сохранён (его
+    номера идут первыми), но остальное больше не пропадает.
+    """
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "1").write_text("9\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("99\n", encoding="utf-8")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2, "кейс формата 1 обязан остаться в наборе"
+    assert any("загружены следом" in str(w.message) for w in caught), (
+        "пользователю обязаны сказать, что кейсы смешаны и нумерация продолжена"
+    )
+    assert cases[0].input_lines == ["2", "3"], "формат 3 идёт первым — приоритет сохранён"
+    assert cases[1].input_lines == ["9"]
+    assert cases[1].expected_lines == ["99"]
+    assert [c.index for c in cases] == [1, 2], "номера не пересекаются"
+
+
+def test_format3_no_longer_swallows_format2_cases(tmp_path: pathlib.Path) -> None:
+    """То же для формата 2 — именно на нём находка и была найдена."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "input_1.txt").write_text("10\n20\n", encoding="utf-8")
+    (tmp_path / "expected_1.txt").write_text("30\n", encoding="utf-8")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2, "кейс формата 2 обязан остаться в наборе"
+    assert [c.input_lines for c in cases] == [["2", "3"], ["10", "20"]]
+    assert any("загружены следом" in str(w.message) for w in caught)
+
+
+def test_wrong_solution_no_longer_passes_on_a_swallowed_set(tmp_path: pathlib.Path) -> None:
+    """Тот самый ложный зелёный: решение верно лишь на кейсе формата 3.
+
+    Проверяется вердикт, а не внутренности загрузчика: неверное решение
+    обязано провалиться, а не получить «OK 1/1» на наборе, из которого
+    молча выбросили половину.
+    """
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "input.txt").write_text("# TEST_1:\n2\n", encoding="utf-8")
+    (tests_dir / "output.txt").write_text("# TEST_1:\n2\n", encoding="utf-8")
+    (tests_dir / "input_1.txt").write_text("5\n", encoding="utf-8")
+    (tests_dir / "expected_1.txt").write_text("25\n", encoding="utf-8")
+
+    solution = tmp_path / "task1.py"
+    # Печатает вход как есть: верно для кейса формата 3 (2 → 2) и неверно для
+    # кейса формата 2 (5 → 25).
+    solution.write_text("print(input())\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        result = grader.run_tests(solution, tests_dir, timeout=30.0)
+
+    assert result["total"] == 2, "в наборе обязаны быть оба кейса"
+    assert result["passed"] == 1
+    assert result["failed"] == 1, "неверное решение обязано провалиться, а не получить OK 1/1"
+
+
+def test_load_test_cases_no_warning_for_format3_alone(tmp_path: pathlib.Path) -> None:
+    """No leftover Format 1/2 files -- no warning fires."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 1
+
+
+def test_load_test_cases_warns_on_input_output_block_count_mismatch(
+    tmp_path: pathlib.Path,
+) -> None:
+    """input.txt/output.txt with a differing number of # TEST_N: blocks warns
+    instead of silently dropping the extra ones (issue #246, F-07)."""
+    (tmp_path / "input.txt").write_text(
+        "# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n# TEST_3:\n6\n7\n", encoding="utf-8"
+    )
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"в input\.txt 3 блок.*output\.txt — 2"):
+        cases = grader.load_test_cases(tmp_path)
+
+    # zip(strict=False) still truncates to the shorter side -- warning doesn't
+    # change existing behavior, just makes the data loss visible.
+    assert len(cases) == 2
+
+
+def test_load_test_cases_no_warning_when_block_counts_match(tmp_path: pathlib.Path) -> None:
+    """Equal input.txt/output.txt block counts -- no mismatch warning fires."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(tmp_path)
+
+    assert len(cases) == 2
+
+
+# ---------------------------------------------------------------------------
+# resolve_test_dir — search order
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_test_dir_finds_tests_subfolder(tmp_path: pathlib.Path):
+    """A sibling tests/ folder wins (highest priority)."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("print('x')\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+
+    assert grader.resolve_test_dir(sol) == tests_dir
+
+
+def test_resolve_test_dir_finds_stem_folder(tmp_path: pathlib.Path):
+    """A folder named after the solution stem is used when no tests/ exists."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("print('x')\n", encoding="utf-8")
+    stem_dir = tmp_path / "task1"
+    stem_dir.mkdir()
+
+    assert grader.resolve_test_dir(sol) == stem_dir
+
+
+def test_resolve_test_dir_finds_adjacent_input_txt(tmp_path: pathlib.Path):
+    """If the parent folder holds input.txt + output.txt, the parent is returned."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("print('x')\n", encoding="utf-8")
+    (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
+
+    assert grader.resolve_test_dir(sol) == tmp_path.resolve()
+
+
+def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
+    """A .clue file in the parent folder makes the parent the test dir."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("print('x')\n", encoding="utf-8")
+    (tmp_path / "1").write_text("1\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
+
+    assert grader.resolve_test_dir(sol) == tmp_path.resolve()
+
+
+# ---------------------------------------------------------------------------
+# _build_function_wrapper — identifier validation (Issue #20 finding #5)
+# ---------------------------------------------------------------------------
+
+
+def test_build_function_wrapper_accepts_valid_identifiers(tmp_path: pathlib.Path):
+    """A well-formed function_name/module stem generates a wrapper normally."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    src = grader._build_function_wrapper(sol, "x = 1", "solve")
+
+    assert "from task1 import solve" in src
+
+
+def test_build_function_wrapper_rejects_invalid_function_name(tmp_path: pathlib.Path):
+    """A function_name that isn't a valid identifier must not reach the f-string.
+
+    Without validation, a value like "x\\nimport os" would inject an extra
+    statement into the generated wrapper script.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid function_name"):
+        grader._build_function_wrapper(sol, "x = 1", "solve\nimport os")
+
+
+def test_build_function_wrapper_rejects_invalid_module_stem(tmp_path: pathlib.Path):
+    """A solution filename whose stem isn't a valid identifier is rejected too."""
+    sol = tmp_path / "task-1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid module filename stem"):
+        grader._build_function_wrapper(sol, "x = 1", "solve")
+
+
+# ---------------------------------------------------------------------------
+# Маршрутизация function-mode (issue #622)
+# ---------------------------------------------------------------------------
+
+
+def _add_solution(tmp_path: pathlib.Path) -> pathlib.Path:
+    """Решение-функция `add(a, b)` для legacy function-mode тестов."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    return sol
+
+
+def test_function_mode_named_assignment_gives_ac(tmp_path: pathlib.Path) -> None:
+    """Legacy-блок с присваиваниями должен вызывать решение, а не молча выполняться.
+
+    Регрессия #622: `a = 5` содержит ast.Name в контексте Store, поэтому старый
+    предикат `_is_python_code_block` считал блок кодом и отправлял его в
+    call-wrapper. Тот исполнял присваивания и ничего не печатал → ложный WA.
+    """
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["a = 5", "b = 10"], expected_lines=["15"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["15"]
+
+
+def test_function_mode_bare_values_gives_ac(tmp_path: pathlib.Path) -> None:
+    """Голые значения связываются позиционно, а не через locals() по имени.
+
+    Регрессия #622: `5\\n10` уходило в function-wrapper, который искал в locals()
+    переменные с именами параметров → KeyError → ложный RE.
+    """
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["5", "10"], expected_lines=["15"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["15"]
+
+
+def test_function_mode_binds_positionally_on_name_mismatch(tmp_path: pathlib.Path) -> None:
+    """Если имена переменных теста не совпали с параметрами — связываем по порядку.
+
+    Прежний wrapper требовал точного совпадения имён (docstring прямо предупреждал
+    про `date1/date2` vs `start/end`), иначе KeyError. Теперь есть позиционный
+    fallback в порядке присваиваний блока.
+    """
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["x = 2", "y = 3"], expected_lines=["5"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["5"]
+
+
+def test_function_mode_self_printing_function_gives_ac(tmp_path: pathlib.Path) -> None:
+    """Функция, которая печатает сама и ничего не возвращает, не даёт лишний 'None'.
+
+    Репро #785: `def show(a): print(a * 2)` с legacy-блоком `a = 4` и ожиданием
+    `8` возвращало WA — обёртка безусловно печатала возврат, то есть `None`
+    отдельной строкой. Задачи вида «напишите функцию, которая выводит …» в
+    формате 1 с `.type=function` были нерешаемы.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text("def show(a):\n    print(a * 2)\n", encoding="utf-8")
+    case = grader.TestCase(
+        index=1, input_lines=["a = 4"], expected_lines=["8"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["8"]
+
+
+def test_function_mode_still_prints_falsy_return(tmp_path: pathlib.Path) -> None:
+    """Возврат печатается по `is not None`, а не по истинности: `0` и `''` — данные."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def zero(a):\n    return a - a\n", encoding="utf-8")
+    case = grader.TestCase(
+        index=1, input_lines=["a = 7"], expected_lines=["0"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["0"]
+
+
+def test_format3_print_block_still_uses_call_wrapper(tmp_path: pathlib.Path) -> None:
+    """Формат 3 (блок сам печатает) не должен пострадать от нового маршрута."""
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["print(add(4, 6))"], expected_lines=["10"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["10"]
+
+
+@pytest.mark.parametrize(
+    ("block", "func", "expected"),
+    [
+        ("print(add(1, 2))", "add", True),  # блок печатает сам — формат 3
+        ("add(1, 2)", "add", True),  # вызов решения (печатает само решение)
+        ("a = 5\nb = 10", "add", False),  # только данные — legacy
+        ("d1 = date(2020, 1, 1)", "solve", False),  # данные, хотя есть вызов date()
+        ("5", "add", False),  # голый литерал
+        ("", "add", False),  # пустой блок
+        ("04.11.2021", "add", False),  # не парсится
+    ],
+)
+def test_block_invokes_solution_predicate(block: str, func: str, expected: bool) -> None:
+    """Предикат маршрутизации различает «блок печатает сам» и «блок — это данные»."""
+    assert mode_detector._block_invokes_solution(block, func) is expected
+
+
+def test_block_invokes_solution_accepts_any_of_several_names() -> None:
+    """Вызов ЛЮБОЙ функции решения означает драйвер, а не только первой (issue #938)."""
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper", "show"}) is True
+    assert mode_detector._block_invokes_solution("show(5)", {"_helper"}) is False
+
+
+def test_ast_function_name_prefers_public_over_helper(tmp_path: pathlib.Path) -> None:
+    """Целевой считается первая ПУБЛИЧНАЯ функция, а не первая по порядку (issue #938).
+
+    Раньше `_helper`, объявленный выше целевой функции, попадал в обёртку — и
+    вердикт зависел от порядка объявлений в файле пользователя.
+    """
+    solution = tmp_path / "task.py"
+    solution.write_text("def _helper(x):\n    return x\n\n\ndef show(n):\n    print(n)\n")
+
+    assert mode_detector._ast_function_name(solution) == "show"
+    assert mode_detector._ast_function_names(solution) == ["_helper", "show"]
+
+
+def test_helper_declared_first_does_not_break_verdict(tmp_path: pathlib.Path) -> None:
+    """Верное решение с вспомогательной функцией первой даёт AC (issue #938, RUN-2-02).
+
+    До фикса — `RE NameError: name 'show' is not defined`; перестановка функций
+    местами давала AC, то есть вердикт зависел от порядка объявлений.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "def _helper(x):\n    return x * 10\n\n\ndef show(n):\n    print(n + 1)\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nshow(5)\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n6\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_stdin_block_with_assignments_stays_stdin(tmp_path: pathlib.Path) -> None:
+    """Блок `x = 5` не уводит stdin-решение в function-режим (issue #938, RUN-2-01).
+
+    Присваивание похоже на Python-код, но вызывать в решении нечего — там нет
+    ни одного `def`. До фикса верное решение получало
+    `RE function_name not found`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'import sys\nprint(sum(int(line.split(" = ")[1]) for line in sys.stdin if line.strip()))\n',
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text("# TEST_1:\nx = 5\ny = 7\n", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n12\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_class_only_solution_keeps_function_route(tmp_path: pathlib.Path) -> None:
+    """Решение из одного класса остаётся на function-маршруте (issue #938).
+
+    Граница отката «function → stdin»: первая версия проверки смотрела только на
+    `def`, и задача ООП-курса — один `class Vector` плюс блок
+    `vector = Vector()` / `print(vector.abs())` — падала в stdin-маршрут.
+    Поймано интеграционными тестами на реальных задачах, поэтому закреплено
+    отдельно.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        "class Counter:\n    def __init__(self, n):\n        self.n = n\n\n"
+        "    def double(self):\n        return self.n * 2\n",
+        encoding="utf-8",
+    )
+    (task_dir / "tests" / "input.txt").write_text(
+        "# TEST_1:\nc = Counter(21)\nprint(c.double())\n", encoding="utf-8"
+    )
+    (task_dir / "tests" / "output.txt").write_text("# TEST_1:\n42\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_param_named_like_stdlib_gets_test_value(tmp_path: pathlib.Path) -> None:
+    """Параметр с именем `date` получает значение теста, а не класс stdlib (issue #938).
+
+    До фикса `all(_n in _local_vars ...)` находил `date` среди импортов самой
+    обёртки, связывал параметр с `datetime.date` и не давал сработать
+    позиционному fallback — верное решение печатало `+5` вместо `2020-01-01+5`.
+    """
+    task_dir = tmp_path / "task"
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / "task.py").write_text(
+        'def days_between(date, delta):\n    print(f"{date}+{delta}")\n', encoding="utf-8"
+    )
+    (task_dir / "tests" / "1").write_text('d = "2020-01-01"\ndelta = 5\n', encoding="utf-8")
+    (task_dir / "tests" / "1.clue").write_text("2020-01-01+5\n", encoding="utf-8")
+    (task_dir / "tests" / "1.type").write_text("function\n", encoding="utf-8")
+
+    result = grader.run_tests(task_dir / "task.py", task_dir / "tests", timeout=15)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
+
+
+def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Stdlib-импорты должны стоять раньше sys.path.insert в сгенерированном
+    исходнике — иначе одноимённый файл рядом с решением (напр. datetime.py)
+    окажется первым в sys.path и перекроет настоящий stdlib-модуль
+    (issue #244, F-05)."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    src = grader._build_function_wrapper(sol, "x = 1", "solve")
+
+    import_idx = src.index("from datetime import")
+    path_insert_idx = src.index("sys.path.insert")
+    assert import_idx < path_insert_idx
+
+
+def test_build_function_wrapper_not_shadowed_by_local_datetime_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    """End-to-end: с локальным datetime.py рядом с решением сгенерированный
+    wrapper всё равно использует настоящий stdlib datetime (issue #244, F-05
+    regression). Wrapper пишется вне solution dir — как и в продовом коде
+    (``run_single_test`` использует ``tempfile.NamedTemporaryFile()``,
+    системный temp, а не папку решения) — поэтому даже Python-овская
+    авто-вставка директории скрипта в ``sys.path[0]`` не совпадает с
+    solution dir; проверяем именно наш явный ``sys.path.insert`` порядок."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(d):\n    return d.year\n", encoding="utf-8")
+    (tmp_path / "datetime.py").write_text(
+        "raise ImportError('shadowed by local datetime.py')\n", encoding="utf-8"
+    )
+
+    src = grader._build_function_wrapper(sol, "d = date(2024, 1, 1)", "solve")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding="utf-8", delete=False) as wf:
+        wf.write(src)
+        wrapper_path = wf.name
+    try:
+        result = subprocess.run(
+            [sys.executable, wrapper_path],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=10,
+        )
+    finally:
+        pathlib.Path(wrapper_path).unlink(missing_ok=True)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "2024"
+
+
+def test_run_single_test_reports_re_for_invalid_function_name(tmp_path: pathlib.Path):
+    """run_single_test converts the ValueError into a graceful RE verdict.
+
+    Without the try/except around _build_function_wrapper, this would crash
+    the whole grading run instead of failing just this one test case.
+    """
+    sol = tmp_path / "task-1.py"  # stem "task-1" is not a valid identifier
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+    # "5" has no ast.Name node, so _is_python_code_block classifies it as data
+    # (not a call block) and run_single_test routes to _build_function_wrapper.
+    case = grader.TestCase(index=1, input_lines=["5"], expected_lines=["5"], test_type="function")
+
+    result = grader.run_single_test(sol, case, measure_memory=False)
+
+    assert result["verdict"] == "RE"
+    assert result["passed"] is False
+    assert "Invalid module filename stem" in result["error"]
+    assert result["exit_code"] is None  # no process was ever launched
+
+
+# ---------------------------------------------------------------------------
+# exit_code — additive field on run_single_test's result dict (issue #125)
+# ---------------------------------------------------------------------------
+
+
+def test_run_single_test_exit_code_zero_on_ac(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=["4"], expected_lines=["5"])
+
+    result = grader.run_single_test(sol, case, measure_memory=False)
+
+    assert result["verdict"] == "AC"
+    assert result["exit_code"] == 0
+
+
+def test_run_single_test_exit_code_zero_on_wa(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("print(int(input()) + 2)\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=["4"], expected_lines=["5"])
+
+    result = grader.run_single_test(sol, case, measure_memory=False)
+
+    assert result["verdict"] == "WA"
+    assert result["exit_code"] == 0
+
+
+def test_run_single_test_exit_code_nonzero_on_re(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("raise ValueError('boom')\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=[""], expected_lines=["5"])
+
+    result = grader.run_single_test(sol, case, measure_memory=False)
+
+    assert result["verdict"] == "RE"
+    assert result["exit_code"] not in (0, None)
+
+
+def test_run_single_test_exit_code_none_on_tle(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("import time\ntime.sleep(5)\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=[""], expected_lines=["5"])
+
+    result = grader.run_single_test(str(sol), case, timeout=0.1, measure_memory=False)
+
+    assert result["verdict"] == "TLE"
+    assert result["exit_code"] is None
+
+
+# ---------------------------------------------------------------------------
+# BenchStats — shared stats between run_benchmark() and _micro_stats() (Sprint 7.2)
+# ---------------------------------------------------------------------------
+
+
+def test_bench_stats_computes_all_fields() -> None:
+    stats = grader.BenchStats(timings=[0.001, 0.002, 0.003, 0.004, 0.005])
+    assert stats.min == 0.001
+    assert stats.max == 0.005
+    assert stats.median == 0.003
+    assert stats.mean == pytest.approx(0.003)
+    assert stats.stdev > 0.0
+
+
+def test_bench_stats_stdev_zero_for_single_timing() -> None:
+    stats = grader.BenchStats(timings=[0.5])
+    assert stats.stdev == 0.0
+    assert stats.min == stats.max == stats.median == stats.mean == 0.5
+
+
+def test_bench_stats_relative_to() -> None:
+    stats = grader.BenchStats(timings=[0.002])
+    assert stats.relative_to(0.001) == pytest.approx(200.0)
+
+
+def test_bench_stats_relative_to_zero_baseline() -> None:
+    """baseline == 0 avoids division by zero, returns 0.0 rather than raising."""
+    stats = grader.BenchStats(timings=[0.002])
+    assert stats.relative_to(0.0) == 0.0
+
+
+def test_run_benchmark_and_micro_stats_agree_on_same_timings() -> None:
+    """run_benchmark()'s stats dict and _micro_stats() compute identically via BenchStats."""
+    from stepik_grader.core.grader_core import _micro_stats
+
+    times = [0.01, 0.02, 0.015, 0.03]
+    micro = _micro_stats(times)
+    direct = grader.BenchStats(timings=times)
+    assert micro["min"] == direct.min
+    assert micro["max"] == direct.max
+    assert micro["median"] == direct.median
+    assert micro["mean"] == direct.mean
+    assert micro["stdev"] == direct.stdev
+
+
+# ---------------------------------------------------------------------------
+# _build_call_wrapper — explicit imports instead of wildcard (Issue #44)
+# ---------------------------------------------------------------------------
+
+
+def test_build_call_wrapper_has_no_wildcard_imports() -> None:
+    """Generated wrapper source must not contain `import *` (regression guard)."""
+    src = grader._build_call_wrapper(pathlib.Path("task1.py"), "print(1)")
+    assert "import *" not in src
+
+
+def test_build_call_wrapper_solution_name_overrides_stdlib(tmp_path: pathlib.Path) -> None:
+    """A solution defining its own `reduce`/`chain` must win over the stdlib one.
+
+    functools.reduce/itertools.chain are among the names explicitly imported
+    for use in test-blocks (Issue #44); the solution's public names are
+    copied into globals() afterwards specifically so they take priority.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text(
+        "def reduce(a, b):\n"
+        "    return f'custom-reduce({a},{b})'\n"
+        "\n"
+        "def chain(a, b):\n"
+        "    return f'custom-chain({a},{b})'\n",
+        encoding="utf-8",
+    )
+    case = grader.TestCase(
+        index=1,
+        input_lines=["print(reduce(1, 2))", "print(chain(3, 4))"],
+        expected_lines=["custom-reduce(1,2)", "custom-chain(3,4)"],
+        test_type="function",
+    )
+
+    result = grader.run_single_test(sol, case, measure_memory=False)
+
+    assert result["verdict"] == "AC", result["error"] or result["diff"]
+    assert result["output"] == ["custom-reduce(1,2)", "custom-chain(3,4)"]
+
+
+def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Test-blocks may use stdlib names the solution never defines itself."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+    case = grader.TestCase(
+        index=1,
+        input_lines=["print(list(product([1, 2], [3, 4])))"],
+        expected_lines=["[(1, 3), (1, 4), (2, 3), (2, 4)]"],
+        test_type="function",
+    )
+
+    result = grader.run_single_test(sol, case, measure_memory=False)
+
+    assert result["verdict"] == "AC", result["error"] or result["diff"]
+
+
+# _apply_memory_limit/_measure_peak_memory moved to core/runner.py along with
+# the subprocess execution itself (issue #136/#137/#138, Runner abstraction) —
+# their tests moved to tests/test_runner.py, which now also targets that
+# module directly for monkeypatching (resource/psutil live there, not here).
+# grader_core._apply_memory_limit/._measure_peak_memory remain valid
+# re-exported references (see grader_core.py's import block).
+
+
+# ---------------------------------------------------------------------------
+# issue #836 (QA-07) — разбор legacy-блока в wrapper_builder: аннотированное
+# присваивание, битый синтаксис, пустой блок. Function-mode — путь реальных
+# студенческих задач: несвязанные аргументы дают WA/RE вместо AC, обвиняя
+# пользователя в чужой ошибке.
+# ---------------------------------------------------------------------------
+
+
+class TestWrapperBuilderLegacyBlock:
+    def test_annotated_assignment_binds_arguments(self) -> None:
+        """`a: int = 5` — легальный Python и естественная запись теста."""
+        from stepik_grader.core.wrapper_builder import _assigned_names
+
+        assert _assigned_names("a: int = 5\nb: int = 10") == ["a", "b"]
+
+    def test_mixed_plain_and_annotated_assignments(self) -> None:
+        from stepik_grader.core.wrapper_builder import _assigned_names
+
+        assert _assigned_names("a = 1\nb: str = 'x'") == ["a", "b"]
+
+    def test_tuple_unpacking_is_not_bound_by_name(self) -> None:
+        """Распаковка кортежа именами не связывается — фиксируем как есть.
+
+        `c, d = 2, 3` даёт цель-`ast.Tuple`, а не `ast.Name`: имена не
+        извлекаются, и связывание откатывается к позиционному. Поведение
+        существующее; тест закрепляет границу, чтобы «улучшение» не поехало
+        молча в обратную сторону.
+        """
+        from stepik_grader.core.wrapper_builder import _assigned_names
+
+        assert _assigned_names("c, d = 2, 3") == []
+
+    def test_broken_syntax_degrades_instead_of_raising(self) -> None:
+        """Битый блок — не трейсбек: связывание просто откатывается к позиционному."""
+        from stepik_grader.core.wrapper_builder import _assigned_names, _top_level_literal_args
+
+        assert _assigned_names("def f(:") == []
+        assert _top_level_literal_args("def f(:") is None
+
+    def test_empty_block_is_handled(self) -> None:
+        from stepik_grader.core.wrapper_builder import _assigned_names, _top_level_literal_args
+
+        assert _assigned_names("") == []
+        assert _assigned_names("   \n  ") == []
+        assert _top_level_literal_args("") is None
+        assert _top_level_literal_args("# только комментарий") is None
+
+    def test_literal_only_block_gives_positional_args(self) -> None:
+        from stepik_grader.core.wrapper_builder import _top_level_literal_args
+
+        assert _top_level_literal_args("5\n10") == ["5", "10"]
+
+    def test_call_in_block_is_not_positional(self) -> None:
+        """Вызов на верхнем уровне — не литерал: позиционное связывание не годится."""
+        from stepik_grader.core.wrapper_builder import _top_level_literal_args
+
+        assert _top_level_literal_args("date(2021, 1, 1)") is None
+
+    def test_annotated_block_end_to_end_gives_ac(self, tmp_path) -> None:
+        """Полный прогон function-mode с `a: int = 5`: вердикт AC, а не WA."""
+        from stepik_grader.core.grader_core import run_tests
+
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return a + b\n", encoding="utf-8")
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "1").write_text("a: int = 5\nb: int = 10", encoding="utf-8")
+        (tests_dir / "1.clue").write_text("15", encoding="utf-8")
+        (tests_dir / "1.type").write_text("function", encoding="utf-8")
+
+        result = run_tests(solution, tests_dir)
+
+        assert result["passed"] == 1, result
+
+
+# ---------------------------------------------------------------------------
+# issue #1005 (MTX-3-05) — режимы 3/4 называют номер провалившегося кейса
+# ---------------------------------------------------------------------------
+
+
+def test_preflight_reports_number_of_first_failing_case(tmp_path: pathlib.Path) -> None:
+    """Пре-флайт возвращает НОМЕР первого провала, а не только его вердикт.
+
+    Режимы 1/2 в отчёте кейс называют, а 3/4 говорили лишь «не прошёл
+    проверку»: воспроизвести падение было не с чего, хотя номер известен ровно
+    здесь. Третий кейс, а не первый — иначе тест прошёл бы и на заглушке,
+    возвращающей единицу.
+    """
+    solution = tmp_path / "task.py"
+    solution.write_text("n = int(input())\nprint(n if n < 5 else n + 100)\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    for number, (given, expected) in enumerate([("1", "1"), ("2", "2"), ("7", "7")], start=1):
+        (tests_dir / str(number)).write_text(given, encoding="utf-8")
+        (tests_dir / f"{number}.clue").write_text(expected, encoding="utf-8")
+
+    report = grader_core.preflight_solution(solution, tests_dir, timeout=10)
+
+    assert report["ok"] is False
+    assert report["verdict"] == "WA"
+    assert report["case"] == 3
+
+
+def test_preflight_case_is_zero_when_everything_passes(tmp_path: pathlib.Path) -> None:
+    """Провала нет — номера тоже нет: ноль читается как «называть нечего»."""
+    solution = tmp_path / "task.py"
+    solution.write_text("print(input())\n", encoding="utf-8")
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "1").write_text("ok", encoding="utf-8")
+    (tests_dir / "1.clue").write_text("ok", encoding="utf-8")
+
+    report = grader_core.preflight_solution(solution, tests_dir, timeout=10)
+
+    assert report["ok"] is True
+    assert report["case"] == 0
+
+
+# ---------------------------------------------------------------------------
+# issue #996 (RUN-1-06) — блок-драйвер, вызывающий решение на верхнем уровне.
+#
+# Один function-режим давал ТРИ разных исхода на одном и том же решении, в
+# зависимости от формы записи блока: с `print(...)` — AC, без него и с классом —
+# RE с трейсбеком в /tmp/stepik-wrapper-*/wrapper.py, без него и с функцией — WA
+# с пустым `Actual`. Тесты бьют по поверхности (реальный прогон), а не по строке
+# сгенерированного исходника: дефект был именно в вердикте.
+# ---------------------------------------------------------------------------
+
+
+class TestDriverBlockCallsSolutionAtTopLevel:
+    """Решение ООП-курса — один класс; блок создаёт объект и зовёт метод."""
+
+    def _oop_solution(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        solution = tmp_path / "task.py"
+        solution.write_text(
+            "class Vector:\n"
+            "    def __init__(self, x: int) -> None:\n"
+            "        self.x = x\n"
+            "\n"
+            "    def length(self) -> int:\n"
+            "        return abs(self.x)\n",
+            encoding="utf-8",
+        )
+        return solution
+
+    def _run(self, solution: pathlib.Path, block: str, expected: str) -> dict[str, object]:
+        case = grader.TestCase(
+            index=1,
+            input_lines=block.split("\n"),
+            expected_lines=[expected],
+            test_type="function",
+        )
+        return grader.run_single_test(solution, case, measure_memory=False)
+
+    def test_class_call_without_print_is_accepted(self, tmp_path: pathlib.Path) -> None:
+        """Именно этот кейс падал: класса не было среди «вызываемых имён» решения.
+
+        Блок уходил в legacy-обёртку, которая импортирует ФУНКЦИЮ, — а при
+        отсутствии функций верхнего уровня эвристика доставала вложенный
+        `__init__`. Пользователь получал `NameError: name 'Vector' is not
+        defined` с трейсбеком в файл, которого не писал, про имя, которое в его
+        решении есть.
+        """
+        result = self._run(self._oop_solution(tmp_path), "Vector(-5).length()", "5")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["5"]
+
+    def test_same_block_with_print_agrees(self, tmp_path: pathlib.Path) -> None:
+        """Вердикт не должен зависеть от того, печатает ли блок сам."""
+        solution = self._oop_solution(tmp_path)
+
+        bare = self._run(solution, "Vector(-5).length()", "5")
+        printed = self._run(solution, "print(Vector(-5).length())", "5")
+
+        assert bare["verdict"] == printed["verdict"] == "AC"
+        assert bare["output"] == printed["output"]
+
+    def test_traceback_never_names_the_generated_wrapper(self, tmp_path: pathlib.Path) -> None:
+        """Щит на исходный симптом: чужой файл в трейсбеке пользователя."""
+        result = self._run(self._oop_solution(tmp_path), "Vector(-5).length()", "5")
+
+        assert "wrapper.py" not in str(result["error"])
+        assert "NameError" not in str(result["error"])
+
+    def test_function_call_without_print_prints_the_value(self, tmp_path: pathlib.Path) -> None:
+        """Тот же блок с функцией давал WA с пустым `Actual` — значение терялось."""
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return a + b\n", encoding="utf-8")
+
+        result = self._run(solution, "solve(1, 2)", "3")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["3"]
+
+    def test_self_printing_function_gains_no_extra_none(self, tmp_path: pathlib.Path) -> None:
+        """Граница issue #785: функция печатает сама и возвращает None.
+
+        Печатать безусловно — значит дописать ей строку `None` и завернуть
+        верное решение. Проверка `is not None` в call-обёртке та же, что в
+        legacy-обёртке, — иначе два маршрута одного режима снова разошлись бы.
+        """
+        solution = tmp_path / "task.py"
+        solution.write_text("def show(a):\n    print(a * 2)\n", encoding="utf-8")
+
+        result = self._run(solution, "show(4)", "8")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["8"]
+
+    def test_multi_statement_block_runs_verbatim(self, tmp_path: pathlib.Path) -> None:
+        """Блок из нескольких инструкций не переписывается: печатает он сам."""
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return a + b\n", encoding="utf-8")
+
+        result = self._run(solution, "x = solve(1, 2)\nprint(x)", "3")
+
+        assert result["verdict"] == "AC", result["error"] or result["diff"]
+        assert result["output"] == ["3"]
+
+
+class TestFunctionModeComparesPrintedValue:
+    """issue #996 (MTX-4-03) — контракт, а не дефект: сравнивается текст.
+
+    Находка «мутация `return str` вместо `int` проходит как AC» верна
+    фактически, но её второй вариант починки нерабочий: у чисел, списков и
+    словарей `repr()` совпадает со `str()`, а строкам он добавил бы кавычки и
+    завернул бы все задачи со строковым ответом. Поэтому поведение закреплено
+    тестом и описано в configuration.md, а не «исправлено».
+    """
+
+    def _verdict(self, tmp_path: pathlib.Path, body: str) -> str:
+        solution = tmp_path / "task.py"
+        solution.write_text(f"def solve(a, b):\n    {body}\n", encoding="utf-8")
+        case = grader.TestCase(
+            index=1,
+            input_lines=["a = 1", "b = 2"],
+            expected_lines=["3"],
+            test_type="function",
+        )
+        return str(grader.run_single_test(solution, case, measure_memory=False)["verdict"])
+
+    def test_return_type_does_not_affect_verdict(self, tmp_path: pathlib.Path) -> None:
+        assert self._verdict(tmp_path, "return a + b") == "AC"
+        assert self._verdict(tmp_path, "return str(a + b)") == "AC"
+
+    def test_printed_text_still_decides(self, tmp_path: pathlib.Path) -> None:
+        """Типы не различаются — значения различаются по-прежнему."""
+        assert self._verdict(tmp_path, "return a + b + 1") == "WA"
+
+    def test_type_check_is_expressible_in_the_test_block(self, tmp_path: pathlib.Path) -> None:
+        """Кому тип важен — проверяет его блоком; формат 3 это позволяет."""
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return str(a + b)\n", encoding="utf-8")
+        case = grader.TestCase(
+            index=1,
+            input_lines=["print(type(solve(1, 2)).__name__)"],
+            expected_lines=["int"],
+            test_type="function",
+        )
+
+        result = grader.run_single_test(solution, case, measure_memory=False)
+
+        assert result["verdict"] == "WA"
+        assert result["output"] == ["str"]

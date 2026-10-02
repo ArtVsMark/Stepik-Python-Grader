@@ -1,0 +1,1270 @@
+/* app.css — стили веб-интерфейса грейдера (issue #58, эпик #80; issue #125;
+   редизайн под маску эпика #123 — design-токены и layout взяты из
+   эталонного макета web-mvp-mask.html, приложенного к issue #123). */
+
+/* ── ШРИФТЫ (issue #260) ──
+   Вендорены локально (latin + cyrillic, JetBrains Mono/Inter — переменные
+   woff2, оба веса покрыты одним файлом на подмножество) вместо CDN
+   fonts.googleapis.com/fonts.gstatic.com: офлайн-режим и отсутствие утечки
+   факта запуска инструмента во внешний сервис. Лицензия — OFL 1.1, см.
+   static/fonts/LICENSE. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: optional;
+  src: url('/static/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: optional;
+  src: url('/static/fonts/jetbrains-mono-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: optional;
+  src: url('/static/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: optional;
+  src: url('/static/fonts/inter-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+/* ── DESIGN TOKENS (дословно из web-mvp-mask.html) ── */
+:root, [data-theme="light"] {
+  --color-bg:              #f7f6f2;
+  --color-surface:         #f9f8f5;
+  --color-surface-2:       #fbfbf9;
+  --color-surface-offset:  #f3f0ec;
+  --color-surface-offset-2:#edeae5;
+  --color-surface-dynamic: #e6e4df;
+  --color-divider:         #dcd9d5;
+  --color-border:          #d4d1ca;
+  --color-text:            #28251d;
+  --color-text-muted:      #67665f;
+  --color-faint:           #bab9b4;
+  --color-text-placeholder:#8f8d84;
+  --color-text-inverse:    #f9f8f4;
+  --color-primary:         #01696f;
+  --color-primary-hover:   #0c4e54;
+  --color-primary-active:  #0f3638;
+  --color-primary-highlight:#cedcd8;
+  --color-primary-btn:     #01696f;
+  --color-on-primary:      #ffffff;
+  --color-success:         #38681c;
+  --color-success-highlight:#d4dfcc;
+  --color-warning:         #964219;
+  --color-warning-highlight:#ddcfc6;
+  --color-error:           #a12c7b;
+  --color-error-highlight: #e6d6de;
+  --color-notification:    #a13544;
+  --color-orange:          #da7101;
+  --color-gold:            #d19900;
+  --color-blue:            #006494;
+  --color-purple:          #7a39bb;
+  /* issue #425: подсветка синтаксиса CodeMirror — на фоне редактора
+     (--color-surface), все ≥4.5:1 в обеих темах (scripts/check_contrast.py). */
+  --cm-keyword:            #7a39bb;
+  --cm-literal:            #a15600;
+  --cm-string:             #3f6d1f;
+  --cm-function:           #006494;
+  --cm-type:               #8a5a00;
+  --cm-operator:           #0c6b70;
+  --cm-comment:            #67665f;
+  --cm-invalid:            #a12c7b;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+  --transition-interactive: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06);
+  --shadow-md: 0 4px 12px oklch(0.2 0.01 80 / 0.08);
+  --shadow-lg: 0 12px 32px oklch(0.2 0.01 80 / 0.12);
+  --space-1: 0.25rem; --space-2: 0.5rem;  --space-3: 0.75rem;
+  --space-4: 1rem;    --space-5: 1.25rem; --space-6: 1.5rem;
+  --space-8: 2rem;    --space-10:2.5rem;  --space-12:3rem;
+  --space-16:4rem;    --space-20:5rem;    --space-24:6rem;
+  --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
+  --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
+  --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
+  --text-lg:   clamp(1.125rem, 1rem    + 0.75vw, 1.5rem);
+  --text-xl:   clamp(1.5rem,   1.2rem  + 1.25vw, 2.25rem);
+  --font-body:    'Inter', 'Helvetica Neue', sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Mono', monospace;
+  --sidebar-w: 220px;
+  --topbar-h:  48px;
+  --content-default: 960px;
+  --content-wide: 1200px;
+}
+
+[data-theme="dark"] {
+  --color-bg:              #111110;
+  --color-surface:         #161614;
+  --color-surface-2:       #1c1b19;
+  --color-surface-offset:  #1a1918;
+  --color-surface-offset-2:#201f1d;
+  --color-surface-dynamic: #2a2927;
+  --color-divider:         #242320;
+  --color-border:          #353330;
+  --color-text:            #d0ceca;
+  --color-text-muted:      #918f8b;
+  --color-faint:           #575553;
+  --color-text-placeholder:#6f6d6a;
+  --color-text-inverse:    #2b2a28;
+  --color-primary:         #5aa4af;
+  --color-primary-hover:   #1a626b;
+  --color-primary-active:  #14525a;
+  --color-primary-highlight:#20302f;
+  --color-primary-btn:     #227f8b;
+  --color-on-primary:      #ffffff;
+  --color-success:         #83c157;
+  --color-success-highlight:#3a4435;
+  /* issue #298 (a11y): #bb653b давал контраст SLOWER/verdict-slower лишь
+     3.5-4.4:1 на тёмных surface — ниже WCAG AA 4.5:1. #d98a5c поднимает до
+     ~5.4-6.7:1 (verdict text) и ~3.2:1 для badge-warning на highlight-фоне
+     (было 2.1; для мелкой статус-плашки допустимо по 1.4.11). Светлая тема
+     (#964219) уже проходила 5.3-6.6:1 — не менялась. */
+  --color-warning:         #d98a5c;
+  --color-warning-highlight:#564942;
+  --color-error:           #e488bf;
+  --color-error-highlight: #43353d;
+  --color-notification:    #dd6974;
+  --color-orange:          #fdab43;
+  --color-gold:            #e8af34;
+  --color-blue:            #5591c7;
+  --color-purple:          #a86fdf;
+  --cm-keyword:            #b98ce6;
+  --cm-literal:            #e0975a;
+  --cm-string:             #8fbf6a;
+  --cm-function:           #5591c7;
+  --cm-type:               #d1a250;
+  --cm-operator:           #63aab4;
+  --cm-comment:            #918f8b;
+  --cm-invalid:            #e488bf;
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.22);
+  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.32);
+  --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.44);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-bg: #111110; --color-surface: #161614;
+    --color-surface-2: #1c1b19; --color-surface-offset: #1a1918;
+    --color-surface-offset-2: #201f1d; --color-surface-dynamic: #2a2927;
+    --color-divider: #242320; --color-border: #353330;
+    --color-text: #d0ceca; --color-text-muted: #918f8b;
+    --color-faint: #575553; --color-text-placeholder: #6f6d6a;
+    --color-text-inverse: #2b2a28;
+    --color-primary: #5aa4af; --color-primary-hover: #1a626b;
+    --color-primary-active: #14525a; --color-primary-highlight: #20302f;
+    --color-primary-btn: #227f8b; --color-on-primary: #ffffff;
+    --color-success: #83c157; --color-success-highlight: #3a4435;
+    --color-warning: #d98a5c; --color-warning-highlight: #564942; /* issue #298 a11y — см. [data-theme="dark"] */
+    --color-error: #e488bf; --color-error-highlight: #43353d;
+    --color-notification: #dd6974;
+    --cm-keyword: #b98ce6; --cm-literal: #e0975a; --cm-string: #8fbf6a;
+    --cm-function: #5591c7; --cm-type: #d1a250; --cm-operator: #63aab4;
+    --cm-comment: #918f8b; --cm-invalid: #e488bf;
+    --shadow-sm: 0 1px 2px oklch(0 0 0/0.22);
+    --shadow-md: 0 4px 12px oklch(0 0 0/0.32);
+    --shadow-lg: 0 12px 32px oklch(0 0 0/0.44);
+  }
+}
+
+/* ── BASE RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* [hidden] и .app-shell/.split-pane/.modal-overlay имеют ту же
+   specificity (0,1,0) — без этого правила класс с display:grid/flex
+   побеждает в каскаде, и [hidden] перестаёт скрывать элемент. */
+[hidden] { display: none !important; }
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+body {
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  background: var(--color-bg);
+  overflow: hidden; /* единая scroll-область — внутри .panel-body */
+}
+img, svg { display: block; max-width: 100%; }
+button { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
+::selection { background: oklch(from var(--color-primary) l c h / 0.22); color: var(--color-text); }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: var(--radius-sm); }
+@media (prefers-reduced-motion: reduce) {
+  /* issue #970 (DES-1-02): без `animation-iteration-count` короткая
+     длительность бесконечную анимацию не останавливает, а ПЕРЕЗАПУСКАЕТ каждый
+     кадр — .skeleton и .progress-indeterminate объявлены с `infinite`, и
+     0.01ms × infinite давало строб. То есть настройка, включённая по
+     медицинским причинам, выдавала ровно то, от чего человек защищается.
+     `scroll-behavior` сбрасывается здесь же: плавная прокрутка — тоже движение. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  html { scroll-behavior: auto; }
+}
+a, button, [role="button"] {
+  transition: color var(--transition-interactive), background var(--transition-interactive),
+              border-color var(--transition-interactive), box-shadow var(--transition-interactive);
+}
+/* ═══════════════════════════════════════════
+   LAYOUT — SHELL: Topbar (48px) + Sidebar (220px) + Main (1fr)
+═══════════════════════════════════════════ */
+.app-shell {
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar main";
+  height: 100dvh;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  z-index: 20;
+}
+.topbar-logo {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-weight: 600; font-size: var(--text-sm); letter-spacing: -0.01em; flex-shrink: 0;
+}
+.spacer { flex: 1; }
+.btn-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: var(--radius-md);
+  color: var(--color-text-muted); font-size: var(--text-sm);
+}
+.btn-icon:hover { background: var(--color-surface-dynamic); color: var(--color-text); }
+.btn-icon:active { background: var(--color-surface-offset-2); }
+
+/* issue #659: сегментированный переключатель языка в topbar. Два состояния,
+   поэтому не селект: выбор виден без раскрытия и меняется одним кликом. */
+.lang-switch {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.lang-btn {
+  padding: 0 var(--space-2);
+  height: 32px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+  border: 0;
+}
+.lang-btn + .lang-btn { border-left: 1px solid var(--color-border); }
+.lang-btn:hover { background: var(--color-surface-dynamic); color: var(--color-text); }
+.lang-btn.active {
+  background: var(--color-primary-highlight);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-area: sidebar;
+  display: flex; flex-direction: column;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto; overflow-x: hidden;
+}
+.sidebar-section { padding: var(--space-3) var(--space-2); }
+.sidebar-label {
+  font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--color-text-muted);
+  padding: var(--space-2) var(--space-3) var(--space-1);
+}
+.sidebar-item {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  font-size: var(--text-sm); color: var(--color-text-muted);
+  text-decoration: none; cursor: pointer; user-select: none;
+}
+.sidebar-item:hover { background: var(--color-surface-dynamic); color: var(--color-text); }
+.sidebar-item.active { background: var(--color-primary-highlight); color: var(--color-primary); font-weight: 500; }
+.sidebar-item.disabled { opacity: .5; pointer-events: none; cursor: default; }
+.sidebar-divider { height: 1px; background: var(--color-divider); margin: var(--space-2) var(--space-3); }
+.sidebar-badge {
+  margin-left: auto; font-size: var(--text-xs); font-variant-numeric: tabular-nums;
+  background: var(--color-surface-dynamic); color: var(--color-text-muted);
+  padding: 0 var(--space-2); border-radius: var(--radius-full); min-width: 20px; text-align: center;
+}
+.sidebar-item.active .sidebar-badge { background: var(--color-primary-highlight); color: var(--color-primary); }
+
+/* ── MAIN AREA ── */
+.main { grid-area: main; display: flex; flex-direction: column; overflow: hidden; background: var(--color-bg); }
+.main-view { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+.page-header {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface); flex-shrink: 0; flex-wrap: wrap;
+}
+.page-title { font-size: var(--text-xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: var(--color-text); }
+.page-actions { display: flex; gap: var(--space-2); margin-left: auto; align-items: center; flex-wrap: wrap; }
+
+/* ── SPLIT PANE (main workspace) — 2 колонки ── */
+.split-pane { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; gap: 0; }
+.split-pane-panel { display: flex; flex-direction: column; overflow: hidden; background: var(--color-bg); }
+.split-pane-panel + .split-pane-panel { border-left: 1px solid var(--color-border); }
+/* issue #370: режимы 3/4 — вертикальный стек. Конфиг компактной полосой сверху
+   (форм-группы в ряд), панель результатов — во всю ширину под ним. */
+.split-pane--stacked { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+.split-pane--stacked > .split-pane-panel + .split-pane-panel { border-left: none; border-top: 1px solid var(--color-border); }
+.split-pane--stacked > .split-pane-panel:first-child .panel-body { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); }
+.split-pane--stacked > .split-pane-panel:first-child .form-group { margin: 0; }
+.split-pane--stacked > .split-pane-panel:first-child .form-group:first-child { flex: 1 1 320px; }
+/* issue #727: профиль-селекторы режимов 3 и 4 — одинаковая геометрия, чтобы
+   переключение режима не двигало контрол и не меняло его размер (ширина по
+   содержимому давала разбег 277 px против 250 px). Поле «своё число» встаёт
+   СПРАВА от селекта, а не под ним: колонкой оно удваивало высоту строки и
+   отрывало поле пути от подписи. */
+#bench-config, #microbench-config { display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); }
+/* 290px — самая длинная из двух подписей («Профиль нагрузки (повторов на
+   тест-кейс)», 277 px) укладывается в строку: иначе перенос сдвигал бы селект
+   режима 3 на 16 px ниже селекта режима 4. */
+/* shrink=1: на широком экране ширина ровно по basis (сжимать нечего), на узком
+   группы сжимаются и переносятся, а не выталкивают панель в горизонтальную
+   прокрутку. */
+#bench-config > .form-group:first-child, #microbench-config > .form-group:first-child { flex: 0 1 290px; }
+/* 270px — по самой длинной подписи поля «своё число» среди обоих языков
+   («Custom number of calls (100–500 000)», 261 px): при переносе строка
+   настроек становилась выше, и переключение 3↔4 с открытым «свой…» дёргало
+   контролы по вертикали. */
+#bench-config > .form-group + .form-group, #microbench-config > .form-group + .form-group { flex: 0 1 270px; }
+#bench-config .form-input, #microbench-config .form-input { width: 100%; }
+.panel-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-divider);
+  background: var(--color-surface-offset); flex-shrink: 0; min-height: 36px; flex-wrap: wrap;
+}
+.panel-title { font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-muted); }
+.panel-tabs { display: flex; gap: var(--space-1); margin-left: var(--space-2); }
+.panel-tab { font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); color: var(--color-text-muted); cursor: pointer; }
+.panel-tab:hover { background: var(--color-surface-dynamic); color: var(--color-text-muted); }
+.panel-tab.active { background: var(--color-surface-dynamic); color: var(--color-text); font-weight: 500; }
+.panel-tab.disabled { opacity: .4; pointer-events: none; cursor: default; }
+.panel-actions { margin-left: auto; display: flex; gap: var(--space-1); align-items: center; flex-wrap: wrap; }
+.panel-body { flex: 1; overflow-y: auto; padding: var(--space-4); }
+.panel-body.no-pad { padding: 0; }
+
+/* ─── COMPONENTS ─── */
+.row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: 500; min-height: 32px; cursor: pointer; white-space: nowrap;
+}
+/* issue #754: кнопка-ссылка (<a class="btn">) — переход по клику пользователя не
+   блокируется попап-блокером, в отличие от window.open() из fetch-колбэка. Но
+   глобальное подчёркивание ссылок делает её похожей на текстовую ссылку, а не на
+   primary-кнопку — снимаем. */
+a.btn { text-decoration: none; }
+.btn-primary { background: var(--color-primary-btn); color: var(--color-on-primary); }
+.btn-primary:hover { background: var(--color-primary-hover); }
+.btn-primary:active { background: var(--color-primary-active); }
+.btn-primary:disabled { opacity: .5; cursor: default; }
+.btn-secondary { background: var(--color-surface-dynamic); color: var(--color-text); border: 1px solid oklch(from var(--color-text) l c h / 0.1); }
+.btn-secondary:hover { background: var(--color-surface-offset-2); }
+.btn-ghost { color: var(--color-text-muted); }
+.btn-ghost:hover { background: var(--color-surface-dynamic); color: var(--color-text); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: 0 var(--space-2); height: 20px; border-radius: var(--radius-full);
+  font-size: var(--text-xs); font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.badge-success  { background: var(--color-success-highlight);  color: var(--color-success); }
+.badge-error    { background: var(--color-error-highlight);    color: var(--color-error); }
+.badge-warning  { background: var(--color-warning-highlight);  color: var(--color-warning); }
+.badge-neutral  { background: var(--color-surface-dynamic);    color: var(--color-text-muted); }
+.badge-primary  { background: var(--color-primary-highlight);  color: var(--color-primary); }
+
+.card { background: var(--color-surface); border: 1px solid oklch(from var(--color-text) l c h / 0.08); border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-sm); }
+.card-title { font-size: var(--text-base); font-weight: 600; margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+.card-body  { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.6; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.kpi-card { background: var(--color-surface); border: 1px solid oklch(from var(--color-text) l c h / 0.08); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
+.kpi-label { font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: var(--space-1); }
+.kpi-value { font-size: var(--text-lg); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.kpi-delta { font-size: var(--text-xs); margin-top: var(--space-1); }
+.kpi-delta.up   { color: var(--color-success); }
+.kpi-delta.down { color: var(--color-error); }
+.kpi-delta.neutral { color: var(--color-text-muted); }
+
+.data-table-wrap { overflow-x: auto; padding: 0 var(--space-4) var(--space-4); }
+.data-table { width: 100%; border-collapse: collapse; font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.data-table thead tr { background: var(--color-surface-offset); border-bottom: 1px solid var(--color-border); }
+.data-table th {
+  padding: var(--space-2) var(--space-3); text-align: left; font-weight: 600; font-size: var(--text-xs);
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-muted); white-space: nowrap;
+}
+.data-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-divider); color: var(--color-text); vertical-align: middle; }
+.data-table tbody tr:hover { background: var(--color-surface-offset); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table .mono { font-family: var(--font-mono); }
+/* issue #1212: ключ шага под названием задачи. Он нужен — иначе одноимённые
+   папки из разных курсов неразличимы, — но за внимание с именем не спорит.
+   Размер относительный, а не токеном: таблица сама уже на `--text-xs`, и токен
+   здесь ничего не изменил бы (проверено в браузере), а отдельная ступень
+   «мельче xs» ради одной подписи в системе не нужна. */
+.data-table .task-key { font-family: var(--font-mono); font-size: 0.9em; color: var(--color-text-muted); }
+/* issue #922 (FE-3-05): запасное поле ввода, когда бандл редактора не
+   загрузился. Вид — как у редактора, чтобы разница читалась как «нет
+   подсветки», а не как «страница сломалась». */
+.plain-editor {
+  width: 100%;
+  min-height: 240px;
+  box-sizing: border-box;
+  background: transparent;
+  border: 0;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+.plain-editor:focus { outline: none; }
+.plain-editor-note { margin: 0; padding: var(--space-2) var(--space-3); }
+
+/* issue #922 (FE-3-02): раскрытие строки и выбор кейса — кнопки, а не
+   кликабельные ячейки. Кнопка даёт клавиатуру и роль даром; вид остаётся
+   прежним — «как текст в таблице», иначе правка доступности выглядела бы
+   сменой оформления. */
+.row-toggle,
+.case-pick {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row-toggle:hover,
+.case-pick:hover { text-decoration: underline; }
+.verdict-similar { color: var(--color-success); font-weight: 600; }
+.verdict-slower  { color: var(--color-warning); font-weight: 600; }
+.verdict-faster  { color: var(--color-primary); font-weight: 600; }
+
+/* issue #726: упавшее решение в таблицах режимов 3/4. В строке — одна короткая
+   строка сути (длинный traceback раньше разносил вёрстку), полные тексты —
+   ниже, свёрнутыми <details>. */
+.data-table .bench-error-cell {
+  color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0;
+}
+/* issue #731: диаграмма сравнения решений во вкладке «Разбор» режимов 3/4.
+   Ширины баров ставит JS через CSSOM (строгий CSP запрещает инлайн-стили). */
+.cmp-chart { display: flex; flex-direction: column; gap: var(--space-2); }
+.cmp-row { display: grid; grid-template-columns: minmax(80px, 1.4fr) minmax(120px, 4fr) auto auto; align-items: center; gap: var(--space-3); font-size: var(--text-xs); }
+.cmp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); }
+.cmp-track { position: relative; height: 18px; background: var(--color-surface-offset); border-radius: var(--radius-sm); overflow: hidden; }
+.cmp-bar { position: absolute; inset-block: 0; left: 0; background: var(--color-primary); border-radius: var(--radius-sm); opacity: 0.75; }
+.cmp-bar-ref { background: var(--color-success); }
+.cmp-whisker { position: absolute; top: 50%; height: 2px; background: var(--color-text-muted); transform: translateY(-50%); }
+.cmp-value { color: var(--color-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cmp-factor { color: var(--color-text-muted); white-space: nowrap; min-width: 3.5em; text-align: right; }
+
+.bench-errors { padding: 0 var(--space-4) var(--space-4); }
+.bench-error { border: 1px solid var(--color-divider); border-radius: var(--radius-md); margin-bottom: var(--space-2); }
+.bench-error > summary {
+  cursor: pointer; padding: var(--space-2) var(--space-3); font-size: var(--text-xs);
+  color: var(--color-text-muted); list-style-position: inside;
+}
+.bench-error > summary:hover { color: var(--color-text); }
+.bench-error[open] > summary { border-bottom: 1px solid var(--color-divider); }
+.bench-error-plain { padding: var(--space-2) var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+.bench-error .code-block { border: none; border-radius: 0 0 var(--radius-md) var(--radius-md); }
+
+.code-block {
+  background: var(--color-surface-offset); border: 1px solid oklch(from var(--color-text) l c h / 0.08);
+  border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+  font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7;
+  overflow-x: auto; color: var(--color-text); white-space: pre-wrap; word-break: break-word;
+}
+
+.form-group { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-4); }
+.form-label { font-size: var(--text-xs); font-weight: 500; color: var(--color-text-muted); }
+/* issue #297: индикатор несохранённых изменений редактора режима 1. */
+.editor-dirty { margin-left: var(--space-2); font-size: var(--text-xs); font-weight: 500; color: var(--color-warning); }
+.form-input {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--color-text);
+  outline: none; width: 100%;
+}
+.form-input::placeholder { color: var(--color-text-placeholder); }
+.form-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px oklch(from var(--color-primary) l c h / 0.18); }
+select.form-input { cursor: pointer; }
+.code-editor { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7; min-height: 240px; resize: vertical; }
+
+/* issue #265: #solution-editor is now a CodeMirror 6 mount point, not a
+   <textarea> -- its own .cm-content rule (app.js mountEditor()) handles
+   padding/font, so the .form-input padding here would double up; zero it
+   and let overflow:auto + resize:vertical keep the old resize-handle UX.
+   Focus visibility: CodeMirror's real focused node is .cm-content nested
+   inside, so plain .form-input:focus (a :focus pseudo-class on THIS
+   element) never fires -- :focus-within does, since it matches whenever
+   any descendant has focus. */
+#solution-editor.code-editor {
+  padding: 0;
+  overflow: auto;
+  cursor: text;
+}
+#solution-editor.code-editor:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px oklch(from var(--color-primary) l c h / 0.18);
+}
+#solution-editor .cm-editor { height: 100%; }
+
+/* issue #663: раньше здесь был flex с `flex: 1` + `min-width: 80px`, и это
+   ломало защиту от переполнения: `flex: 1` разворачивается в `flex-basis: 0`
+   (ширина делится поровну независимо от содержимого), а явный `min-width` в
+   пикселях отключает `min-width: auto`, который обычно не даёт flex-элементу
+   сжаться уже контента. «Микробенчмарк» требовал 122px, получал 101px и при
+   `overflow: visible` вылезал на кнопку «Запустить».
+
+   Grid решает обе задачи разом: `1fr` — это `minmax(auto, 1fr)`, поэтому
+   колонки РАВНЫ между собой и при этом не уже самой длинной подписи. Flex так
+   не умеет — там равенство и «не уже контента» противоречат друг другу
+   (получались рваные ширины).
+
+   На узких экранах четыре колонки по ширине «Микробенчмарка» не помещаются,
+   поэтому ниже 768px раскладка переходит в 2×2 (см. блок RESPONSIVE). */
+.mode-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
+.mode-btn {
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  border: 1px solid var(--color-border); font-size: var(--text-xs); font-weight: 500;
+  color: var(--color-text-muted); background: var(--color-surface); text-align: center; cursor: pointer;
+}
+.mode-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+/* Без смены font-weight у активной кнопки: жирное начертание расширяло свою
+   колонку грида, и весь переключатель ездил на 6 px при выборе режима с длинной
+   подписью («Микробенчмарк»). Акцент и так несут фон, рамка и цвет. */
+.mode-btn.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); }
+.mode-btn.disabled { opacity: .5; pointer-events: none; cursor: default; }
+.mode-btn-sub { font-weight: 400; opacity: .7; }
+
+.divider { height: 1px; background: var(--color-divider); margin: var(--space-4) 0; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: var(--space-12) var(--space-8); color: var(--color-text-muted); }
+.empty-state h3 { color: var(--color-text); font-size: var(--text-base); margin-bottom: var(--space-2); }
+.empty-state p { max-width: 36ch; font-size: var(--text-sm); margin-bottom: var(--space-5); }
+
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-offset) 25%, var(--color-surface-dynamic) 50%, var(--color-surface-offset) 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: var(--radius-sm);
+}
+.skeleton-text   { height: 1em; margin-bottom: var(--space-2); }
+.skeleton-text:last-child { width: 60%; }
+.skeleton-heading { height: 1.5em; width: 40%; margin-bottom: var(--space-4); }
+
+/* issue #262 — progress bar for async bench/microbench jobs (POST /api/v1/runs) */
+.progress-track {
+  height: 6px; border-radius: var(--radius-full);
+  background: var(--color-primary-highlight); overflow: hidden;
+}
+.progress-fill {
+  height: 100%; width: 0; border-radius: var(--radius-full); background: var(--color-primary);
+  transition: width 200ms ease-out;
+}
+/* issue #634: вход раздела/вкладки. Переключение шло через .hidden, то есть
+   display:none — его нельзя анимировать переходом, поэтому появление оформлено
+   анимацией, которую перезапускает revealWithMotion() (core.js). Длительность и
+   кривая — из общего токена; глобальный prefers-reduced-motion (см. выше)
+   гасит её автоматически, отдельный блок не нужен. */
+@keyframes view-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.view-enter { animation: view-enter var(--transition-interactive); }
+
+@keyframes progress-indeterminate-slide { 0%{margin-left:-40%} 100%{margin-left:100%} }
+.progress-indeterminate {
+  width: 40%; animation: progress-indeterminate-slide 1.2s ease-in-out infinite;
+}
+.progress-label {
+  margin-top: var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-faint); }
+
+.section-heading {
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-text-muted); margin: var(--space-4) 0 var(--space-3);
+  padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-divider);
+}
+.section-heading:first-child { margin-top: 0; }
+
+/* issue #409: .hint — вспомогательный help-текст (используется в index.html, но
+   без своего правила рендерился как основной, ломая иерархию новых разделов).
+   Приглушённый мелкий текст; инлайновый <code> держит моно-начертание. */
+.hint { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.5; }
+.hint code { font-family: var(--font-mono); font-size: 0.95em; }
+
+/* -- Side lists (история / недавние пути / карточки глоссария) ------------ */
+.side-list { list-style: none; margin: 0 0 var(--space-2); padding: 0; font-size: var(--text-sm); }
+.side-list li { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); cursor: pointer; overflow-wrap: anywhere; }
+.side-list li:hover { background: var(--color-surface-dynamic); }
+.side-list li.empty { color: var(--color-text-muted); cursor: default; }
+.side-list li.empty:hover { background: transparent; }
+.side-list li.selected { background: var(--color-primary-highlight); color: var(--color-primary); }
+
+/* -- ErrorCard detail (вкладка «Детали») ----------------------------------- */
+.field-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); margin: var(--space-3) 0 var(--space-1); font-weight: 600; }
+.field-label:first-child { margin-top: 0; }
+/* issue #368: «Разбор» — двухколоночное «Ожидалось/Получено» (стек на узкой панели). */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+@media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
+.raw-output { margin-top: var(--space-4); }
+.raw-output > summary { cursor: pointer; font-size: var(--text-xs); color: var(--color-text-muted); padding: var(--space-2) 0; }
+.raw-output > summary:hover { color: var(--color-text); }
+.action-cards { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+.action-card {
+  background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3); font-size: var(--text-xs); border-radius: var(--radius-md);
+}
+.action-card:hover { background: var(--color-surface-dynamic); }
+.errcard { margin: var(--space-3) 0; padding: var(--space-3); border-left: 3px solid var(--color-warning); background: var(--color-warning-highlight); border-radius: var(--radius-md); font-size: var(--text-sm); }
+.errcard.severity-error { border-left-color: var(--color-error); background: var(--color-error-highlight); }
+.errcard-ex { font-weight: 600; }
+.errcard a { color: var(--color-primary); }
+/* issue #921 (находка DES-1-04): ссылка без собственного правила берёт цвет из
+   UA-таблицы браузера (#0000EE). На светлой теме это ещё читается, на тёмной —
+   2.01:1, то есть текст, которого почти не видно. Поймано измерением в
+   браузере: статический гейт про такую ссылку не узнаёт в принципе — он
+   сторожит токены, а здесь не использован ни один. */
+.empty-state a { color: var(--color-primary); }
+.msg { color: var(--color-error); margin-top: var(--space-4); }
+/* issue #296: cancelled run is not a failure -- neutral tone, not error red. */
+.msg-neutral { color: var(--color-text-muted); margin-top: var(--space-4); }
+/* issue #402: мастер авторизации Stepik в загрузчике */
+.auth-panel { margin-bottom: var(--space-5); padding: var(--space-4); border: 1px solid oklch(from var(--color-text) l c h / 0.12); border-radius: 8px; }
+.auth-panel .msg { color: var(--color-text); }
+.auth-ok { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; color: var(--color-text); }
+.btn-sm { padding: var(--space-1, 4px) var(--space-3); font-size: var(--text-sm); }
+
+/* issue #723/#724/#725: раздел «Загрузчик задач» — одна колонка, главное
+   действие в шапке, состояние доступа и корневая папка строками. */
+.downloader-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.downloader-actions .form-input { flex: 1 1 320px; min-width: 0; }
+.single-pane { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); min-height: 0; overflow-y: auto; }
+.single-pane > .split-pane-panel { border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.auth-state { font-weight: 500; }
+.auth-state-warn { color: var(--color-warning); }
+/* issue #1213: причина отказа стоит НАД развилкой «мастер / готовый файл» —
+   иначе выбор предлагается раньше, чем сказано, из-за чего он возник. */
+.auth-problem { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  margin-bottom: var(--space-3); }
+.auth-choice .row { gap: var(--space-3); }
+.config-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text); }
+.config-label { color: var(--color-text-muted); }
+.config-value { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--color-surface-offset); padding: 2px var(--space-2); border-radius: var(--radius-sm); }
+.config-input { flex: 0 1 320px; min-width: 0; }
+.hint-inline { font-size: var(--text-xs); color: var(--color-text-muted); }
+/* issue #298 (a11y): visually hidden but exposed to assistive tech — used for
+   the aria-live result-summary announcer (#result-announce).
+   Объявление было продублировано (второе — в блоке базовых стилей); осталось
+   одно, чтобы правка не расходилась между копиями. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* issue #805 (DESW-03): фокусируемый .sr-only (skip-link «Перейти к
+   содержимому») возвращается в поток, когда до него дошли клавиатурой. Иначе
+   зрячий клавиатурный пользователь видит фокус на элементе 1×1 px и не знает,
+   что навигацию можно пропустить (WCAG 2.4.7). Спрятанные подписи-анонсеры
+   правило не задевает: они не фокусируются. */
+.sr-only:focus {
+  position: fixed; top: var(--space-2); left: var(--space-2); z-index: 100;
+  width: auto; height: auto; margin: 0; padding: var(--space-2) var(--space-4);
+  overflow: visible; clip: auto; white-space: normal;
+  background: var(--color-surface); color: var(--color-text);
+  border: 1px solid var(--color-primary); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+/* -- Модальное окно --------------------------------------------------------
+   issue #658: классы назывались .palette*, потому что появились вместе с
+   палитрой команд. Палитра удалена (все её команды и так были кнопками), а
+   разметка осталась нужна модалке AI-согласия — поэтому имена приведены к
+   нейтральным. Правила под список команд (input/ul/li/.kbd) удалены вместе
+   с палитрой: у модалки согласия свой контент. */
+.modal-overlay { position: fixed; inset: 0; background: oklch(0 0 0 / 0.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 100; }
+.modal { background: var(--color-surface); color: var(--color-text); width: min(560px, 92vw); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; border: 1px solid var(--color-border); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  /* issue #970 (DES-1-01): на узком экране прокручивается ДОКУМЕНТ, а не
+     внутренняя область. Десктопная раскладка держит единственный скролл в
+     .panel-body, и это работает, пока у ряда grid есть определённая высота.
+     При `height: auto` ряд `1fr` резолвится по max-content, `flex: 1` внутри
+     теряет опору — а `body { overflow: hidden }` сверху блокирует и прокрутку
+     документа. Итог: на телефоне контент под сгибом недоступен вовсе, и
+     расширить окно человеку нечем. Поэтому здесь скролл отдаётся документу, а
+     `overflow: hidden` снимается со всей цепочки, а не только с оболочки. */
+  body { overflow: auto; }
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--topbar-h) auto auto;
+    grid-template-areas: "topbar" "sidebar" "main";
+    height: auto; min-height: 100dvh; overflow: visible;
+  }
+  .main, .main-view { overflow: visible; }
+  .panel-body { overflow-y: visible; }
+  .sidebar { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--color-border); max-height: 52px; }
+  .sidebar-section { display: flex; flex-direction: row; align-items: center; gap: var(--space-1); padding: var(--space-2); }
+  .sidebar-label, .sidebar-badge { display: none; }
+  /* issue #409: разделитель групп навигации виден и на мобильном (вертикальная
+     чёрточка), иначе 7 разделов сливаются в один ряд без границы групп; пункты
+     не сжимаются, а горизонтально прокручиваются. */
+  .sidebar-divider { width: 1px; height: 20px; margin: 0 var(--space-1); flex: 0 0 auto; align-self: center; }
+  .sidebar-item { padding: var(--space-2); white-space: nowrap; flex: 0 0 auto; }
+  .split-pane { grid-template-columns: 1fr; }
+  .split-pane-panel + .split-pane-panel { border-left: none; border-top: 1px solid var(--color-border); }
+  /* issue #663: четыре равные колонки по ширине «Микробенчмарка» на узком
+     экране не помещаются (колонка не может стать уже подписи), поэтому 2×2. */
+  .mode-row { grid-template-columns: repeat(2, 1fr); }
+  .page-header { flex-direction: column; align-items: stretch; }
+  .page-actions { margin-left: 0; }
+}
+
+/* issue #329: тулбар фильтров раздела «Глоссарий» — чипы по разделам (без
+   объединения списков/кортежей/словарей/множеств), селекты типа/сортировки. */
+#glossary-filters { margin-bottom: var(--space-4); }
+.chip-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.chip {
+  padding: var(--space-1) var(--space-3); border-radius: 999px;
+  border: 1px solid var(--color-border); font-size: var(--text-xs); font-weight: 500;
+  color: var(--color-text-muted); background: var(--color-surface); cursor: pointer;
+}
+.chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.chip.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+.chip-locked { opacity: 0.5; } /* issue #540: ещё не взятый бейдж приглушён */
+/* issue #685: навигация глоссария — сетка кнопок ОДНОГО размера (у чипов по
+   контенту ширина скакала, ряд выглядел рваным), длинная подпись обрезается
+   многоточием (полная — в title), счётчик всегда прижат вправо. */
+.chip-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: var(--space-2); margin-bottom: var(--space-2);
+}
+.chip-grid .chip { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.chip-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.chip-count { opacity: .65; font-variant-numeric: tabular-nums; }
+.chip-group[aria-expanded="true"] .chip-label::after { content: " ▾"; }
+.chip-group[aria-expanded="false"] .chip-label::after { content: " ▸"; }
+.chip-grid-nested {
+  margin-left: var(--space-3); padding-left: var(--space-3);
+  border-left: 2px solid var(--color-border);
+  /* «Модули» — 30 разделов: без ограничения панель утаскивала список карточек
+     за экран. Дальше — прокрутка внутри самой панели. */
+  max-height: 9.5rem; overflow-y: auto;
+}
+/* «Пилюля» текущего фильтра: видна и когда панель разделов свёрнута. */
+.glossary-pill-row { margin-bottom: var(--space-2); }
+.glossary-pill {
+  display: inline-flex; align-items: center; gap: var(--space-2); max-width: 100%;
+  padding: var(--space-1) var(--space-3); border-radius: 999px;
+  border: 1px solid var(--color-primary); background: var(--color-primary-highlight);
+  color: var(--color-primary); font-size: var(--text-xs); font-weight: 600;
+}
+.glossary-pill-clear {
+  border: none; background: none; cursor: pointer; padding: 0 0 0 var(--space-1);
+  color: inherit; font-size: var(--text-xs); line-height: 1;
+}
+.glossary-pill-clear:hover { opacity: .7; }
+.glossary-filter-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.glossary-filter-row .form-input { flex: 1; min-width: 96px; font-size: var(--text-xs); padding: var(--space-1) var(--space-2); }
+#glossary-count { font-size: var(--text-xs); }
+/* issue #328: черновики (автогенерация из docstring) приглушены в списке. */
+.side-list li.gloss-draft { opacity: .6; }
+.side-list li.gloss-draft.selected { opacity: 1; }
+
+/* Разделы «Правила» и «Подучить» (issue #348) */
+.rule-code { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; color: var(--color-primary); }
+/* issue #403: подсветка правил, которые пользователь нарушал лично. */
+#rules-cards li.violated { border-left: 3px solid var(--color-warning, #d98a00); }
+.rule-violated { color: var(--color-warning, #d98a00); font-size: 0.9em; }
+.code-block.code-bad { border-left: 3px solid var(--color-error, #c0392b); }
+.code-block.code-good { border-left: 3px solid var(--color-success, #2e7d32); }
+.rule-body { margin: var(--space-3) 0; color: var(--color-text); }
+
+.insight-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.insight-card { padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); border-left-width: 3px; }
+.insight-card.insight-active { border-left-color: var(--color-warning); }
+.insight-card.insight-fading { border-left-color: var(--color-primary); }
+.insight-card.insight-watch { border-left-color: var(--color-faint); }
+.insight-card.insight-archived { border-left-color: var(--color-success, #2e7d32); }
+.insight-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1); }
+.insight-key { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; overflow-wrap: anywhere; }
+.insight-status { font-size: var(--text-sm); white-space: nowrap; }
+/* issue #822: «что делать» под названием типа падения. Читаемый абзац, а не
+   служебная строка — у .hint по умолчанию text-xs, для объяснения этого мало. */
+.insight-advice { font-size: var(--text-sm); color: var(--color-text); margin-bottom: var(--space-2); }
+
+/* issue #317: песочница — stderr красным, поле stdin как редактор. */
+.sandbox-stderr { color: var(--color-error); }
+textarea#sandbox-stdin { min-height: 72px; resize: vertical; white-space: pre; }
+
+/* issue #321: мини-карточки «Функции в коде» + error card под выводом. */
+/* issue #321/#322/#323: мини-карточки «Функции в коде» (песочница + режимы 1/2) */
+#sandbox-terms .term-card, #check-terms .term-card { padding: 0; }
+.term-card.gloss-draft { opacity: .6; }
+.term-card.term-card-nocard { opacity: .55; }
+.term-card-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-2); padding: var(--space-2); text-decoration: none; color: inherit; }
+a.term-card-link:hover { background: var(--color-surface-offset); }
+.term-card-title { color: var(--color-primary); font-weight: 600; font-family: var(--font-mono); font-size: var(--text-xs); }
+.term-card-nocard .term-card-title { color: var(--color-text-muted); }
+.term-card-summary { color: var(--color-text-muted); font-size: var(--text-xs); flex-basis: 100%; }
+.term-card-kind { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; }
+/* метод-эвристика (тип получателя неизвестен) — точка-маркер неуверенности */
+/* issue #805 (DESW-01): «~» помечает неточное совпадение (confidence: low) —
+   это несущий смысл символ, а не декор, поэтому цвет читаемый. */
+.term-card-uncertain .term-card-title::after { content: " ~"; color: var(--color-text-muted); }
+/* issue #684: ссылки внутри карточки глоссария — связи («Смотрите также»,
+   «Возможные ошибки») и ссылка на документацию. Без этого правила они рисуются
+   браузерным #0000ee: на тёмной теме это нечитаемо. */
+#glossary-detail-content a { color: var(--color-primary); text-decoration: none; }
+#glossary-detail-content a:hover { text-decoration: underline; }
+/* Блоки связей идут подряд («Смотрите также» + «Возможные ошибки»), и без
+   отступа сливаются в одну простыню: у соседних блоков воздух дают рамки
+   .code-block, а у списка ссылок их нет. */
+.glossary-links { margin-top: var(--space-3); }
+.glossary-links p { line-height: 1.8; }
+.sandbox-errcard {
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3);
+  background: var(--color-error-highlight); border-radius: var(--radius-md);
+  color: var(--color-error); font-size: var(--text-xs);
+}
+
+/* issue #319: пошаговый плеер трейса — контролы, снимок кода с подсветкой
+   активной строки, кадры стека с переменными. Код — read-only снимок (не живой
+   CodeMirror), подсветка строки чистым CSS. */
+.trace-player { display: flex; flex-direction: column; gap: var(--space-3); }
+.trace-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.trace-controls .btn-icon:disabled { opacity: .35; cursor: default; }
+.trace-slider { flex: 1; min-width: 120px; accent-color: var(--color-primary); }
+.trace-step-label {
+  font-size: var(--text-xs); font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted); white-space: nowrap;
+}
+.trace-truncated { color: var(--color-warning); }
+.trace-split { display: flex; flex-direction: column; gap: var(--space-3); }
+.trace-code {
+  margin: 0; background: var(--color-surface-offset);
+  border: 1px solid oklch(from var(--color-text) l c h / 0.08); border-radius: var(--radius-md);
+  font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7;
+  max-height: 260px; overflow: auto; padding: var(--space-2) 0;
+}
+.trace-line { display: flex; padding: 0 var(--space-3); white-space: pre; }
+.trace-line.is-active { background: var(--color-primary-highlight); }
+.trace-line.is-error  { background: var(--color-error-highlight); }
+.trace-lineno {
+  flex: 0 0 2.5em; text-align: right; margin-right: var(--space-3);
+  color: var(--color-text-muted); user-select: none;
+}
+/* issue #805 (DESW-01): на подсвеченной строке фон светлее/темнее обычного, и
+   приглушённый номер там не добирает 4.5:1 (muted на *-highlight — 3.6–4.3:1).
+   Потолок задаёт сам highlight, поэтому номер на нём — обычный цвет текста. */
+.trace-line.is-active .trace-lineno,
+.trace-line.is-error .trace-lineno { color: var(--color-text); }
+.trace-linetext { flex: 1; word-break: break-word; white-space: pre-wrap; }
+.trace-frames { display: flex; flex-direction: column; gap: var(--space-2); }
+.trace-frame {
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  overflow: hidden; background: var(--color-surface);
+}
+.trace-frame-title {
+  padding: var(--space-1) var(--space-3); background: var(--color-surface-offset);
+  font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+.trace-vars { width: 100%; border-collapse: collapse; font-size: var(--text-xs); font-family: var(--font-mono); }
+.trace-vars td { padding: var(--space-1) var(--space-3); vertical-align: top; border-top: 1px solid var(--color-border); }
+.trace-vars tr:first-child td { border-top: none; }
+.trace-vars tr.is-changed { background: var(--color-primary-highlight); }
+.trace-var-name { color: var(--color-primary); font-weight: 600; white-space: nowrap; width: 1%; }
+.trace-var-val { color: var(--color-text); word-break: break-word; }
+.trace-stdout { max-height: 160px; overflow: auto; }
+.trace-error { color: var(--color-error); }
+.trace-error-link { color: var(--color-primary); white-space: nowrap; }
+.trace-vars-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.trace-view-toggle { display: inline-flex; gap: 2px; background: var(--color-surface-offset); border-radius: var(--radius-sm); padding: 2px; }
+.trace-view-toggle button {
+  font-size: var(--text-xs); padding: 2px var(--space-2); border-radius: var(--radius-sm);
+  color: var(--color-text-muted); cursor: pointer; border: none; background: transparent;
+}
+.trace-view-toggle button.active { background: var(--color-surface); color: var(--color-primary); font-weight: 600; box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.08)); }
+
+/* issue #320: диаграмма связей — HTML-боксы + SVG-стрелки поверх. */
+.mem-graph { overflow: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-offset); }
+.mem-cols { position: relative; display: flex; gap: 3rem; padding: var(--space-3); min-width: max-content; }
+.mem-arrows { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.mem-col { display: flex; flex-direction: column; gap: var(--space-2); z-index: 1; }
+.mem-frames-col { flex: 0 0 auto; }
+.mem-heap-col { flex: 0 0 auto; }
+.mem-frame, .mem-node {
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface); font-family: var(--font-mono); font-size: var(--text-xs);
+  min-width: 92px;
+}
+.mem-frame-title, .mem-node-title {
+  padding: var(--space-1) var(--space-2); background: var(--color-surface-offset);
+  font-weight: 600; color: var(--color-text-muted); border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.mem-var, .mem-cell, .mem-entry {
+  display: flex; align-items: center; gap: var(--space-2); justify-content: space-between;
+  padding: 2px var(--space-2); border-top: 1px solid var(--color-border);
+}
+.mem-var.is-changed { background: var(--color-primary-highlight); }
+.mem-var-name { color: var(--color-primary); font-weight: 600; }
+.mem-var-val, .mem-cell-val { color: var(--color-text); word-break: break-word; }
+.mem-idx, .mem-key { color: var(--color-text-muted); }
+.mem-cell-val { padding: 2px var(--space-2); }
+/* точка привязки на правом крае строки-ссылки — из неё выходит стрелка */
+.mem-anchor { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); flex: 0 0 auto; }
+.mem-arrow { fill: none; stroke: var(--color-primary); stroke-width: 1.5; }
+.mem-dot { fill: var(--color-primary); }
+.mem-arrowhead { fill: var(--color-primary); }
+.mem-toobig { margin-bottom: var(--space-2); color: var(--color-warning); }
+
+/* issue #563: утилиты отступов — вынесены из инлайновых style=, чтобы наш
+   собственный код не зависел от 'unsafe-inline' в CSP (его требует только
+   вендоренный CodeMirror — см. _CSP в server.py). */
+.mt-3 { margin-top: var(--space-3); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.pad-4 { padding: var(--space-4); }
+.pad-t3-x4 { padding: var(--space-3) var(--space-4) 0; }
+/* строка-подробности кейса: скрыта по умолчанию, разворачивается классом
+   (раньше — инлайновый style="display:none" + запись в el.style.display). */
+.caserow { display: none; }
+.caserow.is-open { display: table-row; }
+
+/* issue #565: однократное уведомление о локальном сборе истории — ненавязчивый
+   тост снизу справа поверх контента (position:fixed, не двигает layout). */
+.notice {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 380px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+}
+.notice .notice-text { color: var(--color-text-muted); line-height: 1.5; }
+.notice .btn { align-self: flex-end; }
+@media (max-width: 640px) {
+  .notice { left: var(--space-4); right: var(--space-4); max-width: none; }
+}
+
+/* Тосты (issue #633) — обратная связь на действия, которые раньше молчали.
+   Стек над .notice по z-index, но не перехватывает клики: pointer-events:none
+   на контейнере, чтобы всплывающее уведомление не блокировало кнопки под ним. */
+.toast-stack {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.toast {
+  max-width: 380px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity var(--transition-interactive),
+    transform var(--transition-interactive);
+}
+.toast-visible { opacity: 1; transform: none; }
+.toast-success { border-left-color: var(--color-success); }
+.toast-error { border-left-color: var(--color-error); }
+/* issue #805 (DESW-06): `pointer-events: none` на стеке остаётся (issue #633 —
+   уведомление не должно блокировать кнопки под собой), но сам тост события
+   принимает: иначе его нельзя ни закрыть, ни выделить, чтобы скопировать
+   текст ошибки. Промежуток между тостами кликам по-прежнему прозрачен. */
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: var(--space-2); }
+.toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast-close {
+  flex: 0 0 auto; padding: 0 var(--space-1); line-height: 1.2;
+  background: none; border: 0; border-radius: var(--radius-sm);
+  color: var(--color-text-muted); cursor: pointer; font-size: var(--text-sm);
+}
+.toast-close:hover { background: var(--color-surface-dynamic); color: var(--color-text); }
+@media (max-width: 640px) {
+  .toast-stack { left: var(--space-4); right: var(--space-4); }
+  .toast { max-width: none; }
+}
+
+/* issue #635: подсветка редактора, когда над ним тащат файл. outline вместо
+   border — не сдвигает содержимое и не ломает раскладку CodeMirror. */
+.code-editor.dropzone-active {
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-primary-highlight);
+}
+
+/* issue #636: выровненный посимвольный diff разбора WA.
+   Семантика цвета — продуктовая, а не git'овая: «Ожидалось» это верный
+   результат (success-оттенок), «Получено» — ошибочный (error-оттенок).
+   Фоны берутся из *-highlight токенов, поэтому обе темы и contrast-guard
+   (#424) остаются в силе. */
+.inline-diff {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  background: var(--color-surface);
+}
+.diff-row { display: flex; gap: var(--space-2); padding: 0 var(--space-2); white-space: pre; }
+.diff-mark { width: 1ch; color: var(--color-text-muted); flex: 0 0 auto; }
+.diff-lineno {
+  min-width: 2.5ch; text-align: right; color: var(--color-text-muted);
+  flex: 0 0 auto; user-select: none;
+}
+.diff-text { flex: 1 1 auto; }
+.diff-expected { background: var(--color-success-highlight); }
+.diff-actual { background: var(--color-error-highlight); }
+/* Сам различающийся фрагмент — сильнее фона строки, чтобы глаз падал на него,
+   а не на всю строку. */
+.diff-chunk {
+  background: var(--color-surface-dynamic);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 0 1px;
+}
+/* Невидимые символы — видимыми: именно на пробелах и табах чаще всего и
+   расходятся вывод с эталоном (класс output-format в insights.py). */
+.ws-mark { color: var(--color-text-muted); opacity: .75; }
+.raw-diff { margin-top: var(--space-3); }
+.raw-diff summary { cursor: pointer; color: var(--color-text-muted); font-size: var(--text-xs); }
+
+/* Инлайн-ошибка рядом с действием (issue #633): раньше ошибка сохранения
+   уходила в дальнюю панель #out, которая на вкладке «Разбор» скрыта. */
+.inline-error {
+  margin-top: var(--space-2);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+/* issue #543 — AI-подсказка: кнопка «Объяснить», её вывод и модалка согласия.
+   Только раскладка (без цветов) — переиспользуем .btn/.errcard/.modal-токены,
+   contrast-guard (#424) не задеваем. */
+.ai-explain-btn { margin-top: var(--space-3); }
+.ai-hint-out { margin-top: var(--space-3); }
+.errcard.ai-hint { margin-top: var(--space-3); }
+.ai-consent .ai-consent-body { margin: var(--space-3) 0; line-height: 1.5; }
+.ai-consent-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+
+/* issue #660 — стартовый экран-онбординг. Переиспользует .modal-overlay/.modal;
+   контент выше AI-согласия, поэтому свой padding и внутренний скролл. */
+.modal.onboarding {
+  width: min(620px, 94vw); max-height: 82vh; overflow-y: auto;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+.onboarding-head { display: flex; align-items: center; gap: var(--space-2); }
+.onboarding-head h2 { margin: 0; flex: 1; font-size: var(--text-lg); }
+.onboarding-lead { color: var(--color-text-muted); margin: var(--space-1) 0 var(--space-4); line-height: 1.5; }
+.onboarding-label {
+  font-size: var(--text-xs); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--color-text-muted); margin-bottom: var(--space-2);
+}
+.onboarding-modes { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; gap: var(--space-2); }
+.onboarding-modes li { display: flex; gap: var(--space-2); align-items: flex-start; line-height: 1.45; }
+.onboarding-ic { flex: none; width: 1.5em; text-align: center; }
+.onboarding-desc { color: var(--color-text-muted); }
+.onboarding-note {
+  display: flex; gap: var(--space-2); background: var(--color-surface-offset);
+  border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-2);
+}
+.onboarding-note p { margin: 0; font-size: var(--text-sm); line-height: 1.5; color: var(--color-text-muted); }
+.onboarding-note strong { color: var(--color-text); }
+.onboarding-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
+.onboarding-actions .spacer { flex: 1; }
+.onboarding-dont-show {
+  display: flex; gap: var(--space-2); align-items: center; margin: var(--space-4) 0 0;
+  font-size: var(--text-sm); color: var(--color-text-muted); cursor: pointer;
+}
+.onboarding-dont-show input { cursor: pointer; margin: 0; }
+.onboarding-dont-show + .onboarding-actions { margin-top: var(--space-2); }
+.onboarding-reopen { margin: var(--space-3) 0 0; }
+
+/* issue #754 — модалка обратной связи. Только раскладка: цвета и поля берутся из
+   существующих токенов и классов (.modal/.form-input/.mode-row/.btn), поэтому
+   contrast-guard (#424) не задевается. Габариты — как у онбординга: контента
+   много (три типа + предпросмотр), нужен внутренний скролл. */
+.modal.feedback {
+  width: min(620px, 94vw); max-height: 82vh; overflow-y: auto;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+.feedback-head { display: flex; align-items: center; gap: var(--space-2); }
+.feedback-head h2 { margin: 0; flex: 1; font-size: var(--text-lg); }
+.feedback-lead { color: var(--color-text-muted); margin: var(--space-1) 0 var(--space-4); line-height: 1.5; }
+.modal.feedback .mode-row { flex-wrap: wrap; }
+.feedback-label { display: block; margin: var(--space-3) 0 var(--space-1); }
+.feedback-input { width: 100%; }
+textarea.feedback-input { min-height: 72px; resize: vertical; }
+.feedback-preview { margin-top: var(--space-3); }
+.feedback-preview summary { cursor: pointer; color: var(--color-text-muted); font-size: var(--text-sm); }
+.feedback-preview-body {
+  margin-top: var(--space-2); padding: var(--space-3);
+  background: var(--color-surface-offset); border-radius: var(--radius-md);
+}
+.feedback-preview-field + .feedback-preview-field { margin-top: var(--space-3); }
+.feedback-preview-field strong { font-size: var(--text-xs); color: var(--color-text-muted); }
+.feedback-preview-field pre {
+  margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-xs);
+}
+.feedback-privacy { margin: var(--space-3) 0 0; }
+.feedback-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
+.feedback-actions .spacer { flex: 1; }
+/* Ссылки без href (черновик ещё не собран или не собрался) не должны выглядеть
+   и вести себя как рабочие. */
+.feedback-actions [aria-disabled="true"] { opacity: .55; pointer-events: none; }
+
+/* ── УСЛОВИЕ ЗАДАЧИ (issue #1178) ──
+   Шире остальных модалок: в условии таблицы примеров и иллюстрации, в ширину
+   диалога согласия (560px) они не помещаются. Прокрутка — ВНУТРИ окна, чтобы
+   страница под ним не смещалась при длинном условии. Цвета только на токенах,
+   поэтому тёмная тема работает без отдельных правил. */
+.modal.statement {
+  width: min(860px, 94vw); max-height: 80vh; display: flex; flex-direction: column;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+.statement-head { display: flex; align-items: flex-start; gap: var(--space-2); flex: 0 0 auto; }
+.statement-head h2 { margin: 0; font-size: var(--text-lg); }
+.statement-head > div { flex: 1; min-width: 0; }
+.statement-crumbs { margin: 0 0 var(--space-1); color: var(--color-text-muted); font-size: var(--text-sm); }
+.statement-body { flex: 1 1 auto; overflow-y: auto; margin-top: var(--space-3); line-height: 1.6; }
+.statement-body > :first-child { margin-top: 0; }
+.statement-body img { max-width: 100%; height: auto; }
+.statement-body pre {
+  background: var(--color-surface-offset); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: var(--space-3); overflow-x: auto;
+}
+.statement-body code { font-family: var(--font-mono); font-size: 0.92em; }
+/* Таблица примеров — единственное, что реально приезжает из условия шире окна;
+   прокручивается сама, не растягивая диалог. */
+.statement-body table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; }
+.statement-body th, .statement-body td {
+  border: 1px solid var(--color-border); padding: var(--space-2) var(--space-3); text-align: left;
+}
+.statement-body th { background: var(--color-surface-offset); }
+.statement-body blockquote {
+  margin: var(--space-3) 0; padding-left: var(--space-3);
+  border-left: 3px solid var(--color-border); color: var(--color-text-muted);
+}
+.statement-attachments {
+  flex: 0 0 auto; margin-top: var(--space-3); padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border); font-size: var(--text-sm);
+}
+.statement-attachments ul { margin: var(--space-1) 0 0; padding-left: var(--space-4); }
+/* Не приехавшее вложение помечается словом, а не только цветом: цвет один в
+   один не читается при дальтонизме и не озвучивается скринридером. */
+.statement-missing { color: var(--color-error); }
+
+/* ── НАВИГАЦИЯ ПО СКАЧАННЫМ ЗАДАЧАМ (issue #1179) ──
+   Панель — альтернатива вводу пути, а не замена: поле пути остаётся на месте.
+   Цвета только на токенах, поэтому тёмная тема работает без отдельных правил. */
+.nav-panel { margin-bottom: var(--space-3); }
+.nav-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.nav-level { width: auto; flex: 0 0 auto; }
+.nav-counter { color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
+.nav-context {
+  margin: var(--space-2) 0 0; color: var(--color-text-muted); font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.nav-list {
+  list-style: none; margin: var(--space-2) 0 0; padding: 0;
+  max-height: 320px; overflow-y: auto;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.nav-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); cursor: pointer;
+  border-bottom: 1px solid var(--color-divider); font-size: var(--text-sm);
+}
+.nav-list li:last-child { border-bottom: none; }
+.nav-list li:hover { background: var(--color-surface-offset); }
+.nav-list li.active { background: var(--color-primary-highlight); font-weight: 600; }
+.nav-status { flex: 0 0 auto; color: var(--color-text-muted); white-space: nowrap; }
+/* Статус назван словом, а не только цветом: цвет не читается при дальтонизме
+   и не озвучивается скринридером. Цвет здесь — усиление, а не носитель смысла. */
+.nav-status-solved { color: var(--color-success); }
+.nav-status-in_progress { color: var(--color-warning); }
+
+@media (max-width: 768px) {
+  /* Стрелки не прячутся никогда — они и есть основной способ листать. */
+  .nav-context { display: none; }
+  .nav-counter { font-size: var(--text-sm); }
+  .nav-list { max-height: 240px; }
+}

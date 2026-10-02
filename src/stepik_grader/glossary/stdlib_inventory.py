@@ -1,0 +1,331 @@
+"""stdlib_inventory.py — офлайн-инвентаризация официального Python/stdlib (issue #196).
+
+Архитектурный слой: Domain (leaf — только stdlib, не тянет ``core/*`` и не
+импортируется из него — DAG ацикличен, см. CLAUDE.md § Архитектурные
+инварианты).
+
+Строит **source-driven** инвентарь того, что предлагает официальный Python:
+встроенные функции/классы (``builtins``), иерархию встроенных исключений
+(рекурсивный обход ``BaseException``) и публичные члены курируемого набора
+stdlib-модулей. Используется коэффициент полноты глоссария относительно
+официального Python — см.
+[`docs/dev/glossary.md § Источники истины`](../../../docs/dev/glossary.md#источники-истины-роли).
+
+Инвентарь строится **офлайн** через интроспекцию running-интерпретатора
+(``inspect``/``importlib``) — никаких сетевых запросов и никакого разбора
+внешних сайтов (в т.ч. Glossary-Python, который не является эталоном
+полноты). Курируемые модули **импортируются** (это часть stdlib, исполняемой
+средой доверия), но пользовательский код здесь не запускается.
+"""
+
+from __future__ import annotations
+
+import builtins
+import importlib
+import inspect
+import sys
+from dataclasses import dataclass
+from typing import Literal
+
+__all__ = [
+    "NOTABLE_BUILTIN_TYPES",
+    "NOTABLE_STDLIB_MODULES",
+    "InventoryKind",
+    "StdlibItem",
+    "build_stdlib_inventory",
+    "scanner_name_sets",
+]
+
+InventoryKind = Literal["function", "class", "exception", "method"]
+
+# Курируемые встроенные типы, чьи публичные методы инвентаризируются (issue
+# #327). Это самый частый у новичков пласт (``str.split``, ``list.append``,
+# ``dict.get``), которого builtins-сканер не видит — он собирает только сами
+# классы (``str``, ``list``), но не их методы. qualname — вида ``str.split``.
+NOTABLE_BUILTIN_TYPES: tuple[type, ...] = (
+    str,
+    bytes,
+    bytearray,
+    list,
+    tuple,
+    dict,
+    set,
+    frozenset,
+    int,
+    float,
+    complex,
+)
+
+# Курируемый набор stdlib-модулей, часто встречающихся в решениях студентов и
+# в глоссарии (issue #196). Список сознательно конечен и стабилен — расширять
+# явным PR, а не автоматически (иначе инвентарь перестанет быть детерминированным
+# по составу между запусками разных версий Python).
+NOTABLE_STDLIB_MODULES: frozenset[str] = frozenset(
+    {
+        "functools",
+        "itertools",
+        "collections",
+        "collections.abc",
+        "math",
+        "re",
+        "os",
+        "os.path",
+        "pathlib",
+        "json",
+        "datetime",
+        "string",
+        "statistics",
+        "dataclasses",
+        "typing",
+        "io",
+        "textwrap",
+        "random",
+        "copy",
+        "operator",
+        "enum",
+        "abc",
+        "contextlib",
+    }
+)
+
+
+@dataclass(frozen=True)
+class StdlibItem:
+    """Одна сущность официального Python/stdlib (функция/класс/исключение).
+
+    ``qualname`` — полное имя для поиска/дедупа (напр. ``functools.reduce``,
+    ``ValueError``); для builtins — без префикса модуля, как пишут в коде.
+    """
+
+    qualname: str
+    module: str
+    kind: InventoryKind
+    python_version: str
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, StdlibItem):
+            return NotImplemented
+        return self.qualname < other.qualname
+
+
+def _python_version() -> str:
+    return f"{sys.version_info.major}.{sys.version_info.minor}"
+
+
+def _classify_non_exception(obj: object) -> InventoryKind | None:
+    """Классифицировать builtins/module-член как function/class (не exception).
+
+    Исключения сюда не попадают — их собирает отдельный рекурсивный обход
+    ``BaseException`` (``_exception_items``), чтобы не задваивать записи.
+    """
+    if inspect.isclass(obj):
+        if issubclass(obj, BaseException):
+            return None
+        return "class"
+    if inspect.isroutine(obj):
+        return "function"
+    return None
+
+
+def _public_names(module: object) -> list[str]:
+    exported = getattr(module, "__all__", None)
+    if isinstance(exported, list | tuple):
+        return sorted(str(name) for name in exported)
+    return sorted(name for name in dir(module) if not name.startswith("_"))
+
+
+def _builtins_items(version: str) -> list[StdlibItem]:
+    items: list[StdlibItem] = []
+    for name in sorted(dir(builtins)):
+        if name.startswith("_"):
+            continue
+        obj = getattr(builtins, name)
+        kind = _classify_non_exception(obj)
+        if kind is None:
+            continue
+        items.append(
+            StdlibItem(qualname=name, module="builtins", kind=kind, python_version=version)
+        )
+    return items
+
+
+def _module_items(module_names: frozenset[str], version: str) -> list[StdlibItem]:
+    items: list[StdlibItem] = []
+    for module_name in sorted(module_names):
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            continue
+        for name in _public_names(module):
+            obj = getattr(module, name, None)
+            kind = _classify_non_exception(obj)
+            if kind is None:
+                continue
+            items.append(
+                StdlibItem(
+                    qualname=f"{module_name}.{name}",
+                    module=module_name,
+                    kind=kind,
+                    python_version=version,
+                )
+            )
+    return items
+
+
+def _type_method_items(types: tuple[type, ...], version: str) -> list[StdlibItem]:
+    """Публичные методы курируемых встроенных типов (``str.split``, ``dict.get``).
+
+    Берём только вызываемые публичные атрибуты (``dir`` без ``_``-префикса) —
+    data-дескрипторы (``int.numerator``, ``int.real`` и т.п.) отбрасываются,
+    т.к. это не методы. ``kind="method"``, ``module="builtins"``.
+    """
+    items: list[StdlibItem] = []
+    for tp in types:
+        for name in sorted(dir(tp)):
+            if name.startswith("_"):
+                continue
+            if not callable(getattr(tp, name, None)):
+                continue
+            items.append(
+                StdlibItem(
+                    qualname=f"{tp.__name__}.{name}",
+                    module="builtins",
+                    kind="method",
+                    python_version=version,
+                )
+            )
+    return items
+
+
+def _all_exception_classes() -> list[type[BaseException]]:
+    """Рекурсивно обойти иерархию ``BaseException`` среди уже загруженных классов.
+
+    Видны только исключения из модулей, реально импортированных в процессе
+    (builtins всегда, курируемые модули — после ``_module_items``), поэтому
+    вызывать после импорта нужных модулей, а не до.
+    """
+    seen: set[type[BaseException]] = {BaseException}
+    stack: list[type[BaseException]] = [BaseException]
+    while stack:
+        current = stack.pop()
+        for sub in current.__subclasses__():
+            if sub not in seen:
+                seen.add(sub)
+                stack.append(sub)
+    return sorted(seen, key=lambda cls: (cls.__module__, cls.__qualname__))
+
+
+# Публично выглядящие (без ведущего ``_``), но НЕ входящие в документированный
+# API исключения stdlib — внутренние детали реализации. Отфильтровываются явно:
+# эвристика по ``__all__`` ненадёжна (напр. ``shutil.__all__`` не перечисляет свои
+# публичные ``ReadError``/``RegistryError``), а по имени такие не отличить.
+_NON_PUBLIC_STDLIB_EXCEPTIONS: frozenset[str] = frozenset(
+    {
+        "inspect.ClassFoundException",  # внутреннее исключение BlockFinder
+        "inspect.EndOfBlock",  # внутреннее исключение BlockFinder
+    }
+)
+
+
+def _is_official_stdlib_exception(cls: type[BaseException]) -> bool:
+    """Относится ли класс-исключение к официальному Python/stdlib.
+
+    Обход ``BaseException.__subclasses__()`` видит исключения ВСЕХ загруженных в
+    процессе модулей — стороннего кода (``rich``), приватных C-ускорителей
+    (``_pickle``), собственного пакета (``stepik_grader``). Полнота глоссария
+    меряется относительно официального Python/stdlib (CLAUDE.md § Истина
+    глоссария), поэтому такие имена в инвентарь не берём.
+    """
+    module = cls.__module__ or "builtins"
+    if module == "builtins":
+        return True
+    # Сторонний код / собственный пакет: нет среди stdlib-модулей.
+    if module.split(".")[0] not in sys.stdlib_module_names:
+        return False
+    # Приватный модуль/подмодуль (``_pickle``, ``_lzma``, ``pathlib._abc``).
+    if any(part.startswith("_") for part in module.split(".")):
+        return False
+    # Приватный класс (``pickle._Stop``, ``shutil._GiveupOnFastCopy``).
+    if cls.__qualname__.startswith("_"):
+        return False
+    # Публично выглядящие, но недокументированные внутренности реализации.
+    if f"{module}.{cls.__qualname__}" in _NON_PUBLIC_STDLIB_EXCEPTIONS:
+        return False
+    return True
+
+
+def _exception_items(version: str) -> list[StdlibItem]:
+    items: list[StdlibItem] = []
+    for cls in _all_exception_classes():
+        if not _is_official_stdlib_exception(cls):
+            continue
+        module = cls.__module__ or "builtins"
+        qualname = cls.__qualname__ if module == "builtins" else f"{module}.{cls.__qualname__}"
+        items.append(
+            StdlibItem(qualname=qualname, module=module, kind="exception", python_version=version)
+        )
+    return items
+
+
+def build_stdlib_inventory(modules: frozenset[str] | None = None) -> list[StdlibItem]:
+    """Построить детерминированный офлайн-инвентарь официального Python/stdlib.
+
+    Args:
+        modules: курируемый набор stdlib-модулей для сканирования публичных
+            членов (по умолчанию — ``NOTABLE_STDLIB_MODULES``). Модули,
+            которых нет в текущем окружении, пропускаются без ошибки.
+
+    Returns:
+        Список ``StdlibItem``, отсортированный по ``qualname``, без дублей.
+        Исключения (``kind="exception"``) собираются рекурсивным обходом
+        ``BaseException``; функции/классы (``kind`` в ``function``/``class``) —
+        из ``builtins`` и курируемых модулей; методы встроенных типов
+        (``kind="method"``, напр. ``str.split``) — из ``NOTABLE_BUILTIN_TYPES``.
+    """
+    target_modules = NOTABLE_STDLIB_MODULES if modules is None else modules
+    version = _python_version()
+
+    by_qualname: dict[str, StdlibItem] = {}
+    for item in (
+        *_builtins_items(version),
+        *_module_items(target_modules, version),
+        *_type_method_items(NOTABLE_BUILTIN_TYPES, version),
+    ):
+        by_qualname.setdefault(item.qualname, item)
+    for item in _exception_items(version):
+        by_qualname.setdefault(item.qualname, item)
+
+    return sorted(by_qualname.values())
+
+
+# issue #367: наборы builtins/методов для сканера кода — из инвентаря, а не из
+# узкого хардкода detector.py. Инвентарь детерминирован и стабилен в пределах
+# процесса (интроспекция running-интерпретатора, без ФС), поэтому считается один
+# раз лениво и кешируется. Жило в web/glossary_adapter.py — домен базы, не HTTP
+# (issue #831, ARCH-06).
+_SCANNER_SETS: tuple[frozenset[str], frozenset[str]] | None = None
+
+
+def scanner_name_sets() -> tuple[frozenset[str], frozenset[str]]:
+    """``(builtins, methods)`` из инвентаря — входные наборы ``scan_code_concepts``.
+
+    ``builtins`` — имена встроенных функций/классов (``frozenset``, ``super``,
+    ``hash``, …, которых узкий ``CODE_TERM_BUILTINS`` не знал) **и встроенных
+    исключений** (issue #686: без них ``ValueError("...")`` в коде не
+    распознавалось, хотя карточка есть); ``methods`` — имена публичных методов
+    встроенных типов (``removeprefix``, ``translate``, bytes-методы, …).
+    Кешируется на весь процесс.
+    """
+    global _SCANNER_SETS
+    if _SCANNER_SETS is None:
+        items = build_stdlib_inventory()
+        builtins_names = frozenset(
+            it.qualname
+            for it in items
+            if it.module == "builtins" and it.kind in ("function", "class", "exception")
+        )
+        method_names = frozenset(
+            it.qualname.rsplit(".", 1)[-1] for it in items if it.kind == "method"
+        )
+        _SCANNER_SETS = (builtins_names, method_names)
+    return _SCANNER_SETS
