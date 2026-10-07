@@ -1,1 +1,0 @@
-Замечания витрины к содержанию глоссария читаются машиной: `scripts/read_objections.py` забирает `objections.json` из ветки `badges` Glossary-Python, сверяет `cards[]` с `GlossaryCard.id` и краснеет на росте, а не на наличии (#1450)
