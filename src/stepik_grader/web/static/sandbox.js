@@ -6,6 +6,11 @@ let sandboxView = null; // issue #317: отдельный редактор пе�
 let _sandboxMounting = false; // issue #922: монтирование стало асинхронным
 
 let sandboxTermsTimer = null;
+// Номер последнего запроса панели — та же защита, что у раздела «Проверка»
+// (grade.js, `checkTermsSeq`): пауза в наборе дольше debounce оставляет два
+// запроса в полёте, и ответ на прежний код, пришедший последним, затирал
+// свежий список (issue #1568, здесь — повтор на e2e релизного PR).
+let sandboxTermsSeq = 0;
 async function mountSandboxEditor() {
   // Признак «уже монтируем» ставится ДО await: загрузка бандла асинхронна, и
   // два быстрых захода в раздел иначе завели бы два редактора в одном узле.
@@ -26,11 +31,14 @@ async function loadCodeTerms() {
   const code = getSandboxCode();
   const el = $("#sandbox-terms");
   if (!el) return;
+  const seq = ++sandboxTermsSeq;
   if (!code.trim()) {
     el.innerHTML = '<li class="empty">' + esc(t("sandbox.terms_empty")) + "</li>";
     return;
   }
-  renderTermsInto(el, await fetchCodeTerms({ code }), t("check.terms_none"));
+  const terms = await fetchCodeTerms({ code });
+  if (seq !== sandboxTermsSeq) return; // пока ждали, код изменился — ответ устарел
+  renderTermsInto(el, terms, t("check.terms_none"));
 }
 
 // режим 1 (issue #323/#366): панель питается кодом редактора либо выбранным в
