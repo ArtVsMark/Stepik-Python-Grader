@@ -1,234 +1,10 @@
 [
   {
-    "id": "chainmap",
-    "title": "ChainMap",
-    "kind": "term",
-    "summary": {
-      "ru": "collections.ChainMap объединяет несколько словарей в единый вид без копирования. Поиск ключа идёт по словарям слева направо. Запись и удаление затрагивают только первый словарь.",
-      "en": "collections.ChainMap joins several dictionaries into a single view without copying them. A key is looked up in the dictionaries from left to right. Writes and deletions affect only the first one."
-    },
-    "body": {
-      "ru": "ChainMap не копирует словари, а держит ссылки на них: изменение исходного словаря сразу видно через цепочку — это принципиальное отличие от снимка {**defaults, **overrides}. Главная ловушка — асимметрия чтения и записи: ключ ищется по всем словарям, но присваивание, pop и del работают только с первым, поэтому удаление ключа, который виден при чтении, но лежит в defaults, падает с KeyError.",
-      "en": "ChainMap stores references rather than copies, so a later change in an underlying dict is visible through the chain right away — unlike the snapshot you get from {**defaults, **overrides}. The trap is the asymmetry between reads and writes: lookups scan every mapping, but assignment, pop and del touch only the first one, so deleting a key that is visible on read but actually lives in defaults raises KeyError."
-    },
-    "syntax": "from collections import ChainMap; ChainMap(*maps)",
-    "status": "ready",
-    "docs_url": "https://docs.python.org/3/library/collections.html#collections.ChainMap",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "collections",
-    "aliases": [
-      "цепочка словарей",
-      "несколько словарей как один",
-      "поиск ключа по нескольким словарям"
-    ],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "from collections import ChainMap",
-      "defaults = {\"color\": \"red\", \"size\": 10}",
-      "overrides = {\"color\": \"blue\"}",
-      "cm = ChainMap(overrides, defaults)",
-      "print(cm[\"color\"])   # → blue",
-      "print(cm[\"size\"])    # → 10",
-      "print(dict(cm))      # → {'color': 'blue', 'size': 10}",
-      "cm2 = cm.new_child({\"size\": 20})",
-      "print(cm2[\"size\"])   # → 20"
-    ],
-    "related": [
-      "объединение-словарей",
-      "dict-merge",
-      "dict.update"
-    ],
-    "related_errors": []
-  },
-  {
-    "id": "copy-deepcopy-словаря",
-    "title": "copy() / deepcopy() словаря",
-    "kind": "term",
-    "summary": {
-      "ru": "dict.copy() делает поверхностную копию: вложенные объекты не копируются, а разделяются между оригиналом и копией. copy.deepcopy() копирует полностью рекурсивно.",
-      "en": "dict.copy() makes a shallow copy: nested objects are not copied but shared between the original and the copy. copy.deepcopy() copies everything recursively."
-    },
-    "body": {
-      "ru": "Чаще всего проблема не в выборе copy против deepcopy, а в том, что копии нет вовсе: b = a — это просто второе имя того же словаря, и правка через любое из имён видна обоим. copy() лечит именно это, но вложенные списки и словари остаются общими, поэтому мутация внутри копии по-прежнему меняет оригинал. deepcopy() обходит структуру рекурсивно и корректно справляется с циклическими ссылками, но платить приходится временем и памятью, а файлы, сокеты и подобные объекты он не копирует, а возвращает как есть.",
-      "en": "The usual bug is not choosing copy over deepcopy but making no copy at all: b = a is just a second name for the same dict, and a change through either name shows up in both. copy() fixes exactly that, yet nested lists and dicts stay shared, so mutating them through the copy still alters the original. deepcopy() walks the structure recursively and handles cyclic references correctly, but it costs time and memory, and objects like files and sockets are not copied at all — they come back unchanged."
-    },
-    "syntax": "d.copy()  import copy; copy.deepcopy(d)",
-    "status": "ready",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.copy",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "копирование",
-    "aliases": [
-      "глубокая копия",
-      "рекурсивное копирование",
-      "копия со вложенными объектами"
-    ],
-    "keywords": [
-      "copy",
-      "deepcopy"
-    ],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "import copy",
-      "orig = {\"a\": [1,2], \"b\": 3}",
-      "shallow = orig.copy(); shallow[\"a\"].append(99)",
-      "print(orig)     # → {'a': [1, 2, 99], 'b': 3}  (список общий)",
-      "orig2 = {\"a\": [1,2], \"b\": 3}",
-      "deep = copy.deepcopy(orig2); deep[\"a\"].append(99)",
-      "print(orig2)    # → {'a': [1, 2], 'b': 3}        (оригинал цел)",
-      "d = {\"x\": 1}; d2 = d.copy()",
-      "print(d is d2)  # → False",
-      "d2[\"y\"] = 2; print(d)  # → {'x': 1}  (d не изменился)"
-    ],
-    "related": [
-      "dict.copy",
-      "copy.deepcopy",
-      "copy.copy",
-      "вложенные-словари"
-    ],
-    "related_errors": []
-  },
-  {
-    "id": "counter",
-    "title": "Counter",
-    "kind": "term",
-    "summary": {
-      "ru": "Counter из collections — словарь для подсчёта. Поддерживает арифметику, most_common, вычитание.",
-      "en": "Counter from collections is a dictionary for counting. It supports arithmetic, most_common and subtraction."
-    },
-    "body": {
-      "ru": "Обращение к отсутствующему ключу возвращает 0 и, в отличие от defaultdict, не создаёт запись — удобно, но опечатка в ключе так и останется незамеченной вместо KeyError. Ещё одна тонкость: оператор вычитания c1 - c2 выбрасывает нулевые и отрицательные счётчики, а метод subtract() их сохраняет, так что отрицательные значения возможны только через второй вариант. most_common() сортирует по убыванию, а элементы с одинаковым счётчиком идут в порядке первого появления.",
-      "en": "Looking up a missing key returns 0 and, unlike defaultdict, does not insert anything — convenient, but a typo in a key silently yields 0 instead of a KeyError. Note also that the subtraction operator c1 - c2 drops zero and negative counts, while the subtract() method keeps them, so negative counts can only appear via the latter. most_common() sorts by descending count and breaks ties by first-encountered order."
-    },
-    "syntax": "from collections import Counter\nc = Counter(iterable)",
-    "status": "ready",
-    "docs_url": "https://docs.python.org/3/library/collections.html#collections.Counter",
-    "version": "3.1",
-    "section": "Словари (dict)",
-    "subcat": "collections",
-    "aliases": [
-      "подсчёт повторений",
-      "сколько раз встречается элемент",
-      "самый частый элемент"
-    ],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "from collections import Counter",
-      "c = Counter('aabbccca')",
-      "print(c)",
-      "# → Counter({'a': 3, 'c': 3, 'b': 2})",
-      "print(c.most_common(2))",
-      "# → [('a', 3), ('c', 3)]",
-      "c2 = Counter(['apple', 'banana', 'apple', 'cherry', 'apple'])",
-      "print(c2.most_common(1))",
-      "# → [('apple', 3)]",
-      "c3 = Counter('hello')",
-      "c4 = Counter('world')",
-      "print(c3 + c4)",
-      "# → Counter({'l': 3, 'o': 2, 'h': 1, 'e': 1, 'w': 1, 'r': 1, 'd': 1})",
-      "print(c3 - c4)",
-      "# → Counter({'h': 1, 'e': 1, 'l': 1}) (только положительные)",
-      "print(c3 & c4)",
-      "# → Counter({'l': 1, 'o': 1}) (пересечение, min)",
-      "print(c3 | c4)",
-      "# → Counter({'l': 2, 'h': 1, 'e': 1, 'o': 1, 'w': 1, 'r': 1, 'd': 1}) (объединение, max)",
-      "words = 'the cat sat on the mat'.split()",
-      "wc = Counter(words)",
-      "print(wc.most_common(3))",
-      "# → [('the', 2), ('cat', 1), ('sat', 1)]"
-    ],
-    "related": [
-      "defaultdict",
-      "dict.get",
-      "сортировка-словаря"
-    ],
-    "related_errors": []
-  },
-  {
-    "id": "defaultdict",
-    "title": "defaultdict",
-    "kind": "term",
-    "summary": {
-      "ru": "defaultdict из collections автоматически создаёт значение по умолчанию при обращении к несуществующему ключу.",
-      "en": "defaultdict from collections creates a default value automatically when a missing key is accessed."
-    },
-    "body": {
-      "ru": "Фабрика срабатывает на чтении d[key], а значит простое обращение к несуществующему ключу молча создаёт запись и раздувает словарь; если проверяешь наличие ключа, используй in или .get(), они __missing__ не вызывают. Второе — default_factory это вызываемый объект без аргументов, а не готовое значение: нужно defaultdict(list) и defaultdict(int), а не defaultdict([]) или defaultdict(0).",
-      "en": "The factory fires on a read of d[key], so merely touching a missing key silently inserts an entry and grows the dict; use in or .get() when you just want to check, since neither triggers __missing__. Also, default_factory must be a zero-argument callable, not a ready value: write defaultdict(list) or defaultdict(int), never defaultdict([]) or defaultdict(0)."
-    },
-    "syntax": "from collections import defaultdict\nd = defaultdict(default_factory)",
-    "status": "ready",
-    "docs_url": "https://docs.python.org/3/library/collections.html#collections.defaultdict",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "collections",
-    "aliases": [
-      "словарь со значением по умолчанию",
-      "группировка по ключу",
-      "словарь списков"
-    ],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "from collections import defaultdict",
-      "d = defaultdict(list)",
-      "d['fruits'].append('apple')",
-      "d['fruits'].append('banana')",
-      "print(d)",
-      "# → defaultdict(<class 'list'>, {'fruits': ['apple', 'banana']})",
-      "counter = defaultdict(int)",
-      "for c in 'hello world':",
-      "    counter[c] += 1",
-      "    print(dict(counter))",
-      "    # → {'h': 1, 'e': 1, 'l': 3, 'o': 2, ' ': 1, 'w': 1, 'r': 1, 'd': 1}",
-      "    groups = defaultdict(set)",
-      "    for w in ['cat', 'car', 'dog', 'cow']:",
-      "        groups[w[0]].add(w)",
-      "        print(dict(groups))",
-      "# → {'c': {'cat', 'car', 'cow'}, 'd': {'dog'}}",
-      "from collections import defaultdict",
-      "d2 = defaultdict(lambda: 'unknown')",
-      "d2['key1'] = 'value'",
-      "print(d2['key1'])",
-      "# → 'value'",
-      "print(d2['missing'])",
-      "# → 'unknown'",
-      "dd = defaultdict(dict)",
-      "dd['a']['nested'] = 1",
-      "print(dd)",
-      "# → defaultdict(<class 'dict'>, {'a': {'nested': 1}})",
-      "words = ['apple', 'ant', 'bat', 'ball', 'cat']",
-      "by_letter = defaultdict(list)",
-      "for w in words:",
-      "    by_letter[w[0]].append(w)",
-      "    print(dict(by_letter))",
-      "    # → {'a': ['apple', 'ant'], 'b': ['bat', 'ball'], 'c': ['cat']}",
-      "    nested_dd = defaultdict(lambda: defaultdict(int))",
-      "    nested_dd['row1']['col1'] += 1",
-      "    print(nested_dd['row1']['col1'])",
-      "    # → 1"
-    ],
-    "related": [
-      "dict.setdefault",
-      "dict.get",
-      "counter"
-    ],
-    "related_errors": []
-  },
-  {
     "id": "dict-merge",
-    "title": "d1 | d2",
+    "title": {
+      "ru": "d1 | d2",
+      "en": "d1 | d2"
+    },
     "kind": "term",
     "summary": {
       "ru": "Оператор объединения словарей (Python 3.9+). Создаёт новый словарь, объединяя d1 и d2. При конфликте ключей побеждает правый операнд.",
@@ -241,25 +17,39 @@
     "syntax": "merged = d1 | d2",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict",
-    "version": "3.9",
+    "added": "3.9",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "операторы",
+    "subcat": {
+      "ru": "операторы",
+      "en": "operators"
+    },
     "aliases": [
       "объединить два словаря",
       "слить два словаря в новый",
       "склеить словари"
     ],
-    "keywords": [],
+    "keywords": [
+      "|",
+      "dict",
+      "__or__"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "a = {'x': 1, 'y': 2}",
-      "b = {'y': 10, 'z': 3}",
-      "result = a | b",
-      "print(result)  # {'x': 1, 'y': 10, 'z': 3}",
-      "# аналог без оператора (до 3.9):",
-      "result = {**a, **b}"
+      [
+        "a = {'x': 1, 'y': 2}",
+        "b = {'y': 10, 'z': 3}",
+        "result = a | b",
+        "print(result)  # {'x': 1, 'y': 10, 'z': 3}",
+        "# аналог без оператора (до 3.9):",
+        "result = {**a, **b}"
+      ]
     ],
     "related": [
       "dict-merge-update",
@@ -271,7 +61,10 @@
   },
   {
     "id": "dict-merge-update",
-    "title": "d1 |= d2",
+    "title": {
+      "ru": "d1 |= d2",
+      "en": "d1 |= d2"
+    },
     "kind": "term",
     "summary": {
       "ru": "Оператор обновления словаря на месте (Python 3.9+). Добавляет/перезаписывает в d1 все пары из d2 без создания нового объекта.",
@@ -284,23 +77,37 @@
     "syntax": "d1 |= d2",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict",
-    "version": "3.9",
+    "added": "3.9",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "операторы",
+    "subcat": {
+      "ru": "операторы",
+      "en": "operators"
+    },
     "aliases": [
       "слияние словарей на месте",
       "объединить словари без нового объекта"
     ],
-    "keywords": [],
+    "keywords": [
+      "|=",
+      "dict.update",
+      "__ior__"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "config = {'debug': False, 'host': 'localhost'}",
-      "overrides = {'debug': True, 'port': 8080}",
-      "config |= overrides",
-      "print(config)",
-      "# {'debug': True, 'host': 'localhost', 'port': 8080}"
+      [
+        "config = {'debug': False, 'host': 'localhost'}",
+        "overrides = {'debug': True, 'port': 8080}",
+        "config |= overrides",
+        "print(config)",
+        "# → {'debug': True, 'host': 'localhost', 'port': 8080}"
+      ]
     ],
     "related": [
       "dict-merge",
@@ -311,7 +118,10 @@
   },
   {
     "id": "dict.fromkeys",
-    "title": "dict.fromkeys()",
+    "title": {
+      "ru": "dict.fromkeys()",
+      "en": "dict.fromkeys()"
+    },
     "kind": "function",
     "summary": {
       "ru": "Создаёт новый словарь из итерируемого набора ключей. Второй аргумент задаёт значение по умолчанию для всех ключей (по умолчанию None).",
@@ -324,36 +134,52 @@
     "syntax": "dict.fromkeys(iterable, value=None)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.fromkeys",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "перебор",
+    "subcat": {
+      "ru": "перебор",
+      "en": "iteration"
+    },
     "aliases": [
       "создать словарь из списка ключей",
       "заполнить словарь одинаковыми значениями",
       "словарь с ключами по умолчанию"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.fromkeys",
+      "fromkeys"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "print(dict.fromkeys([\"a\",\"b\",\"c\"]))      # → {'a': None, 'b': None, 'c': None}",
-      "print(dict.fromkeys(\"xyz\", 0))           # → {'x': 0, 'y': 0, 'z': 0}",
-      "keys = [\"name\",\"age\",\"city\"]",
-      "d = dict.fromkeys(keys, \"N/A\")",
-      "print(d)   # → {'name': 'N/A', 'age': 'N/A', 'city': 'N/A'}",
-      "print(dict.fromkeys([1,2,1,3]))          # → {1: None, 2: None, 3: None}"
+      [
+        "print(dict.fromkeys([\"a\",\"b\",\"c\"]))      # → {'a': None, 'b': None, 'c': None}",
+        "print(dict.fromkeys(\"xyz\", 0))           # → {'x': 0, 'y': 0, 'z': 0}",
+        "keys = [\"name\",\"age\",\"city\"]",
+        "d = dict.fromkeys(keys, \"N/A\")",
+        "print(d)   # → {'name': 'N/A', 'age': 'N/A', 'city': 'N/A'}",
+        "print(dict.fromkeys([1,2,1,3]))          # → {1: None, 2: None, 3: None}"
+      ]
     ],
     "related": [
       "создание-словаря",
       "словарные-выражения-dict-comprehension",
-      "defaultdict"
+      "collections.defaultdict"
     ],
     "related_errors": []
   },
   {
     "id": "frozenset-неизменяемое-множество",
-    "title": "frozenset — неизменяемое множество",
+    "title": {
+      "ru": "frozenset — неизменяемое множество",
+      "en": "frozenset — immutable set"
+    },
     "kind": "term",
     "summary": {
       "ru": "frozenset — неизменяемая версия set. Хэшируемо, может быть ключом словаря или элементом другого множества.",
@@ -366,37 +192,49 @@
     "syntax": "frozenset(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "замороженное множество",
       "множество как ключ словаря",
       "хэшируемое множество"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset",
+      "hash"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "fs = frozenset([1, 2, 3])",
-      "print(fs)",
-      "# → frozenset({1, 2, 3})",
-      "try:",
-      "    fs.add(4)",
-      "except AttributeError as e:",
-      "    print(e)",
-      "    # → 'frozenset' object has no attribute 'add'",
-      "    d = {frozenset([1, 2]): 'pair'}",
-      "    print(d[frozenset([1, 2])])",
-      "    # → 'pair' (как ключ словаря)",
-      "    s = {frozenset([1, 2]), frozenset([3, 4])}",
-      "    print(len(s))",
-      "    # → 2 (frozenset как элемент множества)",
-      "    fs2 = frozenset([1, 2, 3])",
-      "    fs3 = frozenset([2, 3, 4])",
-      "    print(fs2 & fs3)",
-      "    # → frozenset({2, 3})"
+      [
+        "fs = frozenset([1, 2, 3])",
+        "print(fs)  # → frozenset({1, 2, 3})",
+        "try:",
+        "    fs.add(4)",
+        "except AttributeError as e:",
+        "    print(e)  # → 'frozenset' object has no attribute 'add'"
+      ],
+      [
+        "d = {frozenset([1, 2]): 'pair'}",
+        "print(d[frozenset([2, 1])])  # → pair — ключ словаря, порядок не важен",
+        "s = {frozenset([1, 2]), frozenset([3, 4])}",
+        "print(len(s))  # → 2 — элемент множества"
+      ],
+      [
+        "fs2 = frozenset([1, 2, 3])",
+        "fs3 = frozenset([2, 3, 4])",
+        "print(fs2 & fs3)  # → frozenset({2, 3})"
+      ]
     ],
     "related": [
       "frozenset",
@@ -407,8 +245,11 @@
   },
   {
     "id": "in-not-in-для-множеств-o-1",
-    "title": "in / not in для множеств — O(1)",
-    "kind": "function",
+    "title": {
+      "ru": "in / not in для множеств — O(1)",
+      "en": "in / not in for sets — O(1)"
+    },
+    "kind": "term",
     "summary": {
       "ru": "Проверка принадлежности в множестве работает за O(1) (хэш-таблица), в отличие от O(n) для списков.",
       "en": "A membership test on a set takes O(1) (a hash table), unlike O(n) for lists."
@@ -420,33 +261,52 @@
     "syntax": "item in s  |  item not in s",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "поиск",
+    "subcat": {
+      "ru": "поиск",
+      "en": "search"
+    },
     "aliases": [
       "проверка принадлежности",
       "есть ли элемент в множестве",
       "быстрый поиск элемента"
     ],
-    "keywords": [],
+    "keywords": [
+      "in",
+      "not in",
+      "set",
+      "__contains__"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "s = {1, 2, 3, 4, 5}",
-      "print(3 in s)",
-      "# → True",
-      "print(6 in s)",
-      "# → False",
-      "print(6 not in s)",
-      "# → True",
-      "big = set(range(10**6))",
-      "print(999999 in big)",
-      "# → True (мгновенно, O(1))",
-      "banned = {'spam', 'ads', 'junk'}",
-      "msg = 'spam email'",
-      "print(any(w in banned for w in msg.split()))",
-      "# → True"
+      [
+        "s = {1, 2, 3, 4, 5}",
+        "print(3 in s)",
+        "# → True",
+        "print(6 in s)",
+        "# → False",
+        "print(6 not in s)",
+        "# → True"
+      ],
+      [
+        "big = set(range(10**6))",
+        "print(999999 in big)",
+        "# → True (мгновенно, O(1))"
+      ],
+      [
+        "banned = {'spam', 'ads', 'junk'}",
+        "msg = 'spam email'",
+        "print(any(w in banned for w in msg.split()))",
+        "# → True"
+      ]
     ],
     "related": [
       "in-not-in-для-списков",
@@ -460,7 +320,10 @@
   },
   {
     "id": "in-not-in-для-словаря",
-    "title": "in / not in для словаря",
+    "title": {
+      "ru": "in / not in для словаря",
+      "en": "in / not in for a dict"
+    },
     "kind": "term",
     "summary": {
       "ru": "in проверяет наличие КЛЮЧА в словаре за O(1). Для проверки значений используйте in d.values().",
@@ -473,30 +336,45 @@
     "syntax": "key in d  |  key not in d",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "поиск",
+    "subcat": {
+      "ru": "поиск",
+      "en": "search"
+    },
     "aliases": [
       "проверить есть ли ключ в словаре",
       "есть ли такой ключ",
       "проверка наличия ключа"
     ],
-    "keywords": [],
+    "keywords": [
+      "in",
+      "not in",
+      "dict",
+      "dict.keys"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "print('a' in d)",
-      "# → True",
-      "print('c' in d)",
-      "# → False",
-      "print('c' not in d)",
-      "# → True",
-      "print(1 in d)",
-      "# → False (1 — не ключ!)",
-      "print(1 in d.values())",
-      "# → True (проверка значений)"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "print('a' in d)",
+        "# → True",
+        "print('c' in d)",
+        "# → False",
+        "print('c' not in d)",
+        "# → True",
+        "print(1 in d)",
+        "# → False (1 — не ключ!)",
+        "print(1 in d.values())",
+        "# → True (проверка значений)"
+      ]
     ],
     "related": [
       "dict.get",
@@ -507,58 +385,11 @@
     "related_errors": []
   },
   {
-    "id": "ordereddict",
-    "title": "OrderedDict",
-    "kind": "term",
-    "summary": {
-      "ru": "OrderedDict из collections гарантирует порядок вставки (в Python 3.7+ обычный dict тоже сохраняет порядок). Имеет move_to_end() и popitem(last=).",
-      "en": "OrderedDict from collections guarantees insertion order (since Python 3.7 a plain dict keeps it too). It also has move_to_end() and popitem(last=)."
-    },
-    "body": {
-      "ru": "Заметное отличие от обычного словаря — сравнение: два OrderedDict равны только при совпадающем порядке ключей, а вот OrderedDict и обычный dict сравниваются как обычные словари, без учёта порядка. Брать OrderedDict сегодня стоит только ради move_to_end() и popitem(last=False) — например, для LRU-кеша; для простого «сохранить порядок вставки» хватает dict, он легче и быстрее.",
-      "en": "The visible difference from a plain dict is equality: two OrderedDicts compare equal only if the key order matches, while an OrderedDict compared against a plain dict is order-insensitive. These days reach for it only when you need move_to_end() or popitem(last=False) — an LRU cache, say; if you just want insertion order preserved, a plain dict is lighter and faster."
-    },
-    "syntax": "from collections import OrderedDict\nod = OrderedDict()",
-    "status": "ready",
-    "docs_url": "https://docs.python.org/3/library/collections.html#collections.OrderedDict",
-    "version": "3.1",
-    "section": "Словари (dict)",
-    "subcat": "collections",
-    "aliases": [
-      "упорядоченный словарь",
-      "порядок ключей в словаре",
-      "переместить ключ в конец"
-    ],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "from collections import OrderedDict",
-      "od = OrderedDict([('a', 1), ('b', 2), ('c', 3)])",
-      "print(od)",
-      "# → OrderedDict([('a', 1), ('b', 2), ('c', 3)])",
-      "od.move_to_end('a')",
-      "print(od)",
-      "# → OrderedDict([('b', 2), ('c', 3), ('a', 1)])",
-      "od.move_to_end('a', last=False)",
-      "print(list(od.keys())[0])",
-      "# → 'a' (переместить в начало)",
-      "print(od.popitem(last=True))",
-      "# → ('a', 1) (последний)",
-      "print(od.popitem(last=False))",
-      "# → ('b', 2) (первый)"
-    ],
-    "related": [
-      "создание-словаря",
-      "dict.popitem",
-      "сортировка-словаря"
-    ],
-    "related_errors": []
-  },
-  {
     "id": "вложенные-словари",
-    "title": "Вложенные словари",
+    "title": {
+      "ru": "Вложенные словари",
+      "en": "Nested dictionaries"
+    },
     "kind": "term",
     "summary": {
       "ru": "Значения словаря могут быть любого типа, включая другие словари. Доступ через цепочку ключей.",
@@ -571,55 +402,70 @@
     "syntax": "d[key1][key2]  |  d.get(k1, {}).get(k2)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "вложенность",
+    "subcat": {
+      "ru": "вложенность",
+      "en": "nesting"
+    },
     "aliases": [
       "словарь внутри словаря",
       "многоуровневый словарь",
       "доступ по цепочке ключей"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict",
+      "dict.get",
+      "dict.setdefault",
+      "collections.defaultdict"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "user = {'name': 'Alice', 'address': {'city': 'Moscow', 'zip': '101000'}}",
-      "print(user['address']['city'])",
-      "# → 'Moscow'",
-      "user['address']['country'] = 'Russia'",
-      "print(user['address'])",
-      "# → {'city': 'Moscow', 'zip': '101000', 'country': 'Russia'}",
-      "db = {'alice': {'age': 30}, 'bob': {'age': 25}}",
-      "for name, info in db.items():",
-      "    print(name, info['age'])",
-      "    # → alice 30 / bob 25",
-      "    print(user.get('phone', {}).get('mobile', 'N/A'))",
-      "    # → 'N/A' (безопасный доступ)",
-      "    catalog = {}",
-      "    catalog.setdefault('fruits', {})['apple'] = 1.5",
-      "    catalog.setdefault('fruits', {})['banana'] = 0.8",
-      "    print(catalog)",
-      "    # → {'fruits': {'apple': 1.5, 'banana': 0.8}}",
-      "    nested = {'a': {'b': {'c': 42}}}",
-      "    print(nested['a']['b']['c'])",
-      "    # → 42",
-      "    config = {'db': {'host': 'localhost', 'port': 5432}, 'debug': True}",
-      "    config['db']['host'] = '192.168.1.1'",
-      "    print(config['db'])",
-      "    # → {'host': '192.168.1.1', 'port': 5432}"
+      [
+        "user = {'name': 'Alice', 'address': {'city': 'Moscow', 'zip': '101000'}}",
+        "print(user['address']['city'])  # → Moscow",
+        "user['address']['country'] = 'Russia'",
+        "print(user['address'])  # → {'city': 'Moscow', 'zip': '101000', 'country': 'Russia'}",
+        "print(user.get('phone', {}).get('mobile', 'N/A'))  # → N/A — безопасный доступ"
+      ],
+      [
+        "db = {'alice': {'age': 30}, 'bob': {'age': 25}}",
+        "for name, info in db.items():",
+        "    print(name, info['age'])  # → alice 30 / bob 25"
+      ],
+      [
+        "catalog = {}",
+        "catalog.setdefault('fruits', {})['apple'] = 1.5",
+        "catalog.setdefault('fruits', {})['banana'] = 0.8",
+        "print(catalog)  # → {'fruits': {'apple': 1.5, 'banana': 0.8}}"
+      ],
+      [
+        "config = {'db': {'host': 'localhost', 'port': 5432}, 'debug': True}",
+        "config['db']['host'] = '192.168.1.1'",
+        "print(config['db'])  # → {'host': '192.168.1.1', 'port': 5432}"
+      ]
     ],
     "related": [
       "dict.get",
       "dict.setdefault",
-      "copy-deepcopy-словаря",
+      "dict.copy",
       "json"
     ],
     "related_errors": []
   },
   {
     "id": "генераторы-множеств-set-comprehension",
-    "title": "Генераторы множеств (set comprehension)",
+    "title": {
+      "ru": "Генераторы множеств (set comprehension)",
+      "en": "Set comprehensions"
+    },
     "kind": "function",
     "summary": {
       "ru": "Set comprehension создаёт множество аналогично list comprehension, но с фигурными скобками. Дубли автоматически удаляются.",
@@ -632,35 +478,55 @@
     "syntax": "{expr for var in iterable [if cond]}",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#set-displays",
-    "version": "3.5",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "comprehension",
+    "subcat": {
+      "ru": "comprehension",
+      "en": "comprehension"
+    },
     "aliases": [
       "множество одной строкой",
       "собрать множество из цикла",
       "уникальные значения одним выражением"
     ],
-    "keywords": [],
+    "keywords": [
+      "set comprehension",
+      "{x for x in it}",
+      "set"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "squares = {x**2 for x in range(6)}",
-      "print(sorted(squares))",
-      "# → [0, 1, 4, 9, 16, 25]",
-      "evens = {x for x in range(10) if x % 2 == 0}",
-      "print(evens)",
-      "# → {0, 2, 4, 6, 8}",
-      "words = ['hello', 'world', 'hello', 'python']",
-      "unique_len = {len(w) for w in words}",
-      "print(unique_len)",
-      "# → {5, 6} (уникальные длины)",
-      "unique_first = {w[0] for w in words}",
-      "print(sorted(unique_first))",
-      "# → ['h', 'p', 'w'] (у множества строк порядок не определён, поэтому сортируем)",
-      "no_vowels = {c for c in 'hello' if c not in 'aeiou'}",
-      "print(sorted(no_vowels))",
-      "# → ['h', 'l']"
+      [
+        "squares = {x**2 for x in range(6)}",
+        "print(sorted(squares))",
+        "# → [0, 1, 4, 9, 16, 25]"
+      ],
+      [
+        "evens = {x for x in range(10) if x % 2 == 0}",
+        "print(evens)",
+        "# → {0, 2, 4, 6, 8}"
+      ],
+      [
+        "words = ['hello', 'world', 'hello', 'python']",
+        "unique_len = {len(w) for w in words}",
+        "print(unique_len)",
+        "# → {5, 6} (уникальные длины)",
+        "unique_first = {w[0] for w in words}",
+        "print(sorted(unique_first))",
+        "# → ['h', 'p', 'w'] (у множества строк порядок не определён, поэтому сортируем)"
+      ],
+      [
+        "no_vowels = {c for c in 'hello' if c not in 'aeiou'}",
+        "print(sorted(no_vowels))",
+        "# → ['h', 'l']"
+      ]
     ],
     "related": [
       "списочные-выражения-list-comprehension",
@@ -672,7 +538,10 @@
   },
   {
     "id": "объединение-словарей",
-    "title": "Объединение словарей",
+    "title": {
+      "ru": "Объединение словарей",
+      "en": "Merging dictionaries"
+    },
     "kind": "term",
     "summary": {
       "ru": "update() изменяет словарь на месте. ** распаковка создаёт новый словарь. | (Python 3.9+) — оператор слияния.",
@@ -685,40 +554,59 @@
     "syntax": "d1.update(d2)  |  {**d1, **d2}  |  d1 | d2",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.update",
-    "version": "3.9",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "операторы",
+    "subcat": {
+      "ru": "операторы",
+      "en": "operators"
+    },
     "aliases": [
       "слить два словаря",
       "добавить один словарь в другой"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.update",
+      "**",
+      "|",
+      "dict"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "d1 = {'a': 1, 'b': 2}",
-      "d2 = {'b': 20, 'c': 3}",
-      "d1.update(d2)",
-      "print(d1)",
-      "# → {'a': 1, 'b': 20, 'c': 3}",
-      "d3 = {'a': 1, 'b': 2}",
-      "merged = {**d3, **d2}",
-      "print(merged)",
-      "# → {'a': 1, 'b': 20, 'c': 3}",
-      "d4 = d3 | d2",
-      "print(d4)",
-      "# → {'a': 1, 'b': 20, 'c': 3} (Python 3.9+)",
-      "extra = {'x': 9}",
-      "combined = {**d3, **d2, **extra}",
-      "print(combined)",
-      "# → {'a': 1, 'b': 20, 'c': 3, 'x': 9}",
-      "print(d3)",
-      "# → {'a': 1, 'b': 2} (** не изменяет оригинал)",
-      "d5 = {'a': 1}",
-      "d5 |= {'b': 2, 'a': 99}",
-      "print(d5)",
-      "# → {'a': 99, 'b': 2}"
+      [
+        "# Python 3.9+",
+        "d1 = {'a': 1, 'b': 2}",
+        "d2 = {'b': 20, 'c': 3}",
+        "d1.update(d2)",
+        "print(d1)",
+        "# → {'a': 1, 'b': 20, 'c': 3}",
+        "d3 = {'a': 1, 'b': 2}",
+        "merged = {**d3, **d2}",
+        "print(merged)",
+        "# → {'a': 1, 'b': 20, 'c': 3}",
+        "d4 = d3 | d2",
+        "print(d4)",
+        "# → {'a': 1, 'b': 20, 'c': 3} (Python 3.9+)",
+        "extra = {'x': 9}",
+        "combined = {**d3, **d2, **extra}",
+        "print(combined)",
+        "# → {'a': 1, 'b': 20, 'c': 3, 'x': 9}",
+        "print(d3)",
+        "# → {'a': 1, 'b': 2} (** не изменяет оригинал)"
+      ],
+      [
+        "# Python 3.9+",
+        "d5 = {'a': 1}",
+        "d5 |= {'b': 2, 'a': 99}",
+        "print(d5)",
+        "# → {'a': 99, 'b': 2}"
+      ]
     ],
     "related": [
       "dict.update",
@@ -730,7 +618,10 @@
   },
   {
     "id": "оператор-слияния-словарей",
-    "title": "| оператор слияния словарей",
+    "title": {
+      "ru": "| оператор слияния словарей",
+      "en": "| dict merge operator"
+    },
     "kind": "term",
     "summary": {
       "ru": "Оператор | (Python 3.9+) объединяет два словаря в новый. При совпадении ключей значение берётся из правого словаря. |= обновляет словарь на месте.",
@@ -743,24 +634,38 @@
     "syntax": "d1 | d2  d1 |= d2",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict",
-    "version": "3.9",
+    "added": "3.9",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "операторы",
+    "subcat": {
+      "ru": "операторы",
+      "en": "operators"
+    },
     "aliases": [
       "объединить словари одним оператором",
       "новый словарь из двух словарей"
     ],
-    "keywords": [],
+    "keywords": [
+      "|",
+      "|=",
+      "dict"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "a = {\"x\": 1, \"y\": 2}; b = {\"y\": 99, \"z\": 3}",
-      "print(a | b)       # → {'x': 1, 'y': 99, 'z': 3}",
-      "print(b | a)       # → {'y': 2, 'z': 3, 'x': 1}",
-      "a |= b; print(a)   # → {'x': 1, 'y': 99, 'z': 3}",
-      "print({} | {\"k\": 1})  # → {'k': 1}",
-      "c = {\"p\": 5}; c |= {\"q\": 6}; print(c)  # → {'p': 5, 'q': 6}"
+      [
+        "a = {\"x\": 1, \"y\": 2}; b = {\"y\": 99, \"z\": 3}",
+        "print(a | b)       # → {'x': 1, 'y': 99, 'z': 3}",
+        "print(b | a)       # → {'y': 2, 'z': 3, 'x': 1}",
+        "a |= b; print(a)   # → {'x': 1, 'y': 99, 'z': 3}",
+        "print({} | {\"k\": 1})  # → {'k': 1}",
+        "c = {\"p\": 5}; c |= {\"q\": 6}; print(c)  # → {'p': 5, 'q': 6}"
+      ]
     ],
     "related": [
       "dict-merge",
@@ -771,7 +676,10 @@
   },
   {
     "id": "операции-над-множествами",
-    "title": "Операции над множествами: | & - ^",
+    "title": {
+      "ru": "Операции над множествами: | & - ^",
+      "en": "Set operations: | & - ^"
+    },
     "kind": "term",
     "summary": {
       "ru": "| — объединение, & — пересечение, - — разность, ^ — симметричная разность. |=, &=, -=, ^= изменяют на месте.",
@@ -784,42 +692,65 @@
     "syntax": "a | b  |  a & b  |  a - b  |  a ^ b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "операторы",
+    "subcat": {
+      "ru": "операторы",
+      "en": "operators"
+    },
     "aliases": [
       "объединение множеств",
       "пересечение множеств",
       "разность множеств",
       "симметрическая разность множеств"
     ],
-    "keywords": [],
+    "keywords": [
+      "|",
+      "&",
+      "-",
+      "^",
+      "set.union",
+      "set.intersection"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "a = {1, 2, 3, 4}",
-      "b = {3, 4, 5, 6}",
-      "print(a | b)",
-      "# → {1, 2, 3, 4, 5, 6}",
-      "print(a & b)",
-      "# → {3, 4}",
-      "print(a - b)",
-      "# → {1, 2}",
-      "print(b - a)",
-      "# → {5, 6}",
-      "print(a ^ b)",
-      "# → {1, 2, 5, 6}",
-      "c = {1, 2}",
-      "c |= {3, 4}",
-      "print(c)",
-      "# → {1, 2, 3, 4}",
-      "d = {1, 2, 3}",
-      "d &= {2, 3, 4}",
-      "print(d)",
-      "# → {2, 3}",
-      "print({1, 2} ^ {2, 3})",
-      "# → {1, 3}"
+      [
+        "a = {1, 2, 3, 4}",
+        "b = {3, 4, 5, 6}",
+        "print(a | b)",
+        "# → {1, 2, 3, 4, 5, 6}",
+        "print(a & b)",
+        "# → {3, 4}",
+        "print(a - b)",
+        "# → {1, 2}",
+        "print(b - a)",
+        "# → {5, 6}",
+        "print(a ^ b)",
+        "# → {1, 2, 5, 6}"
+      ],
+      [
+        "c = {1, 2}",
+        "c |= {3, 4}",
+        "print(c)",
+        "# → {1, 2, 3, 4}"
+      ],
+      [
+        "d = {1, 2, 3}",
+        "d &= {2, 3, 4}",
+        "print(d)",
+        "# → {2, 3}"
+      ],
+      [
+        "print({1, 2} ^ {2, 3})",
+        "# → {1, 3}"
+      ]
     ],
     "related": [
       "set.union",
@@ -831,7 +762,10 @@
   },
   {
     "id": "практические-задачи-с-множествами",
-    "title": "Практические задачи с множествами",
+    "title": {
+      "ru": "Практические задачи с множествами",
+      "en": "Practical set problems"
+    },
     "kind": "term",
     "summary": {
       "ru": "Типичное применение: уникальные элементы, пересечения, разности, быстрая проверка принадлежности.",
@@ -844,40 +778,58 @@
     "syntax": "set(lst)  |  a & b  |  a - b  |  a ^ b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "практика",
+    "subcat": {
+      "ru": "практика",
+      "en": "practice"
+    },
     "aliases": [
       "убрать дубликаты",
       "уникальные элементы списка",
       "удалить повторы"
     ],
-    "keywords": [],
+    "keywords": [
+      "set",
+      "&",
+      "-",
+      "^",
+      "set(lst)"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "lst = [1, 2, 2, 3, 3, 3, 4]",
-      "unique = sorted(set(lst))",
-      "print(unique)",
-      "# → [1, 2, 3, 4]",
-      "a = [1, 2, 3, 4]",
-      "b = [3, 4, 5, 6]",
-      "common = set(a) & set(b)",
-      "print(common)",
-      "# → {3, 4}",
-      "only_a = set(a) - set(b)",
-      "print(only_a)",
-      "# → {1, 2}",
-      "print(len(set(lst)))",
-      "# → 4 (число уникальных)",
-      "has_dup = len(lst) != len(set(lst))",
-      "print(has_dup)",
-      "# → True (есть дубликаты)",
-      "tags1 = {'python', 'data', 'ml'}",
-      "tags2 = {'java', 'data', 'web'}",
-      "print(sorted(tags1.symmetric_difference(tags2)))",
-      "# → ['java', 'ml', 'python', 'web'] (у множества строк порядок не определён, поэтому сортируем)"
+      [
+        "lst = [1, 2, 2, 3, 3, 3, 4]",
+        "unique = sorted(set(lst))",
+        "print(unique)",
+        "# → [1, 2, 3, 4]",
+        "a = [1, 2, 3, 4]",
+        "b = [3, 4, 5, 6]",
+        "common = set(a) & set(b)",
+        "print(common)",
+        "# → {3, 4}",
+        "only_a = set(a) - set(b)",
+        "print(only_a)",
+        "# → {1, 2}",
+        "print(len(set(lst)))",
+        "# → 4 (число уникальных)",
+        "has_dup = len(lst) != len(set(lst))",
+        "print(has_dup)",
+        "# → True (есть дубликаты)"
+      ],
+      [
+        "tags1 = {'python', 'data', 'ml'}",
+        "tags2 = {'java', 'data', 'web'}",
+        "print(sorted(tags1.symmetric_difference(tags2)))",
+        "# → ['java', 'ml', 'python', 'web'] (у множества строк порядок не определён, поэтому сортируем)"
+      ]
     ],
     "related": [
       "создание-множества",
@@ -889,7 +841,10 @@
   },
   {
     "id": "слияние-и-распаковка-словарей",
-    "title": "Слияние и распаковка ** словарей",
+    "title": {
+      "ru": "Слияние и распаковка ** словарей",
+      "en": "Merging and ** unpacking of dictionaries"
+    },
     "kind": "term",
     "summary": {
       "ru": "** распаковывает словарь в именованные аргументы или создаёт слияние. При дублировании ключей побеждает последний.",
@@ -902,39 +857,62 @@
     "syntax": "func(**d)  |  {**d1, **d2}  |  d1 | d2 (Python 3.9+)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#dictionary-displays",
-    "version": "3.5",
+    "added": "3.5",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "распаковка",
+    "subcat": {
+      "ru": "распаковка",
+      "en": "unpacking"
+    },
     "aliases": [
       "распаковка словаря звёздочками",
       "передать словарь как именованные аргументы"
     ],
-    "keywords": [],
+    "keywords": [
+      "**",
+      "**kwargs",
+      "dict",
+      "|"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "def greet(name, age):",
-      "    return f'{name} is {age}'",
-      "info = {'name': 'Alice', 'age': 30}",
-      "print(greet(**info))",
-      "# → 'Alice is 30'",
-      "d1 = {'a': 1, 'b': 2}",
-      "d2 = {'c': 3, 'd': 4}",
-      "merged = {**d1, **d2}",
-      "print(merged)",
-      "# → {'a': 1, 'b': 2, 'c': 3, 'd': 4}",
-      "d3 = {'a': 1}",
-      "d4 = {'a': 99, 'b': 2}",
-      "print({**d3, **d4})",
-      "# → {'a': 99, 'b': 2} (d4 перекрывает d3)",
-      "defaults = {'color': 'black', 'size': 'M'}",
-      "user_prefs = {'size': 'L'}",
-      "settings = {**defaults, **user_prefs}",
-      "print(settings)",
-      "# → {'color': 'black', 'size': 'L'}",
-      "print({**{'x': 1}, 'y': 2, **{'z': 3}})",
-      "# → {'x': 1, 'y': 2, 'z': 3}"
+      [
+        "def greet(name, age):",
+        "    return f'{name} is {age}'",
+        "info = {'name': 'Alice', 'age': 30}",
+        "print(greet(**info))",
+        "# → 'Alice is 30'"
+      ],
+      [
+        "d1 = {'a': 1, 'b': 2}",
+        "d2 = {'c': 3, 'd': 4}",
+        "merged = {**d1, **d2}",
+        "print(merged)",
+        "# → {'a': 1, 'b': 2, 'c': 3, 'd': 4}"
+      ],
+      [
+        "d3 = {'a': 1}",
+        "d4 = {'a': 99, 'b': 2}",
+        "print({**d3, **d4})",
+        "# → {'a': 99, 'b': 2} (d4 перекрывает d3)"
+      ],
+      [
+        "defaults = {'color': 'black', 'size': 'M'}",
+        "user_prefs = {'size': 'L'}",
+        "settings = {**defaults, **user_prefs}",
+        "print(settings)",
+        "# → {'color': 'black', 'size': 'L'}"
+      ],
+      [
+        "print({**{'x': 1}, 'y': 2, **{'z': 3}})",
+        "# → {'x': 1, 'y': 2, 'z': 3}"
+      ]
     ],
     "related": [
       "kwargs",
@@ -946,7 +924,10 @@
   },
   {
     "id": "словарные-выражения-dict-comprehension",
-    "title": "Словарные выражения (dict comprehension)",
+    "title": {
+      "ru": "Словарные выражения (dict comprehension)",
+      "en": "Dict comprehensions"
+    },
     "kind": "function",
     "summary": {
       "ru": "Dict comprehension создаёт словарь из итерируемого объекта. Поддерживает фильтрацию.",
@@ -959,48 +940,68 @@
     "syntax": "{k: v for ... in ...}  |  {k: v for ... in ... if cond}",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#dictionary-displays",
-    "version": "3.5",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "comprehension",
+    "subcat": {
+      "ru": "comprehension",
+      "en": "comprehension"
+    },
     "aliases": [
       "генератор словаря",
       "словарь одной строкой",
       "поменять местами ключи и значения"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict comprehension",
+      "{k: v for k, v in it}",
+      "dict"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "squares = {x: x**2 for x in range(5)}",
-      "print(squares)",
-      "# → {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}",
-      "d = {'a': 1, 'b': 2, 'c': 3, 'd': 4}",
-      "even_vals = {k: v for k, v in d.items() if v % 2 == 0}",
-      "print(even_vals)",
-      "# → {'b': 2, 'd': 4}",
-      "inverted = {v: k for k, v in d.items()}",
-      "print(inverted)",
-      "# → {1: 'a', 2: 'b', 3: 'c', 4: 'd'}",
-      "words = ['hello', 'world', 'python']",
-      "lengths = {w: len(w) for w in words}",
-      "print(lengths)",
-      "# → {'hello': 5, 'world': 5, 'python': 6}",
-      "keys = ['a', 'b', 'c']",
-      "vals = [1, 2, 3]",
-      "combined = {k: v for k, v in zip(keys, vals)}",
-      "print(combined)",
-      "# → {'a': 1, 'b': 2, 'c': 3}",
-      "upper_d = {k.upper(): v*2 for k, v in d.items()}",
-      "print(upper_d)",
-      "# → {'A': 2, 'B': 4, 'C': 6, 'D': 8}",
-      "matrix = {(i, j): i*j for i in range(3) for j in range(3)}",
-      "print(matrix[(2, 2)])",
-      "# → 4",
-      "data = [('a', 1), ('b', 2), ('a', 3)]",
-      "last = {k: v for k, v in data}",
-      "print(last)",
-      "# → {'a': 3, 'b': 2} (последнее значение для дублей)"
+      [
+        "squares = {x: x**2 for x in range(5)}",
+        "print(squares)",
+        "# → {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}"
+      ],
+      [
+        "d = {'a': 1, 'b': 2, 'c': 3, 'd': 4}",
+        "even_vals = {k: v for k, v in d.items() if v % 2 == 0}",
+        "print(even_vals)",
+        "# → {'b': 2, 'd': 4}",
+        "inverted = {v: k for k, v in d.items()}",
+        "print(inverted)",
+        "# → {1: 'a', 2: 'b', 3: 'c', 4: 'd'}",
+        "words = ['hello', 'world', 'python']",
+        "lengths = {w: len(w) for w in words}",
+        "print(lengths)",
+        "# → {'hello': 5, 'world': 5, 'python': 6}",
+        "keys = ['a', 'b', 'c']",
+        "vals = [1, 2, 3]",
+        "combined = {k: v for k, v in zip(keys, vals)}",
+        "print(combined)",
+        "# → {'a': 1, 'b': 2, 'c': 3}",
+        "upper_d = {k.upper(): v*2 for k, v in d.items()}",
+        "print(upper_d)",
+        "# → {'A': 2, 'B': 4, 'C': 6, 'D': 8}"
+      ],
+      [
+        "matrix = {(i, j): i*j for i in range(3) for j in range(3)}",
+        "print(matrix[(2, 2)])",
+        "# → 4"
+      ],
+      [
+        "data = [('a', 1), ('b', 2), ('a', 3)]",
+        "last = {k: v for k, v in data}",
+        "print(last)",
+        "# → {'a': 3, 'b': 2} (последнее значение для дублей)"
+      ]
     ],
     "related": [
       "списочные-выражения-list-comprehension",
@@ -1012,11 +1013,14 @@
   },
   {
     "id": "создание-множества",
-    "title": "Создание множества",
+    "title": {
+      "ru": "Создание множества",
+      "en": "Creating a set"
+    },
     "kind": "term",
     "summary": {
-      "ru": "Множество создаётся литералом {}, конструктором set() или frozenset(). Дубликаты автоматически удаляются. Порядок не гарантирован.",
-      "en": "A set is written as a {} literal or built with set() or frozenset(). Duplicates are removed automatically. The order is not guaranteed."
+      "ru": "Множество создаётся литералом {1, 2}, конструктором set() или frozenset(); пустое — только set(). Дубликаты удаляются. Порядок не гарантирован.",
+      "en": "A set is written as a {1, 2} literal or built with set() or frozenset(); an empty one only with set(). Duplicates are removed. The order is not guaranteed."
     },
     "body": {
       "ru": "Пустое множество создаётся только вызовом set(): фигурные скобки {} дают пустой словарь. Элементы обязаны быть хешируемыми — список внутрь не положить (кортеж можно), и обычное множество не может быть элементом другого множества, для этого есть неизменяемый frozenset. Ещё ловушка: set('abc') разбирает строку на отдельные символы, а не кладёт её целиком.",
@@ -1025,40 +1029,67 @@
     "syntax": "{a, b}  |  set(iterable)  |  frozenset(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "создание",
+    "subcat": {
+      "ru": "создание",
+      "en": "creation"
+    },
     "aliases": [
       "как создать множество",
       "множество из списка",
       "объявить множество"
     ],
-    "keywords": [],
+    "keywords": [
+      "set",
+      "set()",
+      "frozenset",
+      "{a, b}"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "s = {1, 2, 3}",
-      "# → {1, 2, 3}",
-      "s2 = set([1, 2, 2, 3, 3])",
-      "print(s2)",
-      "# → {1, 2, 3} (дубли удалены)",
-      "s3 = set('hello')",
-      "print(s3)",
-      "# → {'h', 'e', 'l', 'o'}",
-      "empty = set()",
-      "print(type(empty))",
-      "# → <class 'set'> ({} — это dict!)",
-      "fs = frozenset([1, 2, 3])",
-      "print(fs)",
-      "# → frozenset({1, 2, 3})",
-      "nums = [1, 1, 2, 2, 3]",
-      "unique = list(set(nums))",
-      "print(sorted(unique))",
-      "# → [1, 2, 3]",
-      "s4 = {x**2 for x in range(5)}",
-      "print(sorted(s4))",
-      "# → [0, 1, 4, 9, 16]"
+      [
+        "s = {1, 2, 3}",
+        "# → {1, 2, 3}"
+      ],
+      [
+        "s2 = set([1, 2, 2, 3, 3])",
+        "print(s2)",
+        "# → {1, 2, 3} (дубли удалены)"
+      ],
+      [
+        "s3 = set('hello')",
+        "print(sorted(s3))",
+        "# → ['e', 'h', 'l', 'o'] (порядок элементов множества не определён, поэтому сортируем)"
+      ],
+      [
+        "empty = set()",
+        "print(type(empty))",
+        "# → <class 'set'> ({} — это dict!)"
+      ],
+      [
+        "fs = frozenset([1, 2, 3])",
+        "print(fs)",
+        "# → frozenset({1, 2, 3})"
+      ],
+      [
+        "nums = [1, 1, 2, 2, 3]",
+        "unique = list(set(nums))",
+        "print(sorted(unique))",
+        "# → [1, 2, 3]"
+      ],
+      [
+        "s4 = {x**2 for x in range(5)}",
+        "print(sorted(s4))",
+        "# → [0, 1, 4, 9, 16]"
+      ]
     ],
     "related": [
       "set",
@@ -1070,7 +1101,10 @@
   },
   {
     "id": "создание-словаря",
-    "title": "Создание словаря",
+    "title": {
+      "ru": "Создание словаря",
+      "en": "Creating a dictionary"
+    },
     "kind": "term",
     "summary": {
       "ru": "Словарь создаётся литералом {k:v}, конструктором dict(), dict.fromkeys() или словарным выражением.",
@@ -1083,36 +1117,63 @@
     "syntax": "{}  |  dict()  |  {k: v}  |  dict.fromkeys(keys[, val])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "создание",
+    "subcat": {
+      "ru": "создание",
+      "en": "creation"
+    },
     "aliases": [
       "пустой словарь",
       "объявить словарь",
       "инициализация словаря"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict",
+      "dict()",
+      "dict.fromkeys",
+      "{}"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "d1 = {}",
-      "# → {}",
-      "d2 = {'a': 1, 'b': 2}",
-      "# → {'a': 1, 'b': 2}",
-      "d3 = dict(x=1, y=2)",
-      "# → {'x': 1, 'y': 2}",
-      "d4 = dict([('a', 1), ('b', 2)])",
-      "# → {'a': 1, 'b': 2}",
-      "d5 = dict.fromkeys(['a', 'b', 'c'], 0)",
-      "print(d5)",
-      "# → {'a': 0, 'b': 0, 'c': 0}",
-      "d6 = dict.fromkeys('abc')",
-      "print(d6)",
-      "# → {'a': None, 'b': None, 'c': None}",
-      "d7 = {i: i**2 for i in range(4)}",
-      "print(d7)",
-      "# → {0: 0, 1: 1, 2: 4, 3: 9}"
+      [
+        "d1 = {}",
+        "# → {}"
+      ],
+      [
+        "d2 = {'a': 1, 'b': 2}",
+        "# → {'a': 1, 'b': 2}"
+      ],
+      [
+        "d3 = dict(x=1, y=2)",
+        "# → {'x': 1, 'y': 2}"
+      ],
+      [
+        "d4 = dict([('a', 1), ('b', 2)])",
+        "# → {'a': 1, 'b': 2}"
+      ],
+      [
+        "d5 = dict.fromkeys(['a', 'b', 'c'], 0)",
+        "print(d5)",
+        "# → {'a': 0, 'b': 0, 'c': 0}"
+      ],
+      [
+        "d6 = dict.fromkeys('abc')",
+        "print(d6)",
+        "# → {'a': None, 'b': None, 'c': None}"
+      ],
+      [
+        "d7 = {i: i**2 for i in range(4)}",
+        "print(d7)",
+        "# → {0: 0, 1: 1, 2: 4, 3: 9}"
+      ]
     ],
     "related": [
       "dict.fromkeys",
@@ -1124,7 +1185,10 @@
   },
   {
     "id": "сортировка-словаря",
-    "title": "Сортировка словаря",
+    "title": {
+      "ru": "Сортировка словаря",
+      "en": "Sorting a dictionary"
+    },
     "kind": "term",
     "summary": {
       "ru": "sorted(d.items()) сортирует пары. key= задаёт критерий сортировки. Результат — список кортежей или новый словарь.",
@@ -1137,31 +1201,46 @@
     "syntax": "sorted(d.items())  |  sorted(d.items(), key=lambda x: x[1])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#sorted",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "сортировка",
+    "subcat": {
+      "ru": "сортировка",
+      "en": "sorting"
+    },
     "aliases": [
       "отсортировать словарь по значению",
       "отсортировать словарь по ключу"
     ],
-    "keywords": [],
+    "keywords": [
+      "sorted",
+      "dict.items",
+      "key=lambda",
+      "operator.itemgetter"
+    ],
     "tags": [
       "mapset"
     ],
     "examples": [
-      "d = {'banana': 3, 'apple': 1, 'cherry': 2}",
-      "print(sorted(d.items()))",
-      "# → [('apple', 1), ('banana', 3), ('cherry', 2)]",
-      "print(sorted(d.items(), key=lambda x: x[1]))",
-      "# → [('apple', 1), ('cherry', 2), ('banana', 3)]",
-      "print(sorted(d.keys()))",
-      "# → ['apple', 'banana', 'cherry']",
-      "print(dict(sorted(d.items())))",
-      "# → {'apple': 1, 'banana': 3, 'cherry': 2} (по ключу)",
-      "print(dict(sorted(d.items(), key=lambda x: x[1], reverse=True)))",
-      "# → {'banana': 3, 'cherry': 2, 'apple': 1} (по значению убыв.)",
-      "print(sorted(d, key=d.get))",
-      "# → ['apple', 'cherry', 'banana']"
+      [
+        "d = {'banana': 3, 'apple': 1, 'cherry': 2}",
+        "print(sorted(d.items()))",
+        "# → [('apple', 1), ('banana', 3), ('cherry', 2)]",
+        "print(sorted(d.items(), key=lambda x: x[1]))",
+        "# → [('apple', 1), ('cherry', 2), ('banana', 3)]",
+        "print(sorted(d.keys()))",
+        "# → ['apple', 'banana', 'cherry']",
+        "print(dict(sorted(d.items())))",
+        "# → {'apple': 1, 'banana': 3, 'cherry': 2} (по ключу)",
+        "print(dict(sorted(d.items(), key=lambda x: x[1], reverse=True)))",
+        "# → {'banana': 3, 'cherry': 2, 'apple': 1} (по значению убыв.)",
+        "print(sorted(d, key=d.get))",
+        "# → ['apple', 'cherry', 'banana']"
+      ]
     ],
     "related": [
       "dict.items",
@@ -1173,7 +1252,10 @@
   },
   {
     "id": "dict.clear",
-    "title": "dict.clear",
+    "title": {
+      "ru": "dict.clear",
+      "en": "dict.clear"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет все пары, оставляя пустой словарь (на месте).",
@@ -1186,22 +1268,35 @@
     "syntax": "d.clear()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.clear",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "удаление",
+    "subcat": {
+      "ru": "удаление",
+      "en": "removal"
+    },
     "aliases": [
       "очистить словарь",
       "удалить все ключи словаря"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.clear",
+      "clear"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "d.clear()",
-      "print(d)        # → {}",
-      "print(len(d))   # → 0"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "d.clear()",
+        "print(d)        # → {}",
+        "print(len(d))   # → 0"
+      ]
     ],
     "related": [
       "del-для-словаря",
@@ -1212,7 +1307,10 @@
   },
   {
     "id": "dict.copy",
-    "title": "dict.copy",
+    "title": {
+      "ru": "dict.copy",
+      "en": "dict.copy"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает поверхностную (shallow) копию словаря: вложенные объекты разделяются с оригиналом.",
@@ -1225,34 +1323,67 @@
     "syntax": "d.copy()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.copy",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "копирование",
+    "subcat": {
+      "ru": "копирование",
+      "en": "copying"
+    },
     "aliases": [
       "скопировать словарь",
-      "поверхностная копия"
+      "поверхностная копия",
+      "глубокая копия",
+      "рекурсивное копирование",
+      "копия со вложенными объектами"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.copy",
+      "copy",
+      "deepcopy"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "a = {'x': 1}",
-      "b = a.copy()",
-      "b['y'] = 2",
-      "print(a)   # → {'x': 1}",
-      "print(b)   # → {'x': 1, 'y': 2}"
+      [
+        "a = {'x': 1}",
+        "b = a.copy()",
+        "b['y'] = 2",
+        "print(a)   # → {'x': 1}",
+        "print(b)   # → {'x': 1, 'y': 2}"
+      ],
+      [
+        "import copy",
+        "orig = {\"a\": [1,2], \"b\": 3}",
+        "shallow = orig.copy(); shallow[\"a\"].append(99)",
+        "print(orig)     # → {'a': [1, 2, 99], 'b': 3}  (список общий)",
+        "orig2 = {\"a\": [1,2], \"b\": 3}",
+        "deep = copy.deepcopy(orig2); deep[\"a\"].append(99)",
+        "print(orig2)    # → {'a': [1, 2], 'b': 3}        (оригинал цел)",
+        "d = {\"x\": 1}; d2 = d.copy()",
+        "print(d is d2)  # → False",
+        "d2[\"y\"] = 2; print(d)  # → {'x': 1}  (d не изменился)"
+      ]
     ],
     "related": [
-      "copy-deepcopy-словаря",
       "copy.deepcopy",
-      "list.copy"
+      "list.copy",
+      "copy.copy",
+      "вложенные-словари"
     ],
     "related_errors": []
   },
   {
     "id": "dict.get",
-    "title": "dict.get",
+    "title": {
+      "ru": "dict.get",
+      "en": "dict.get"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает значение по ключу или default (по умолчанию None), не вызывая KeyError.",
@@ -1265,23 +1396,36 @@
     "syntax": "d.get(key, default=None)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.get",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "доступ",
+    "subcat": {
+      "ru": "доступ",
+      "en": "access"
+    },
     "aliases": [
       "значение по умолчанию для ключа",
       "получить значение без ошибки",
       "если ключа нет в словаре"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.get",
+      "get"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1}",
-      "print(d.get('a'))      # → 1",
-      "print(d.get('z'))      # → None",
-      "print(d.get('z', 0))   # → 0"
+      [
+        "d = {'a': 1}",
+        "print(d.get('a'))      # → 1",
+        "print(d.get('z'))      # → None",
+        "print(d.get('z', 0))   # → 0"
+      ]
     ],
     "related": [
       "доступ-d-key",
@@ -1293,7 +1437,10 @@
   },
   {
     "id": "dict.items",
-    "title": "dict.items",
+    "title": {
+      "ru": "dict.items",
+      "en": "dict.items"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает динамическое представление (view) пар (ключ, значение); отражает изменения словаря.",
@@ -1306,22 +1453,35 @@
     "syntax": "d.items()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.items",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "перебор",
+    "subcat": {
+      "ru": "перебор",
+      "en": "iteration"
+    },
     "aliases": [
       "перебрать словарь по ключам и значениям",
       "пары ключ-значение",
       "цикл по словарю"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.items",
+      "items"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "print(list(d.items()))   # → [('a', 1), ('b', 2)]",
-      "print(dict(d.items()))   # → {'a': 1, 'b': 2}"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "print(list(d.items()))   # → [('a', 1), ('b', 2)]",
+        "print(dict(d.items()))   # → {'a': 1, 'b': 2}"
+      ]
     ],
     "related": [
       "dict.keys",
@@ -1333,7 +1493,10 @@
   },
   {
     "id": "dict.keys",
-    "title": "dict.keys",
+    "title": {
+      "ru": "dict.keys",
+      "en": "dict.keys"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает динамическое представление (view) ключей словаря.",
@@ -1346,24 +1509,37 @@
     "syntax": "d.keys()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.keys",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "перебор",
+    "subcat": {
+      "ru": "перебор",
+      "en": "iteration"
+    },
     "aliases": [
       "получить все ключи словаря",
       "список ключей словаря",
       "перебрать ключи"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.keys",
+      "keys"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "print(list(d.keys()))   # → ['a', 'b']",
-      "view = d.keys()",
-      "d['c'] = 3",
-      "print(list(view))       # → ['a', 'b', 'c'] (view динамичен)"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "print(list(d.keys()))   # → ['a', 'b']",
+        "view = d.keys()",
+        "d['c'] = 3",
+        "print(list(view))       # → ['a', 'b', 'c'] (view динамичен)"
+      ]
     ],
     "related": [
       "dict.values",
@@ -1374,7 +1550,10 @@
   },
   {
     "id": "dict.pop",
-    "title": "dict.pop",
+    "title": {
+      "ru": "dict.pop",
+      "en": "dict.pop"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет ключ и возвращает его значение; default или KeyError, если ключа нет.",
@@ -1384,25 +1563,38 @@
       "ru": "Не путайте с list.pop(): у списка аргумент — индекс и второго параметра-заглушки нет, здесь же первый аргумент — ключ. d.pop(key, None) — стандартный способ снести ключ, которого может не быть: del d[key] в такой ситуации упадёт с KeyError. Возврат значения делает pop удобным, когда нужно «забрать и удалить» за одно действие, например вынуть служебный ключ из словаря параметров.",
       "en": "Do not confuse it with list.pop(), whose argument is an index and which has no default parameter; here the first argument is a key. d.pop(key, None) is the usual way to drop a key that may not be there — del d[key] would raise KeyError instead. Because it returns the value, pop is handy when you need to take and remove in one step, such as pulling a service key out of a dict of options."
     },
-    "syntax": "d.pop(key, default)",
+    "syntax": "d.pop(key[, default])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.pop",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "удаление",
+    "subcat": {
+      "ru": "удаление",
+      "en": "removal"
+    },
     "aliases": [
       "удалить ключ из словаря",
       "извлечь значение и удалить ключ"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.pop",
+      "pop"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "print(d.pop('a'))       # → 1",
-      "print(d.pop('z', -1))   # → -1",
-      "print(d)                # → {'b': 2}"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "print(d.pop('a'))       # → 1",
+        "print(d.pop('z', -1))   # → -1",
+        "print(d)                # → {'b': 2}"
+      ]
     ],
     "related": [
       "dict.popitem",
@@ -1416,7 +1608,10 @@
   },
   {
     "id": "dict.popitem",
-    "title": "dict.popitem",
+    "title": {
+      "ru": "dict.popitem",
+      "en": "dict.popitem"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет и возвращает последнюю добавленную пару (LIFO, с Python 3.7); KeyError на пустом словаре.",
@@ -1429,26 +1624,39 @@
     "syntax": "d.popitem()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.popitem",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "удаление",
+    "subcat": {
+      "ru": "удаление",
+      "en": "removal"
+    },
     "aliases": [
       "удалить последнюю пару словаря",
       "извлечь последний элемент словаря"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.popitem",
+      "popitem"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "print(d.popitem())   # → ('b', 2)",
-      "print(d)             # → {'a': 1}"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "print(d.popitem())   # → ('b', 2)",
+        "print(d)             # → {'a': 1}"
+      ]
     ],
     "related": [
       "dict.pop",
       "del-для-словаря",
-      "ordereddict"
+      "collections.ordereddict"
     ],
     "related_errors": [
       "KeyError"
@@ -1456,7 +1664,10 @@
   },
   {
     "id": "dict.setdefault",
-    "title": "dict.setdefault",
+    "title": {
+      "ru": "dict.setdefault",
+      "en": "dict.setdefault"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает значение по ключу; если ключа нет — добавляет его со значением default и возвращает default.",
@@ -1469,33 +1680,49 @@
     "syntax": "d.setdefault(key, default=None)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.setdefault",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "доступ",
+    "subcat": {
+      "ru": "доступ",
+      "en": "access"
+    },
     "aliases": [
       "добавить ключ, если его нет",
       "создать ключ со значением по умолчанию"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.setdefault",
+      "setdefault"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1}",
-      "print(d.setdefault('a', 0))   # → 1",
-      "print(d.setdefault('b', 2))   # → 2",
-      "print(d)                      # → {'a': 1, 'b': 2}"
+      [
+        "d = {'a': 1}",
+        "print(d.setdefault('a', 0))   # → 1",
+        "print(d.setdefault('b', 2))   # → 2",
+        "print(d)                      # → {'a': 1, 'b': 2}"
+      ]
     ],
     "related": [
       "dict.get",
-      "defaultdict",
+      "collections.defaultdict",
       "добавление-изменение-d-key-val"
     ],
     "related_errors": []
   },
   {
     "id": "dict.update",
-    "title": "dict.update",
+    "title": {
+      "ru": "dict.update",
+      "en": "dict.update"
+    },
     "kind": "function",
     "summary": {
       "ru": "Добавляет или заменяет пары из другого словаря, итерируемого пар или именованных аргументов (на месте).",
@@ -1505,27 +1732,40 @@
       "ru": "Метод меняет словарь на месте и возвращает None, так что строка d = d.update(other) молча превратит d в None — классическая студенческая опечатка. Совпадающие ключи перезаписываются без предупреждения, прежние значения теряются; если нужен новый словарь, а не мутация исходного, берите d1 | d2 (Python 3.9+). Аргументом может быть не только словарь, но и любой итерируемый объект пар — например, список кортежей или zip.",
       "en": "update() mutates the dict in place and returns None, so d = d.update(other) silently turns d into None — a classic beginner typo. Colliding keys are overwritten without warning and the old values are gone; if you want a new dict rather than a mutated original, use d1 | d2 (Python 3.9+). The argument need not be a dict either: any iterable of key/value pairs works, such as a list of tuples or a zip object."
     },
-    "syntax": "d.update(other, **kwargs)",
+    "syntax": "d.update([other], **kwargs)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.update",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "изменение",
+    "subcat": {
+      "ru": "изменение",
+      "en": "modification"
+    },
     "aliases": [
       "обновить словарь другим словарём",
       "добавить несколько пар сразу"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.update",
+      "update"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1}",
-      "d.update({'b': 2})",
-      "d.update(c=3)",
-      "print(d)        # → {'a': 1, 'b': 2, 'c': 3}",
-      "d.update(a=10)",
-      "print(d['a'])   # → 10 (перезапись)"
+      [
+        "d = {'a': 1}",
+        "d.update({'b': 2})",
+        "d.update(c=3)",
+        "print(d)        # → {'a': 1, 'b': 2, 'c': 3}",
+        "d.update(a=10)",
+        "print(d['a'])   # → 10 (перезапись)"
+      ]
     ],
     "related": [
       "dict-merge-update",
@@ -1536,7 +1776,10 @@
   },
   {
     "id": "dict.values",
-    "title": "dict.values",
+    "title": {
+      "ru": "dict.values",
+      "en": "dict.values"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает динамическое представление (view) значений словаря.",
@@ -1549,22 +1792,35 @@
     "syntax": "d.values()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.values",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "перебор",
+    "subcat": {
+      "ru": "перебор",
+      "en": "iteration"
+    },
     "aliases": [
       "получить все значения словаря",
       "список значений словаря",
       "перебрать значения"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict.values",
+      "values"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "print(list(d.values()))   # → [1, 2]",
-      "print(sum(d.values()))    # → 3"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "print(list(d.values()))   # → [1, 2]",
+        "print(sum(d.values()))    # → 3"
+      ]
     ],
     "related": [
       "dict.keys",
@@ -1575,7 +1831,10 @@
   },
   {
     "id": "del-для-словаря",
-    "title": "del d[key]",
+    "title": {
+      "ru": "del d[key]",
+      "en": "del d[key]"
+    },
     "kind": "construct",
     "summary": {
       "ru": "Оператор del удаляет пару по ключу (KeyError, если ключа нет). Для удаления с возвратом значения — dict.pop()/dict.popitem().",
@@ -1588,22 +1847,37 @@
     "syntax": "del d[key]",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "доступ",
+    "subcat": {
+      "ru": "доступ",
+      "en": "access"
+    },
     "aliases": [
       "удалить ключ из словаря",
       "удаление пары ключ-значение"
     ],
-    "keywords": [],
+    "keywords": [
+      "del",
+      "dict",
+      "dict.pop",
+      "KeyError"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "del d['a']",
-      "print(d)          # → {'b': 2}",
-      "print('a' in d)   # → False"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "del d['a']",
+        "print(d)          # → {'b': 2}",
+        "print('a' in d)   # → False"
+      ]
     ],
     "related": [
       "dict.pop",
@@ -1617,7 +1891,10 @@
   },
   {
     "id": "доступ-d-key",
-    "title": "Доступ d[key]",
+    "title": {
+      "ru": "Доступ d[key]",
+      "en": "Access d[key]"
+    },
     "kind": "construct",
     "summary": {
       "ru": "d[key] возвращает значение по ключу или вызывает KeyError, если ключа нет. Чтобы избежать ошибки при отсутствии ключа — dict.get() с default.",
@@ -1630,22 +1907,37 @@
     "syntax": "d[key]",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "доступ",
+    "subcat": {
+      "ru": "доступ",
+      "en": "access"
+    },
     "aliases": [
       "получить значение по ключу",
       "обращение к словарю по ключу",
       "чтение элемента словаря"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict",
+      "d[key]",
+      "dict.get",
+      "KeyError"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1, 'b': 2}",
-      "print(d['a'])         # → 1",
-      "print('z' in d)       # → False (проверка перед d[key])"
+      [
+        "d = {'a': 1, 'b': 2}",
+        "print(d['a'])         # → 1",
+        "print('z' in d)       # → False (проверка перед d[key])"
+      ]
     ],
     "related": [
       "dict.get",
@@ -1660,7 +1952,10 @@
   },
   {
     "id": "добавление-изменение-d-key-val",
-    "title": "d[key] = value",
+    "title": {
+      "ru": "d[key] = value",
+      "en": "d[key] = value"
+    },
     "kind": "construct",
     "summary": {
       "ru": "Присваивание d[key] = value добавляет новый ключ или заменяет значение существующего. Для нескольких пар сразу — dict.update().",
@@ -1673,24 +1968,38 @@
     "syntax": "d[key] = value",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Словари (dict)",
-    "subcat": "доступ",
+    "subcat": {
+      "ru": "доступ",
+      "en": "access"
+    },
     "aliases": [
       "добавить элемент в словарь",
       "изменить значение по ключу",
       "записать значение в словарь"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict",
+      "d[key] = value",
+      "__setitem__"
+    ],
     "tags": [
       "dict"
     ],
     "examples": [
-      "d = {'a': 1}",
-      "d['b'] = 2",
-      "print(d)   # → {'a': 1, 'b': 2}",
-      "d['a'] = 99",
-      "print(d)   # → {'a': 99, 'b': 2}"
+      [
+        "d = {'a': 1}",
+        "d['b'] = 2",
+        "print(d)   # → {'a': 1, 'b': 2}",
+        "d['a'] = 99",
+        "print(d)   # → {'a': 99, 'b': 2}"
+      ]
     ],
     "related": [
       "доступ-d-key",
@@ -1704,7 +2013,10 @@
   },
   {
     "id": "set.add",
-    "title": "set.add",
+    "title": {
+      "ru": "set.add",
+      "en": "set.add"
+    },
     "kind": "function",
     "summary": {
       "ru": "Добавляет элемент в множество (на месте); дубликаты игнорируются.",
@@ -1717,23 +2029,36 @@
     "syntax": "s.add(elem)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.add",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "добавление",
+    "subcat": {
+      "ru": "добавление",
+      "en": "adding"
+    },
     "aliases": [
       "добавить элемент в множество",
       "вставить значение в множество"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.add",
+      "add"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2}",
-      "s.add(3)",
-      "print(sorted(s))   # → [1, 2, 3]",
-      "s.add(2)",
-      "print(sorted(s))   # → [1, 2, 3]"
+      [
+        "s = {1, 2}",
+        "s.add(3)",
+        "print(sorted(s))   # → [1, 2, 3]",
+        "s.add(2)",
+        "print(sorted(s))   # → [1, 2, 3]"
+      ]
     ],
     "related": [
       "set.update",
@@ -1747,7 +2072,10 @@
   },
   {
     "id": "set.update",
-    "title": "set.update",
+    "title": {
+      "ru": "set.update",
+      "en": "set.update"
+    },
     "kind": "function",
     "summary": {
       "ru": "Добавляет элементы из одного или нескольких итерируемых объектов (на месте); объединение с присваиванием.",
@@ -1760,22 +2088,35 @@
     "syntax": "s.update(*iterables)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.update",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "добавление",
+    "subcat": {
+      "ru": "добавление",
+      "en": "adding"
+    },
     "aliases": [
       "добавить сразу несколько элементов в множество",
       "объединить множества на месте",
       "дополнить множество из списка"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.update",
+      "update"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2}",
-      "s.update({3, 4}, {5})",
-      "print(sorted(s))   # → [1, 2, 3, 4, 5]"
+      [
+        "s = {1, 2}",
+        "s.update({3, 4}, {5})",
+        "print(sorted(s))   # → [1, 2, 3, 4, 5]"
+      ]
     ],
     "related": [
       "set.add",
@@ -1787,7 +2128,10 @@
   },
   {
     "id": "set.remove",
-    "title": "set.remove",
+    "title": {
+      "ru": "set.remove",
+      "en": "set.remove"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет элемент; KeyError, если элемента нет (в отличие от discard).",
@@ -1800,21 +2144,34 @@
     "syntax": "s.remove(elem)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.remove",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "удаление",
+    "subcat": {
+      "ru": "удаление",
+      "en": "removal"
+    },
     "aliases": [
       "удалить элемент из множества",
       "ошибка при удалении несуществующего элемента"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.remove",
+      "remove"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2, 3}",
-      "s.remove(2)",
-      "print(sorted(s))   # → [1, 3]"
+      [
+        "s = {1, 2, 3}",
+        "s.remove(2)",
+        "print(sorted(s))   # → [1, 3]"
+      ]
     ],
     "related": [
       "set.discard",
@@ -1828,7 +2185,10 @@
   },
   {
     "id": "set.discard",
-    "title": "set.discard",
+    "title": {
+      "ru": "set.discard",
+      "en": "set.discard"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет элемент, если он есть; отсутствие элемента ошибкой не считается (в отличие от remove).",
@@ -1841,22 +2201,35 @@
     "syntax": "s.discard(elem)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.discard",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "удаление",
+    "subcat": {
+      "ru": "удаление",
+      "en": "removal"
+    },
     "aliases": [
       "удалить элемент без ошибки",
       "убрать элемент если он есть"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.discard",
+      "discard"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2, 3}",
-      "s.discard(2)",
-      "s.discard(9)",
-      "print(sorted(s))   # → [1, 3]"
+      [
+        "s = {1, 2, 3}",
+        "s.discard(2)",
+        "s.discard(9)",
+        "print(sorted(s))   # → [1, 3]"
+      ]
     ],
     "related": [
       "set.remove",
@@ -1867,7 +2240,10 @@
   },
   {
     "id": "set.pop",
-    "title": "set.pop",
+    "title": {
+      "ru": "set.pop",
+      "en": "set.pop"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет и возвращает произвольный элемент множества; KeyError на пустом множестве.",
@@ -1880,23 +2256,36 @@
     "syntax": "s.pop()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.pop",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "удаление",
+    "subcat": {
+      "ru": "удаление",
+      "en": "removal"
+    },
     "aliases": [
       "извлечь элемент из множества",
       "удалить произвольный элемент",
       "достать любой элемент множества"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.pop",
+      "pop"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2, 3}",
-      "x = s.pop()",
-      "print(x in {1, 2, 3})   # → True",
-      "print(len(s))           # → 2"
+      [
+        "s = {1, 2, 3}",
+        "x = s.pop()",
+        "print(x in {1, 2, 3})   # → True",
+        "print(len(s))           # → 2"
+      ]
     ],
     "related": [
       "set.remove",
@@ -1910,7 +2299,10 @@
   },
   {
     "id": "set.clear",
-    "title": "set.clear",
+    "title": {
+      "ru": "set.clear",
+      "en": "set.clear"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет все элементы, оставляя пустое множество (на месте).",
@@ -1923,21 +2315,34 @@
     "syntax": "s.clear()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.clear",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "изменение",
+    "subcat": {
+      "ru": "изменение",
+      "en": "modification"
+    },
     "aliases": [
       "очистить множество",
       "удалить все элементы множества"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.clear",
+      "clear"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2, 3}",
-      "s.clear()",
-      "print(s)   # → set()"
+      [
+        "s = {1, 2, 3}",
+        "s.clear()",
+        "print(s)   # → set()"
+      ]
     ],
     "related": [
       "list.clear",
@@ -1949,7 +2354,10 @@
   },
   {
     "id": "set.copy",
-    "title": "set.copy",
+    "title": {
+      "ru": "set.copy",
+      "en": "set.copy"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает поверхностную копию множества (новый независимый set).",
@@ -1962,23 +2370,36 @@
     "syntax": "s.copy()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.copy",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "копирование",
+    "subcat": {
+      "ru": "копирование",
+      "en": "copying"
+    },
     "aliases": [
       "копия множества",
       "скопировать множество"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.copy",
+      "copy"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "a = {1, 2}",
-      "b = a.copy()",
-      "b.add(3)",
-      "print(sorted(a))   # → [1, 2]",
-      "print(sorted(b))   # → [1, 2, 3]"
+      [
+        "a = {1, 2}",
+        "b = a.copy()",
+        "b.add(3)",
+        "print(sorted(a))   # → [1, 2]",
+        "print(sorted(b))   # → [1, 2, 3]"
+      ]
     ],
     "related": [
       "frozenset.copy",
@@ -1990,7 +2411,10 @@
   },
   {
     "id": "set.union",
-    "title": "set.union",
+    "title": {
+      "ru": "set.union",
+      "en": "set.union"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает новое множество со всеми элементами исходного и переданных (объединение). Оператор — |.",
@@ -2003,25 +2427,38 @@
     "syntax": "s.union(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.union",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "теория множеств",
+    "subcat": {
+      "ru": "теория множеств",
+      "en": "set theory"
+    },
     "aliases": [
       "объединение множеств",
       "объединить два множества",
       "слить множества"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.union",
+      "union"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2}.union({2, 3})))                # → [1, 2, 3]",
-      "print(sorted({1}.union({2}, {3})))                 # → [1, 2, 3]",
-      "print(sorted({1, 2} | {2, 3}))                     # → [1, 2, 3]",
-      "print(sorted({1, 2}.union([2, 3], (4,))))          # → [1, 2, 3, 4]",
-      "print(sorted(set('abc').union('bcd')))             # → ['a', 'b', 'c', 'd']",
-      "print({1, 2} | [3])                                # → TypeError"
+      [
+        "print(sorted({1, 2}.union({2, 3})))                # → [1, 2, 3]",
+        "print(sorted({1}.union({2}, {3})))                 # → [1, 2, 3]",
+        "print(sorted({1, 2} | {2, 3}))                     # → [1, 2, 3]",
+        "print(sorted({1, 2}.union([2, 3], (4,))))          # → [1, 2, 3, 4]",
+        "print(sorted(set('abc').union('bcd')))             # → ['a', 'b', 'c', 'd']",
+        "print({1, 2} | [3])                                # → TypeError"
+      ]
     ],
     "related": [
       "set.update",
@@ -2033,7 +2470,10 @@
   },
   {
     "id": "set.intersection",
-    "title": "set.intersection",
+    "title": {
+      "ru": "set.intersection",
+      "en": "set.intersection"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает новое множество из элементов, общих для всех (пересечение). Оператор — &.",
@@ -2046,24 +2486,37 @@
     "syntax": "s.intersection(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.intersection",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "теория множеств",
+    "subcat": {
+      "ru": "теория множеств",
+      "en": "set theory"
+    },
     "aliases": [
       "пересечение множеств",
       "общие элементы двух списков"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.intersection",
+      "intersection"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2, 3}.intersection({2, 3, 4})))   # → [2, 3]",
-      "print(sorted({1, 2, 3}.intersection({2, 3}, [3, 9])))   # → [3]",
-      "print(sorted({1, 2, 3} & {3, 4}))   # → [3]",
-      "print(sorted(set('python').intersection('typo')))   # → ['o', 'p', 't', 'y']",
-      "print({1, 2}.intersection({3}))   # → set()",
-      "print({1, 2} & [2])   # → TypeError"
+      [
+        "print(sorted({1, 2, 3}.intersection({2, 3, 4})))   # → [2, 3]",
+        "print(sorted({1, 2, 3}.intersection({2, 3}, [3, 9])))   # → [3]",
+        "print(sorted({1, 2, 3} & {3, 4}))   # → [3]",
+        "print(sorted(set('python').intersection('typo')))   # → ['o', 'p', 't', 'y']",
+        "print({1, 2}.intersection({3}))   # → set()",
+        "print({1, 2} & [2])   # → TypeError"
+      ]
     ],
     "related": [
       "set.intersection_update",
@@ -2075,7 +2528,10 @@
   },
   {
     "id": "set.difference",
-    "title": "set.difference",
+    "title": {
+      "ru": "set.difference",
+      "en": "set.difference"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает новое множество из элементов, которых нет в переданных (разность). Оператор — -.",
@@ -2088,25 +2544,38 @@
     "syntax": "s.difference(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.difference",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "теория множеств",
+    "subcat": {
+      "ru": "теория множеств",
+      "en": "set theory"
+    },
     "aliases": [
       "разность множеств",
       "вычесть одно множество из другого",
       "элементы только в первом множестве"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.difference",
+      "difference"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2, 3}.difference({2, 3})))   # → [1]",
-      "print(sorted({1, 2, 3, 4}.difference({2}, [3])))   # → [1, 4]",
-      "print(sorted({1, 2, 3} - {3}))   # → [1, 2]",
-      "print(sorted({1, 2, 3}.difference({3, 4})), sorted({3, 4}.difference({1, 2, 3})))   # → [1, 2] [4]",
-      "print(sorted({1, 2}.difference({1, 2, 3})))   # → []",
-      "print({1, 2, 3} - [3])   # → TypeError"
+      [
+        "print(sorted({1, 2, 3}.difference({2, 3})))   # → [1]",
+        "print(sorted({1, 2, 3, 4}.difference({2}, [3])))   # → [1, 4]",
+        "print(sorted({1, 2, 3} - {3}))   # → [1, 2]",
+        "print(sorted({1, 2, 3}.difference({3, 4})), sorted({3, 4}.difference({1, 2, 3})))   # → [1, 2] [4]",
+        "print(sorted({1, 2}.difference({1, 2, 3})))   # → []",
+        "print({1, 2, 3} - [3])   # → TypeError"
+      ]
     ],
     "related": [
       "set.difference_update",
@@ -2118,7 +2587,10 @@
   },
   {
     "id": "set.symmetric_difference",
-    "title": "set.symmetric_difference",
+    "title": {
+      "ru": "set.symmetric_difference",
+      "en": "set.symmetric_difference"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает элементы, входящие ровно в одно из двух множеств (симметрическая разность). Оператор — ^.",
@@ -2131,25 +2603,38 @@
     "syntax": "s.symmetric_difference(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.symmetric_difference",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "теория множеств",
+    "subcat": {
+      "ru": "теория множеств",
+      "en": "set theory"
+    },
     "aliases": [
       "симметрическая разность",
       "элементы только в одном из множеств",
       "различия двух множеств"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.symmetric_difference",
+      "symmetric_difference"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2, 3}.symmetric_difference({2, 3, 4})))   # → [1, 4]",
-      "print(sorted({1, 2, 3} ^ {2, 3, 4}))                       # → [1, 4]",
-      "print(sorted({1, 2}.symmetric_difference([2, 3])))         # → [1, 3]",
-      "print({1, 2}.symmetric_difference({1, 2}))                 # → set()",
-      "print(sorted({1, 2, 3}.difference({2, 3, 4})))             # → [1]",
-      "print({1, 2} ^ [2, 3])                                     # → TypeError"
+      [
+        "print(sorted({1, 2, 3}.symmetric_difference({2, 3, 4})))   # → [1, 4]",
+        "print(sorted({1, 2, 3} ^ {2, 3, 4}))                       # → [1, 4]",
+        "print(sorted({1, 2}.symmetric_difference([2, 3])))         # → [1, 3]",
+        "print({1, 2}.symmetric_difference({1, 2}))                 # → set()",
+        "print(sorted({1, 2, 3}.difference({2, 3, 4})))             # → [1]",
+        "print({1, 2} ^ [2, 3])                                     # → TypeError"
+      ]
     ],
     "related": [
       "set.symmetric_difference_update",
@@ -2161,7 +2646,10 @@
   },
   {
     "id": "set.difference_update",
-    "title": "set.difference_update",
+    "title": {
+      "ru": "set.difference_update",
+      "en": "set.difference_update"
+    },
     "kind": "function",
     "summary": {
       "ru": "Удаляет из множества элементы, найденные в переданных (разность на месте).",
@@ -2174,21 +2662,34 @@
     "syntax": "s.difference_update(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.difference_update",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "теория множеств",
+    "subcat": {
+      "ru": "теория множеств",
+      "en": "set theory"
+    },
     "aliases": [
       "разность множеств на месте",
       "удалить элементы другого множества"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.difference_update",
+      "difference_update"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2, 3, 4}",
-      "s.difference_update({2, 4})",
-      "print(sorted(s))   # → [1, 3]"
+      [
+        "s = {1, 2, 3, 4}",
+        "s.difference_update({2, 4})",
+        "print(sorted(s))   # → [1, 3]"
+      ]
     ],
     "related": [
       "set.difference",
@@ -2200,7 +2701,10 @@
   },
   {
     "id": "set.intersection_update",
-    "title": "set.intersection_update",
+    "title": {
+      "ru": "set.intersection_update",
+      "en": "set.intersection_update"
+    },
     "kind": "function",
     "summary": {
       "ru": "Оставляет только элементы, общие со всеми переданными (пересечение на месте).",
@@ -2213,21 +2717,34 @@
     "syntax": "s.intersection_update(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.intersection_update",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "теория множеств",
+    "subcat": {
+      "ru": "теория множеств",
+      "en": "set theory"
+    },
     "aliases": [
       "пересечение на месте",
       "оставить только общие элементы"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.intersection_update",
+      "intersection_update"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2, 3, 4}",
-      "s.intersection_update({2, 3, 5})",
-      "print(sorted(s))   # → [2, 3]"
+      [
+        "s = {1, 2, 3, 4}",
+        "s.intersection_update({2, 3, 5})",
+        "print(sorted(s))   # → [2, 3]"
+      ]
     ],
     "related": [
       "set.intersection",
@@ -2238,7 +2755,10 @@
   },
   {
     "id": "set.symmetric_difference_update",
-    "title": "set.symmetric_difference_update",
+    "title": {
+      "ru": "set.symmetric_difference_update",
+      "en": "set.symmetric_difference_update"
+    },
     "kind": "function",
     "summary": {
       "ru": "Оставляет элементы, входящие ровно в одно из множеств (симметрическая разность на месте).",
@@ -2251,21 +2771,34 @@
     "syntax": "s.symmetric_difference_update(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.symmetric_difference_update",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "теория множеств",
+    "subcat": {
+      "ru": "теория множеств",
+      "en": "set theory"
+    },
     "aliases": [
       "симметрическая разность на месте",
       "оставить несовпадающие элементы"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.symmetric_difference_update",
+      "symmetric_difference_update"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "s = {1, 2, 3}",
-      "s.symmetric_difference_update({3, 4})",
-      "print(sorted(s))   # → [1, 2, 4]"
+      [
+        "s = {1, 2, 3}",
+        "s.symmetric_difference_update({3, 4})",
+        "print(sorted(s))   # → [1, 2, 4]"
+      ]
     ],
     "related": [
       "set.symmetric_difference",
@@ -2276,7 +2809,10 @@
   },
   {
     "id": "set.issubset",
-    "title": "set.issubset",
+    "title": {
+      "ru": "set.issubset",
+      "en": "set.issubset"
+    },
     "kind": "function",
     "summary": {
       "ru": "True, если все элементы множества входят в другое (подмножество). Оператор — <=.",
@@ -2289,25 +2825,38 @@
     "syntax": "s.issubset(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.issubset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "проверка",
+    "subcat": {
+      "ru": "проверка",
+      "en": "checking"
+    },
     "aliases": [
       "подмножество",
       "проверка подмножества",
       "все элементы входят в другое множество"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.issubset",
+      "issubset"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "print({1, 2}.issubset({1, 2, 3}))   # → True",
-      "print({1, 4}.issubset({1, 2, 3}))   # → False",
-      "print({1, 2}.issubset([1, 2, 3]))   # → True",
-      "print(set().issubset({1, 2}))   # → True",
-      "print({1, 2} <= {1, 2}, {1, 2} < {1, 2})   # → True False",
-      "print({1, 2} <= [1, 2, 3])   # → TypeError"
+      [
+        "print({1, 2}.issubset({1, 2, 3}))   # → True",
+        "print({1, 4}.issubset({1, 2, 3}))   # → False",
+        "print({1, 2}.issubset([1, 2, 3]))   # → True",
+        "print(set().issubset({1, 2}))   # → True",
+        "print({1, 2} <= {1, 2}, {1, 2} < {1, 2})   # → True False",
+        "print({1, 2} <= [1, 2, 3])   # → TypeError"
+      ]
     ],
     "related": [
       "set.issuperset",
@@ -2318,7 +2867,10 @@
   },
   {
     "id": "set.issuperset",
-    "title": "set.issuperset",
+    "title": {
+      "ru": "set.issuperset",
+      "en": "set.issuperset"
+    },
     "kind": "function",
     "summary": {
       "ru": "True, если множество содержит все элементы другого (надмножество). Оператор — >=.",
@@ -2331,25 +2883,38 @@
     "syntax": "s.issuperset(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.issuperset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "проверка",
+    "subcat": {
+      "ru": "проверка",
+      "en": "checking"
+    },
     "aliases": [
       "надмножество",
       "проверка надмножества",
       "множество содержит другое"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.issuperset",
+      "issuperset"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "print({1, 2, 3}.issuperset({1, 2}))   # → True",
-      "print({1, 2}.issuperset({1, 3}))      # → False",
-      "print({1, 2, 3} >= {1, 2})            # → True",
-      "print({1, 2, 3}.issuperset([1, 3]))   # → True",
-      "print({1, 2}.issuperset(set()))       # → True",
-      "print({1, 2} >= [1])                  # → TypeError"
+      [
+        "print({1, 2, 3}.issuperset({1, 2}))   # → True",
+        "print({1, 2}.issuperset({1, 3}))      # → False",
+        "print({1, 2, 3} >= {1, 2})            # → True",
+        "print({1, 2, 3}.issuperset([1, 3]))   # → True",
+        "print({1, 2}.issuperset(set()))       # → True",
+        "print({1, 2} >= [1])                  # → TypeError"
+      ]
     ],
     "related": [
       "set.issubset",
@@ -2360,7 +2925,10 @@
   },
   {
     "id": "set.isdisjoint",
-    "title": "set.isdisjoint",
+    "title": {
+      "ru": "set.isdisjoint",
+      "en": "set.isdisjoint"
+    },
     "kind": "function",
     "summary": {
       "ru": "True, если у множеств нет общих элементов (пересечение пусто).",
@@ -2373,25 +2941,38 @@
     "syntax": "s.isdisjoint(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#set.isdisjoint",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "проверка",
+    "subcat": {
+      "ru": "проверка",
+      "en": "checking"
+    },
     "aliases": [
       "нет общих элементов",
       "непересекающиеся множества",
       "пересечение пусто"
     ],
-    "keywords": [],
+    "keywords": [
+      "set.isdisjoint",
+      "isdisjoint"
+    ],
     "tags": [
       "set"
     ],
     "examples": [
-      "print({1, 2}.isdisjoint({3, 4}))   # → True",
-      "print({1, 2}.isdisjoint({2, 3}))   # → False",
-      "print({1, 2}.isdisjoint([3, 4, 5]))   # → True",
-      "print({1, 2}.isdisjoint(set()))   # → True",
-      "print({'spam', 'ads'}.isdisjoint('hello world spam'.split()))   # → False",
-      "print(not ({1, 2} & {2, 3}))   # → False"
+      [
+        "print({1, 2}.isdisjoint({3, 4}))   # → True",
+        "print({1, 2}.isdisjoint({2, 3}))   # → False",
+        "print({1, 2}.isdisjoint([3, 4, 5]))   # → True",
+        "print({1, 2}.isdisjoint(set()))   # → True",
+        "print({'spam', 'ads'}.isdisjoint('hello world spam'.split()))   # → False",
+        "print(not ({1, 2} & {2, 3}))   # → False"
+      ]
     ],
     "related": [
       "set.intersection",
@@ -2402,7 +2983,10 @@
   },
   {
     "id": "frozenset.copy",
-    "title": "frozenset.copy",
+    "title": {
+      "ru": "frozenset.copy",
+      "en": "frozenset.copy"
+    },
     "kind": "function",
     "summary": {
       "ru": "У неизменяемого frozenset copy() возвращает тот же объект (копировать нечего).",
@@ -2415,24 +2999,37 @@
     "syntax": "f.copy()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.copy",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "копия неизменяемого множества",
       "копирование замороженного множества"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.copy",
+      "copy"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "f = frozenset({1, 2})",
-      "print(f.copy() is f)   # → True",
-      "print(f.copy())   # → frozenset({1, 2})",
-      "print(frozenset().copy())   # → frozenset()",
-      "s = {1, 2}",
-      "print(s.copy() is s)   # → False"
+      [
+        "f = frozenset({1, 2})",
+        "print(f.copy() is f)   # → True",
+        "print(f.copy())   # → frozenset({1, 2})",
+        "print(frozenset().copy())   # → frozenset()",
+        "s = {1, 2}",
+        "print(s.copy() is s)   # → False"
+      ]
     ],
     "related": [
       "set.copy",
@@ -2443,7 +3040,10 @@
   },
   {
     "id": "frozenset.union",
-    "title": "frozenset.union",
+    "title": {
+      "ru": "frozenset.union",
+      "en": "frozenset.union"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает новый frozenset — объединение с переданными итерируемыми.",
@@ -2456,24 +3056,37 @@
     "syntax": "f.union(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.union",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "объединение неизменяемых множеств",
       "слить замороженные множества"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.union",
+      "union"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).union({3}))   # → frozenset({1, 2, 3})",
-      "print(sorted(frozenset({1, 2}).union([2, 3], (4,))))   # → [1, 2, 3, 4]",
-      "print(sorted(frozenset('ab').union('bc')))   # → ['a', 'b', 'c']",
-      "print(frozenset().union())   # → frozenset()",
-      "print(type(frozenset({1}).union({2, 3})).__name__)   # → frozenset",
-      "print(frozenset({1, 2}) | [3])   # → TypeError"
+      [
+        "print(frozenset({1, 2}).union({3}))   # → frozenset({1, 2, 3})",
+        "print(sorted(frozenset({1, 2}).union([2, 3], (4,))))   # → [1, 2, 3, 4]",
+        "print(sorted(frozenset('ab').union('bc')))   # → ['a', 'b', 'c']",
+        "print(frozenset().union())   # → frozenset()",
+        "print(type(frozenset({1}).union({2, 3})).__name__)   # → frozenset",
+        "print(frozenset({1, 2}) | [3])   # → TypeError"
+      ]
     ],
     "related": [
       "set.union",
@@ -2485,7 +3098,10 @@
   },
   {
     "id": "frozenset.intersection",
-    "title": "frozenset.intersection",
+    "title": {
+      "ru": "frozenset.intersection",
+      "en": "frozenset.intersection"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает новый frozenset — пересечение с переданными.",
@@ -2498,24 +3114,37 @@
     "syntax": "f.intersection(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.intersection",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "пересечение неизменяемых множеств",
       "общие элементы замороженных множеств"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.intersection",
+      "intersection"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2, 3}).intersection({2, 3}))   # → frozenset({2, 3})",
-      "print(frozenset({1, 2, 3, 4}).intersection({2, 3, 4}, {3, 4, 5}))   # → frozenset({3, 4})",
-      "print(frozenset({1, 2, 3}).intersection([3, 4, 5]))   # → frozenset({3})",
-      "print(sorted(frozenset('hello').intersection('world')))   # → ['l', 'o']",
-      "print(frozenset({1, 2}).intersection({3, 4}))   # → frozenset()",
-      "print(frozenset({1, 2, 3}) & [2, 3])   # → TypeError"
+      [
+        "print(frozenset({1, 2, 3}).intersection({2, 3}))   # → frozenset({2, 3})",
+        "print(frozenset({1, 2, 3, 4}).intersection({2, 3, 4}, {3, 4, 5}))   # → frozenset({3, 4})",
+        "print(frozenset({1, 2, 3}).intersection([3, 4, 5]))   # → frozenset({3})",
+        "print(sorted(frozenset('hello').intersection('world')))   # → ['l', 'o']",
+        "print(frozenset({1, 2}).intersection({3, 4}))   # → frozenset()",
+        "print(frozenset({1, 2, 3}) & [2, 3])   # → TypeError"
+      ]
     ],
     "related": [
       "set.intersection",
@@ -2527,7 +3156,10 @@
   },
   {
     "id": "frozenset.difference",
-    "title": "frozenset.difference",
+    "title": {
+      "ru": "frozenset.difference",
+      "en": "frozenset.difference"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает новый frozenset — разность (элементы, которых нет в переданных).",
@@ -2540,24 +3172,37 @@
     "syntax": "f.difference(*others)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.difference",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "разность неизменяемых множеств",
       "вычитание замороженных множеств"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.difference",
+      "difference"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2, 3}).difference({2}))   # → frozenset({1, 3})",
-      "print(frozenset({1, 2, 3, 4}).difference({2}, {4}))   # → frozenset({1, 3})",
-      "print(frozenset({1, 2, 3}).difference([1, 2]))   # → frozenset({3})",
-      "print(sorted(frozenset('hello').difference('aeiou')))   # → ['h', 'l']",
-      "print(frozenset({1, 2}).difference({1, 2}))   # → frozenset()",
-      "print(frozenset({1, 2, 3}) - [1])   # → TypeError"
+      [
+        "print(frozenset({1, 2, 3}).difference({2}))   # → frozenset({1, 3})",
+        "print(frozenset({1, 2, 3, 4}).difference({2}, {4}))   # → frozenset({1, 3})",
+        "print(frozenset({1, 2, 3}).difference([1, 2]))   # → frozenset({3})",
+        "print(sorted(frozenset('hello').difference('aeiou')))   # → ['h', 'l']",
+        "print(frozenset({1, 2}).difference({1, 2}))   # → frozenset()",
+        "print(frozenset({1, 2, 3}) - [1])   # → TypeError"
+      ]
     ],
     "related": [
       "set.difference",
@@ -2568,7 +3213,10 @@
   },
   {
     "id": "frozenset.symmetric_difference",
-    "title": "frozenset.symmetric_difference",
+    "title": {
+      "ru": "frozenset.symmetric_difference",
+      "en": "frozenset.symmetric_difference"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает новый frozenset — симметрическую разность двух множеств.",
@@ -2581,24 +3229,37 @@
     "syntax": "f.symmetric_difference(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.symmetric_difference",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "симметрическая разность неизменяемых множеств",
       "элементы только в одном из замороженных множеств"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.symmetric_difference",
+      "symmetric_difference"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).symmetric_difference({2, 3}))   # → frozenset({1, 3})",
-      "print(frozenset({1, 2}).symmetric_difference({3, 4}))   # → frozenset({1, 2, 3, 4})",
-      "print(frozenset({1, 2, 3}).symmetric_difference([3, 4]))   # → frozenset({1, 2, 4})",
-      "print(sorted(frozenset('abc').symmetric_difference('bcd')))   # → ['a', 'd']",
-      "print(frozenset({1, 2}).symmetric_difference({1, 2}))   # → frozenset()",
-      "print(frozenset({1, 2}) ^ {2, 3})   # → frozenset({1, 3})"
+      [
+        "print(frozenset({1, 2}).symmetric_difference({2, 3}))   # → frozenset({1, 3})",
+        "print(frozenset({1, 2}).symmetric_difference({3, 4}))   # → frozenset({1, 2, 3, 4})",
+        "print(frozenset({1, 2, 3}).symmetric_difference([3, 4]))   # → frozenset({1, 2, 4})",
+        "print(sorted(frozenset('abc').symmetric_difference('bcd')))   # → ['a', 'd']",
+        "print(frozenset({1, 2}).symmetric_difference({1, 2}))   # → frozenset()",
+        "print(frozenset({1, 2}) ^ {2, 3})   # → frozenset({1, 3})"
+      ]
     ],
     "related": [
       "set.symmetric_difference",
@@ -2610,7 +3271,10 @@
   },
   {
     "id": "frozenset.isdisjoint",
-    "title": "frozenset.isdisjoint",
+    "title": {
+      "ru": "frozenset.isdisjoint",
+      "en": "frozenset.isdisjoint"
+    },
     "kind": "function",
     "summary": {
       "ru": "True, если у frozenset нет общих элементов с переданным множеством.",
@@ -2623,24 +3287,37 @@
     "syntax": "f.isdisjoint(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.isdisjoint",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "непересекающиеся замороженные множества",
       "нет общих элементов у неизменяемого множества"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.isdisjoint",
+      "isdisjoint"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).isdisjoint({3, 4}))   # → True",
-      "print(frozenset({1, 2}).isdisjoint({2, 3}))   # → False",
-      "print(frozenset({1, 2}).isdisjoint([3, 4, 5]))   # → True",
-      "print(frozenset('rhythm').isdisjoint('aeiou'))   # → True",
-      "print(frozenset({1, 2, 3}).isdisjoint(range(3, 6)))   # → False",
-      "print(frozenset().isdisjoint({1, 2}))   # → True"
+      [
+        "print(frozenset({1, 2}).isdisjoint({3, 4}))   # → True",
+        "print(frozenset({1, 2}).isdisjoint({2, 3}))   # → False",
+        "print(frozenset({1, 2}).isdisjoint([3, 4, 5]))   # → True",
+        "print(frozenset('rhythm').isdisjoint('aeiou'))   # → True",
+        "print(frozenset({1, 2, 3}).isdisjoint(range(3, 6)))   # → False",
+        "print(frozenset().isdisjoint({1, 2}))   # → True"
+      ]
     ],
     "related": [
       "set.isdisjoint",
@@ -2651,7 +3328,10 @@
   },
   {
     "id": "frozenset.issubset",
-    "title": "frozenset.issubset",
+    "title": {
+      "ru": "frozenset.issubset",
+      "en": "frozenset.issubset"
+    },
     "kind": "function",
     "summary": {
       "ru": "True, если все элементы frozenset входят в другое множество (подмножество).",
@@ -2664,24 +3344,37 @@
     "syntax": "f.issubset(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.issubset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "подмножество неизменяемого множества",
       "проверка вложенности замороженных множеств"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.issubset",
+      "issubset"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).issubset({1, 2, 3}))   # → True",
-      "print(frozenset({1, 4}).issubset({1, 2, 3}))   # → False",
-      "print(frozenset({1, 2}).issubset([1, 2, 3]))   # → True",
-      "print(frozenset('cat').issubset('character'))   # → True",
-      "print(frozenset({1, 2}).issubset({1, 2}))   # → True",
-      "print(frozenset({1, 2}) < {1, 2})   # → False"
+      [
+        "print(frozenset({1, 2}).issubset({1, 2, 3}))   # → True",
+        "print(frozenset({1, 4}).issubset({1, 2, 3}))   # → False",
+        "print(frozenset({1, 2}).issubset([1, 2, 3]))   # → True",
+        "print(frozenset('cat').issubset('character'))   # → True",
+        "print(frozenset({1, 2}).issubset({1, 2}))   # → True",
+        "print(frozenset({1, 2}) < {1, 2})   # → False"
+      ]
     ],
     "related": [
       "frozenset.issuperset",
@@ -2692,7 +3385,10 @@
   },
   {
     "id": "frozenset.issuperset",
-    "title": "frozenset.issuperset",
+    "title": {
+      "ru": "frozenset.issuperset",
+      "en": "frozenset.issuperset"
+    },
     "kind": "function",
     "summary": {
       "ru": "True, если frozenset содержит все элементы другого множества (надмножество).",
@@ -2705,24 +3401,37 @@
     "syntax": "f.issuperset(other)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozenset.issuperset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Множества (set)",
-    "subcat": "frozenset",
+    "subcat": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "aliases": [
       "надмножество неизменяемого множества",
       "замороженное множество содержит другое"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset.issuperset",
+      "issuperset"
+    ],
     "tags": [
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2, 3}).issuperset({1, 2}))   # → True",
-      "print(frozenset({1, 2, 3}).issuperset({1, 5}))   # → False",
-      "print(frozenset({1, 2, 3}).issuperset([2, 3]))   # → True",
-      "print(frozenset('0123456789').issuperset('2026'))   # → True",
-      "print(frozenset({1, 2}).issuperset([]))   # → True",
-      "print(frozenset({1, 2}) > {1, 2})   # → False"
+      [
+        "print(frozenset({1, 2, 3}).issuperset({1, 2}))   # → True",
+        "print(frozenset({1, 2, 3}).issuperset({1, 5}))   # → False",
+        "print(frozenset({1, 2, 3}).issuperset([2, 3]))   # → True",
+        "print(frozenset('0123456789').issuperset('2026'))   # → True",
+        "print(frozenset({1, 2}).issuperset([]))   # → True",
+        "print(frozenset({1, 2}) > {1, 2})   # → False"
+      ]
     ],
     "related": [
       "frozenset.issubset",

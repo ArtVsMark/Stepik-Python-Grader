@@ -14,7 +14,7 @@
       "rule": "Автоматическая массовая починка данных принимается критерием СТРОЖЕ того дефекта, который она чинит. Дефект «не компилируется» нельзя принимать проверкой «компилируется»: она отсекает провалы и пропускает подделки. Если критерия строже нет — работа ручная, и это ответ, а не поражение.",
       "trace": [
         "https://github.com/ArtVsMark/Stepik-Python-Grader/issues/1454",
-        "scripts/check_glossary_examples.py"
+        "https://github.com/ArtVsMark/Glossary-Python/blob/main/scripts/check_examples.py"
       ]
     },
     {

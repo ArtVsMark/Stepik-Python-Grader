@@ -1,0 +1,21 @@
+{
+  ".name-.value": "enum.Enum.name",
+  ".stem-.suffix-.suffixes-.name-.parent-.p": "pathlib.PurePath.stem",
+  "chainmap": "collections.chainmap",
+  "copy-deepcopy-словаря": "dict.copy",
+  "counter": "collections.counter",
+  "defaultdict": "collections.defaultdict",
+  "flag-intflag": "enum.Flag",
+  "intenum-strenum": "enum.IntEnum",
+  "iter-next": "iter",
+  "ordereddict": "collections.ordereddict",
+  "os-getenv": "os.getenv",
+  "os-scandir": "os.scandir",
+  "os.sep-os.linesep-os.pathsep": "os.sep",
+  "path": "pathlib.path",
+  "print-file-flush": "print",
+  "reduce": "functools.reduce",
+  "stdin-stdout": "sys.stdin",
+  "sys.stdin-sys.stdout-sys.stderr": "sys.stdin",
+  "sys.version-sys.platform-sys.implementat": "sys.version"
+}

@@ -1,7 +1,10 @@
 [
   {
     "id": "__import__",
-    "title": "__import__",
+    "title": {
+      "ru": "__import__",
+      "en": "__import__"
+    },
     "kind": "term",
     "summary": {
       "ru": "Низкоуровневый импорт модуля. Обычно используй importlib.import_module.",
@@ -14,27 +17,41 @@
     "syntax": "__import__(name, ...)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#import__",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "модули",
+    "subcat": {
+      "ru": "модули",
+      "en": "modules"
+    },
     "aliases": [
       "импорт модуля по имени-строке",
       "динамический импорт модуля"
     ],
-    "keywords": [],
+    "keywords": [
+      "__import__"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "math = __import__('math')",
-      "print(math.pi)  # → 3.14159...",
-      "os = __import__('os')",
-      "print(os.sep)  # → /",
-      "json = __import__('json')",
-      "print(json.dumps({'a':1}))  # → {\"a\":1}",
-      "import importlib",
-      "re = importlib.import_module('re')",
-      "print(re.match(r'\\d+','123').group())  # → 123"
+      [
+        "math = __import__('math')",
+        "print(math.pi)  # → 3.14159...",
+        "os = __import__('os')",
+        "print(os.sep)  # → /",
+        "json = __import__('json')",
+        "print(json.dumps({'a':1}))  # → {\"a\":1}"
+      ],
+      [
+        "import importlib",
+        "re = importlib.import_module('re')",
+        "print(re.match(r'\\d+','123').group())  # → 123"
+      ]
     ],
     "related": [
       "sys.modules",
@@ -45,7 +62,10 @@
   },
   {
     "id": "all",
-    "title": "all",
+    "title": {
+      "ru": "all",
+      "en": "all"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если все элементы итерируемого истинны, или если итерируемый пуст. Использует ленивое вычисление.",
@@ -58,24 +78,36 @@
     "syntax": "all(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#all",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "логика",
+    "subcat": {
+      "ru": "логика",
+      "en": "logic"
+    },
     "aliases": [
       "все элементы истинны",
       "проверить, что все условия выполнены",
       "истинны ли все значения"
     ],
-    "keywords": [],
+    "keywords": [
+      "all"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(all([True,True,True]))  # → True",
-      "print(all([True,False,True]))  # → False",
-      "print(all([]))  # → True (пустой)",
-      "print(all(x>0 for x in [1,2,3]))  # → True",
-      "print(all(x>0 for x in [1,-1,3]))  # → False"
+      [
+        "print(all([True,True,True]))  # → True",
+        "print(all([True,False,True]))  # → False",
+        "print(all([]))  # → True (пустой)",
+        "print(all(x>0 for x in [1,2,3]))  # → True",
+        "print(all(x>0 for x in [1,-1,3]))  # → False"
+      ]
     ],
     "related": [
       "any"
@@ -84,7 +116,10 @@
   },
   {
     "id": "any",
-    "title": "any",
+    "title": {
+      "ru": "any",
+      "en": "any"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если хотя бы один элемент итерируемого истинен. Использует ленивое вычисление.",
@@ -97,26 +132,40 @@
     "syntax": "any(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#any",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "логика",
+    "subcat": {
+      "ru": "логика",
+      "en": "logic"
+    },
     "aliases": [
       "хотя бы один элемент истинен",
       "есть ли подходящий элемент",
       "выполняется ли хоть одно условие"
     ],
-    "keywords": [],
+    "keywords": [
+      "any"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(any([False,True,False]))  # → True",
-      "print(any([False,False]))  # → False",
-      "print(any([]))  # → False",
-      "print(any(x<0 for x in [1,-1,3]))  # → True",
-      "print(any(x==5 for x in range(10)))  # → True",
-      "# ленивое вычисление — остановится на первом True",
-      "print(any(x > 100 for x in range(10**6)))  # → True"
+      [
+        "print(any([False,True,False]))  # → True",
+        "print(any([False,False]))  # → False",
+        "print(any([]))  # → False",
+        "print(any(x<0 for x in [1,-1,3]))  # → True",
+        "print(any(x==5 for x in range(10)))  # → True"
+      ],
+      [
+        "# ленивое вычисление — остановится на первом True",
+        "print(any(x > 100 for x in range(10**6)))  # → True"
+      ]
     ],
     "related": [
       "all"
@@ -125,7 +174,10 @@
   },
   {
     "id": "ascii",
-    "title": "ascii",
+    "title": {
+      "ru": "ascii",
+      "en": "ascii"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает repr() объекта, но заменяет все не-ASCII символы на escape-последовательности \\xNN, \\uNNNN или \\UNNNNNNNN.",
@@ -138,23 +190,35 @@
     "syntax": "ascii(object)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#ascii",
-    "version": "",
+    "added": "3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "строки",
+    "subcat": {
+      "ru": "строки",
+      "en": "strings"
+    },
     "aliases": [
       "экранирование юникод-символов",
       "показать коды символов в строке"
     ],
-    "keywords": [],
+    "keywords": [
+      "ascii"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(ascii('hello'))  # → 'hello'",
-      "print(ascii('привет'))  # → '\\u043f\\u0440...' (экранировано)",
-      "print(ascii([1,'a']))  # → [1, 'a']",
-      "print(ascii('café'))  # → 'caf\\xe9'",
-      "print(ascii(None))  # → None"
+      [
+        "print(ascii('hello'))  # → 'hello'",
+        "print(ascii('привет'))  # → '\\u043f\\u0440...' (экранировано)",
+        "print(ascii([1,'a']))  # → [1, 'a']",
+        "print(ascii('café'))  # → 'caf\\xe9'",
+        "print(ascii(None))  # → None"
+      ]
     ],
     "related": [
       "repr",
@@ -165,7 +229,10 @@
   },
   {
     "id": "bin",
-    "title": "bin",
+    "title": {
+      "ru": "bin",
+      "en": "bin"
+    },
     "kind": "term",
     "summary": {
       "ru": "Преобразует целое число в строку двоичного представления с префиксом '0b'. Отрицательные числа: bin(-5) → '-0b101'.",
@@ -178,24 +245,36 @@
     "syntax": "bin(x)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#bin",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "числа",
+    "subcat": {
+      "ru": "числа",
+      "en": "numbers"
+    },
     "aliases": [
       "перевести число в двоичную систему",
       "двоичное представление числа",
       "двоичный код числа"
     ],
-    "keywords": [],
+    "keywords": [
+      "bin"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(bin(10))   # → 0b1010",
-      "print(bin(255))  # → 0b11111111",
-      "print(bin(-5))   # → -0b101",
-      "print(bin(0))    # → 0b0",
-      "print(int(bin(42),2))  # → 42"
+      [
+        "print(bin(10))   # → 0b1010",
+        "print(bin(255))  # → 0b11111111",
+        "print(bin(-5))   # → -0b101",
+        "print(bin(0))    # → 0b0",
+        "print(int(bin(42),2))  # → 42"
+      ]
     ],
     "related": [
       "hex",
@@ -207,7 +286,10 @@
   },
   {
     "id": "breakpoint",
-    "title": "breakpoint",
+    "title": {
+      "ru": "breakpoint",
+      "en": "breakpoint"
+    },
     "kind": "term",
     "summary": {
       "ru": "Вызывает встроенный отладчик pdb в месте вызова. Python 3.7+. Поведение можно переопределить через PYTHONBREAKPOINT.",
@@ -220,25 +302,39 @@
     "syntax": "breakpoint()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#breakpoint",
-    "version": "3.7",
+    "added": "3.7",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "отладка",
+    "subcat": {
+      "ru": "отладка",
+      "en": "debugging"
+    },
     "aliases": [
       "точка останова",
       "запустить отладчик",
       "пошаговая отладка кода"
     ],
-    "keywords": [],
+    "keywords": [
+      "breakpoint"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "# breakpoint() — вставляет точку останова",
-      "# Устанавливается через PYTHONBREAKPOINT env",
-      "import os",
-      "os.environ['PYTHONBREAKPOINT']='0'  # отключить",
-      "# breakpoint()  # → войти в pdb",
-      "print('Debugging would start here')  # → debug point"
+      [
+        "# breakpoint() — вставляет точку останова",
+        "# Устанавливается через PYTHONBREAKPOINT env",
+        "import os",
+        "os.environ['PYTHONBREAKPOINT']='0'  # отключить"
+      ],
+      [
+        "# breakpoint()  # остановит программу и откроет отладчик pdb",
+        "print('Debugging would start here')  # → Debugging would start here"
+      ]
     ],
     "related": [
       "print",
@@ -249,7 +345,10 @@
   },
   {
     "id": "callable",
-    "title": "callable",
+    "title": {
+      "ru": "callable",
+      "en": "callable"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если объект можно вызвать: функция, класс, лямбда или объект с методом __call__.",
@@ -262,25 +361,39 @@
     "syntax": "callable(object)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#callable",
-    "version": "3.2",
+    "added": "3.2",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "интроспекция",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
     "aliases": [
       "можно ли вызвать объект",
       "проверить что объект функция"
     ],
-    "keywords": [],
+    "keywords": [
+      "callable"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(callable(print))    # → True",
-      "print(callable(len))      # → True",
-      "print(callable(42))       # → False",
-      "print(callable(lambda: 0))  # → True",
-      "class A:",
-      "    def __call__(self): pass",
-      "print(callable(A()))  # → True"
+      [
+        "print(callable(print))    # → True",
+        "print(callable(len))      # → True",
+        "print(callable(42))       # → False",
+        "print(callable(lambda: 0))  # → True"
+      ],
+      [
+        "class A:",
+        "    def __call__(self): pass",
+        "print(callable(A()))  # → True"
+      ]
     ],
     "related": [
       "вызываемые-объекты-__call__",
@@ -291,7 +404,10 @@
   },
   {
     "id": "chr",
-    "title": "chr",
+    "title": {
+      "ru": "chr",
+      "en": "chr"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает строку из одного символа по его Unicode кодовой точке (целое число). Обратная функция для ord().",
@@ -304,24 +420,36 @@
     "syntax": "chr(i)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#chr",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "строки",
+    "subcat": {
+      "ru": "строки",
+      "en": "strings"
+    },
     "aliases": [
       "символ по коду",
       "преобразовать число в символ",
       "буква по номеру в таблице юникода"
     ],
-    "keywords": [],
+    "keywords": [
+      "chr"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(chr(65))   # → A",
-      "print(chr(97))   # → a",
-      "print(chr(1072)) # → а (кириллица)",
-      "print(chr(9829)) # → ♥",
-      "print(''.join(chr(i) for i in range(65,70)))  # → ABCDE"
+      [
+        "print(chr(65))   # → A",
+        "print(chr(97))   # → a",
+        "print(chr(1072)) # → а (кириллица)",
+        "print(chr(9829)) # → ♥",
+        "print(''.join(chr(i) for i in range(65,70)))  # → ABCDE"
+      ]
     ],
     "related": [
       "ord",
@@ -332,7 +460,10 @@
   },
   {
     "id": "compile",
-    "title": "compile",
+    "title": {
+      "ru": "compile",
+      "en": "compile"
+    },
     "kind": "term",
     "summary": {
       "ru": "Компилирует строку или AST в объект кода (code object). Используется с exec() или eval() для динамического кода.",
@@ -345,25 +476,37 @@
     "syntax": "compile(source, filename, mode)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#compile",
-    "version": "3.8",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "выполнение",
+    "subcat": {
+      "ru": "выполнение",
+      "en": "execution"
+    },
     "aliases": [
       "скомпилировать строку в код",
       "объект кода"
     ],
-    "keywords": [],
+    "keywords": [
+      "compile"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "code = compile('1+2', '<string>', 'eval')",
-      "print(eval(code))  # → 3",
-      "stmt = compile('x=5\\nprint(x)', '<s>', 'exec')",
-      "exec(stmt)  # → 5",
-      "code2 = compile('[x**2 for x in range(5)]','<s>','eval')",
-      "print(eval(code2))  # → [0,1,4,9,16]",
-      "print(type(code))  # → <class 'code'>"
+      [
+        "code = compile('1+2', '<string>', 'eval')",
+        "print(eval(code))  # → 3",
+        "stmt = compile('x=5\\nprint(x)', '<s>', 'exec')",
+        "exec(stmt)  # → 5",
+        "code2 = compile('[x**2 for x in range(5)]','<s>','eval')",
+        "print(eval(code2))  # → [0,1,4,9,16]",
+        "print(type(code))  # → <class 'code'>"
+      ]
     ],
     "related": [
       "eval",
@@ -374,7 +517,10 @@
   },
   {
     "id": "delattr",
-    "title": "delattr",
+    "title": {
+      "ru": "delattr",
+      "en": "delattr"
+    },
     "kind": "term",
     "summary": {
       "ru": "Удаляет атрибут объекта по имени. Эквивалент del obj.attr, но позволяет передать имя атрибута как строку динамически.",
@@ -387,29 +533,41 @@
     "syntax": "delattr(object, name)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#delattr",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "ООП",
+    "subcat": {
+      "ru": "ООП",
+      "en": "OOP"
+    },
     "aliases": [
       "удалить атрибут объекта",
       "удалить свойство по имени"
     ],
-    "keywords": [],
+    "keywords": [
+      "delattr"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "class A:",
-      "    x = 1",
-      "    def __init__(self): self.y = 2",
-      "a = A()",
-      "delattr(a,'y')",
-      "print(hasattr(a,'y'))  # → False",
-      "delattr(A,'x')",
-      "print(hasattr(A,'x'))  # → False",
-      "try:",
-      "    delattr(a,'z')",
-      "except AttributeError as e: print(e)"
+      [
+        "class A:",
+        "    x = 1",
+        "    def __init__(self): self.y = 2",
+        "a = A()",
+        "delattr(a,'y')",
+        "print(hasattr(a,'y'))  # → False",
+        "delattr(A,'x')",
+        "print(hasattr(A,'x'))  # → False",
+        "try:",
+        "    delattr(a,'z')",
+        "except AttributeError as e: print(e)"
+      ]
     ],
     "related": [
       "setattr",
@@ -420,7 +578,10 @@
   },
   {
     "id": "dict",
-    "title": "dict",
+    "title": {
+      "ru": "dict",
+      "en": "dict"
+    },
     "kind": "term",
     "summary": {
       "ru": "Изменяемый маппинг: хранит пары ключ–значение. Ключи уникальны и хешируемы. С Python 3.7 сохраняет порядок вставки.",
@@ -433,25 +594,37 @@
     "syntax": "dict(**kwargs)\ndict(mapping)\ndict(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#func-dict",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "типы",
+    "subcat": {
+      "ru": "типы",
+      "en": "types"
+    },
     "aliases": [
       "словарь",
       "ассоциативный массив",
       "пары ключ-значение"
     ],
-    "keywords": [],
+    "keywords": [
+      "dict"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(dict(a=1,b=2))  # → {'a':1,'b':2}",
-      "print(dict([('x',1),('y',2)]))  # → {'x':1,'y':2}",
-      "print(dict.fromkeys(['a','b'],0))  # → {'a':0,'b':0}",
-      "d=dict(zip('abc',[1,2,3]))",
-      "print(d)  # → {'a':1,'b':2,'c':3}",
-      "print(dict({'a':1},b=2))  # → {'a':1,'b':2}"
+      [
+        "print(dict(a=1,b=2))  # → {'a':1,'b':2}",
+        "print(dict([('x',1),('y',2)]))  # → {'x':1,'y':2}",
+        "print(dict.fromkeys(['a','b'],0))  # → {'a':0,'b':0}",
+        "d=dict(zip('abc',[1,2,3]))",
+        "print(d)  # → {'a':1,'b':2,'c':3}",
+        "print(dict({'a':1},b=2))  # → {'a':1,'b':2}"
+      ]
     ],
     "related": [
       "создание-словаря",
@@ -463,7 +636,10 @@
   },
   {
     "id": "dir",
-    "title": "dir",
+    "title": {
+      "ru": "dir",
+      "en": "dir"
+    },
     "kind": "term",
     "summary": {
       "ru": "Список атрибутов объекта (или локального пространства имён).",
@@ -476,27 +652,41 @@
     "syntax": "dir([object])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#dir",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "интроспекция",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
     "aliases": [
       "список атрибутов объекта",
       "какие методы есть у объекта",
       "посмотреть содержимое объекта"
     ],
-    "keywords": [],
+    "keywords": [
+      "dir"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(dir([])[:5])  # → ? первые пять атрибутов списка (состав зависит от версии Python)",
-      "print('append' in dir([]))  # → True",
-      "class A:",
-      "    x = 1",
-      "    def f(self): pass",
-      "print('x' in dir(A))  # → True",
-      "print('f' in dir(A))  # → True",
-      "print(type(dir([])))  # → <class 'list'>"
+      [
+        "print(dir([])[:5])  # → ? первые пять атрибутов списка (состав зависит от версии Python)",
+        "print('append' in dir([]))  # → True"
+      ],
+      [
+        "class A:",
+        "    x = 1",
+        "    def f(self): pass",
+        "print('x' in dir(A))  # → True",
+        "print('f' in dir(A))  # → True",
+        "print(type(dir([])))  # → <class 'list'>"
+      ]
     ],
     "related": [
       "vars",
@@ -507,7 +697,10 @@
   },
   {
     "id": "end",
-    "title": "end=",
+    "title": {
+      "ru": "end=",
+      "en": "end="
+    },
     "kind": "term",
     "summary": {
       "ru": "Параметр функции print(), задающий строку, добавляемую в конец вывода. По умолчанию — символ новой строки '\\n'. Позволяет выводить на одной строке.",
@@ -520,35 +713,50 @@
     "syntax": "print(*objects, end='строка')",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#print",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Ввод и вывод",
-    "subcat": "вывод",
+    "subcat": {
+      "ru": "вывод",
+      "en": "output"
+    },
     "aliases": [
       "вывод без переноса строки",
       "печать в одну строку",
       "убрать перевод строки при выводе"
     ],
-    "keywords": [],
+    "keywords": [
+      "print",
+      "end"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(\"Загрузка\", end=\"...\"); print(\"готово\")  # → Загрузка...готово",
-      "for i in range(5): print(i, end=\" \")  # → 0 1 2 3 4",
-      "print(\"строка без переноса\", end=\"\")  # курсор остаётся на той же строке",
-      "print(\"раз\", end=\"\\t\"); print(\"два\")  # → раз\tдва",
-      "print(\"конец\", end=\"!\\n\")  # → конец!"
+      [
+        "print(\"Загрузка\", end=\"...\"); print(\"готово\")  # → Загрузка...готово",
+        "for i in range(5): print(i, end=\" \")  # → 0 1 2 3 4",
+        "print(\"строка без переноса\", end=\"\")  # курсор остаётся на той же строке",
+        "print(\"раз\", end=\"\\t\"); print(\"два\")  # → раз\tдва",
+        "print(\"конец\", end=\"!\\n\")  # → конец!"
+      ]
     ],
     "related": [
       "sep",
-      "print",
-      "print-file-flush"
+      "print"
     ],
     "related_errors": []
   },
   {
     "id": "eval",
-    "title": "eval",
+    "title": {
+      "ru": "eval",
+      "en": "eval"
+    },
     "kind": "term",
     "summary": {
       "ru": "Вычисляет выражение из строки. ВНИМАНИЕ: небезопасен для ненадёжного ввода!",
@@ -561,25 +769,37 @@
     "syntax": "eval(expression[, globals[, locals]])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#eval",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "выполнение",
+    "subcat": {
+      "ru": "выполнение",
+      "en": "execution"
+    },
     "aliases": [
       "вычислить выражение из строки",
       "выполнить строку как выражение",
       "превратить строку в число или список"
     ],
-    "keywords": [],
+    "keywords": [
+      "eval"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(eval('2**10'))  # → 1024",
-      "print(eval('[x**2 for x in range(5)]'))  # → [0,1,4,9,16]",
-      "x = 10",
-      "print(eval('x + 5'))  # → 15",
-      "print(eval('1+2', {}))  # → 3 (пустой globals)",
-      "print(eval('abs(-5)', {'abs':abs}))  # → 5"
+      [
+        "print(eval('2**10'))  # → 1024",
+        "print(eval('[x**2 for x in range(5)]'))  # → [0,1,4,9,16]",
+        "x = 10",
+        "print(eval('x + 5'))  # → 15",
+        "print(eval('1+2', {}))  # → 3 (пустой globals)",
+        "print(eval('abs(-5)', {'abs':abs}))  # → 5"
+      ]
     ],
     "related": [
       "exec",
@@ -590,7 +810,10 @@
   },
   {
     "id": "exec",
-    "title": "exec",
+    "title": {
+      "ru": "exec",
+      "en": "exec"
+    },
     "kind": "term",
     "summary": {
       "ru": "Выполняет динамически созданный Python-код: строку или code object. Изменяет переданное пространство имён.",
@@ -603,29 +826,45 @@
     "syntax": "exec(object[, globals[, locals]])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#exec",
-    "version": "",
+    "added": "3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "выполнение",
+    "subcat": {
+      "ru": "выполнение",
+      "en": "execution"
+    },
     "aliases": [
       "выполнить код из строки",
       "запустить строку как программу",
       "динамическое выполнение кода"
     ],
-    "keywords": [],
+    "keywords": [
+      "exec"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "exec('x = 1 + 2')",
-      "# print(x)  # x есть в локальном пространстве?",
-      "g = {}",
-      "exec('y = 42', g)",
-      "print(g['y'])  # → 42",
-      "exec('for i in range(3): print(i)')  # → 0 1 2",
-      "def make_func(name):",
-      "    exec(f'def {name}(): return \"{name}\"', globals())",
-      "    make_func('hello')",
-      "    print(hello())  # → hello"
+      [
+        "exec('x = 1 + 2')"
+      ],
+      [
+        "# print(x)  # x есть в локальном пространстве?",
+        "g = {}",
+        "exec('y = 42', g)",
+        "print(g['y'])  # → 42",
+        "exec('for i in range(3): print(i)')  # → 0 1 2"
+      ],
+      [
+        "def make_func(name):",
+        "    exec(f'def {name}(): return \"{name}\"', globals())",
+        "make_func('hello')",
+        "print(hello())  # → hello"
+      ]
     ],
     "related": [
       "eval",
@@ -637,7 +876,10 @@
   },
   {
     "id": "format",
-    "title": "format",
+    "title": {
+      "ru": "format",
+      "en": "format"
+    },
     "kind": "term",
     "summary": {
       "ru": "Форматирует значение по строке спецификации формата (format spec). Вызывает метод __format__ объекта.",
@@ -650,9 +892,17 @@
     "syntax": "format(value, format_spec='')",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#format",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "строки",
+    "subcat": {
+      "ru": "строки",
+      "en": "strings"
+    },
     "aliases": [
       "форматирование числа",
       "вывести число с двумя знаками после запятой",
@@ -665,11 +915,13 @@
       "builtin"
     ],
     "examples": [
-      "print(format(3.14159, '.2f'))  # → 3.14",
-      "print(format(42, '08b'))  # → 00101010",
-      "print(format(1000000, ','))  # → 1,000,000",
-      "print(format('hello', '^10'))  # →   hello",
-      "print(format(0.25, '%'))  # → 25.000000%"
+      [
+        "print(format(3.14159, '.2f'))  # → 3.14",
+        "print(format(42, '08b'))  # → 00101010",
+        "print(format(1000000, ','))  # → 1,000,000",
+        "print(format('hello', '^10'))  # →   hello",
+        "print(format(0.25, '%'))  # → 25.000000%"
+      ]
     ],
     "related": [
       "format-метод-форматирования",
@@ -681,7 +933,10 @@
   },
   {
     "id": "frozenset",
-    "title": "frozenset",
+    "title": {
+      "ru": "frozenset",
+      "en": "frozenset"
+    },
     "kind": "term",
     "summary": {
       "ru": "Неизменяемое множество. Поддерживает все операции set (объединение, пересечение и т.д.), но не поддерживает add() и remove(). Хешируемо — можно использовать как ключ словаря.",
@@ -694,26 +949,38 @@
     "syntax": "frozenset(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#func-frozenset",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "типы",
+    "subcat": {
+      "ru": "типы",
+      "en": "types"
+    },
     "aliases": [
       "замороженное множество",
       "хешируемое множество",
       "множество как ключ словаря"
     ],
-    "keywords": [],
+    "keywords": [
+      "frozenset"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "fs = frozenset([1,2,3,2,1])",
-      "print(fs)  # → frozenset({1, 2, 3})",
-      "print(sorted(frozenset('hello')))  # → ['e', 'h', 'l', 'o'] (порядок множества не определён, поэтому сортируем)",
-      "d = {frozenset([1,2]): 'value'}",
-      "print(d)  # → {frozenset({1, 2}): 'value'}",
-      "print(1 in fs)  # → True",
-      "print(fs & frozenset([2,3,4]))  # → frozenset({2, 3})"
+      [
+        "fs = frozenset([1,2,3,2,1])",
+        "print(fs)  # → frozenset({1, 2, 3})",
+        "print(sorted(frozenset('hello')))  # → ['e', 'h', 'l', 'o'] (порядок множества не определён, поэтому сортируем)",
+        "d = {frozenset([1,2]): 'value'}",
+        "print(d)  # → {frozenset({1, 2}): 'value'}",
+        "print(1 in fs)  # → True",
+        "print(fs & frozenset([2,3,4]))  # → frozenset({2, 3})"
+      ]
     ],
     "related": [
       "frozenset-неизменяемое-множество",
@@ -724,7 +991,10 @@
   },
   {
     "id": "getattr",
-    "title": "getattr",
+    "title": {
+      "ru": "getattr",
+      "en": "getattr"
+    },
     "kind": "term",
     "summary": {
       "ru": "Получает атрибут объекта по имени как строке. Третий аргумент — значение по умолчанию, если атрибут не существует (иначе AttributeError).",
@@ -737,27 +1007,39 @@
     "syntax": "getattr(object, name[, default])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#getattr",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "ООП",
+    "subcat": {
+      "ru": "ООП",
+      "en": "OOP"
+    },
     "aliases": [
       "получить атрибут по имени",
       "обращение к полю объекта через строку",
       "динамический доступ к атрибуту"
     ],
-    "keywords": [],
+    "keywords": [
+      "getattr"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "class A:",
-      "    x = 42",
-      "a = A()",
-      "print(getattr(a,'x'))  # → 42",
-      "print(getattr(a,'y',None))  # → None",
-      "getattr([1,2,3],'append')(4)  # → [1,2,3,4]",
-      "print(getattr('hello','upper')())  # → HELLO",
-      "name = 'x'; print(getattr(a, name))  # → 42"
+      [
+        "class A:",
+        "    x = 42",
+        "a = A()",
+        "print(getattr(a,'x'))  # → 42",
+        "print(getattr(a,'y',None))  # → None",
+        "getattr([1,2,3],'append')(4)  # → [1,2,3,4]",
+        "print(getattr('hello','upper')())  # → HELLO",
+        "name = 'x'; print(getattr(a, name))  # → 42"
+      ]
     ],
     "related": [
       "setattr",
@@ -769,7 +1051,10 @@
   },
   {
     "id": "globals",
-    "title": "globals",
+    "title": {
+      "ru": "globals",
+      "en": "globals"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает словарь глобального пространства имён текущего модуля.",
@@ -782,26 +1067,38 @@
     "syntax": "globals()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#globals",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "пространства имён",
+    "subcat": {
+      "ru": "пространства имён",
+      "en": "namespaces"
+    },
     "aliases": [
       "глобальные переменные модуля",
       "словарь глобальных имён",
       "обратиться к переменной по её имени-строке"
     ],
-    "keywords": [],
+    "keywords": [
+      "globals"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "x = 42",
-      "print('x' in globals())  # → True",
-      "print(globals()['x'])  # → 42",
-      "globals()['new_var'] = 99",
-      "print(new_var)  # → 99",
-      "print(type(globals()))  # → dict",
-      "print('print' in dir(__builtins__))  # → True"
+      [
+        "x = 42",
+        "print('x' in globals())  # → True",
+        "print(globals()['x'])  # → 42",
+        "globals()['new_var'] = 99",
+        "print(new_var)  # → 99",
+        "print(type(globals()))  # → dict",
+        "print('print' in dir(__builtins__))  # → True"
+      ]
     ],
     "related": [
       "locals",
@@ -813,7 +1110,10 @@
   },
   {
     "id": "hasattr",
-    "title": "hasattr",
+    "title": {
+      "ru": "hasattr",
+      "en": "hasattr"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если у объекта есть атрибут с указанным именем. Реализован через попытку getattr() — проверяет наличие без исключения.",
@@ -826,27 +1126,39 @@
     "syntax": "hasattr(object, name)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#hasattr",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "ООП",
+    "subcat": {
+      "ru": "ООП",
+      "en": "OOP"
+    },
     "aliases": [
       "проверить наличие атрибута",
       "есть ли у объекта поле",
       "проверка существования свойства"
     ],
-    "keywords": [],
+    "keywords": [
+      "hasattr"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "class A:",
-      "    x = 1",
-      "a = A()",
-      "print(hasattr(a,'x'))  # → True",
-      "print(hasattr(a,'y'))  # → False",
-      "print(hasattr([],'append'))  # → True",
-      "print(hasattr([],'nonexistent'))  # → False",
-      "print(hasattr('str','upper'))  # → True"
+      [
+        "class A:",
+        "    x = 1",
+        "a = A()",
+        "print(hasattr(a,'x'))  # → True",
+        "print(hasattr(a,'y'))  # → False",
+        "print(hasattr([],'append'))  # → True",
+        "print(hasattr([],'nonexistent'))  # → False",
+        "print(hasattr('str','upper'))  # → True"
+      ]
     ],
     "related": [
       "getattr",
@@ -857,7 +1169,10 @@
   },
   {
     "id": "hash",
-    "title": "hash",
+    "title": {
+      "ru": "hash",
+      "en": "hash"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает целочисленный хеш объекта. Объект должен быть хешируемым (неизменяемым). Используется словарями и множествами.",
@@ -870,26 +1185,38 @@
     "syntax": "hash(object)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#hash",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "интроспекция",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
     "aliases": [
       "хеш объекта",
       "хешируемый объект",
       "почему список не может быть ключом словаря"
     ],
-    "keywords": [],
+    "keywords": [
+      "hash"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(hash(42))      # → 42",
-      "print(hash('hello')) # → ? хеш строки солится PYTHONHASHSEED и меняется от запуска",
-      "print(hash((1,2,3))) # → ? хеш кортежа считается из хешей элементов",
-      "try:",
-      "    hash([1,2,3])  # список нехешируем — будет TypeError",
-      "except TypeError as e: print(e)  # → unhashable type: 'list'",
-      "print(hash(42) == hash(42.0))  # → True (равные объекты)"
+      [
+        "print(hash(42))      # → 42",
+        "print(hash('hello')) # → ? хеш строки солится PYTHONHASHSEED и меняется от запуска",
+        "print(hash((1,2,3))) # → ? хеш кортежа считается из хешей элементов",
+        "try:",
+        "    hash([1,2,3])  # список нехешируем — будет TypeError",
+        "except TypeError as e: print(e)  # → unhashable type: 'list'",
+        "print(hash(42) == hash(42.0))  # → True (равные объекты)"
+      ]
     ],
     "related": [
       "collections.abc.Hashable",
@@ -901,7 +1228,10 @@
   },
   {
     "id": "help",
-    "title": "help",
+    "title": {
+      "ru": "help",
+      "en": "help"
+    },
     "kind": "term",
     "summary": {
       "ru": "Выводит встроенную справку по объекту, функции или модулю. В интерактивном режиме без аргумента запускает интерактивную справку.",
@@ -914,24 +1244,38 @@
     "syntax": "help([object])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#help",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "интроспекция",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
     "aliases": [
       "встроенная справка",
       "документация по функции",
       "как узнать что делает функция"
     ],
-    "keywords": [],
+    "keywords": [
+      "help"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "help(len)  # → выводит справку о len",
-      "help(str.upper)  # → справка о методе",
-      "help(list)  # → все методы списка",
-      "print(len.__doc__[:30])  # → Return the number of items...",
-      "import math; help(math.sqrt)  # → sqrt справка"
+      [
+        "help(len)  # → выводит справку о len",
+        "help(str.upper)  # → справка о методе",
+        "help(list)  # → все методы списка",
+        "print(len.__doc__[:30])  # → Return the number of items..."
+      ],
+      [
+        "import math; help(math.sqrt)  # → sqrt справка"
+      ]
     ],
     "related": [
       "dir",
@@ -941,7 +1285,10 @@
   },
   {
     "id": "hex",
-    "title": "hex",
+    "title": {
+      "ru": "hex",
+      "en": "hex"
+    },
     "kind": "term",
     "summary": {
       "ru": "Преобразует целое число в строку шестнадцатеричного представления с префиксом '0x'. Буквы в нижнем регистре.",
@@ -954,23 +1301,35 @@
     "syntax": "hex(x)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#hex",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "числа",
+    "subcat": {
+      "ru": "числа",
+      "en": "numbers"
+    },
     "aliases": [
       "перевести число в шестнадцатеричную систему",
       "шестнадцатеричное представление числа"
     ],
-    "keywords": [],
+    "keywords": [
+      "hex"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(hex(255))  # → 0xff",
-      "print(hex(16))   # → 0x10",
-      "print(hex(-42))  # → -0x2a",
-      "print(hex(0))    # → 0x0",
-      "print(int(hex(255), 16))  # → 255"
+      [
+        "print(hex(255))  # → 0xff",
+        "print(hex(16))   # → 0x10",
+        "print(hex(-42))  # → -0x2a",
+        "print(hex(0))    # → 0x0",
+        "print(int(hex(255), 16))  # → 255"
+      ]
     ],
     "related": [
       "bin",
@@ -982,7 +1341,10 @@
   },
   {
     "id": "id",
-    "title": "id",
+    "title": {
+      "ru": "id",
+      "en": "id"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает уникальный идентификатор объекта (адрес в памяти).",
@@ -995,31 +1357,45 @@
     "syntax": "id(object)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#id",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "интроспекция",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
     "aliases": [
       "идентификатор объекта",
       "адрес объекта в памяти",
       "это один и тот же объект"
     ],
-    "keywords": [],
+    "keywords": [
+      "id"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "x = 42",
-      "y = x",
-      "print(id(x) == id(y))  # → True (одно и то же имя, один объект)",
-      "print(id(42) == id(42))  # → True (маленькие целые интернированы)",
-      "a = 'hello'; b = 'hello'",
-      "print(id(a) == id(b))  # → True (интернирование строк)",
-      "# Ловушка: id([]) == id([]) даёт True, и это НЕ значит «один объект».",
-      "# Первый список освобождается сразу после вычисления id, и второй получает",
-      "# тот же адрес. Сравнивать так нельзя — объекты должны быть ЖИВЫ:",
-      "first, second = [], []",
-      "print(id(first) == id(second))  # → False (два живых списка — разные объекты)",
-      "print(first is second)  # → False (is сравнивает по id, но держит ссылки)"
+      [
+        "x = 42",
+        "y = x",
+        "print(id(x) == id(y))  # → True (одно и то же имя, один объект)",
+        "print(id(42) == id(42))  # → True (маленькие целые интернированы)",
+        "a = 'hello'; b = 'hello'",
+        "print(id(a) == id(b))  # → True (интернирование строк)"
+      ],
+      [
+        "# Ловушка: id([]) == id([]) даёт True, и это НЕ значит «один объект».",
+        "# Первый список освобождается сразу после вычисления id, и второй получает",
+        "# тот же адрес. Сравнивать так нельзя — объекты должны быть ЖИВЫ:",
+        "first, second = [], []",
+        "print(id(first) == id(second))  # → False (два живых списка — разные объекты)",
+        "print(first is second)  # → False (is сравнивает по id, но держит ссылки)"
+      ]
     ],
     "related": [
       "is-is-not",
@@ -1030,7 +1406,10 @@
   },
   {
     "id": "input",
-    "title": "input()",
+    "title": {
+      "ru": "input()",
+      "en": "input()"
+    },
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция для чтения строки с клавиатуры. Выводит необязательный приглашающий текст и возвращает введённую строку без символа новой строки.",
@@ -1043,30 +1422,42 @@
     "syntax": "input([prompt]) -> str",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#input",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Ввод и вывод",
-    "subcat": "ввод",
+    "subcat": {
+      "ru": "ввод",
+      "en": "input"
+    },
     "aliases": [
       "ввод с клавиатуры",
       "считать строку от пользователя",
       "запросить данные у пользователя"
     ],
-    "keywords": [],
+    "keywords": [
+      "input"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "# name = input(\"Введите имя: \")  # пользователь вводит строку",
-      "# age = int(input(\"Возраст: \"))  # → преобразование в int",
-      "# price = float(input(\"Цена: \"))  # → преобразование в float",
-      "# Проверка: x = int(input()) if input().isdigit() else 0",
-      "# line1 = input(\"Строка 1: \"); line2 = input(\"Строка 2: \")",
-      "# s = input(\"  hello  \").strip()  # → \"hello\" (убирает пробелы)",
-      "# Симуляция ввода без клавиатуры:",
-      "import io, sys",
-      "sys.stdin = io.StringIO('Alice\\n')",
-      "print(input())  # → Alice",
-      "sys.stdin = sys.__stdin__"
+      [
+        "# name = input(\"Введите имя: \")  # пользователь вводит строку",
+        "# age = int(input(\"Возраст: \"))  # → преобразование в int",
+        "# price = float(input(\"Цена: \"))  # → преобразование в float",
+        "# Проверка: s = input(); x = int(s) if s.isdigit() else 0  # input() один раз",
+        "# line1 = input(\"Строка 1: \"); line2 = input(\"Строка 2: \")",
+        "# s = input().strip()  # ввели \"  hello  \" → \"hello\" (strip чистит сам ввод)",
+        "# Симуляция ввода без клавиатуры:",
+        "import io, sys",
+        "sys.stdin = io.StringIO('Alice\\n')",
+        "print(input())  # → Alice",
+        "sys.stdin = sys.__stdin__"
+      ]
     ],
     "related": [
       "print",
@@ -1080,7 +1471,10 @@
   },
   {
     "id": "issubclass",
-    "title": "issubclass",
+    "title": {
+      "ru": "issubclass",
+      "en": "issubclass"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если класс является подклассом указанного класса или одного из классов в кортеже.",
@@ -1093,26 +1487,40 @@
     "syntax": "issubclass(class, classinfo)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#issubclass",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "интроспекция/ООП",
+    "subcat": {
+      "ru": "интроспекция/ООП",
+      "en": "introspection/OOP"
+    },
     "aliases": [
       "проверка подкласса",
       "является ли класс наследником",
       "проверить наследование класса"
     ],
-    "keywords": [],
+    "keywords": [
+      "issubclass"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(issubclass(bool, int))   # → True",
-      "print(issubclass(int, object))  # → True",
-      "print(issubclass(list, (list,tuple)))  # → True",
-      "class A: pass",
-      "class B(A): pass",
-      "print(issubclass(B, A))  # → True",
-      "print(issubclass(A, B))  # → False"
+      [
+        "print(issubclass(bool, int))   # → True",
+        "print(issubclass(int, object))  # → True",
+        "print(issubclass(list, (list,tuple)))  # → True"
+      ],
+      [
+        "class A: pass",
+        "class B(A): pass",
+        "print(issubclass(B, A))  # → True",
+        "print(issubclass(A, B))  # → False"
+      ]
     ],
     "related": [
       "isinstance",
@@ -1124,7 +1532,10 @@
   },
   {
     "id": "iter",
-    "title": "iter",
+    "title": {
+      "ru": "iter",
+      "en": "iter"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает итератор. С двумя аргументами — вызывает функцию до значения sentinel.",
@@ -1137,41 +1548,86 @@
     "syntax": "iter(object)\niter(callable, sentinel)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#iter",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "итераторы",
+    "subcat": {
+      "ru": "итераторы",
+      "en": "iterators"
+    },
     "aliases": [
       "получить итератор",
       "создать итератор из последовательности",
-      "ручной перебор элементов"
+      "ручной перебор элементов",
+      "создать итератор из коллекции",
+      "получить следующий элемент",
+      "ручной перебор без цикла"
     ],
-    "keywords": [],
+    "keywords": [
+      "iter",
+      "next"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "it = iter([1,2,3])",
-      "print(next(it), next(it))  # → 1 2",
-      "it2 = iter('hello')",
-      "print(list(it2))  # → ['h','e','l','l','o']",
-      "# sentinel-вариант",
-      "from io import StringIO",
-      "f = StringIO('a\\nb\\nc')",
-      "for line in iter(f.readline, ''):",
-      "    print(line.strip())",
-      "    print(list(iter(range(5))))  # → [0,1,2,3,4]"
+      [
+        "it = iter([1,2,3])",
+        "print(next(it), next(it))  # → 1 2",
+        "it2 = iter('hello')",
+        "print(list(it2))  # → ['h','e','l','l','o']"
+      ],
+      [
+        "# sentinel-вариант",
+        "from io import StringIO",
+        "f = StringIO('a\\nb\\nc')",
+        "for line in iter(f.readline, ''):",
+        "    print(line.strip())",
+        "print(list(iter(range(5))))  # → [0, 1, 2, 3, 4]"
+      ],
+      [
+        "it = iter([1,2,3])",
+        "print(next(it))  # → 1",
+        "print(next(it))  # → 2",
+        "print(next(it))  # → 3",
+        "print(next(it, 'end'))  # → end"
+      ],
+      [
+        "# iter со sentinel: вызывать, пока не вернёт ''",
+        "import io",
+        "f = io.StringIO('line1\\nline2\\n')",
+        "for line in iter(f.readline, ''):",
+        "    print(line.strip())  # → line1 / line2",
+        "for ch in iter('hello'):",
+        "    print(ch, end='')  # → hello",
+        "print()",
+        "print(next(iter([]), None))  # → None — default вместо StopIteration"
+      ],
+      [
+        "# Бесконечный итератор + islice",
+        "from itertools import islice, count",
+        "it4 = count(1)",
+        "print(list(islice(it4, 5)))  # → [1,2,3,4,5]"
+      ]
     ],
     "related": [
       "next",
       "итератор-__iter__-__next__",
       "stopiteration",
-      "iter-next"
+      "generator-function-yield"
     ],
     "related_errors": []
   },
   {
     "id": "list",
-    "title": "list",
+    "title": {
+      "ru": "list",
+      "en": "list"
+    },
     "kind": "term",
     "summary": {
       "ru": "Создаёт изменяемый список из итерируемого или пустой список. list() без аргументов эквивалентен [].",
@@ -1184,24 +1640,36 @@
     "syntax": "list(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#func-list",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "типы",
+    "subcat": {
+      "ru": "типы",
+      "en": "types"
+    },
     "aliases": [
       "список",
       "массив в питоне",
       "преобразовать в список"
     ],
-    "keywords": [],
+    "keywords": [
+      "list"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(list('hello'))  # → ['h','e','l','l','o']",
-      "print(list(range(5)))  # → [0,1,2,3,4]",
-      "print(list({1,2,3}))  # → [1,2,3]",
-      "print(list({'a':1,'b':2}))  # → ['a','b']",
-      "print(list(zip([1,2],[3,4])))  # → [(1,3),(2,4)]"
+      [
+        "print(list('hello'))  # → ['h','e','l','l','o']",
+        "print(list(range(5)))  # → [0,1,2,3,4]",
+        "print(list({1,2,3}))  # → [1,2,3]",
+        "print(list({'a':1,'b':2}))  # → ['a','b']",
+        "print(list(zip([1,2],[3,4])))  # → [(1,3),(2,4)]"
+      ]
     ],
     "related": [
       "создание-списка",
@@ -1213,11 +1681,14 @@
   },
   {
     "id": "locals",
-    "title": "locals",
+    "title": {
+      "ru": "locals",
+      "en": "locals"
+    },
     "kind": "term",
     "summary": {
-      "ru": "Возвращает словарь текущего локального пространства имён. В модуле совпадает с globals(). Копия, не ссылка.",
-      "en": "Returns a dictionary of the current local namespace. At module level it matches globals(). A copy, not a reference."
+      "ru": "Возвращает словарь текущего локального пространства имён. В модуле это тот же объект, что globals(); внутри функции — снимок, не ссылка.",
+      "en": "Returns a dictionary of the current local namespace. At module level it is the very object globals() returns; inside a function it is a snapshot, not a reference."
     },
     "body": {
       "ru": "Внутри функции это снимок: записать что-то в полученный словарь и ждать появления новой локальной переменной бесполезно — обратной связи с кадром нет (в Python 3.13 это закреплено PEP 667, раньше поведение зависело от реализации). На уровне модуля и в теле класса locals() отдаёт настоящий словарь пространства имён, и правки в нём как раз видны — отсюда путаница. В функции попадают только те имена, которым уже что-то присвоено к моменту вызова.",
@@ -1226,29 +1697,43 @@
     "syntax": "locals()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#locals",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "пространства имён",
+    "subcat": {
+      "ru": "пространства имён",
+      "en": "namespaces"
+    },
     "aliases": [
       "локальные переменные функции",
       "словарь локальных имён",
       "какие переменные видны внутри функции"
     ],
-    "keywords": [],
+    "keywords": [
+      "locals"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "def f():",
-      "    x = 10; y = 20",
-      "    return locals()",
-      "print(f())  # → {'x':10,'y':20}",
-      "def g(a, b):",
-      "    c = a+b",
-      "    print('c' in locals())  # → True",
-      "    return locals()",
-      "print(g(1,2))  # → {'a':1,'b':2,'c':3}",
-      "print(type(locals()))  # → <class 'dict'>"
+      [
+        "def f():",
+        "    x = 10; y = 20",
+        "    return locals()",
+        "print(f())  # → {'x':10,'y':20}"
+      ],
+      [
+        "def g(a, b):",
+        "    c = a+b",
+        "    print('c' in locals())  # → True",
+        "    return locals()",
+        "print(g(1,2))  # → {'a':1,'b':2,'c':3}",
+        "print(type(locals()))  # → <class 'dict'>"
+      ]
     ],
     "related": [
       "globals",
@@ -1260,7 +1745,10 @@
   },
   {
     "id": "max",
-    "title": "max",
+    "title": {
+      "ru": "max",
+      "en": "max"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает наибольший элемент итерируемого или наибольший из переданных аргументов. Поддерживает key-функцию.",
@@ -1273,24 +1761,36 @@
     "syntax": "max(iterable, *, key=None)\nmax(a, b, ...)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#max",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "числа/коллекции",
+    "subcat": {
+      "ru": "числа/коллекции",
+      "en": "numbers/collections"
+    },
     "aliases": [
       "максимум",
       "наибольшее значение",
       "найти самое большое число"
     ],
-    "keywords": [],
+    "keywords": [
+      "max"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(max(3,1,4,1,5))  # → 5",
-      "print(max([10,20,5]))  # → 20",
-      "print(max('apple','banana','cherry'))  # → cherry",
-      "print(max([1,2,3], key=lambda x:-x))  # → 1",
-      "print(max([], default=0))  # → 0"
+      [
+        "print(max(3,1,4,1,5))  # → 5",
+        "print(max([10,20,5]))  # → 20",
+        "print(max('apple','banana','cherry'))  # → cherry",
+        "print(max([1,2,3], key=lambda x:-x))  # → 1",
+        "print(max([], default=0))  # → 0"
+      ]
     ],
     "related": [
       "min",
@@ -1301,7 +1801,10 @@
   },
   {
     "id": "memoryview",
-    "title": "memoryview",
+    "title": {
+      "ru": "memoryview",
+      "en": "memoryview"
+    },
     "kind": "term",
     "summary": {
       "ru": "Создаёт объект представления буфера без копирования данных. Позволяет работать со срезами бинарных данных эффективно.",
@@ -1314,27 +1817,39 @@
     "syntax": "memoryview(object)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#func-memoryview",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "типы",
+    "subcat": {
+      "ru": "типы",
+      "en": "types"
+    },
     "aliases": [
       "работа с байтами без копирования",
       "срез бинарных данных без копирования",
       "представление памяти"
     ],
-    "keywords": [],
+    "keywords": [
+      "memoryview"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "b = bytearray(b'hello world')",
-      "mv = memoryview(b)",
-      "print(bytes(mv[6:11]))  # → b'world'",
-      "mv[0] = ord('H')",
-      "print(b)  # → bytearray(b'Hello world')",
-      "print(mv.format)  # → B (unsigned char)",
-      "print(mv.itemsize)  # → 1",
-      "print(len(mv))  # → 11"
+      [
+        "b = bytearray(b'hello world')",
+        "mv = memoryview(b)",
+        "print(bytes(mv[6:11]))  # → b'world'",
+        "mv[0] = ord('H')",
+        "print(b)  # → bytearray(b'Hello world')",
+        "print(mv.format)  # → B (unsigned char)",
+        "print(mv.itemsize)  # → 1",
+        "print(len(mv))  # → 11"
+      ]
     ],
     "related": [
       "bytearray",
@@ -1346,7 +1861,10 @@
   },
   {
     "id": "min",
-    "title": "min",
+    "title": {
+      "ru": "min",
+      "en": "min"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает наименьший элемент итерируемого или наименьший из переданных аргументов. Поддерживает key-функцию.",
@@ -1359,24 +1877,36 @@
     "syntax": "min(iterable, *, key=None)\nmin(a, b, ...)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#min",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "числа/коллекции",
+    "subcat": {
+      "ru": "числа/коллекции",
+      "en": "numbers/collections"
+    },
     "aliases": [
       "минимум",
       "наименьшее значение",
       "найти самое маленькое число"
     ],
-    "keywords": [],
+    "keywords": [
+      "min"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(min(3,1,4,1,5))  # → 1",
-      "print(min([10,20,5]))  # → 5",
-      "print(min('apple','banana','cherry'))  # → apple",
-      "print(min([1,2,3], key=lambda x:-x))  # → 3",
-      "print(min([], default=0))  # → 0"
+      [
+        "print(min(3,1,4,1,5))  # → 1",
+        "print(min([10,20,5]))  # → 5",
+        "print(min('apple','banana','cherry'))  # → apple",
+        "print(min([1,2,3], key=lambda x:-x))  # → 3",
+        "print(min([], default=0))  # → 0"
+      ]
     ],
     "related": [
       "max",
@@ -1387,7 +1917,10 @@
   },
   {
     "id": "next",
-    "title": "next",
+    "title": {
+      "ru": "next",
+      "en": "next"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает следующий элемент итератора. default — если итератор исчерпан.",
@@ -1400,26 +1933,38 @@
     "syntax": "next(iterator[, default])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#next",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "итераторы",
+    "subcat": {
+      "ru": "итераторы",
+      "en": "iterators"
+    },
     "aliases": [
       "следующий элемент итератора",
       "взять следующее значение генератора",
       "первый подходящий элемент"
     ],
-    "keywords": [],
+    "keywords": [
+      "next"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "it = iter([1,2,3])",
-      "print(next(it))  # → 1",
-      "print(next(it))  # → 2",
-      "print(next(it))  # → 3",
-      "print(next(it, 'end'))  # → end",
-      "g = (x**2 for x in range(5))",
-      "print(next(g), next(g))  # → 0 1"
+      [
+        "it = iter([1,2,3])",
+        "print(next(it))  # → 1",
+        "print(next(it))  # → 2",
+        "print(next(it))  # → 3",
+        "print(next(it, 'end'))  # → end",
+        "g = (x**2 for x in range(5))",
+        "print(next(g), next(g))  # → 0 1"
+      ]
     ],
     "related": [
       "iter",
@@ -1430,7 +1975,10 @@
   },
   {
     "id": "object",
-    "title": "object",
+    "title": {
+      "ru": "object",
+      "en": "object"
+    },
     "kind": "term",
     "summary": {
       "ru": "Базовый класс всех классов Python. Предоставляет методы по умолчанию: __str__, __repr__, __eq__, __hash__ и другие магические методы.",
@@ -1443,38 +1991,55 @@
     "syntax": "object()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#object",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "ООП",
+    "subcat": {
+      "ru": "ООП",
+      "en": "OOP"
+    },
     "aliases": [
       "базовый класс всех объектов",
       "родитель всех классов",
       "корень иерархии классов"
     ],
-    "keywords": [],
+    "keywords": [
+      "object"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "o = object()",
-      "print(type(o))  # → <class 'object'>",
-      "print(isinstance(42, object))  # → True",
-      "print(isinstance('hi', object))  # → True",
-      "class A(object): pass  # явно наследуется",
-      "print(A.__bases__)  # → (<class 'object'>,)",
-      "print(dir(object())[:2])  # → ['__class__', '__delattr__']"
+      [
+        "o = object()",
+        "print(type(o))  # → <class 'object'>",
+        "print(isinstance(42, object))  # → True",
+        "print(isinstance('hi', object))  # → True"
+      ],
+      [
+        "class A(object): pass  # явно наследуется",
+        "print(A.__bases__)  # → (<class 'object'>,)",
+        "print(dir(object())[:2])  # → ['__class__', '__delattr__']"
+      ]
     ],
     "related": [
       "class",
       "наследование",
       "type",
-      "__str__-__repr__"
+      "repr-vs-str"
     ],
     "related_errors": []
   },
   {
     "id": "oct",
-    "title": "oct",
+    "title": {
+      "ru": "oct",
+      "en": "oct"
+    },
     "kind": "term",
     "summary": {
       "ru": "Преобразует целое число в строку восьмеричного представления с префиксом '0o'.",
@@ -1487,23 +2052,35 @@
     "syntax": "oct(x)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#oct",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "числа",
+    "subcat": {
+      "ru": "числа",
+      "en": "numbers"
+    },
     "aliases": [
       "перевести число в восьмеричную систему",
       "восьмеричное представление числа"
     ],
-    "keywords": [],
+    "keywords": [
+      "oct"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(oct(8))    # → 0o10",
-      "print(oct(255))  # → 0o377",
-      "print(oct(64))   # → 0o100",
-      "print(oct(-8))   # → -0o10",
-      "print(int(oct(8),8))  # → 8"
+      [
+        "print(oct(8))    # → 0o10",
+        "print(oct(255))  # → 0o377",
+        "print(oct(64))   # → 0o100",
+        "print(oct(-8))   # → -0o10",
+        "print(int(oct(8),8))  # → 8"
+      ]
     ],
     "related": [
       "bin",
@@ -1515,7 +2092,10 @@
   },
   {
     "id": "ord",
-    "title": "ord",
+    "title": {
+      "ru": "ord",
+      "en": "ord"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает Unicode кодовую точку (целое число) символа. Принимает строку длиной 1. Обратная функция для chr().",
@@ -1528,24 +2108,36 @@
     "syntax": "ord(c)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#ord",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "строки",
+    "subcat": {
+      "ru": "строки",
+      "en": "strings"
+    },
     "aliases": [
       "код символа",
       "номер символа в юникоде",
       "преобразовать букву в число"
     ],
-    "keywords": [],
+    "keywords": [
+      "ord"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(ord('A'))   # → 65",
-      "print(ord('a'))   # → 97",
-      "print(ord('а'))   # → 1072 (кириллица)",
-      "print(ord('0'))   # → 48",
-      "print([ord(c) for c in 'ABC'])  # → [65,66,67]"
+      [
+        "print(ord('A'))   # → 65",
+        "print(ord('a'))   # → 97",
+        "print(ord('а'))   # → 1072 (кириллица)",
+        "print(ord('0'))   # → 48",
+        "print([ord(c) for c in 'ABC'])  # → [65,66,67]"
+      ]
     ],
     "related": [
       "chr",
@@ -1556,7 +2148,10 @@
   },
   {
     "id": "print",
-    "title": "print()",
+    "title": {
+      "ru": "print()",
+      "en": "print()"
+    },
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция для вывода данных на стандартный вывод (экран). Принимает любое количество аргументов, разделяет их параметром sep и заканчивает строку параметром end.",
@@ -1569,79 +2164,80 @@
     "syntax": "print(*objects, sep=' ', end='\\n', file=sys.stdout, flush=False)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#print",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Ввод и вывод",
-    "subcat": "вывод",
+    "subcat": {
+      "ru": "вывод",
+      "en": "output"
+    },
     "aliases": [
       "вывод на экран",
       "печать в консоль",
-      "напечатать результат"
+      "напечатать результат",
+      "печать в файл",
+      "перенаправление вывода",
+      "сброс буфера вывода"
     ],
-    "keywords": [],
+    "keywords": [
+      "print",
+      "file",
+      "flush",
+      "sys.stdout",
+      "sys.stderr"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(\"Hello, World!\")  # → Hello, World!",
-      "print(\"a\", \"b\", \"c\", sep=\"-\")  # → a-b-c",
-      "print(\"Нет переноса\", end=\"\")  # → Нет переноса",
-      "print(\"x =\", 42, \"y =\", 3.14)  # → x = 42 y = 3.14",
-      "name = \"Анна\"; age = 25",
-      "print(f\"{name} — {age} лет\")  # → Анна — 25 лет",
-      "print(f\"{3.14159:.2f}\")  # → 3.14",
-      "with open(\"_test.txt\", \"w\") as f:",
-      "    print(\"в файл\", file=f)  # записывает строку в файл",
-      "    import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !",
-      "    import sys; print(\"ошибка\", file=sys.stderr)  # → в поток ошибок"
+      [
+        "print(\"Hello, World!\")  # → Hello, World!",
+        "print(\"a\", \"b\", \"c\", sep=\"-\")  # → a-b-c",
+        "print(\"x =\", 42, \"y =\", 3.14)  # → x = 42 y = 3.14",
+        "name = \"Анна\"; age = 25",
+        "print(f\"{name} — {age} лет\")  # → Анна — 25 лет",
+        "print(f\"{3.14159:.2f}\")  # → 3.14"
+      ],
+      [
+        "print(\"Нет переноса\", end=\"\")",
+        "print(\"!\")  # → Нет переноса!"
+      ],
+      [
+        "import sys",
+        "print(\"ошибка\", file=sys.stderr)  # → ошибка (в поток ошибок, а не в stdout)",
+        "print(\"сразу\", flush=True)  # → сразу (буфер сброшен немедленно)"
+      ],
+      [
+        "with open(\"_test.txt\", \"w\") as f:",
+        "    print(\"в файл\", file=f)  # на экран ничего — строка ушла в файл"
+      ],
+      [
+        "import sys",
+        "print(\"ошибка!\", file=sys.stderr)  # → ошибка! (в stderr)",
+        "print(1, 2, 3, sep=\"-\", file=sys.stdout, flush=True)  # → 1-2-3",
+        "print(\".\", end=\"\", flush=True)  # → . — без буфера и без переноса строки"
+      ],
+      [
+        "with open(\"_gloss_test.txt\", \"w\") as f:",
+        "    print(\"запись\", file=f)  # на экран ничего — строка ушла в файл"
+      ],
+      [
+        "import io",
+        "buf = io.StringIO()",
+        "print(\"в буфер\", file=buf)",
+        "print(buf.getvalue(), end='')  # → в буфер"
+      ]
     ],
     "related": [
       "input",
       "sep",
       "end",
-      "f-строки"
-    ],
-    "related_errors": []
-  },
-  {
-    "id": "print-file-flush",
-    "title": "print(file=, flush=)",
-    "kind": "function",
-    "summary": {
-      "ru": "Параметр file= перенаправляет вывод в произвольный файловый объект (по умолчанию sys.stdout). flush=True немедленно сбрасывает внутренний буфер потока, не дожидаясь его заполнения.",
-      "en": "The file= parameter redirects the output to any file object (sys.stdout by default). flush=True flushes the stream's internal buffer immediately instead of waiting for it to fill up."
-    },
-    "body": {
-      "ru": "Буферизация зависит от того, куда идёт вывод: в терминале stdout сбрасывается построчно, а при перенаправлении в файл или пайп копится блоками по несколько килобайт, поэтому вперемешку со stderr (он всегда построчный) строки в логе могут встать в неожиданном порядке. flush=True это чинит, но заметно замедляет вывод, если звать его в цикле на миллион строк. file= ничего не открывает и не закрывает — объект вы открываете сами, лучше через with.",
-      "en": "Buffering depends on where the output goes: stdout flushes line by line on a terminal, but piles up in multi-kilobyte blocks once redirected to a file or a pipe, so lines interleaved with stderr (always line-buffered) can land in a surprising order. flush=True fixes that ordering but costs real time in a million-iteration loop. file= neither opens nor closes anything — you supply an already-open object, ideally from a with block."
-    },
-    "syntax": "print(*objects, sep=\" \", end=\"\\n\", file=sys.stdout, flush=False)",
-    "status": "ready",
-    "docs_url": "https://docs.python.org/3/library/functions.html#print",
-    "version": "",
-    "section": "Ввод и вывод",
-    "subcat": "вывод",
-    "aliases": [
-      "печать в файл",
-      "перенаправление вывода",
-      "сброс буфера вывода"
-    ],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "import sys",
-      "print(\"ошибка!\", file=sys.stderr)  # → выводит в stderr",
-      "print(\".\", end=\"\", flush=True)  # → без буфера, без переноса строки",
-      "with open(\"_gloss_test.txt\", \"w\") as f:",
-      "    print(\"запись\", file=f)  # → пишет строку в файл",
-      "    import io; buf = io.StringIO()",
-      "    print(\"в буфер\", file=buf); print(buf.getvalue())  # → в буфер",
-      "    print(1, 2, 3, sep=\"-\", file=sys.stdout, flush=True)  # → 1-2-3"
-    ],
-    "related": [
-      "print",
-      "sys.stdin-sys.stdout-sys.stderr",
+      "f-строки",
+      "sys.stdin",
       "file-flush",
       "буферизация"
     ],
@@ -1649,7 +2245,10 @@
   },
   {
     "id": "repr",
-    "title": "repr",
+    "title": {
+      "ru": "repr",
+      "en": "repr"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает строку с официальным представлением объекта — такую, по которой можно воссоздать объект (по возможности).",
@@ -1662,28 +2261,39 @@
     "syntax": "repr(object)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#repr",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "строки",
+    "subcat": {
+      "ru": "строки",
+      "en": "strings"
+    },
     "aliases": [
       "строковое представление объекта",
       "отладочный вывод объекта",
       "показать строку с кавычками"
     ],
-    "keywords": [],
+    "keywords": [
+      "repr"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(repr('hello'))  # → \"'hello'\"",
-      "print(repr([1,2,3]))  # → '[1, 2, 3]'",
-      "print(repr(None))     # → 'None'",
-      "print(repr(3.14))     # → '3.14'",
-      "print(repr({'a':1}))  # → \"{'a': 1}\""
+      [
+        "print(repr('hello'))  # → 'hello'",
+        "print(repr([1,2,3]))  # → [1, 2, 3]",
+        "print(repr(None))     # → None",
+        "print(repr(3.14))     # → 3.14",
+        "print(repr({'a':1}))  # → {'a': 1}"
+      ]
     ],
     "related": [
       "repr-vs-str",
-      "__str__-__repr__",
       "str",
       "ascii"
     ],
@@ -1691,11 +2301,14 @@
   },
   {
     "id": "repr-vs-str",
-    "title": "repr() vs str()",
+    "title": {
+      "ru": "repr() vs str()",
+      "en": "repr() vs str()"
+    },
     "kind": "term",
     "summary": {
-      "ru": "str() возвращает «читаемое» представление объекта для вывода пользователю. repr() возвращает «однозначное» представление, пригодное для воспроизведения объекта в коде; используется в интерактивной консоли и при отладке.",
-      "en": "str() returns the 'readable' representation of an object, meant for the user. repr() returns the 'unambiguous' representation, suitable for recreating the object in code; it is what the interactive console and debugging show."
+      "ru": "str() — читаемое представление объекта для пользователя, repr() — однозначное, для разработчика и отладки; консоль показывает repr.",
+      "en": "str() gives a readable representation for users, repr() an unambiguous one for developers and debugging; the console shows repr."
     },
     "body": {
       "ru": "Внутри контейнеров элементы всегда показываются через repr — поэтому print(\"привет\") даёт голый текст, а print([\"привет\"]) выводит строку в кавычках, и это не баг. В своих классах достаточно определить __repr__: если __str__ нет, str() и print() падают обратно на него, а вот обратной подстановки не бывает. В f-строках отладочное представление включается суффиксом !r.",
@@ -1704,37 +2317,102 @@
     "syntax": "str(object)  repr(object)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#repr",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Ввод и вывод",
-    "subcat": "строки",
+    "subcat": {
+      "ru": "строки",
+      "en": "strings"
+    },
     "aliases": [
       "строковое представление объекта",
       "отладочное представление объекта",
-      "как объект печатается в консоли"
+      "как объект печатается в консоли",
+      "как объект выводится в print",
+      "отладочное представление"
     ],
-    "keywords": [],
+    "keywords": [
+      "repr",
+      "str",
+      "__repr__",
+      "__str__",
+      "!r"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(str(\"привет\"))    # → привет",
-      "print(repr(\"привет\"))   # → 'привет'",
-      "print(str(None))        # → None",
-      "print(repr(None))       # → None",
-      "print(str([1, 2]))      # → [1, 2]",
-      "print(repr([1, 2]))     # → [1, 2]"
+      [
+        "print(str(\"привет\"))    # → привет",
+        "print(repr(\"привет\"))   # → 'привет'",
+        "print(str(None))        # → None",
+        "print(repr(None))       # → None",
+        "print(str([1, 2]))      # → [1, 2]",
+        "print(repr([1, 2]))     # → [1, 2]"
+      ],
+      [
+        "class Point:",
+        "    def __init__(self, x, y):",
+        "        self.x = x; self.y = y",
+        "    def __repr__(self):",
+        "        return f'Point({self.x}, {self.y})'",
+        "    def __str__(self):",
+        "        return f'({self.x}, {self.y})'",
+        "p = Point(3, 4)",
+        "print(p)       # → (3, 4) — __str__",
+        "print(repr(p)) # → Point(3, 4) — __repr__",
+        "# Если только __repr__ — используется и для str",
+        "class Vec:",
+        "    def __init__(self, x, y):",
+        "        self.x = x; self.y = y",
+        "    def __repr__(self):",
+        "        return f'Vec({self.x},{self.y})'",
+        "print(Vec(1,2))  # → Vec(1,2)",
+        "class Fraction:",
+        "    def __init__(self, n, d):",
+        "        self.n = n; self.d = d",
+        "    def __str__(self):",
+        "        return f'{self.n}/{self.d}'",
+        "    def __repr__(self):",
+        "        return f'Fraction({self.n}, {self.d})'",
+        "f = Fraction(1, 3)",
+        "print(f)       # → 1/3",
+        "print(repr(f)) # → Fraction(1, 3)",
+        "# В списках используется __repr__",
+        "p2 = Point(1, 2)",
+        "print([p2])  # → [Point(1, 2)]",
+        "class Temperature:",
+        "    def __init__(self, c):",
+        "        self.c = c",
+        "    def __repr__(self):",
+        "        return f'Temperature({self.c})'",
+        "    def __str__(self):",
+        "        return f'{self.c}°C'",
+        "t = Temperature(100)",
+        "print(str(t), repr(t))  # → 100°C Temperature(100)",
+        "# f-string использует __str__",
+        "print(f'{Point(1,2)}')  # → (1, 2)",
+        "print(f'{Point(1,2)!r}')  # → Point(1, 2)"
+      ]
     ],
     "related": [
       "repr",
-      "__str__-__repr__",
       "str",
-      "print"
+      "print",
+      "format"
     ],
     "related_errors": []
   },
   {
     "id": "reversed",
-    "title": "reversed",
+    "title": {
+      "ru": "reversed",
+      "en": "reversed"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает обратный итератор для последовательности. Не копирует данные — ленивое вычисление.",
@@ -1747,25 +2425,39 @@
     "syntax": "reversed(sequence)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#reversed",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "итераторы",
+    "subcat": {
+      "ru": "итераторы",
+      "en": "iterators"
+    },
     "aliases": [
       "перебор в обратном порядке",
       "пройти список с конца",
       "обратный обход последовательности"
     ],
-    "keywords": [],
+    "keywords": [
+      "reversed"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(list(reversed([1,2,3,4,5])))  # → [5,4,3,2,1]",
-      "print(list(reversed('hello')))  # → ['o','l','l','e','h']",
-      "print(list(reversed(range(5))))  # → [4,3,2,1,0]",
-      "for x in reversed([1,2,3]):",
-      "    print(x, end=' ')  # → 3 2 1",
-      "    print(''.join(reversed('hello')))  # → olleh"
+      [
+        "print(list(reversed([1, 2, 3, 4, 5])))  # → [5, 4, 3, 2, 1]",
+        "print(list(reversed('hello')))  # → ['o', 'l', 'l', 'e', 'h']",
+        "print(list(reversed(range(5))))  # → [4, 3, 2, 1, 0]",
+        "print(''.join(reversed('hello')))  # → olleh"
+      ],
+      [
+        "for x in reversed([1, 2, 3]):",
+        "    print(x, end=' ')  # → 3 2 1"
+      ]
     ],
     "related": [
       "zip",
@@ -1775,7 +2467,10 @@
   },
   {
     "id": "sep",
-    "title": "sep=",
+    "title": {
+      "ru": "sep=",
+      "en": "sep="
+    },
     "kind": "term",
     "summary": {
       "ru": "Параметр функции print(), задающий разделитель между аргументами. По умолчанию — пробел. Может быть любой строкой, включая пустую.",
@@ -1788,24 +2483,37 @@
     "syntax": "print(*objects, sep='разделитель')",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#print",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Ввод и вывод",
-    "subcat": "вывод",
+    "subcat": {
+      "ru": "вывод",
+      "en": "output"
+    },
     "aliases": [
       "разделитель при печати",
       "вывод через запятую",
       "убрать пробел между аргументами"
     ],
-    "keywords": [],
+    "keywords": [
+      "print",
+      "sep"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(1, 2, 3, sep=\", \")  # → 1, 2, 3",
-      "print(\"a\", \"b\", \"c\", sep=\"\")  # → abc",
-      "print(\"год\", \"месяц\", \"день\", sep=\"-\")  # → год-месяц-день",
-      "print(10, 20, 30, sep=\"\\n\")  # каждое число на новой строке",
-      "print(*[1, 2, 3, 4], sep=\" | \")  # → 1 | 2 | 3 | 4"
+      [
+        "print(1, 2, 3, sep=\", \")  # → 1, 2, 3",
+        "print(\"a\", \"b\", \"c\", sep=\"\")  # → abc",
+        "print(\"год\", \"месяц\", \"день\", sep=\"-\")  # → год-месяц-день",
+        "print(10, 20, 30, sep=\"\\n\")  # каждое число на новой строке",
+        "print(*[1, 2, 3, 4], sep=\" | \")  # → 1 | 2 | 3 | 4"
+      ]
     ],
     "related": [
       "end",
@@ -1816,7 +2524,10 @@
   },
   {
     "id": "set",
-    "title": "set",
+    "title": {
+      "ru": "set",
+      "en": "set"
+    },
     "kind": "term",
     "summary": {
       "ru": "Изменяемое множество уникальных хешируемых элементов без определённого порядка. Поддерживает операции объединения, пересечения и разности.",
@@ -1829,25 +2540,37 @@
     "syntax": "set(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#func-set",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "типы",
+    "subcat": {
+      "ru": "типы",
+      "en": "types"
+    },
     "aliases": [
       "множество",
       "уникальные элементы",
       "убрать дубликаты из списка"
     ],
-    "keywords": [],
+    "keywords": [
+      "set"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(set([1,2,2,3]))  # → {1,2,3}",
-      "s1={1,2,3}; s2={2,3,4}",
-      "print(s1|s2)  # → {1,2,3,4} объединение",
-      "print(s1&s2)  # → {2,3} пересечение",
-      "print(s1-s2)  # → {1} разность",
-      "print(s1^s2)  # → {1,4} симм.разность"
+      [
+        "print(set([1,2,2,3]))  # → {1,2,3}",
+        "s1={1,2,3}; s2={2,3,4}",
+        "print(s1|s2)  # → {1,2,3,4} объединение",
+        "print(s1&s2)  # → {2,3} пересечение",
+        "print(s1-s2)  # → {1} разность",
+        "print(s1^s2)  # → {1,4} симм.разность"
+      ]
     ],
     "related": [
       "создание-множества",
@@ -1859,7 +2582,10 @@
   },
   {
     "id": "setattr",
-    "title": "setattr",
+    "title": {
+      "ru": "setattr",
+      "en": "setattr"
+    },
     "kind": "term",
     "summary": {
       "ru": "Устанавливает атрибут объекта по имени. Эквивалент obj.name = value, но позволяет задать имя атрибута динамически как строку.",
@@ -1872,28 +2598,40 @@
     "syntax": "setattr(object, name, value)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#setattr",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "ООП",
+    "subcat": {
+      "ru": "ООП",
+      "en": "OOP"
+    },
     "aliases": [
       "установить атрибут по имени",
       "задать поле объекта динамически"
     ],
-    "keywords": [],
+    "keywords": [
+      "setattr"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "class A: pass",
-      "a=A()",
-      "setattr(a,'x',42)",
-      "print(a.x)  # → 42",
-      "for name,val in [('p',1),('q',2)]:",
-      "    setattr(a,name,val)",
-      "print(a.p, a.q)  # → 1 2",
-      "setattr(a,'lst',[])",
-      "a.lst.append(1)",
-      "print(a.lst)  # → [1]"
+      [
+        "class A: pass",
+        "a=A()",
+        "setattr(a,'x',42)",
+        "print(a.x)  # → 42",
+        "for name,val in [('p',1),('q',2)]:",
+        "    setattr(a,name,val)",
+        "print(a.p, a.q)  # → 1 2",
+        "setattr(a,'lst',[])",
+        "a.lst.append(1)",
+        "print(a.lst)  # → [1]"
+      ]
     ],
     "related": [
       "getattr",
@@ -1905,7 +2643,10 @@
   },
   {
     "id": "sorted",
-    "title": "sorted",
+    "title": {
+      "ru": "sorted",
+      "en": "sorted"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает новый отсортированный список. Принимает key и reverse. Не изменяет исходную последовательность.",
@@ -1918,24 +2659,36 @@
     "syntax": "sorted(iterable, key=None, reverse=False)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#sorted",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "итераторы",
+    "subcat": {
+      "ru": "итераторы",
+      "en": "iterators"
+    },
     "aliases": [
       "сортировка",
       "отсортировать список",
       "упорядочить по возрастанию"
     ],
-    "keywords": [],
+    "keywords": [
+      "sorted"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(sorted([3,1,4,1,5]))  # → [1,1,3,4,5]",
-      "print(sorted('hello'))  # → ['e','h','l','l','o']",
-      "print(sorted([3,1,2],reverse=True))  # → [3,2,1]",
-      "print(sorted(['b','aaa','cc'],key=len))  # → ['b','cc','aaa']",
-      "print(sorted({'c':3,'a':1,'b':2}))  # → ['a','b','c']"
+      [
+        "print(sorted([3,1,4,1,5]))  # → [1,1,3,4,5]",
+        "print(sorted('hello'))  # → ['e','h','l','l','o']",
+        "print(sorted([3,1,2],reverse=True))  # → [3,2,1]",
+        "print(sorted(['b','aaa','cc'],key=len))  # → ['b','cc','aaa']",
+        "print(sorted({'c':3,'a':1,'b':2}))  # → ['a','b','c']"
+      ]
     ],
     "related": [
       "list.sort",
@@ -1947,37 +2700,55 @@
   },
   {
     "id": "sum",
-    "title": "sum",
+    "title": {
+      "ru": "sum",
+      "en": "sum"
+    },
     "kind": "term",
     "summary": {
       "ru": "Суммирует элементы итерируемого. start — начальное значение.",
       "en": "Sums the items of an iterable. start is the initial value."
     },
     "body": {
-      "ru": "Строки sum складывать отказывается — будет TypeError с подсказкой использовать ''.join(). Склейка списков через sum(списки, []) формально работает, но на каждом шаге создаёт новый список и растёт квадратично; для длинных данных берите itertools.chain.",
-      "en": "sum refuses to concatenate strings — it raises TypeError and points you at ''.join() instead. Flattening lists with sum(lists, []) does work, but it builds a fresh list at every step and scales quadratically, so reach for itertools.chain on anything long."
+      "ru": "Строки sum складывать отказывается: sum(['a', 'b']) падает с TypeError про сложение int и str (start по умолчанию 0), а sum(['a', 'b'], '') — с прямой подсказкой использовать ''.join(). Склейка списков через sum(списки, []) формально работает, но на каждом шаге создаёт новый список и растёт квадратично; для длинных данных берите itertools.chain.",
+      "en": "sum refuses to concatenate strings: sum(['a', 'b']) raises TypeError about adding int and str (start defaults to 0), and sum(['a', 'b'], '') raises one that points you at ''.join(). Flattening lists with sum(lists, []) does work, but it builds a fresh list at every step and scales quadratically, so reach for itertools.chain on anything long."
     },
     "syntax": "sum(iterable, start=0)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#sum",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "числа/коллекции",
+    "subcat": {
+      "ru": "числа/коллекции",
+      "en": "numbers/collections"
+    },
     "aliases": [
       "сумма элементов",
       "суммировать список",
       "посчитать сумму"
     ],
-    "keywords": [],
+    "keywords": [
+      "sum"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(sum([1,2,3,4,5]))  # → 15",
-      "print(sum(range(101)))  # → 5050",
-      "print(sum([[1,2],[3,4]], []))  # → [1,2,3,4]",
-      "print(sum([0.1]*10))  # → 1.0 (примерно)",
-      "print(sum({'a':1,'b':2}.values()))  # → 3"
+      [
+        "print(sum([1,2,3,4,5]))  # → 15",
+        "print(sum(range(101)))  # → 5050",
+        "print(sum([[1,2],[3,4]], []))  # → [1,2,3,4]",
+        "print(sum({'a':1,'b':2}.values()))  # → 3"
+      ],
+      [
+        "# Python 3.12+",
+        "print(sum([0.1]*10))  # → 1.0 — до 3.12 было 0.9999999999999999"
+      ]
     ],
     "related": [
       "min",
@@ -1988,7 +2759,10 @@
   },
   {
     "id": "tuple",
-    "title": "tuple",
+    "title": {
+      "ru": "tuple",
+      "en": "tuple"
+    },
     "kind": "term",
     "summary": {
       "ru": "Неизменяемая упорядоченная последовательность элементов. Хешируема (если элементы хешируемы) — можно использовать как ключ словаря.",
@@ -2001,25 +2775,37 @@
     "syntax": "tuple(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#func-tuple",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "типы",
+    "subcat": {
+      "ru": "типы",
+      "en": "types"
+    },
     "aliases": [
       "кортеж",
       "неизменяемый список",
       "преобразовать в кортеж"
     ],
-    "keywords": [],
+    "keywords": [
+      "tuple"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(tuple('abc'))    # → ('a','b','c')",
-      "print(tuple([1,2,3]))  # → (1,2,3)",
-      "t = (1,2,3)",
-      "a,b,c = t",
-      "print(a,b,c)  # → 1 2 3",
-      "print(tuple(zip([1,2],[3,4])))  # → ((1,3),(2,4))"
+      [
+        "print(tuple('abc'))    # → ('a','b','c')",
+        "print(tuple([1,2,3]))  # → (1,2,3)",
+        "t = (1,2,3)",
+        "a,b,c = t",
+        "print(a,b,c)  # → 1 2 3",
+        "print(tuple(zip([1,2],[3,4])))  # → ((1,3),(2,4))"
+      ]
     ],
     "related": [
       "создание-кортежа",
@@ -2031,7 +2817,10 @@
   },
   {
     "id": "vars",
-    "title": "vars",
+    "title": {
+      "ru": "vars",
+      "en": "vars"
+    },
     "kind": "term",
     "summary": {
       "ru": "Возвращает __dict__ объекта или словарь текущего локального пространства имён (без аргументов — аналог locals()).",
@@ -2044,26 +2833,38 @@
     "syntax": "vars([object])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#vars",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "интроспекция",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
     "aliases": [
       "словарь атрибутов объекта",
       "получить поля объекта как словарь"
     ],
-    "keywords": [],
+    "keywords": [
+      "vars"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "class A:",
-      "    def __init__(self): self.x=1; self.y=2",
-      "a=A()",
-      "print(vars(a))  # → {'x':1,'y':2}",
-      "print('x' in vars(a))  # → True",
-      "print(vars(int)['__add__'])  # → ? слот-обёртка int.__add__ (repr содержит адрес)",
-      "print(type(vars()))  # → dict",
-      "print('print' in vars(__builtins__) if isinstance(vars(__builtins__),dict) else True)"
+      [
+        "class A:",
+        "    def __init__(self): self.x=1; self.y=2",
+        "a=A()",
+        "print(vars(a))  # → {'x':1,'y':2}",
+        "print('x' in vars(a))  # → True",
+        "print(vars(int)['__add__'])  # → ? слот-обёртка int.__add__ (repr содержит адрес)",
+        "print(type(vars()))  # → dict",
+        "print('print' in vars(__builtins__) if isinstance(vars(__builtins__),dict) else True)"
+      ]
     ],
     "related": [
       "dir",
@@ -2074,7 +2875,10 @@
   },
   {
     "id": "переменные",
-    "title": "Переменные",
+    "title": {
+      "ru": "Переменные",
+      "en": "Variables"
+    },
     "kind": "term",
     "summary": {
       "ru": "Именованные области памяти для хранения значений. В Python переменные динамически типизированы — тип определяется значением, а не объявлением.",
@@ -2087,26 +2891,38 @@
     "syntax": "имя_переменной = значение",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Ввод и вывод",
-    "subcat": "переменные",
+    "subcat": {
+      "ru": "переменные",
+      "en": "variables"
+    },
     "aliases": [
       "присваивание значения",
       "объявить переменную",
       "динамическая типизация"
     ],
-    "keywords": [],
+    "keywords": [
+      "Variables"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "x = 10  # целое число",
-      "pi = 3.14  # float",
-      "greeting = \"Привет\"  # строка",
-      "a, b, c = 1, 2, 3  # множественное присваивание",
-      "a, b = b, a  # обмен значений без temp",
-      "x += 5  # x = x + 5 → 15 (составное присваивание)",
-      "del x  # удаление переменной"
+      [
+        "x = 10  # целое число",
+        "pi = 3.14  # float",
+        "greeting = \"Привет\"  # строка",
+        "a, b, c = 1, 2, 3  # множественное присваивание",
+        "a, b = b, a  # обмен значений без temp",
+        "x += 5  # x = x + 5 → 15 (составное присваивание)",
+        "del x  # удаление переменной"
+      ]
     ],
     "related": [
       "операторы-присваивания",
@@ -2118,7 +2934,10 @@
   },
   {
     "id": "числовые-литералы",
-    "title": "Числовые литералы",
+    "title": {
+      "ru": "Числовые литералы",
+      "en": "Numeric literals"
+    },
     "kind": "term",
     "summary": {
       "ru": "Python поддерживает запись чисел в двоичной (0b), восьмеричной (0o) и шестнадцатеричной (0x) системах счисления, разделитель _ для читаемости, а также экспоненциальную нотацию.",
@@ -2131,25 +2950,42 @@
     "syntax": "0b<биты>  0o<цифры>  0x<цифры>  <цифры>_<цифры>  <число>e<порядок>",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Ввод и вывод",
-    "subcat": "литералы",
+    "subcat": {
+      "ru": "литералы",
+      "en": "literals"
+    },
     "aliases": [
       "двоичная запись числа",
       "шестнадцатеричное число",
       "экспоненциальная запись числа"
     ],
-    "keywords": [],
+    "keywords": [
+      "0b",
+      "0o",
+      "0x",
+      "1_000",
+      "1e3",
+      "1j"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(0b1010)      # → 10",
-      "print(0o17)        # → 15",
-      "print(0xFF)        # → 255",
-      "print(1_000_000)   # → 1000000",
-      "print(1.5e3)       # → 1500.0",
-      "print(0b1111 == 15 == 0xF)  # → True"
+      [
+        "print(0b1010)      # → 10",
+        "print(0o17)        # → 15",
+        "print(0xFF)        # → 255",
+        "print(1_000_000)   # → 1000000",
+        "print(1.5e3)       # → 1500.0",
+        "print(0b1111 == 15 == 0xF)  # → True"
+      ]
     ],
     "related": [
       "системы-счисления",
@@ -2161,11 +2997,14 @@
   },
   {
     "id": "len",
-    "title": "len()",
+    "title": {
+      "ru": "len()",
+      "en": "len()"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает число элементов в объекте (длину): последовательности, множества, словаря, строки.",
-      "en": "Return the number of items in a container (its length)."
+      "en": "Returns the number of items in an object (its length): a sequence, set, dict or string."
     },
     "body": {
       "ru": "len() ничего не пересчитывает: контейнеры хранят свою длину, поэтому вызов работает за O(1) хоть на миллионе элементов. Но он требует наличия __len__ — у генератора и вообще у любого итератора длины нет, и вы получите TypeError; длину потока считают через sum(1 for _ in it) или сначала материализуют его в список.",
@@ -2174,22 +3013,34 @@
     "syntax": "len(obj)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#len",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "Встроенные функции",
+    "subcat": {
+      "ru": "Встроенные функции",
+      "en": "Built-in functions"
+    },
     "aliases": [
       "длина строки",
       "количество элементов",
       "размер списка"
     ],
-    "keywords": [],
+    "keywords": [
+      "len"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "print(len([1, 2, 3]))     # → 3",
-      "print(len('abcd'))        # → 4",
-      "print(len({'a': 1}))      # → 1"
+      [
+        "print(len([1, 2, 3]))     # → 3",
+        "print(len('abcd'))        # → 4",
+        "print(len({'a': 1}))      # → 1"
+      ]
     ],
     "related": [
       "min",
@@ -2200,7 +3051,10 @@
   },
   {
     "id": "aiter",
-    "title": "aiter()",
+    "title": {
+      "ru": "aiter()",
+      "en": "aiter()"
+    },
     "kind": "function",
     "summary": {
       "ru": "Асинхронный аналог iter(): возвращает асинхронный итератор объекта (вызывает __aiter__). Работает с async for / anext().",
@@ -2213,26 +3067,38 @@
     "syntax": "aiter(async_iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#aiter",
-    "version": "3.10",
+    "added": "3.10",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "Встроенные функции",
+    "subcat": {
+      "ru": "Встроенные функции",
+      "en": "Built-in functions"
+    },
     "aliases": [
       "получить асинхронный итератор",
       "перебор асинхронной последовательности"
     ],
-    "keywords": [],
+    "keywords": [
+      "aiter"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "import asyncio",
-      "async def main():",
-      "    async def agen():",
-      "        yield 1",
-      "        yield 2",
-      "    it = aiter(agen())",
-      "    print(await anext(it))   # → 1",
-      "asyncio.run(main())"
+      [
+        "import asyncio",
+        "async def main():",
+        "    async def agen():",
+        "        yield 1",
+        "        yield 2",
+        "    it = aiter(agen())",
+        "    print(await anext(it))   # → 1",
+        "asyncio.run(main())"
+      ]
     ],
     "related": [
       "anext",
@@ -2246,7 +3112,10 @@
   },
   {
     "id": "anext",
-    "title": "anext()",
+    "title": {
+      "ru": "anext()",
+      "en": "anext()"
+    },
     "kind": "function",
     "summary": {
       "ru": "Асинхронный аналог next(): возвращает awaitable для следующего элемента async-итератора; с default не поднимает StopAsyncIteration.",
@@ -2256,29 +3125,41 @@
       "ru": "Появилась в Python 3.10. Возвращает не элемент, а awaitable: без await получите объект корутины и предупреждение 'coroutine was never awaited', а элемент так и не прочитается. Второй аргумент работает как у next(): вместо StopAsyncIteration отдаёт значение по умолчанию — короче, чем оборачивать вызов в try/except.",
       "en": "Added in Python 3.10. It returns an awaitable, not the item: forget the await and you get a coroutine object plus a 'coroutine was never awaited' warning, while nothing is actually consumed. The second argument behaves like the one in next() — it yields a default instead of raising StopAsyncIteration, which is tidier than wrapping the call in try/except."
     },
-    "syntax": "anext(async_iterator, default)",
+    "syntax": "anext(async_iterator[, default])",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#anext",
-    "version": "3.10",
+    "added": "3.10",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "Встроенные функции",
-    "subcat": "Встроенные функции",
+    "subcat": {
+      "ru": "Встроенные функции",
+      "en": "Built-in functions"
+    },
     "aliases": [
       "следующий элемент асинхронного итератора",
       "асинхронное получение следующего значения"
     ],
-    "keywords": [],
+    "keywords": [
+      "anext"
+    ],
     "tags": [
       "builtin"
     ],
     "examples": [
-      "import asyncio",
-      "async def main():",
-      "    async def agen():",
-      "        yield 10",
-      "    it = aiter(agen())",
-      "    print(await anext(it))          # → 10",
-      "    print(await anext(it, 'конец'))  # → конец",
-      "asyncio.run(main())"
+      [
+        "import asyncio",
+        "async def main():",
+        "    async def agen():",
+        "        yield 10",
+        "    it = aiter(agen())",
+        "    print(await anext(it))          # → 10",
+        "    print(await anext(it, 'конец'))  # → конец",
+        "asyncio.run(main())"
+      ]
     ],
     "related": [
       "aiter",
@@ -2290,5 +3171,157 @@
       "StopAsyncIteration",
       "TypeError"
     ]
+  },
+  {
+    "id": "frozendict",
+    "title": {
+      "ru": "frozendict()",
+      "en": "frozendict()"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Неизменяемый словарь: те же ключи и чтение, что у dict, но без изменения на месте. Хешируется, если хешируются ключи и значения.",
+      "en": "An immutable dictionary: the same keys and lookups as dict, but no in-place changes. Hashable when its keys and values are hashable."
+    },
+    "body": {
+      "ru": "Главная польза — хешируемость: frozendict можно положить в set, сделать ключом другого словаря или аргументом функции под functools.cache, чего dict не позволяет. Методы изменения (d[k] = v, del, pop, update, setdefault, clear) отсутствуют — попытка записи даёт TypeError. Оператор | возвращает новый frozendict, а |= не меняет объект, а переназначает имя на новый. Это не подкласс dict: isinstance(fd, dict) ложно, зато frozendict — Mapping. Хешируемость неглубокая: frozendict со списком внутри создать можно, но hash() на нём падает с TypeError. До 3.15 похожую роль играл types.MappingProxyType — но это лишь вид на чужой dict, который меняется вместе с ним.",
+      "en": "The main benefit is hashability: a frozendict can go into a set, serve as a key of another dict or as an argument to a functools.cache function, which a dict cannot. Mutating methods (d[k] = v, del, pop, update, setdefault, clear) are absent, and an attempt to write raises TypeError. The | operator returns a new frozendict, and |= rebinds the name to a new object instead of changing it. It is not a dict subclass: isinstance(fd, dict) is false, but frozendict is a Mapping. Hashability is shallow: a frozendict holding a list can be created, but hash() on it fails with TypeError. Before 3.15 a similar role was played by types.MappingProxyType, but that is only a view of another dict and changes along with it."
+    },
+    "syntax": "frozendict(**kwargs)\nfrozendict(mapping, /, **kwargs)\nfrozendict(iterable, /, **kwargs)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#frozendict",
+    "added": "3.15",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Встроенные функции",
+    "subcat": {
+      "ru": "типы",
+      "en": "types"
+    },
+    "aliases": [
+      "неизменяемый словарь",
+      "замороженный словарь",
+      "словарь как ключ словаря",
+      "hashable dict"
+    ],
+    "keywords": [
+      "frozendict",
+      "immutable",
+      "hash",
+      "Mapping",
+      "PEP 814",
+      "MappingProxyType"
+    ],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      [
+        "fd = frozendict(host='localhost', port=8080)",
+        "print(fd['port'])  # → 8080",
+        "print(fd)  # → frozendict({'host': 'localhost', 'port': 8080})",
+        "try:",
+        "    fd['port'] = 9090",
+        "except TypeError as e:",
+        "    print(type(e).__name__)  # → TypeError"
+      ],
+      [
+        "configs = {frozendict(env='prod'): 'боевой', frozendict(env='dev'): 'отладка'}",
+        "print(configs[frozendict(env='dev')])  # → отладка",
+        "print(isinstance(frozendict(), dict))  # → False"
+      ],
+      [
+        "base = frozendict(a=1)",
+        "more = base | {'b': 2}",
+        "print(more)  # → frozendict({'a': 1, 'b': 2})",
+        "print(base)  # → frozendict({'a': 1}) — исходный не изменился"
+      ]
+    ],
+    "related": [
+      "dict",
+      "frozenset",
+      "hash",
+      "functools.cache"
+    ],
+    "related_errors": [
+      "typeerror"
+    ]
+  },
+  {
+    "id": "sentinel",
+    "title": {
+      "ru": "sentinel()",
+      "en": "sentinel()"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Создаёт уникальный объект-маркер с понятным repr — например, «значение не передано», когда None само является допустимым значением.",
+      "en": "Creates a unique marker object with a readable repr, e.g. “no value given” when None itself is a valid value."
+    },
+    "body": {
+      "ru": "Классическая замена — MISSING = object(): уникально, но в отладке печатается как <object object at 0x7f...>, не копируется по смыслу и не годится в аннотацию. sentinel('MISSING') печатается как MISSING, переживает copy и deepcopy (возвращается тот же объект), сериализуется pickle, если лежит в модуле под тем же именем, и может стоять в аннотации: int | MISSING. Сравнивают его через is, а не ==; он всегда истинен, поэтому проверка if value: его не отличит — нужно if value is MISSING. Наследоваться от sentinel нельзя. Имя переменной принято совпадать с именем маркера.",
+      "en": "The classic substitute is MISSING = object(): unique, but in debugging it prints as <object object at 0x7f...>, does not copy meaningfully and cannot be used in an annotation. sentinel('MISSING') prints as MISSING, survives copy and deepcopy (the same object comes back), pickles when it lives in a module under the same name, and can appear in an annotation: int | MISSING. Compare it with is, not ==; it is always truthy, so a check like if value: will not tell it apart — write if value is MISSING. Subclassing sentinel is not allowed. By convention the variable name matches the marker's name."
+    },
+    "syntax": "sentinel(name, /, *, repr=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/functions.html#sentinel",
+    "added": "3.15",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Встроенные функции",
+    "subcat": {
+      "ru": "объекты",
+      "en": "objects"
+    },
+    "aliases": [
+      "маркер отсутствия значения",
+      "значение по умолчанию кроме None",
+      "MISSING = object()",
+      "уникальный объект-заглушка"
+    ],
+    "keywords": [
+      "sentinel",
+      "MISSING",
+      "object()",
+      "is",
+      "PEP 661",
+      "default"
+    ],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      [
+        "MISSING = sentinel('MISSING')",
+        "def get(d, key, default=MISSING):",
+        "    if key in d:",
+        "        return d[key]",
+        "    if default is MISSING:",
+        "        raise KeyError(key)",
+        "    return default",
+        "print(get({'a': None}, 'a'))  # → None — None здесь законное значение",
+        "print(get({}, 'b', 0))  # → 0",
+        "print(MISSING)  # → MISSING"
+      ],
+      [
+        "import copy",
+        "MISSING = sentinel('MISSING')",
+        "print(copy.deepcopy(MISSING) is MISSING)  # → True",
+        "print(bool(MISSING))  # → True — проверяйте через is, а не через if"
+      ]
+    ],
+    "related": [
+      "nonetype",
+      "object",
+      "is-is-not",
+      "copy.deepcopy"
+    ],
+    "related_errors": []
   }
 ]

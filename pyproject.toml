@@ -365,16 +365,12 @@ omit = [
     # вызываются ни одним шагом workflow.
     #
     # Новый скрипт по умолчанию МЕРЯЕТСЯ — сюда он попадает только осознанно.
-    "scripts/audit_glossary_cards.py",
     "scripts/check_contrast.py",
     "scripts/check_work_overlap.py",
     "scripts/corpus_fetch.py",
     "scripts/corpus_mutations.py",
     "scripts/corpus_run.py",
     "scripts/corpus_sweep.py",
-    "scripts/generate_draft_cards.py",
-    "scripts/glossary_draft_pipeline.py",
-    "scripts/import_glossary_python.py",
     "scripts/perf_baseline.py",
     "scripts/skip_inventory.py",
     "tests/*",

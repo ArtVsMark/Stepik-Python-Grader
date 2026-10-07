@@ -33,6 +33,7 @@ from stepik_grader.glossary.json_provider import (
     JsonGlossaryProvider,
     append_missing_entries,
     load_missing_queue,
+    load_moved,
 )
 from stepik_grader.glossary.lookup import (
     card_index,
@@ -267,6 +268,23 @@ def glossary_search(
     ]
 
 
+def _moved_for(store_path: pathlib.Path | None) -> dict[str, str]:
+    """Перенаправления id того же источника, что и карточки (каталог — да, файл — нет)."""
+    key, _files, _cards = _resolve_source(store_path)
+    if key == "bundled":
+        directory: pathlib.Path | None = BUNDLED_GLOSSARY_DIR
+    elif key.startswith("store:"):
+        directory = pathlib.Path(key.removeprefix("store:"))
+    else:
+        directory = None
+    if directory is None or not directory.is_dir():
+        return {}
+    try:
+        return load_moved(directory)
+    except GlossaryError:
+        return {}  # битый файл перенаправлений не роняет выдачу карточки
+
+
 def glossary_get(
     card_id: str, *, lang: str = "ru", store_path: pathlib.Path | None = None
 ) -> dict[str, Any] | None:
@@ -276,7 +294,13 @@ def glossary_get(
     и для подписи раздела ``section_label`` (issue #685) — как в ``glossary_search``,
     чтобы deep-link на карточку показывал раздел на том же языке, что и список.
     """
-    card = _glossary_index(store_path).by_id.get(card_id)  # issue #404: O(1) вместо O(n)
+    by_id = _glossary_index(store_path).by_id
+    card = by_id.get(card_id)  # issue #404: O(1) вместо O(n)
+    if card is None:
+        # Карточку слили с дублем (``_moved.json`` выгрузки, issue #1573): старая
+        # ссылка #/glossary/<id> из закладки или истории открывает новую.
+        moved_to = _moved_for(store_path).get(card_id)
+        card = by_id.get(moved_to) if moved_to else None
     if card is None:
         return None
     return {

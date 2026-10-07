@@ -5,7 +5,6 @@
 [![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/version.json&cacheSeconds=300)](CHANGELOG.md)
 [![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 [![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/glossary.json&cacheSeconds=300)](docs/dev/glossary.md)
 
 > A local grader for the «Поколение Python» Stepik courses — **and for any
 > directory of test cases**. Русская версия: [README.md](README.md).

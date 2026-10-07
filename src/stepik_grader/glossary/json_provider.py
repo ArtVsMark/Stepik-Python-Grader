@@ -37,21 +37,29 @@ from .models import GlossaryCard, GlossaryMissingEntry
 
 __all__ = [
     "BUNDLED_GLOSSARY_DIR",
+    "MOVED_FILE_NAME",
     "GlossaryError",
     "GlossaryProvider",
     "JsonGlossaryProvider",
     "append_missing_entries",
     "load_missing_queue",
+    "load_moved",
     "save_missing_queue",
 ]
 
-# Комплектная база карточек (импорт из Glossary-Python, issue #326; число ready
-# считает ``scripts/generate_glossary_badge.py``, не хардкод — #398/#535):
-# каталог ``glossary/data/*.json``, попадает в wheel через package-data.
+# Комплектная база карточек — выгрузка Glossary-Python, разложенная по группам
+# ``scripts/import_glossary.py`` (issue #1573; закреплённый выпуск — в
+# ``data/_source.json``): каталог ``glossary/data/*.json``, попадает в wheel
+# через package-data.
 # Используется web-адаптером как zero-config источник по умолчанию (когда
 # ``CONFIG.glossary_store`` не задан), с деградацией на компактный
 # ``core/glossary.py``, если каталог отсутствует/пуст.
 BUNDLED_GLOSSARY_DIR: pathlib.Path = pathlib.Path(__file__).parent / "data"
+
+#: Перенаправления id слитых карточек (поле ``moved`` выгрузки Glossary-Python,
+#: форма 4.1+): «старый id → новый». Лежит в каталоге данных под именем с
+#: подчёркиванием — служебные файлы каталога карточками не читаются.
+MOVED_FILE_NAME = "_moved.json"
 
 
 class GlossaryError(ValueError):
@@ -103,16 +111,46 @@ def _iter_card_dicts(payload: Any, source: pathlib.Path) -> list[dict[str, Any]]
     return result
 
 
+def load_moved(directory: pathlib.Path) -> dict[str, str]:
+    """Перенаправления id слитых карточек из ``<directory>/_moved.json``.
+
+    Файла нет (каталог без выгрузки, одиночный store-файл) — перенаправлений
+    нет. Нечитаемый или не той формы — ``GlossaryError``: молча потерянное
+    перенаправление — битая ссылка у студента.
+    """
+    file_path = directory / MOVED_FILE_NAME
+    if not file_path.is_file():
+        return {}
+    try:
+        payload = json.loads(file_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise GlossaryError(f"{file_path}: невалидный JSON — {exc}") from exc
+    if not isinstance(payload, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in payload.items()
+    ):
+        raise GlossaryError(f"{file_path}: ожидался объект «старый id → новый id»")
+    return dict(payload)
+
+
 class JsonGlossaryProvider:
     """JSON-реализация ``GlossaryProvider``: карточки из файла или директории."""
 
-    def __init__(self, cards: list[GlossaryCard]) -> None:
+    def __init__(self, cards: list[GlossaryCard], *, moved: dict[str, str] | None = None) -> None:
         self._cards: list[GlossaryCard] = list(cards)
         self._by_id: dict[str, GlossaryCard] = {}
         for card in self._cards:
             if card.id in self._by_id:
                 raise GlossaryError(f"Дублирующийся id карточки: {card.id!r}")
             self._by_id[card.id] = card
+        # Перенаправление на несуществующую карточку — битая ссылка, а не
+        # переезд: издатель обещает, что новый id есть в той же выгрузке, и
+        # нарушение этого обещания должно быть видно здесь, а не в браузере.
+        self._moved: dict[str, str] = dict(moved or {})
+        for old, new in self._moved.items():
+            if new not in self._by_id:
+                raise GlossaryError(f"Перенаправление {old!r} → {new!r}: карточки {new!r} нет")
+            if old in self._by_id:
+                raise GlossaryError(f"Перенаправление {old!r}: карточка с этим id ещё существует")
 
     # -- конструкторы загрузки -------------------------------------------
 
@@ -128,8 +166,10 @@ class JsonGlossaryProvider:
             raise GlossaryError(f"Директория глоссария не найдена: {path}")
         cards: list[GlossaryCard] = []
         for json_file in sorted(path.glob("*.json")):
+            if json_file.name.startswith("_"):
+                continue  # служебный файл каталога (``_moved.json``), не карточки
             cards.extend(cls._load_cards_from_file(json_file))
-        return cls(cards)
+        return cls(cards, moved=load_moved(path))
 
     @classmethod
     def load(cls, path: pathlib.Path) -> JsonGlossaryProvider:
@@ -158,8 +198,25 @@ class JsonGlossaryProvider:
     # -- запросы ----------------------------------------------------------
 
     def get(self, card_id: str) -> GlossaryCard | None:
-        """Вернуть карточку по id или None."""
-        return self._by_id.get(card_id)
+        """Вернуть карточку по id или None.
+
+        Id слитой карточки (``_moved.json``) ведёт на ту, в которую её слили:
+        старая ссылка ``#/glossary/<id>`` в закладке или истории продолжает
+        открывать карточку, а не «не найдено».
+        """
+        card = self._by_id.get(card_id)
+        if card is None and card_id in self._moved:
+            card = self._by_id.get(self._moved[card_id])
+        return card
+
+    def resolve_id(self, card_id: str) -> str:
+        """Действующий id карточки: перенаправленный для слитой, иначе тот же."""
+        return self._moved.get(card_id, card_id)
+
+    @property
+    def moved(self) -> dict[str, str]:
+        """Перенаправления «старый id → новый» (копия)."""
+        return dict(self._moved)
 
     def all(self) -> list[GlossaryCard]:
         """Все карточки базы (копия списка)."""

@@ -61,14 +61,18 @@ SECTION_GROUPS: dict[str, str] = {
     "Асинхронное программирование": "syntax",
     "Арифметика и операторы": "syntax",
     "Аннотации и typing": "syntax",
+    "Модули и импорт": "syntax",
     # Встроенное и ошибки.
     "Встроенные функции": "builtins",
     "Исключения": "builtins",
     # Ввод-вывод.
     "Ввод и вывод": "io",
-    "Файлы и I_O": "io",
+    "Файлы и I/O": "io",
     # Алгоритмы и структуры данных (учебная тема, не тип и не модуль).
     "Алгоритмы и структуры данных": "algorithms",
+    # Модули, которых больше нет в stdlib (Glossary-Python #174): группа модулей,
+    # хотя имя раздела и не начинается с «Модуль ».
+    "Удалено из стандартной библиотеки": "modules",
 }
 OTHER_GROUP = "other"
 GROUPS = frozenset({"modules", *SECTION_GROUPS.values(), OTHER_GROUP})
@@ -98,11 +102,13 @@ SECTION_LABELS_EN: dict[str, str] = {
     "Асинхронное программирование": "Async programming",
     "Арифметика и операторы": "Arithmetic & operators",
     "Аннотации и typing": "Annotations & typing",
+    "Модули и импорт": "Modules & imports",
     "Встроенные функции": "Built-in functions",
     "Исключения": "Exceptions",
     "Ввод и вывод": "Input & output",
-    "Файлы и I_O": "Files & I/O",
+    "Файлы и I/O": "Files & I/O",
     "Алгоритмы и структуры данных": "Algorithms & data structures",
+    "Удалено из стандартной библиотеки": "Removed from the standard library",
 }
 
 # При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
@@ -166,9 +172,22 @@ def sort_cards(cards: list[GlossaryCard], sort: str | None, query: str = "") -> 
     if sort == "section":
         return sorted(cards, key=lambda c: (c.section.lower(), c.title.lower()))
     if sort == "version":
-        # Карточки без версии — в конец; версии по возрастанию строкового ключа.
-        return sorted(cards, key=lambda c: (c.version == "", c.version, c.title.lower()))
+        # Карточки без версии — в конец; версии по возрастанию ЧИСЛОМ: строкой
+        # «3.10» встаёт раньше «3.9» (тот же класс дефекта, что #1576).
+        return sorted(cards, key=lambda c: (c.added == "", _version_key(c.added), c.title.lower()))
     return cards
+
+
+def _version_key(version: str) -> tuple[int, ...]:
+    """Числовой ключ версии Python для сортировки: ``"3.10"`` → ``(3, 10)``.
+
+    ``"<3.0"`` (имя старше Python 3, форма 5.0 Glossary-Python) → ``(0,)``:
+    встаёт раньше любой явной версии. Нечисловое — ``()``, в самое начало.
+    """
+    if version.startswith("<"):
+        return (0,)
+    parts = version.split(".")
+    return tuple(int(part) for part in parts) if all(p.isdigit() for p in parts) else ()
 
 
 def is_private_name(card_id: str) -> bool:

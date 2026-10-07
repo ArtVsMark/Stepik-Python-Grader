@@ -410,6 +410,31 @@ function parseGlossaryHash() {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+// Значки карточки: с какой версии есть, устарело, удалено, на каких ОС
+// (issue #1573). «AllOS» значка не даёт: ограничение показывается, только когда
+// оно есть, иначе каждая карточка несла бы одну и ту же пометку.
+function glossaryLifecycleBadges(card) {
+  const badge = (cls, text) => ' <span class="badge ' + cls + '">' + esc(text) + "</span>";
+  let out = "";
+  if (card.added) {
+    out += badge(
+      "badge-neutral",
+      card.added.startsWith("<") ? t("glossary.added_before3") : t("glossary.added", { v: card.added })
+    );
+  }
+  if (card.deprecated) out += badge("badge-warning", t("glossary.deprecated", { v: card.deprecated }));
+  if (card.removed) {
+    // Удаление в версии новее работающего Python — запланированное (сервер
+    // сравнивает со своим интерпретатором): имя ещё есть, поэтому жёлтым.
+    out += card.removed_pending
+      ? badge("badge-warning", t("glossary.removed_pending", { v: card.removed }))
+      : badge("badge-error", t("glossary.removed", { v: card.removed }));
+  }
+  const os = (card.platforms || []).filter(p => p !== "AllOS");
+  if (os.length) out += badge("badge-neutral", t("glossary.platforms", { os: os.join(", ") }));
+  return out;
+}
+
 function renderGlossaryDetail(card) {
   $("#glossary-empty").hidden = true;
   $("#glossary-not-found").hidden = true; // issue #969 — прошлый отказ снимаем
@@ -425,9 +450,9 @@ function renderGlossaryDetail(card) {
     card.status === "draft"
       ? ' <span class="badge badge-warning">' + esc(t("glossary.draft_badge")) + "</span>" // issue #328
       : "";
-  const verBadge = card.version
-    ? ' <span class="badge badge-neutral">Python ' + esc(card.version) + "</span>"
-    : "";
+  // issue #1573: жизненный цикл имени и ОС — поля формы 5.0/4.0 Glossary-Python.
+  // Удалённое — красным: в текущем Python его нет, и пример не запустится.
+  const lifeBadges = glossaryLifecycleBadges(card);
   const syntax = card.syntax
     ? '<div class="form-label">' + esc(t("glossary.syntax")) + '</div><pre class="code-block">' + esc(card.syntax) + "</pre>"
     : "";
@@ -455,7 +480,7 @@ function renderGlossaryDetail(card) {
       : "",
   ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =
-    "<h2>" + esc(card.title) + draftBadge + verBadge + "</h2>" +
+    "<h2>" + esc(card.title) + draftBadge + lifeBadges + "</h2>" +
     '<div class="hint">' + meta + "</div>" +
     (card.summary ? "<p>" + esc(card.summary) + "</p>" : "") +
     (card.body ? "<div>" + esc(card.body) + "</div>" : "") +
