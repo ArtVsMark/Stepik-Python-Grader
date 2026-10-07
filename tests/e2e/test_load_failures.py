@@ -201,3 +201,44 @@ def test_a_stale_terms_response_does_not_overwrite_a_fresh_one(page: Any, e2e_se
     page.wait_for_timeout(500)  # дать устаревшему ответу шанс отрисоваться
 
     expect(nocard).to_have_count(1)
+
+
+def test_a_stale_sandbox_terms_response_does_not_overwrite_a_fresh_one(
+    page: Any, e2e_server: str
+) -> None:
+    """То же для песочницы: устаревший ответ «Функций в коде» не затирает свежий.
+
+    Защиту из `grade.js` песочница не унаследовала — у неё свой загрузчик панели.
+    На загруженном раннере это дважды подряд роняло
+    `test_sandbox_code_terms_and_error_card`: карточка `sorted` отрисовывалась и
+    тут же затиралась ответом на недонабранный код.
+    """
+    held: list[Any] = []
+
+    def route(request_route: Any) -> None:
+        if not held:
+            held.append(request_route)  # первый запрос — придержать
+            return
+        request_route.continue_()
+
+    page.route("**/api/code-terms*", route)
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click("#sandbox-editor .cm-content")
+
+    page.keyboard.type("import cmath\n")
+    for _ in range(_TIMEOUT_MS // 100):
+        if held:
+            break
+        page.wait_for_timeout(100)
+    assert held, "первый запрос к /api/code-terms не ушёл"
+
+    page.keyboard.type("cmath.polar(1)")
+    nocard = page.locator("#sandbox-terms .term-card-nocard")
+    expect(nocard).to_have_count(1, timeout=_TIMEOUT_MS)
+
+    held[0].fulfill(status=200, content_type="application/json", body='{"terms": []}')
+    page.wait_for_timeout(500)  # дать устаревшему ответу шанс отрисоваться
+
+    expect(nocard).to_have_count(1)
