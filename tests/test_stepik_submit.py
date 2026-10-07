@@ -175,6 +175,21 @@ class TestPickPythonLanguage:
     def test_fallback_when_no_python(self) -> None:
         assert _pick_python_language(["java", "c++"]) == "python3"
 
+    def test_versions_compare_as_numbers_not_strings(self) -> None:
+        """issue #1576: строкой «python3.9» старше «python3.12» — символ 9 больше 1."""
+        assert _pick_python_language(["python3.9", "python3.12"]) == "python3.12"
+
+    def test_the_real_stepik_set_picks_the_newest(self) -> None:
+        """issue #1576: набор выбора языка в шаге Stepik (замер 07.10) — 3.10, 3.12, 3.6.
+
+        Строковая сортировка отправляла решение на Python 3.6.
+        """
+        assert _pick_python_language(["python3.10", "python3.12", "python3.6"]) == "python3.12"
+
+    def test_unversioned_python_loses_to_a_versioned_one(self) -> None:
+        """Голое «python3» без версии — не новее явной: версия известна только у второй."""
+        assert _pick_python_language(["python3", "python3.10"]) == "python3.10"
+
 
 class TestReadStepId:
     def test_reads_step_id(self, tmp_path: Path) -> None:

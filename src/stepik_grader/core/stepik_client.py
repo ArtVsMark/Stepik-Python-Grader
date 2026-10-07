@@ -24,6 +24,7 @@ import ipaddress
 import json as _json_mod
 import os
 import pathlib
+import re
 import secrets as secrets_module
 import socket
 import socketserver
@@ -1357,9 +1358,23 @@ def _pick_python_language(languages: list[str]) -> str:
     Предпочитает самую свежую версию (``python3.12`` перед ``python3.10`` —
     код решения совместим), fallback — ``python3`` (пусть Stepik ответит, если
     шаг вообще не про Python).
+
+    Версии сравниваются числами (issue #1576): строкой ``python3.9`` и
+    ``python3.6`` «старше» ``python3.12``, и на реальном наборе шага Stepik
+    (3.10, 3.12, 3.6) решение уходило на Python 3.6.
     """
-    pythons = sorted((raw for raw in languages if "python" in raw.lower()), reverse=True)
-    return pythons[0] if pythons else "python3"
+    pythons = [raw for raw in languages if "python" in raw.lower()]
+    return max(pythons, key=_python_version_key) if pythons else "python3"
+
+
+def _python_version_key(language: str) -> tuple[int, ...]:
+    """Числовой ключ версии из идентификатора языка: ``python3.12`` → ``(3, 12)``.
+
+    Идентификатор без версии (``python3``) даёт ``(3,)`` и проигрывает любой
+    явной ``3.x``: кортеж короче при равном префиксе меньше.
+    """
+    match = re.search(r"\d+(?:\.\d+)*", language)
+    return tuple(int(part) for part in match.group().split(".")) if match else ()
 
 
 def submit_and_wait(
