@@ -5,10 +5,10 @@
 Здесь живут две доменные сущности локального knowledge-модуля глоссария
 (реализация — [`docs/dev/web-contracts.md § Контракты данных`](../../../docs/dev/web-contracts.md)):
 
-- ``GlossaryCard`` — карточка термина/исключения/функции/конструкции в
-  локальной базе (истина хранится локально, экспорт во внешний
-  Glossary-Python — односторонний; обратной ссылки в него у карточки нет,
-  issue #684).
+- ``GlossaryCard`` — карточка термина/исключения/функции/конструкции.
+  Содержание ведётся в Glossary-Python и приезжает сюда импортом выгрузки
+  (``scripts/import_glossary.py``, issue #1573); форма карточки — форма
+  выгрузки (сейчас 6.0), ``from_dict``/``to_dict`` переводят её без потерь.
 - ``GlossaryMissingEntry`` — элемент очереди пополнения: обнаруженный
   ``MissingConceptDetector``'ом пробел (нет карточки под конструкцию/функцию).
 
@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any, Literal
@@ -69,6 +70,34 @@ def _as_str_list(value: Any) -> list[str]:
     raise ValueError(f"Ожидался список строк, получено: {value!r}")
 
 
+def _parse_examples(value: Any) -> list[str]:
+    """Примеры карточки — список блоков, каждый блок — одна строка кода.
+
+    Форма 6.0 (Glossary-Python #125): ``examples`` — массив самостоятельных
+    блоков, блок — массив строк, и читается и исполняется отдельно. Здесь блок
+    склеивается переводами строк: дальше по коду пример — один кусок текста,
+    который показывается одним ``<pre>`` и ищется подстрокой. Старая плоская
+    форма (список строк) читается как прежде: строка — блок.
+    """
+    if value is None:
+        return []
+    if not isinstance(value, list | tuple):
+        raise ValueError(f"Ожидался список примеров, получено: {value!r}")
+    blocks: list[str] = []
+    for item in value:
+        if isinstance(item, list | tuple):
+            blocks.append("\n".join(str(line) for line in item))
+        else:
+            blocks.append(str(item))
+    return blocks
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    """``"3.16"`` → ``(3, 16)``; нечисловое — ``()`` (меньше любой версии)."""
+    parts = version.split(".")
+    return tuple(int(part) for part in parts) if all(part.isdigit() for part in parts) else ()
+
+
 def _parse_localized(value: Any) -> tuple[str, str]:
     """Разобрать текстовое поле карточки в пару ``(ru, en)`` (issue #363).
 
@@ -94,7 +123,7 @@ class GlossaryCard:
     """
 
     id: str
-    title: str
+    title: str  # RU-заголовок; EN — ``title_en`` (форма 3.0+: объект {ru, en})
     kind: CardKind = "term"
     summary: str = ""  # однострочное пояснение (RU); синоним hint из core/glossary
     body: str = ""  # расширенное описание (Markdown, RU), опционально
@@ -105,9 +134,17 @@ class GlossaryCard:
     # устаревшие данные (issue #684). Единственный адрес карточки — её ``id``
     # как якорь своего раздела «Глоссарий».
     docs_url: str = ""  # ссылка на официальную документацию docs.python.org (issue #325)
-    version: str = ""  # мин. версия Python, если релевантно (issue #325), напр. "3.10"
+    # Жизненный цикл имени в Python (форма 5.0, Glossary-Python #122). ``added`` —
+    # с какой версии есть (``"<3.0"`` — раньше Python 3), ``deprecated`` — с какой
+    # устарело, ``removed`` — в какой удалено. Пусто — не устаревало/не удалялось.
+    added: str = ""
+    deprecated: str = ""
+    removed: str = ""
+    # ОС, где имя доступно (форма 4.0): ``["AllOS"]`` или подмножество
+    # ``Linux``/``macOS``/``Windows``. Пусто — источник не сообщил.
+    platforms: list[str] = field(default_factory=list)
     section: str = ""  # раздел глоссария (напр. «Исключения»)
-    subcat: str = ""  # подкатегория внутри section (issue #325)
+    subcat: str = ""  # подкатегория внутри section, RU; EN — ``subcat_en``
     aliases: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -120,6 +157,8 @@ class GlossaryCard:
     # а web-API сплющивает их по ?lang= через ``to_api_dict``/``localized``.
     summary_en: str = ""
     body_en: str = ""
+    title_en: str = ""
+    subcat_en: str = ""
 
     @cached_property
     def search_terms(self) -> list[str]:
@@ -210,7 +249,8 @@ class GlossaryCard:
                 имеют недопустимое значение.
         """
         card_id = str(data.get("id", "")).strip()
-        title = str(data.get("title", "")).strip()
+        title_ru, title_en = _parse_localized(data.get("title", ""))
+        title = title_ru.strip()
         if not card_id:
             raise ValueError("Карточка глоссария без обязательного поля 'id'")
         if not title:
@@ -234,6 +274,7 @@ class GlossaryCard:
         # Glossary-Python.
         summary_ru, summary_en = _parse_localized(data.get("summary", data.get("hint", "")))
         body_ru, body_en = _parse_localized(data.get("body", ""))
+        subcat_ru, subcat_en = _parse_localized(data.get("subcat", ""))
 
         return cls(
             id=card_id,
@@ -246,24 +287,30 @@ class GlossaryCard:
             # ``url`` старого импорта (ссылка в витрину Glossary-Python) молча
             # отбрасывается — поля больше нет (issue #684).
             # ``docs`` — алиас ``docs_url`` для совместимости со схемой
-            # Glossary-Python (как ``hint`` → ``summary``); ``version`` там
-            # бывает null → нормализуем в "".
+            # Glossary-Python (как ``hint`` → ``summary``).
             docs_url=str(data.get("docs_url", data.get("docs", ""))),
-            version=str(data.get("version") or ""),
+            # До формы 5.0 было одно поле ``version`` — минимальная версия;
+            # оно и есть ``added``. ``null`` нормализуется в "".
+            added=str(data.get("added", data.get("version")) or ""),
+            deprecated=str(data.get("deprecated") or ""),
+            removed=str(data.get("removed") or ""),
+            platforms=_as_str_list(data.get("platforms")),
             section=str(data.get("section", "")),
-            subcat=str(data.get("subcat", "")),
+            subcat=subcat_ru,
             aliases=_as_str_list(data.get("aliases")),
             keywords=_as_str_list(data.get("keywords")),
             tags=_as_str_list(data.get("tags")),
-            examples=_as_str_list(data.get("examples")),
+            examples=_parse_examples(data.get("examples")),
             related=_as_str_list(data.get("related")),
             related_errors=_as_str_list(data.get("related_errors")),
             summary_en=summary_en,
             body_en=body_en,
+            title_en=title_en,
+            subcat_en=subcat_en,
         )
 
     def localized(self, field_name: str, lang: str = "ru") -> str:
-        """Текст двуязычного поля (``summary``/``body``) по локали ``lang``.
+        """Текст двуязычного поля (``title``/``summary``/``body``/``subcat``) по ``lang``.
 
         ``en`` — только если запрошен и непуст; иначе fallback на RU (плоский
         атрибут), тот же принцип graceful degradation, что у ``resolve_lang``.
@@ -275,26 +322,30 @@ class GlossaryCard:
     def to_dict(self) -> dict[str, Any]:
         """Сериализовать карточку в JSON-совместимый dict для хранилища.
 
-        Текстовые поля ``summary``/``body`` — вложенным {ru,en} (issue #363);
-        стабильный порядок ключей. Для web-API используй ``to_api_dict(lang)``,
-        который сплющивает их в строку по локали.
+        Форма и порядок ключей — те же, что у карточки выгрузки Glossary-Python
+        (форма 6.0): ``from_dict(card).to_dict() == card`` для каждой карточки
+        выгрузки, и это держит тест импорта. Двуязычные поля — объектом {ru, en},
+        примеры — блоками строк. Для web-API — ``to_api_dict(lang)``.
         """
         return {
             "id": self.id,
-            "title": self.title,
+            "title": {"ru": self.title, "en": self.title_en},
             "kind": self.kind,
             "summary": {"ru": self.summary, "en": self.summary_en},
             "body": {"ru": self.body, "en": self.body_en},
             "syntax": self.syntax,
             "status": self.status,
             "docs_url": self.docs_url,
-            "version": self.version,
+            "added": self.added,
+            "deprecated": self.deprecated,
+            "removed": self.removed,
+            "platforms": list(self.platforms),
             "section": self.section,
-            "subcat": self.subcat,
+            "subcat": {"ru": self.subcat, "en": self.subcat_en},
             "aliases": list(self.aliases),
             "keywords": list(self.keywords),
             "tags": list(self.tags),
-            "examples": list(self.examples),
+            "examples": [block.split("\n") for block in self.examples],
             "related": list(self.related),
             "related_errors": list(self.related_errors),
         }
@@ -307,8 +358,15 @@ class GlossaryCard:
         контракт полей ``summary``/``body`` остаётся строковым (issue #264).
         """
         data = self.to_dict()
-        data["summary"] = self.localized("summary", lang)
-        data["body"] = self.localized("body", lang)
+        for name in ("title", "summary", "body", "subcat"):
+            data[name] = self.localized(name, lang)
+        # Пример в API — блок одной строкой: показывается одним ``<pre>``.
+        data["examples"] = list(self.examples)
+        # Удаление в версии новее работающего интерпретатора — запланированное:
+        # у пользователя имя ещё есть, и «удалено» было бы неправдой.
+        data["removed_pending"] = (
+            bool(self.removed) and _version_tuple(self.removed) > sys.version_info[:2]
+        )
         return data
 
 

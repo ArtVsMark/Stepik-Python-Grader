@@ -58,7 +58,7 @@ def test_card_new_fields_default_to_empty() -> None:
     card = GlossaryCard.from_dict({"id": "x", "title": "X"})
     assert card.syntax == ""
     assert card.docs_url == ""
-    assert card.version == ""
+    assert card.added == ""
     assert card.subcat == ""
 
 
@@ -77,7 +77,7 @@ def test_card_parses_new_fields_with_docs_alias_and_null_version() -> None:
     )
     assert card.syntax.startswith("match x:")
     assert card.docs_url.endswith("compound_stmts.html")
-    assert card.version == ""
+    assert card.added == ""
     assert card.subcat == "ветвление"
     # round-trip сохраняет новые поля
     assert GlossaryCard.from_dict(card.to_dict()) == card

@@ -366,7 +366,7 @@
     "070": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_glossary_examples.py — храповик с числом (BUDGET), опускается починкой, а не правкой числа; tests/test_check_glossary_examples.py не даёт бюджету молча вырасти"
+      "where": "scripts/check_declared_outcomes.py — храповик с числом (BUDGET непрогнанных исходов), опускается починкой, а не правкой числа; tests/test_check_declared_outcomes.py не даёт бюджету молча вырасти. Прежний носитель — храповик примеров карточек — уехал в Glossary-Python вместе с содержанием (#1573)"
     },
     "071": {
       "status": "active",
@@ -974,8 +974,8 @@
     },
     "193": {
       "status": "active",
-      "mechanism": "gate",
-      "where": "scripts/check_glossary_examples.py — приёмка примеров карточек строже прежнего храповика исполнения: тот помечал некомпилируемую карточку как unverifiable и проходил мимо, гейт требует компилируемости"
+      "mechanism": "document",
+      "where": "CONTRIBUTING.md § Когда дефект считается исправленным — тест, красный до фикса, и прогон той поверхности, где дефект найден. Прежний гейт-носитель — приёмка примеров карточек, строже прежнего храповика исполнения, — уехал в Glossary-Python вместе с содержанием глоссария (#1573)"
     },
     "194": {
       "status": "active",

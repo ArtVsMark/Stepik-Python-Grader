@@ -1,7 +1,10 @@
 [
   {
     "id": "__add__-__mul__-__eq__-__lt__-и-оператор",
-    "title": "__add__ / __mul__ / __eq__ / __lt__ и операторные методы",
+    "title": {
+      "ru": "Операторные методы",
+      "en": "Operator methods"
+    },
     "kind": "term",
     "summary": {
       "ru": "Перегрузка операторов. __add__(+), __sub__(-), __mul__(*), __eq__(==), __lt__(<), __le__(<=), __hash__, __neg__.",
@@ -14,9 +17,17 @@
     "syntax": "def __add__(self, other): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__add__",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "магические методы",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
     "aliases": [
       "перегрузка операторов",
       "переопределение операторов",
@@ -32,95 +43,378 @@
       "oop"
     ],
     "examples": [
-      "class Vector:",
-      "    def __init__(self, x, y):",
-      "        self.x = x; self.y = y",
-      "    def __add__(self, other):",
-      "        return Vector(self.x+other.x, self.y+other.y)",
-      "    def __mul__(self, scalar):",
-      "        return Vector(self.x*scalar, self.y*scalar)",
-      "    def __repr__(self):",
-      "        return f'Vector({self.x},{self.y})'",
-      "v1 = Vector(1,2); v2 = Vector(3,4)",
-      "print(v1+v2)  # → Vector(4,6)",
-      "print(v1*3)   # → Vector(3,6)",
-      "class Fraction:",
-      "    def __init__(self, n, d):",
-      "        from math import gcd",
-      "        g = gcd(abs(n), abs(d))",
-      "        self.n = n//g; self.d = d//g",
-      "    def __add__(self, other):",
-      "        return Fraction(self.n*other.d + other.n*self.d, self.d*other.d)",
-      "    def __repr__(self):",
-      "        return f'{self.n}/{self.d}'",
-      "print(Fraction(1,3)+Fraction(1,6))  # → 1/2",
-      "class MyStr:",
-      "    def __init__(self, s):",
-      "        self.s = s",
-      "    def __add__(self, other):",
-      "        return MyStr(self.s + other.s)",
-      "    def __mul__(self, n):",
-      "        return MyStr(self.s * n)",
-      "    def __repr__(self):",
-      "        return repr(self.s)",
-      "print(MyStr('hi')*3)  # → 'hihihi'",
-      "class Point:",
-      "    def __init__(self, x, y):",
-      "        self.x = x; self.y = y",
-      "    def __eq__(self, other):",
-      "        return self.x == other.x and self.y == other.y",
-      "    def __lt__(self, other):",
-      "        return (self.x**2+self.y**2) < (other.x**2+other.y**2)",
-      "points = [Point(3,4), Point(1,1), Point(0,5)]",
-      "print(sorted(points, key=lambda p: (p.x**2+p.y**2)))  # по расстоянию",
-      "print(Point(1,1) == Point(1,1))  # → True",
-      "class Temperature:",
-      "    def __init__(self, c):",
-      "        self.c = c",
-      "    def __eq__(self, other):",
-      "        return self.c == other.c",
-      "    def __lt__(self, other):",
-      "        return self.c < other.c",
-      "    def __le__(self, other):",
-      "        return self.c <= other.c",
-      "t1 = Temperature(20); t2 = Temperature(30)",
-      "print(t1 < t2, t1 == t2)  # → True False",
-      "# __neg__, __abs__",
-      "class Num:",
-      "    def __init__(self, v):",
-      "        self.v = v",
-      "    def __neg__(self):",
-      "        return Num(-self.v)",
-      "    def __abs__(self):",
-      "        return Num(abs(self.v))",
-      "    def __repr__(self):",
-      "        return f'Num({self.v})'",
-      "print(-Num(5))    # → Num(-5)",
-      "print(abs(Num(-3)))  # → Num(3)",
-      "# __iadd__ (+=)",
-      "class Counter:",
-      "    def __init__(self, n=0):",
-      "        self.n = n",
-      "    def __iadd__(self, other):",
-      "        self.n += other",
-      "        return self",
-      "    def __repr__(self):",
-      "        return f'Counter({self.n})'",
-      "c = Counter(5)",
-      "c += 3",
-      "print(c)  # → Counter(8)"
+      [
+        "class Vector:",
+        "    def __init__(self, x, y):",
+        "        self.x = x; self.y = y",
+        "    def __add__(self, other):",
+        "        return Vector(self.x+other.x, self.y+other.y)",
+        "    def __mul__(self, scalar):",
+        "        return Vector(self.x*scalar, self.y*scalar)",
+        "    def __repr__(self):",
+        "        return f'Vector({self.x},{self.y})'",
+        "v1 = Vector(1,2); v2 = Vector(3,4)",
+        "print(v1+v2)  # → Vector(4,6)",
+        "print(v1*3)   # → Vector(3,6)"
+      ],
+      [
+        "class Fraction:",
+        "    def __init__(self, n, d):",
+        "        from math import gcd",
+        "        g = gcd(abs(n), abs(d))",
+        "        self.n = n//g; self.d = d//g",
+        "    def __add__(self, other):",
+        "        return Fraction(self.n*other.d + other.n*self.d, self.d*other.d)",
+        "    def __repr__(self):",
+        "        return f'{self.n}/{self.d}'",
+        "print(Fraction(1,3)+Fraction(1,6))  # → 1/2"
+      ],
+      [
+        "class MyStr:",
+        "    def __init__(self, s):",
+        "        self.s = s",
+        "    def __add__(self, other):",
+        "        return MyStr(self.s + other.s)",
+        "    def __mul__(self, n):",
+        "        return MyStr(self.s * n)",
+        "    def __repr__(self):",
+        "        return repr(self.s)",
+        "print(MyStr('hi')*3)  # → 'hihihi'"
+      ],
+      [
+        "class Point:",
+        "    def __init__(self, x, y):",
+        "        self.x = x; self.y = y",
+        "    def __eq__(self, other):",
+        "        return self.x == other.x and self.y == other.y",
+        "    def __lt__(self, other):",
+        "        return (self.x**2+self.y**2) < (other.x**2+other.y**2)",
+        "points = [Point(3,4), Point(1,1), Point(0,5)]",
+        "print(sorted(points, key=lambda p: (p.x**2+p.y**2)))  # по расстоянию",
+        "print(Point(1,1) == Point(1,1))  # → True"
+      ],
+      [
+        "class Temperature:",
+        "    def __init__(self, c):",
+        "        self.c = c",
+        "    def __eq__(self, other):",
+        "        return self.c == other.c",
+        "    def __lt__(self, other):",
+        "        return self.c < other.c",
+        "    def __le__(self, other):",
+        "        return self.c <= other.c",
+        "t1 = Temperature(20); t2 = Temperature(30)",
+        "print(t1 < t2, t1 == t2)  # → True False"
+      ],
+      [
+        "# __neg__, __abs__",
+        "class Num:",
+        "    def __init__(self, v):",
+        "        self.v = v",
+        "    def __neg__(self):",
+        "        return Num(-self.v)",
+        "    def __abs__(self):",
+        "        return Num(abs(self.v))",
+        "    def __repr__(self):",
+        "        return f'Num({self.v})'",
+        "print(-Num(5))    # → Num(-5)",
+        "print(abs(Num(-3)))  # → Num(3)"
+      ],
+      [
+        "# __iadd__ (+=)",
+        "class Counter:",
+        "    def __init__(self, n=0):",
+        "        self.n = n",
+        "    def __iadd__(self, other):",
+        "        self.n += other",
+        "        return self",
+        "    def __repr__(self):",
+        "        return f'Counter({self.n})'",
+        "c = Counter(5)",
+        "c += 3",
+        "print(c)  # → Counter(8)"
+      ]
     ],
     "related": [
+      "__add__",
+      "__mul__",
+      "__eq__",
+      "__lt__",
       "functools.total_ordering",
       "dataclass-order-true",
       "операторы-сравнения",
-      "__str__-__repr__"
+      "repr-vs-str"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "__add__",
+    "title": {
+      "ru": "__add__",
+      "en": "__add__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод оператора +: a + b вызывает a.__add__(b). Вернув NotImplemented, метод передаёт ход b.__radd__(a).",
+      "en": "The method behind +: a + b calls a.__add__(b). Returning NotImplemented hands the turn to b.__radd__(a)."
+    },
+    "body": {
+      "ru": "Если __add__ не умеет складывать с объектом такого типа, нужно вернуть NotImplemented, а не бросить TypeError: тогда Python попробует отражённый __radd__ второго операнда и только потом сообщит об ошибке. Операция a += b сначала ищет __iadd__ и лишь без него откатывается к __add__ — у неизменяемых типов так и задумано.",
+      "en": "When __add__ cannot handle the other operand's type it should return NotImplemented rather than raise TypeError: Python then tries the reflected __radd__ of the right operand and only after that reports an error. a += b looks for __iadd__ first and falls back to __add__ only without it — which is exactly how immutable types are meant to work."
+    },
+    "syntax": "def __add__(self, other): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__add__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "сложение своих объектов",
+      "перегрузка плюса"
+    ],
+    "keywords": [
+      "__add__",
+      "__radd__",
+      "__iadd__",
+      "+",
+      "NotImplemented"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Money:",
+        "    def __init__(self, amount):",
+        "        self.amount = amount",
+        "    def __add__(self, other):",
+        "        if not isinstance(other, Money):",
+        "            return NotImplemented",
+        "        return Money(self.amount + other.amount)",
+        "print((Money(5) + Money(7)).amount)  # → 12"
+      ],
+      [
+        "class Money:",
+        "    def __init__(self, amount):",
+        "        self.amount = amount",
+        "    def __add__(self, other):",
+        "        return NotImplemented",
+        "Money(1) + 2  # → TypeError: unsupported operand type(s) for +"
+      ]
+    ],
+    "related": [
+      "__add__-__mul__-__eq__-__lt__-и-оператор",
+      "__mul__",
+      "сложение"
+    ],
+    "related_errors": [
+      "typeerror"
+    ]
+  },
+  {
+    "id": "__mul__",
+    "title": {
+      "ru": "__mul__",
+      "en": "__mul__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод оператора *: a * b вызывает a.__mul__(b); отражённый __rmul__ срабатывает для 3 * a.",
+      "en": "The method behind *: a * b calls a.__mul__(b); the reflected __rmul__ handles 3 * a."
+    },
+    "body": {
+      "ru": "Умножение на число с обеих сторон требует двух методов: __mul__ для v * 3 и __rmul__ для 3 * v — у int нет способа умножиться на ваш объект, и он вернёт NotImplemented. Последовательности используют __mul__ для повторения: [0] * 3 — это list.__mul__.",
+      "en": "Multiplying by a number on either side needs two methods: __mul__ for v * 3 and __rmul__ for 3 * v — int has no way to multiply by your object and returns NotImplemented. Sequences use __mul__ for repetition: [0] * 3 is list.__mul__."
+    },
+    "syntax": "def __mul__(self, other): ...\ndef __rmul__(self, other): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__mul__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "умножение своих объектов",
+      "перегрузка умножения"
+    ],
+    "keywords": [
+      "__mul__",
+      "__rmul__",
+      "*"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Vec:",
+        "    def __init__(self, x, y):",
+        "        self.x, self.y = x, y",
+        "    def __mul__(self, k):",
+        "        return Vec(self.x * k, self.y * k)",
+        "    __rmul__ = __mul__",
+        "    def __repr__(self):",
+        "        return f'Vec({self.x}, {self.y})'",
+        "print(Vec(1, 2) * 3)  # → Vec(3, 6)",
+        "print(3 * Vec(1, 2))  # → Vec(3, 6) — сработал __rmul__"
+      ]
+    ],
+    "related": [
+      "__add__-__mul__-__eq__-__lt__-и-оператор",
+      "__add__",
+      "умножение"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "__eq__",
+    "title": {
+      "ru": "__eq__",
+      "en": "__eq__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод оператора ==. Без него объекты равны, только если это один и тот же объект, как для is.",
+      "en": "The method behind ==. Without it two objects are equal only when they are the same object, as with is."
+    },
+    "body": {
+      "ru": "Определив __eq__, класс теряет __hash__: его экземпляры больше нельзя класть в set и делать ключами dict, пока не определён и __hash__ — согласованный с равенством. != Python 3 выводит сам, инвертируя __eq__. Для чужого типа возвращают NotImplemented, а не False: тогда Python спросит второй операнд.",
+      "en": "Defining __eq__ removes __hash__: instances can no longer go into a set or serve as dict keys until a __hash__ consistent with equality is defined too. Python 3 derives != itself by inverting __eq__. For a foreign type return NotImplemented rather than False, so Python asks the other operand."
+    },
+    "syntax": "def __eq__(self, other): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__eq__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "сравнение на равенство своих объектов",
+      "переопределить =="
+    ],
+    "keywords": [
+      "__eq__",
+      "__ne__",
+      "__hash__",
+      "=="
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Point:",
+        "    def __init__(self, x, y):",
+        "        self.x, self.y = x, y",
+        "    def __eq__(self, other):",
+        "        if not isinstance(other, Point):",
+        "            return NotImplemented",
+        "        return (self.x, self.y) == (other.x, other.y)",
+        "print(Point(1, 2) == Point(1, 2))  # → True",
+        "print(Point(1, 2) != Point(3, 4))  # → True — != выведен из __eq__",
+        "print(Point.__hash__)  # → None — без __hash__ в set не положить"
+      ]
+    ],
+    "related": [
+      "__add__-__mul__-__eq__-__lt__-и-оператор",
+      "__lt__",
+      "hash"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "__lt__",
+    "title": {
+      "ru": "__lt__",
+      "en": "__lt__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод оператора <. Его одного хватает, чтобы sorted() и min() умели упорядочивать объекты.",
+      "en": "The method behind <. On its own it is enough for sorted() and min() to order objects."
+    },
+    "body": {
+      "ru": "sorted, min и heapq сравнивают только через <, поэтому для сортировки достаточно __lt__; max сравнивает через >, но и ему хватает одного __lt__: для a > b при отсутствии __gt__ Python пробует отражённое b < a. Операторы <= и >= из __lt__ не выводятся — их даёт декоратор functools.total_ordering по __eq__ и одному из сравнений.",
+      "en": "sorted, min and heapq compare only with <, so __lt__ alone is enough for sorting; max compares with >, yet __lt__ alone suffices there too: for a > b without __gt__ Python tries the reflected b < a. The operators <= and >= are not derived from __lt__ — functools.total_ordering supplies them from __eq__ and one comparison."
+    },
+    "syntax": "def __lt__(self, other): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__lt__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "сортировка своих объектов",
+      "сравнение меньше"
+    ],
+    "keywords": [
+      "__lt__",
+      "__gt__",
+      "__le__",
+      "__ge__",
+      "<",
+      "total_ordering"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Version:",
+        "    def __init__(self, major, minor):",
+        "        self.v = (major, minor)",
+        "    def __lt__(self, other):",
+        "        return self.v < other.v",
+        "    def __repr__(self):",
+        "        return f'{self.v[0]}.{self.v[1]}'",
+        "print(sorted([Version(3, 12), Version(3, 9), Version(3, 11)]))  # → [3.9, 3.11, 3.12]",
+        "print(Version(3, 9) > Version(3, 8))  # → True — отражённое Version(3, 8) < Version(3, 9)"
+      ]
+    ],
+    "related": [
+      "__add__-__mul__-__eq__-__lt__-и-оператор",
+      "__eq__",
+      "functools.total_ordering",
+      "sorted"
     ],
     "related_errors": []
   },
   {
     "id": "__enter__-__exit__",
-    "title": "__enter__ / __exit__",
+    "title": {
+      "ru": "Протокол контекстного менеджера",
+      "en": "Context manager protocol"
+    },
     "kind": "term",
     "summary": {
       "ru": "Контекстный менеджер (with-statement). __enter__ выполняется при входе, __exit__ — при выходе (в том числе при исключении).",
@@ -133,9 +427,17 @@
     "syntax": "class CM:\n    def __enter__(self): return self\n    def __exit__(self, exc_type, exc_val, tb): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/datamodel.html#with-statement-context-managers",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "контекст. менеджер",
+    "subcat": {
+      "ru": "контекст. менеджер",
+      "en": "context manager"
+    },
     "aliases": [
       "контекстный менеджер",
       "свой блок with",
@@ -149,73 +451,87 @@
       "oop"
     ],
     "examples": [
-      "class ManagedResource:",
-      "    def __enter__(self):",
-      "        print('Opening resource')",
-      "        return self",
-      "    def __exit__(self, exc_type, exc_val, tb):",
-      "        print('Closing resource')",
-      "        return False  # не подавлять исключения",
-      "with ManagedResource() as r:",
-      "    print('Using resource')  # → Opening / Using / Closing",
-      "class Timer:",
-      "    import time as _time",
-      "    def __enter__(self):",
-      "        import time",
-      "        self.start = time.time()",
-      "        return self",
-      "    def __exit__(self, *args):",
-      "        import time",
-      "        self.elapsed = time.time() - self.start",
-      "        print(f'Elapsed: {self.elapsed:.4f}s')",
-      "with Timer() as t:",
-      "    sum(range(10**6))  # → Elapsed: ...",
-      "class Transaction:",
-      "    def __init__(self):",
-      "        self.operations = []",
-      "    def __enter__(self):",
-      "        return self",
-      "    def __exit__(self, exc_type, exc_val, tb):",
-      "        if exc_type:",
-      "            print('Rolling back!')",
-      "            self.operations.clear()",
-      "        else:",
-      "            print('Committing:', self.operations)",
-      "        return True  # подавить исключение",
-      "with Transaction() as tx:",
-      "    tx.operations.append('insert')",
-      "    tx.operations.append('update')  # → Committing: ['insert','update']",
-      "# Подавление исключения (__exit__ возвращает True)",
-      "class Suppress:",
-      "    def __init__(self, *exceptions):",
-      "        self.exceptions = exceptions",
-      "    def __enter__(self):",
-      "        return self",
-      "    def __exit__(self, exc_type, exc_val, tb):",
-      "        return exc_type is not None and issubclass(exc_type, self.exceptions)",
-      "with Suppress(ZeroDivisionError):",
-      "    x = 1/0  # → не падает!",
-      "print('After suppress')  # → After suppress",
-      "# Использование contextlib",
-      "from contextlib import contextmanager",
-      "@contextmanager",
-      "def managed():",
-      "    print('enter')",
-      "    yield",
-      "    print('exit')",
-      "with managed():",
-      "    print('body')  # → enter / body / exit",
-      "# Вложенные with",
-      "class A:",
-      "    def __enter__(self): print('A enter'); return self",
-      "    def __exit__(self, *a): print('A exit'); return False",
-      "class B:",
-      "    def __enter__(self): print('B enter'); return self",
-      "    def __exit__(self, *a): print('B exit'); return False",
-      "with A() as a, B() as b:",
-      "    print('inside')  # → A enter / B enter / inside / B exit / A exit"
+      [
+        "class ManagedResource:",
+        "    def __enter__(self):",
+        "        print('Opening resource')",
+        "        return self",
+        "    def __exit__(self, exc_type, exc_val, tb):",
+        "        print('Closing resource')",
+        "        return False  # не подавлять исключения",
+        "with ManagedResource() as r:",
+        "    print('Using resource')  # → Opening / Using / Closing"
+      ],
+      [
+        "class Timer:",
+        "    import time as _time",
+        "    def __enter__(self):",
+        "        import time",
+        "        self.start = time.time()",
+        "        return self",
+        "    def __exit__(self, *args):",
+        "        import time",
+        "        self.elapsed = time.time() - self.start",
+        "        print(f'Elapsed: {self.elapsed:.4f}s')",
+        "with Timer() as t:",
+        "    sum(range(10**6))  # → Elapsed: ..."
+      ],
+      [
+        "class Transaction:",
+        "    def __init__(self):",
+        "        self.operations = []",
+        "    def __enter__(self):",
+        "        return self",
+        "    def __exit__(self, exc_type, exc_val, tb):",
+        "        if exc_type:",
+        "            print('Rolling back!')",
+        "            self.operations.clear()",
+        "        else:",
+        "            print('Committing:', self.operations)",
+        "        return True  # подавить исключение",
+        "with Transaction() as tx:",
+        "    tx.operations.append('insert')",
+        "    tx.operations.append('update')  # → Committing: ['insert','update']"
+      ],
+      [
+        "# Подавление исключения (__exit__ возвращает True)",
+        "class Suppress:",
+        "    def __init__(self, *exceptions):",
+        "        self.exceptions = exceptions",
+        "    def __enter__(self):",
+        "        return self",
+        "    def __exit__(self, exc_type, exc_val, tb):",
+        "        return exc_type is not None and issubclass(exc_type, self.exceptions)",
+        "with Suppress(ZeroDivisionError):",
+        "    x = 1/0  # → не падает!",
+        "print('After suppress')  # → After suppress"
+      ],
+      [
+        "# Использование contextlib",
+        "from contextlib import contextmanager",
+        "@contextmanager",
+        "def managed():",
+        "    print('enter')",
+        "    yield",
+        "    print('exit')",
+        "with managed():",
+        "    print('body')  # → enter / body / exit"
+      ],
+      [
+        "# Вложенные with",
+        "class A:",
+        "    def __enter__(self): print('A enter'); return self",
+        "    def __exit__(self, *a): print('A exit'); return False",
+        "class B:",
+        "    def __enter__(self): print('B enter'); return self",
+        "    def __exit__(self, *a): print('B exit'); return False",
+        "with A() as a, B() as b:",
+        "    print('inside')  # → A enter / B enter / inside / B exit / A exit"
+      ]
     ],
     "related": [
+      "__enter__",
+      "__exit__",
       "contextlib.contextmanager",
       "open",
       "contextlib.exitstack"
@@ -223,8 +539,134 @@
     "related_errors": []
   },
   {
+    "id": "__enter__",
+    "title": {
+      "ru": "__enter__",
+      "en": "__enter__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод входа в блок with. То, что он вернул, связывается с именем после as.",
+      "en": "The method run on entering a with block. Whatever it returns is bound to the name after as."
+    },
+    "body": {
+      "ru": "Обычно __enter__ возвращает self, но не обязан: open() возвращает сам файл, а менеджер блокировки может не возвращать ничего. Если __enter__ бросил исключение, тело with не выполняется и __exit__ не вызывается — ресурс, захваченный до ошибки, освобождают внутри самого __enter__.",
+      "en": "__enter__ usually returns self but does not have to: open() returns the file itself, while a lock manager may return nothing. If __enter__ raises, the with body never runs and __exit__ is not called — anything acquired before the error must be released inside __enter__ itself."
+    },
+    "syntax": "def __enter__(self): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__enter__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "контекст. менеджер",
+      "en": "context manager"
+    },
+    "aliases": [
+      "вход в блок with",
+      "что попадает в as"
+    ],
+    "keywords": [
+      "__enter__",
+      "with",
+      "as"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Connection:",
+        "    def __enter__(self):",
+        "        print('connect')",
+        "        return 'conn#1'",
+        "    def __exit__(self, *exc):",
+        "        print('close')",
+        "with Connection() as c:",
+        "    print(c)  # → connect / conn#1 / close"
+      ]
+    ],
+    "related": [
+      "__enter__-__exit__",
+      "__exit__",
+      "contextlib.contextmanager"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "__exit__",
+    "title": {
+      "ru": "__exit__",
+      "en": "__exit__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод выхода из блока with: вызывается всегда, даже при исключении, и получает его тип, значение и трассировку.",
+      "en": "The method run on leaving a with block: always called, even on an exception, and given its type, value and traceback."
+    },
+    "body": {
+      "ru": "При обычном выходе все три аргумента — None. Вернув истинное значение, __exit__ подавляет исключение, и выполнение продолжится после with; по умолчанию возвращают None или False, иначе ошибки исчезают молча. Именно __exit__ гарантирует закрытие файла и освобождение блокировки.",
+      "en": "On a normal exit all three arguments are None. Returning a true value suppresses the exception and execution continues after the with; the default is to return None or False, otherwise errors vanish silently. __exit__ is what guarantees the file gets closed and the lock released."
+    },
+    "syntax": "def __exit__(self, exc_type, exc_value, traceback): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__exit__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "контекст. менеджер",
+      "en": "context manager"
+    },
+    "aliases": [
+      "выход из блока with",
+      "подавить исключение в with"
+    ],
+    "keywords": [
+      "__exit__",
+      "with",
+      "exc_type"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Guard:",
+        "    def __enter__(self):",
+        "        return self",
+        "    def __exit__(self, exc_type, exc, tb):",
+        "        print('exit:', exc_type.__name__ if exc_type else None)",
+        "        return exc_type is ZeroDivisionError  # подавить только деление на ноль",
+        "with Guard():",
+        "    pass  # → exit: None",
+        "with Guard():",
+        "    1 / 0  # → exit: ZeroDivisionError",
+        "print('продолжаем')  # → продолжаем — исключение подавлено"
+      ]
+    ],
+    "related": [
+      "__enter__-__exit__",
+      "__enter__",
+      "contextlib.suppress"
+    ],
+    "related_errors": []
+  },
+  {
     "id": "__init__",
-    "title": "__init__",
+    "title": {
+      "ru": "__init__",
+      "en": "__init__"
+    },
     "kind": "term",
     "summary": {
       "ru": "Конструктор — вызывается при создании экземпляра. Инициализирует атрибуты объекта.",
@@ -237,68 +679,92 @@
     "syntax": "def __init__(self, params): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__init__",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "инициализация",
+    "subcat": {
+      "ru": "инициализация",
+      "en": "initialization"
+    },
     "aliases": [
       "конструктор класса",
       "инициализация объекта",
       "создать объект с параметрами"
     ],
-    "keywords": [],
+    "keywords": [
+      "__init__"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Person:",
-      "    def __init__(self, name, age):",
-      "        self.name = name",
-      "        self.age = age",
-      "p = Person('Alice', 30)",
-      "print(p.name, p.age)  # → Alice 30",
-      "class Rectangle:",
-      "    def __init__(self, w=1, h=1):",
-      "        self.w = w",
-      "        self.h = h",
-      "r = Rectangle()",
-      "print(r.w, r.h)  # → 1 1",
-      "class BankAccount:",
-      "    def __init__(self, owner, balance=0):",
-      "        if balance < 0:",
-      "            raise ValueError('Balance cannot be negative')",
-      "        self.owner = owner",
-      "        self.balance = balance",
-      "acc = BankAccount('Bob', 100)",
-      "print(acc.balance)  # → 100",
-      "class Animal:",
-      "    def __init__(self, name):",
-      "        self.name = name",
-      "class Dog(Animal):",
-      "    def __init__(self, name, breed):",
-      "        super().__init__(name)",
-      "        self.breed = breed",
-      "d = Dog('Rex', 'Lab')",
-      "print(d.name, d.breed)  # → Rex Lab",
-      "class Stack:",
-      "    def __init__(self):",
-      "        self._data = []",
-      "    def push(self, item):",
-      "        self._data.append(item)",
-      "    def pop(self):",
-      "        return self._data.pop()",
-      "s = Stack()",
-      "s.push(1); s.push(2)",
-      "print(s.pop())  # → 2",
-      "class Vector:",
-      "    def __init__(self, *components):",
-      "        self.components = list(components)",
-      "v = Vector(1, 2, 3)",
-      "print(v.components)  # → [1, 2, 3]",
-      "class Config:",
-      "    def __init__(self, **settings):",
-      "        self.__dict__.update(settings)",
-      "cfg = Config(debug=True, level=2)",
-      "print(cfg.debug, cfg.level)  # → True 2"
+      [
+        "class Person:",
+        "    def __init__(self, name, age):",
+        "        self.name = name",
+        "        self.age = age",
+        "p = Person('Alice', 30)",
+        "print(p.name, p.age)  # → Alice 30"
+      ],
+      [
+        "class Rectangle:",
+        "    def __init__(self, w=1, h=1):",
+        "        self.w = w",
+        "        self.h = h",
+        "r = Rectangle()",
+        "print(r.w, r.h)  # → 1 1"
+      ],
+      [
+        "class BankAccount:",
+        "    def __init__(self, owner, balance=0):",
+        "        if balance < 0:",
+        "            raise ValueError('Balance cannot be negative')",
+        "        self.owner = owner",
+        "        self.balance = balance",
+        "acc = BankAccount('Bob', 100)",
+        "print(acc.balance)  # → 100"
+      ],
+      [
+        "class Animal:",
+        "    def __init__(self, name):",
+        "        self.name = name",
+        "class Dog(Animal):",
+        "    def __init__(self, name, breed):",
+        "        super().__init__(name)",
+        "        self.breed = breed",
+        "d = Dog('Rex', 'Lab')",
+        "print(d.name, d.breed)  # → Rex Lab"
+      ],
+      [
+        "class Stack:",
+        "    def __init__(self):",
+        "        self._data = []",
+        "    def push(self, item):",
+        "        self._data.append(item)",
+        "    def pop(self):",
+        "        return self._data.pop()",
+        "s = Stack()",
+        "s.push(1); s.push(2)",
+        "print(s.pop())  # → 2"
+      ],
+      [
+        "class Vector:",
+        "    def __init__(self, *components):",
+        "        self.components = list(components)",
+        "v = Vector(1, 2, 3)",
+        "print(v.components)  # → [1, 2, 3]"
+      ],
+      [
+        "class Config:",
+        "    def __init__(self, **settings):",
+        "        self.__dict__.update(settings)",
+        "cfg = Config(debug=True, level=2)",
+        "print(cfg.debug, cfg.level)  # → True 2"
+      ]
     ],
     "related": [
       "self",
@@ -310,7 +776,10 @@
   },
   {
     "id": "__len__-__getitem__-__setitem__-__contai",
-    "title": "__len__ / __getitem__ / __setitem__ / __contains__",
+    "title": {
+      "ru": "Протокол контейнера",
+      "en": "Container protocol"
+    },
     "kind": "term",
     "summary": {
       "ru": "Магические методы для протокола последовательности/контейнера. Позволяют использовать len(), [], in.",
@@ -323,9 +792,17 @@
     "syntax": "def __len__(self): ...\ndef __getitem__(self, idx): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/datamodel.html#emulating-container-types",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "магические методы",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
     "aliases": [
       "свой класс как список",
       "поддержка квадратных скобок в классе",
@@ -341,74 +818,92 @@
       "oop"
     ],
     "examples": [
-      "class MyList:",
-      "    def __init__(self, data):",
-      "        self._data = list(data)",
-      "    def __len__(self):",
-      "        return len(self._data)",
-      "    def __getitem__(self, idx):",
-      "        return self._data[idx]",
-      "ml = MyList([1,2,3])",
-      "print(len(ml))   # → 3",
-      "print(ml[0])     # → 1",
-      "print(ml[-1])    # → 3",
-      "class FibSequence:",
-      "    def __getitem__(self, n):",
-      "        a, b = 0, 1",
-      "        for _ in range(n):",
-      "            a, b = b, a+b",
-      "        return a",
-      "fib = FibSequence()",
-      "print(fib[0], fib[5], fib[10])  # → 0 5 55",
-      "class MyDict:",
-      "    def __init__(self):",
-      "        self._data = {}",
-      "    def __setitem__(self, key, val):",
-      "        self._data[key] = val",
-      "    def __getitem__(self, key):",
-      "        return self._data[key]",
-      "d = MyDict()",
-      "d['x'] = 10",
-      "print(d['x'])  # → 10",
-      "class Bag:",
-      "    def __init__(self, items):",
-      "        self._items = list(items)",
-      "    def __contains__(self, item):",
-      "        return item in self._items",
-      "b = Bag([1,2,3])",
-      "print(2 in b)  # → True",
-      "print(5 in b)  # → False",
-      "# Срезы через __getitem__",
-      "class Sliceable:",
-      "    def __init__(self, data):",
-      "        self._data = data",
-      "    def __getitem__(self, key):",
-      "        return self._data[key]",
-      "s = Sliceable([10,20,30,40,50])",
-      "print(s[1:3])  # → [20, 30]",
-      "# Полный контейнер",
-      "class NumberSet:",
-      "    def __init__(self, *nums):",
-      "        self._nums = set(nums)",
-      "    def __len__(self):",
-      "        return len(self._nums)",
-      "    def __contains__(self, n):",
-      "        return n in self._nums",
-      "    def __repr__(self):",
-      "        return f'NumberSet({self._nums})'",
-      "ns = NumberSet(1,2,3,4,5)",
-      "print(len(ns), 3 in ns, 9 in ns)  # → 5 True False",
-      "# __iter__ через __getitem__",
-      "class Range:",
-      "    def __init__(self, n):",
-      "        self.n = n",
-      "    def __getitem__(self, i):",
-      "        if i >= self.n:",
-      "            raise IndexError",
-      "        return i",
-      "print(list(Range(5)))  # → [0,1,2,3,4]"
+      [
+        "class MyList:",
+        "    def __init__(self, data):",
+        "        self._data = list(data)",
+        "    def __len__(self):",
+        "        return len(self._data)",
+        "    def __getitem__(self, idx):",
+        "        return self._data[idx]",
+        "ml = MyList([1,2,3])",
+        "print(len(ml))   # → 3",
+        "print(ml[0])     # → 1",
+        "print(ml[-1])    # → 3"
+      ],
+      [
+        "class FibSequence:",
+        "    def __getitem__(self, n):",
+        "        a, b = 0, 1",
+        "        for _ in range(n):",
+        "            a, b = b, a+b",
+        "        return a",
+        "fib = FibSequence()",
+        "print(fib[0], fib[5], fib[10])  # → 0 5 55"
+      ],
+      [
+        "class MyDict:",
+        "    def __init__(self):",
+        "        self._data = {}",
+        "    def __setitem__(self, key, val):",
+        "        self._data[key] = val",
+        "    def __getitem__(self, key):",
+        "        return self._data[key]",
+        "d = MyDict()",
+        "d['x'] = 10",
+        "print(d['x'])  # → 10"
+      ],
+      [
+        "class Bag:",
+        "    def __init__(self, items):",
+        "        self._items = list(items)",
+        "    def __contains__(self, item):",
+        "        return item in self._items",
+        "b = Bag([1,2,3])",
+        "print(2 in b)  # → True",
+        "print(5 in b)  # → False"
+      ],
+      [
+        "# Срезы через __getitem__",
+        "class Sliceable:",
+        "    def __init__(self, data):",
+        "        self._data = data",
+        "    def __getitem__(self, key):",
+        "        return self._data[key]",
+        "s = Sliceable([10,20,30,40,50])",
+        "print(s[1:3])  # → [20, 30]"
+      ],
+      [
+        "# Полный контейнер",
+        "class NumberSet:",
+        "    def __init__(self, *nums):",
+        "        self._nums = set(nums)",
+        "    def __len__(self):",
+        "        return len(self._nums)",
+        "    def __contains__(self, n):",
+        "        return n in self._nums",
+        "    def __repr__(self):",
+        "        return f'NumberSet({self._nums})'",
+        "ns = NumberSet(1,2,3,4,5)",
+        "print(len(ns), 3 in ns, 9 in ns)  # → 5 True False"
+      ],
+      [
+        "# __iter__ через __getitem__",
+        "class Range:",
+        "    def __init__(self, n):",
+        "        self.n = n",
+        "    def __getitem__(self, i):",
+        "        if i >= self.n:",
+        "            raise IndexError",
+        "        return i",
+        "print(list(Range(5)))  # → [0,1,2,3,4]"
+      ]
     ],
     "related": [
+      "__len__",
+      "__getitem__",
+      "__setitem__",
+      "__contains__",
       "len",
       "итератор-__iter__-__next__",
       "collections.abc.Sequence",
@@ -417,8 +912,269 @@
     "related_errors": []
   },
   {
+    "id": "__len__",
+    "title": {
+      "ru": "__len__",
+      "en": "__len__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод, который вызывает len(obj). Обязан вернуть целое число не меньше нуля.",
+      "en": "The method len(obj) calls. It must return a non-negative integer."
+    },
+    "body": {
+      "ru": "Кроме len(), __len__ задаёт истинность: объект без __bool__ ложен, когда __len__ вернул 0, — поэтому if container: работает и для своих коллекций. Отрицательное или нецелое значение даёт ValueError или TypeError прямо в вызове len().",
+      "en": "Besides len(), __len__ defines truthiness: an object without __bool__ is false when __len__ returns 0, which is why if container: works for your own collections too. A negative or non-integer value raises ValueError or TypeError right inside len()."
+    },
+    "syntax": "def __len__(self) -> int: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__len__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "длина своего объекта",
+      "поддержать len"
+    ],
+    "keywords": [
+      "__len__",
+      "len",
+      "__bool__"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Deck:",
+        "    def __init__(self, cards):",
+        "        self.cards = list(cards)",
+        "    def __len__(self):",
+        "        return len(self.cards)",
+        "d = Deck('AKQ')",
+        "print(len(d))  # → 3",
+        "print(bool(Deck('')))  # → False — пустая колода ложна"
+      ]
+    ],
+    "related": [
+      "__len__-__getitem__-__setitem__-__contai",
+      "len",
+      "__getitem__"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "__getitem__",
+    "title": {
+      "ru": "__getitem__",
+      "en": "__getitem__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод чтения по индексу или ключу: obj[k] вызывает obj.__getitem__(k). Срез приходит объектом slice.",
+      "en": "The method behind indexing: obj[k] calls obj.__getitem__(k). A slice arrives as a slice object."
+    },
+    "body": {
+      "ru": "Одного __getitem__ с целыми индексами хватает, чтобы объект стал итерируемым: for перебирает 0, 1, 2… до IndexError. Для отображений принято бросать KeyError, для последовательностей — IndexError: на этом различии держатся dict.get и итерация. Запись obj[1:3] передаёт slice(1, 3, None).",
+      "en": "A __getitem__ with integer indexes is enough to make an object iterable: for walks 0, 1, 2… until IndexError. Mappings conventionally raise KeyError and sequences IndexError — dict.get and iteration rely on that difference. obj[1:3] passes slice(1, 3, None)."
+    },
+    "syntax": "def __getitem__(self, key): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__getitem__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "доступ по индексу к своему объекту",
+      "квадратные скобки у своего класса"
+    ],
+    "keywords": [
+      "__getitem__",
+      "[]",
+      "slice",
+      "IndexError",
+      "KeyError"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Squares:",
+        "    def __getitem__(self, i):",
+        "        if i >= 5:",
+        "            raise IndexError(i)",
+        "        return i * i",
+        "s = Squares()",
+        "print(s[3])  # → 9",
+        "print(list(s))  # → [0, 1, 4, 9, 16] — итерация через __getitem__"
+      ],
+      [
+        "class Show:",
+        "    def __getitem__(self, key):",
+        "        return key",
+        "print(Show()[1:3])  # → slice(1, 3, None)"
+      ]
+    ],
+    "related": [
+      "__len__-__getitem__-__setitem__-__contai",
+      "__setitem__",
+      "__len__"
+    ],
+    "related_errors": [
+      "indexerror",
+      "keyerror"
+    ]
+  },
+  {
+    "id": "__setitem__",
+    "title": {
+      "ru": "__setitem__",
+      "en": "__setitem__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод записи по индексу или ключу: obj[k] = v вызывает obj.__setitem__(k, v).",
+      "en": "The method behind item assignment: obj[k] = v calls obj.__setitem__(k, v)."
+    },
+    "body": {
+      "ru": "Без __setitem__ присваивание по индексу даёт TypeError: 'object does not support item assignment' — так ведут себя кортежи и строки. Парный метод __delitem__ отвечает за del obj[k]. В __setitem__ удобно проверять значение до записи — это место для валидации.",
+      "en": "Without __setitem__ item assignment raises TypeError: 'object does not support item assignment' — the way tuples and strings behave. The companion __delitem__ handles del obj[k]. __setitem__ is a natural place to validate the value before storing it."
+    },
+    "syntax": "def __setitem__(self, key, value): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__setitem__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "присваивание по индексу своему объекту",
+      "запись по ключу"
+    ],
+    "keywords": [
+      "__setitem__",
+      "__delitem__",
+      "[]="
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Grades:",
+        "    def __init__(self):",
+        "        self._data = {}",
+        "    def __setitem__(self, name, score):",
+        "        if not 0 <= score <= 100:",
+        "            raise ValueError(f'оценка {score} вне 0..100')",
+        "        self._data[name] = score",
+        "    def __getitem__(self, name):",
+        "        return self._data[name]",
+        "g = Grades()",
+        "g['Анна'] = 95",
+        "print(g['Анна'])  # → 95",
+        "g['Борис'] = 120  # → ValueError: оценка 120 вне 0..100"
+      ]
+    ],
+    "related": [
+      "__len__-__getitem__-__setitem__-__contai",
+      "__getitem__"
+    ],
+    "related_errors": [
+      "typeerror",
+      "valueerror"
+    ]
+  },
+  {
+    "id": "__contains__",
+    "title": {
+      "ru": "__contains__",
+      "en": "__contains__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод оператора in: x in obj вызывает obj.__contains__(x). Без него in перебирает объект целиком.",
+      "en": "The method behind in: x in obj calls obj.__contains__(x). Without it, in iterates over the whole object."
+    },
+    "body": {
+      "ru": "Если __contains__ нет, Python откатывается к итерации — через __iter__ или __getitem__ — и сравнивает элементы по очереди, то есть O(n). Свой __contains__ позволяет сделать проверку быстрой: множество и словарь отвечают за O(1). Оператор not in — тот же вызов с отрицанием.",
+      "en": "Without __contains__ Python falls back to iteration — via __iter__ or __getitem__ — comparing items one by one, which is O(n). Your own __contains__ can make the check fast: sets and dicts answer in O(1). not in is the same call, negated."
+    },
+    "syntax": "def __contains__(self, item) -> bool: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__contains__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "оператор in для своего класса",
+      "проверка вхождения"
+    ],
+    "keywords": [
+      "__contains__",
+      "in",
+      "not in"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Range:",
+        "    def __init__(self, lo, hi):",
+        "        self.lo, self.hi = lo, hi",
+        "    def __contains__(self, x):",
+        "        return self.lo <= x < self.hi",
+        "r = Range(0, 10**9)",
+        "print(5 in r)  # → True — без перебора миллиарда чисел",
+        "print(-1 not in r)  # → True"
+      ]
+    ],
+    "related": [
+      "__len__-__getitem__-__setitem__-__contai",
+      "__getitem__",
+      "in-not-in-для-множеств-o-1"
+    ],
+    "related_errors": []
+  },
+  {
     "id": "__slots__",
-    "title": "__slots__",
+    "title": {
+      "ru": "__slots__",
+      "en": "__slots__"
+    },
     "kind": "term",
     "summary": {
       "ru": "__slots__ ограничивает атрибуты экземпляра, убирает __dict__, экономит память. Особенно полезно для большого числа объектов.",
@@ -431,59 +1187,73 @@
     "syntax": "class C:\n    __slots__ = ('x', 'y')",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/datamodel.html#slots",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "slots",
+    "subcat": {
+      "ru": "slots",
+      "en": "slots"
+    },
     "aliases": [
       "экономия памяти объектов",
       "ограничить набор атрибутов",
       "запретить новые атрибуты объекта"
     ],
-    "keywords": [],
+    "keywords": [
+      "__slots__"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Point:",
-      "    __slots__ = ('x', 'y')",
-      "    def __init__(self, x, y):",
-      "        self.x = x; self.y = y",
-      "p = Point(1, 2)",
-      "print(p.x, p.y)  # → 1 2",
-      "try:",
-      "    p.z = 3  # → AttributeError",
-      "except AttributeError as e:",
-      "    print(e)",
-      "# Нет __dict__",
-      "try:",
-      "    print(p.__dict__)",
-      "except AttributeError as e:",
-      "    print(e)  # → __dict__ attribute not defined",
-      "import sys",
-      "class WithDict:",
-      "    def __init__(self, x, y):",
-      "        self.x = x; self.y = y",
-      "class WithSlots:",
-      "    __slots__ = ('x','y')",
-      "    def __init__(self, x, y):",
-      "        self.x = x; self.y = y",
-      "print(sys.getsizeof(WithDict(1,2)))   # → больше",
-      "print(sys.getsizeof(WithSlots(1,2))) # → меньше",
-      "# __slots__ в наследовании",
-      "class Base:",
-      "    __slots__ = ('x',)",
-      "class Child(Base):",
-      "    __slots__ = ('y',)",
-      "c2 = Child()",
-      "c2.x = 1; c2.y = 2",
-      "print(c2.x, c2.y)  # → 1 2",
-      "# Частичные __slots__",
-      "class Mixed:",
-      "    __slots__ = ('x',)",
-      "    def __init__(self, x, y):",
-      "        self.x = x",
-      "        # self.y = y  # → AttributeError",
-      "print(Mixed(1,2).x)  # → 1"
+      [
+        "class Point:",
+        "    __slots__ = ('x', 'y')",
+        "    def __init__(self, x, y):",
+        "        self.x = x; self.y = y",
+        "p = Point(1, 2)",
+        "print(p.x, p.y)  # → 1 2",
+        "try:",
+        "    p.z = 3",
+        "except AttributeError as e:",
+        "        print(e)  # → 'Point' object has no attribute 'z'",
+        "print(hasattr(p, '__dict__'))  # → False — словаря атрибутов нет"
+      ],
+      [
+        "import sys",
+        "class WithDict:",
+        "    def __init__(self, x, y):",
+        "        self.x = x; self.y = y",
+        "class WithSlots:",
+        "    __slots__ = ('x','y')",
+        "    def __init__(self, x, y):",
+        "        self.x = x; self.y = y",
+        "print(sys.getsizeof(WithDict(1,2)))   # → больше",
+        "print(sys.getsizeof(WithSlots(1,2))) # → меньше"
+      ],
+      [
+        "# __slots__ в наследовании",
+        "class Base:",
+        "    __slots__ = ('x',)",
+        "class Child(Base):",
+        "    __slots__ = ('y',)",
+        "c2 = Child()",
+        "c2.x = 1; c2.y = 2",
+        "print(c2.x, c2.y)  # → 1 2"
+      ],
+      [
+        "# Частичные __slots__",
+        "class Mixed:",
+        "    __slots__ = ('x',)",
+        "    def __init__(self, x, y):",
+        "        self.x = x",
+        "        # self.y = y  # → AttributeError",
+        "print(Mixed(1,2).x)  # → 1"
+      ]
     ],
     "related": [
       "атрибуты-экземпляра-и-класса",
@@ -493,89 +1263,137 @@
     "related_errors": []
   },
   {
-    "id": "__str__-__repr__",
-    "title": "__str__ / __repr__",
-    "kind": "term",
+    "id": "__str__",
+    "title": {
+      "ru": "__str__",
+      "en": "__str__"
+    },
+    "kind": "function",
     "summary": {
-      "ru": "__str__ — читаемое представление для print(). __repr__ — отладочное, воспроизводимое. repr() вызывает __repr__.",
-      "en": "__str__ — the readable representation used by print(). __repr__ — the debugging one, meant to be reproducible. repr() calls __repr__."
+      "ru": "Метод, который вызывают str(obj), print() и f-строка: читаемое представление объекта для человека.",
+      "en": "The method str(obj), print() and f-strings call: a readable representation of the object for people."
     },
     "body": {
-      "ru": "Если __str__ не задан, print() и str() откатываются к __repr__ — но не наоборот, поэтому минимум, который стоит определять, это __repr__. Вложенные элементы контейнер всегда показывает через __repr__: print([p]) выведет repr, а не str, даже если у p есть __str__.",
-      "en": "If __str__ is missing, print() and str() fall back to __repr__ — but not the other way round, so __repr__ is the one to define if you define only one. A container always shows its elements via __repr__: print([p]) uses repr, not str, even when p has a __str__."
+      "ru": "Если __str__ не определён, str() берёт __repr__ — поэтому достаточно определить один __repr__, а __str__ добавлять, когда пользователю нужен другой, «красивый» вид. Контейнеры печатают свои элементы через repr, а не str: print([obj]) покажет __repr__.",
+      "en": "Without __str__, str() falls back to __repr__ — so a single __repr__ is enough, and __str__ is added only when users need a different, friendlier form. Containers print their items with repr, not str: print([obj]) shows __repr__."
     },
-    "syntax": "def __str__(self): return '...'\ndef __repr__(self): return '...'",
+    "syntax": "def __str__(self) -> str: ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__str__",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "магические методы",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
     "aliases": [
-      "строковое представление объекта",
-      "как объект выводится в print",
-      "отладочное представление"
+      "красивый вывод объекта",
+      "как print показывает объект"
     ],
     "keywords": [
       "__str__",
-      "__repr__"
+      "str",
+      "print",
+      "f-string"
     ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Point:",
-      "    def __init__(self, x, y):",
-      "        self.x = x; self.y = y",
-      "    def __repr__(self):",
-      "        return f'Point({self.x}, {self.y})'",
-      "    def __str__(self):",
-      "        return f'({self.x}, {self.y})'",
-      "p = Point(3, 4)",
-      "print(p)       # → (3, 4) — __str__",
-      "print(repr(p)) # → Point(3, 4) — __repr__",
-      "# Если только __repr__ — используется и для str",
-      "class Vec:",
-      "    def __init__(self, x, y):",
-      "        self.x = x; self.y = y",
-      "    def __repr__(self):",
-      "        return f'Vec({self.x},{self.y})'",
-      "print(Vec(1,2))  # → Vec(1,2)",
-      "class Fraction:",
-      "    def __init__(self, n, d):",
-      "        self.n = n; self.d = d",
-      "    def __str__(self):",
-      "        return f'{self.n}/{self.d}'",
-      "    def __repr__(self):",
-      "        return f'Fraction({self.n}, {self.d})'",
-      "f = Fraction(1, 3)",
-      "print(f)       # → 1/3",
-      "print(repr(f)) # → Fraction(1, 3)",
-      "# В списках используется __repr__",
-      "p2 = Point(1, 2)",
-      "print([p2])  # → [Point(1, 2)]",
-      "class Temperature:",
-      "    def __init__(self, c):",
-      "        self.c = c",
-      "    def __repr__(self):",
-      "        return f'Temperature({self.c})'",
-      "    def __str__(self):",
-      "        return f'{self.c}°C'",
-      "t = Temperature(100)",
-      "print(str(t), repr(t))  # → 100°C Temperature(100)",
-      "# f-string использует __str__",
-      "print(f'{Point(1,2)}')  # → (1, 2)",
-      "print(f'{Point(1,2)!r}')  # → Point(1, 2)"
+      [
+        "class Temp:",
+        "    def __init__(self, c):",
+        "        self.c = c",
+        "    def __str__(self):",
+        "        return f'{self.c} °C'",
+        "    def __repr__(self):",
+        "        return f'Temp({self.c})'",
+        "t = Temp(21)",
+        "print(t)  # → 21 °C",
+        "print(f'Сейчас {t}')  # → Сейчас 21 °C",
+        "print([t])  # → [Temp(21)] — элементы списка печатаются через repr"
+      ]
     ],
     "related": [
       "repr-vs-str",
+      "__repr__",
+      "str",
+      "print"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "__repr__",
+    "title": {
+      "ru": "__repr__",
+      "en": "__repr__"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Метод, который вызывают repr(obj) и консоль: однозначное представление объекта для разработчика.",
+      "en": "The method repr(obj) and the console call: an unambiguous representation of the object for developers."
+    },
+    "body": {
+      "ru": "Хороший __repr__ похож на выражение, которым объект можно создать заново: Point(1, 2). Он же служит запасным __str__, поэтому определяют его в первую очередь. Встроенная заглушка выводит <__main__.Point object at 0x…> — ни отладке, ни логам от неё пользы нет.",
+      "en": "A good __repr__ looks like the expression that recreates the object: Point(1, 2). It also serves as the fallback __str__, which is why it is the one to define first. The built-in default prints <__main__.Point object at 0x…>, useless in both debugging and logs."
+    },
+    "syntax": "def __repr__(self) -> str: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/reference/datamodel.html#object.__repr__",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "ООП",
+    "subcat": {
+      "ru": "магические методы",
+      "en": "magic methods"
+    },
+    "aliases": [
+      "представление объекта для отладки",
+      "что показывает консоль"
+    ],
+    "keywords": [
+      "__repr__",
       "repr",
-      "format"
+      "!r"
+    ],
+    "tags": [
+      "oop"
+    ],
+    "examples": [
+      [
+        "class Point:",
+        "    def __init__(self, x, y):",
+        "        self.x, self.y = x, y",
+        "    def __repr__(self):",
+        "        return f'Point({self.x!r}, {self.y!r})'",
+        "p = Point(1, 2)",
+        "print(repr(p))  # → Point(1, 2)",
+        "print(p)  # → Point(1, 2) — __str__ нет, взят __repr__",
+        "print(f'{p!r}')  # → Point(1, 2)"
+      ]
+    ],
+    "related": [
+      "repr-vs-str",
+      "__str__",
+      "repr"
     ],
     "related_errors": []
   },
   {
     "id": "class",
-    "title": "class",
+    "title": {
+      "ru": "class",
+      "en": "class"
+    },
     "kind": "term",
     "summary": {
       "ru": "Объявление класса. Класс — шаблон для создания объектов (экземпляров).",
@@ -588,61 +1406,85 @@
     "syntax": "class ИмяКласса:\n    тело",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/compound_stmts.html#class",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "классы",
+    "subcat": {
+      "ru": "классы",
+      "en": "classes"
+    },
     "aliases": [
       "создать свой класс",
       "объявить класс",
       "шаблон для объектов"
     ],
-    "keywords": [],
+    "keywords": [
+      "class"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Dog:",
-      "    pass  # пустой класс",
-      "d = Dog()",
-      "print(type(d))  # → <class '__main__.Dog'>",
-      "class Cat:",
-      "    \"\"\"Класс кошки.\"\"\"",
-      "    species = 'Felis catus'  # атрибут класса",
-      "print(Cat.species)  # → Felis catus",
-      "class Point:",
-      "    def __init__(self, x, y):",
-      "        self.x = x",
-      "        self.y = y",
-      "    def __str__(self):",
-      "        return f'Point({self.x}, {self.y})'",
-      "p = Point(3, 4)",
-      "print(p)  # → Point(3, 4)",
-      "class Circle:",
-      "    pi = 3.14159",
-      "    def __init__(self, r):",
-      "        self.r = r",
-      "    def area(self):",
-      "        return self.pi * self.r ** 2",
-      "c = Circle(5)",
-      "print(c.area())  # → 78.53975",
-      "class Empty:",
-      "    \"\"\"Docstring.\"\"\"",
-      "    pass",
-      "print(Empty.__doc__)  # → Docstring.",
-      "class Counter:",
-      "    count = 0",
-      "    def __init__(self):",
-      "        Counter.count += 1",
-      "Counter(); Counter()",
-      "print(Counter.count)  # → 2",
-      "class Vehicle:",
-      "    def __init__(self, brand, speed):",
-      "        self.brand = brand",
-      "        self.speed = speed",
-      "    def describe(self):",
-      "        return f'{self.brand} @ {self.speed}km/h'",
-      "v = Vehicle('BMW', 200)",
-      "print(v.describe())  # → BMW @ 200km/h"
+      [
+        "class Dog:",
+        "    pass  # пустой класс",
+        "d = Dog()",
+        "print(type(d))  # → <class '__main__.Dog'>"
+      ],
+      [
+        "class Cat:",
+        "    \"\"\"Класс кошки.\"\"\"",
+        "    species = 'Felis catus'  # атрибут класса",
+        "print(Cat.species)  # → Felis catus"
+      ],
+      [
+        "class Point:",
+        "    def __init__(self, x, y):",
+        "        self.x = x",
+        "        self.y = y",
+        "    def __str__(self):",
+        "        return f'Point({self.x}, {self.y})'",
+        "p = Point(3, 4)",
+        "print(p)  # → Point(3, 4)"
+      ],
+      [
+        "class Circle:",
+        "    pi = 3.14159",
+        "    def __init__(self, r):",
+        "        self.r = r",
+        "    def area(self):",
+        "        return self.pi * self.r ** 2",
+        "c = Circle(5)",
+        "print(c.area())  # → 78.53975"
+      ],
+      [
+        "class Empty:",
+        "    \"\"\"Docstring.\"\"\"",
+        "    pass",
+        "print(Empty.__doc__)  # → Docstring."
+      ],
+      [
+        "class Counter:",
+        "    count = 0",
+        "    def __init__(self):",
+        "        Counter.count += 1",
+        "Counter(); Counter()",
+        "print(Counter.count)  # → 2"
+      ],
+      [
+        "class Vehicle:",
+        "    def __init__(self, brand, speed):",
+        "        self.brand = brand",
+        "        self.speed = speed",
+        "    def describe(self):",
+        "        return f'{self.brand} @ {self.speed}km/h'",
+        "v = Vehicle('BMW', 200)",
+        "print(v.describe())  # → BMW @ 200km/h"
+      ]
     ],
     "related": [
       "__init__",
@@ -654,94 +1496,129 @@
   },
   {
     "id": "classmethod",
-    "title": "@classmethod",
+    "title": {
+      "ru": "@classmethod",
+      "en": "@classmethod"
+    },
     "kind": "term",
     "summary": {
       "ru": "Метод класса. Первый параметр — cls (ссылка на класс). Используется для альтернативных конструкторов.",
       "en": "A class method. Its first parameter is cls (a reference to the class). Used for alternative constructors."
     },
     "body": {
-      "ru": "cls — это тот класс, на котором метод фактически вызвали, поэтому в подклассе cls(...) построит объект подкласса, а не родителя; именно за это classmethod ценят в альтернативных конструкторах. Если фабрике сам класс не нужен, берите staticmethod или обычную функцию.",
-      "en": "cls is whichever class the method was actually called on, so in a subclass cls(...) builds an instance of the subclass, not the parent — exactly why alternative constructors rely on classmethod. If the factory doesn't need the class at all, reach for staticmethod or a plain function instead."
+      "ru": "cls — это тот класс, на котором метод фактически вызвали, поэтому в подклассе cls(...) построит объект подкласса, а не родителя; именно за это classmethod ценят в альтернативных конструкторах. Если фабрике сам класс не нужен, берите staticmethod или обычную функцию. Старые учебники показывают @classmethod поверх @property как «свойство класса»: это работало в 3.9–3.12, устарело в 3.11 и удалено в 3.13 — теперь A.name вернёт связанный метод, а не значение.",
+      "en": "cls is whichever class the method was actually called on, so in a subclass cls(...) builds an instance of the subclass, not the parent — exactly why alternative constructors rely on classmethod. If the factory doesn't need the class at all, reach for staticmethod or a plain function instead. Older tutorials stack @classmethod on top of @property to get a “class property”: that worked in 3.9–3.12, was deprecated in 3.11 and removed in 3.13 — now A.name returns a bound method, not the value."
     },
     "syntax": "@classmethod\ndef method(cls, ...): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#classmethod",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "классы",
+    "subcat": {
+      "ru": "классы",
+      "en": "classes"
+    },
     "aliases": [
       "метод класса",
       "альтернативный конструктор",
       "фабричный метод"
     ],
-    "keywords": [],
+    "keywords": [
+      "classmethod",
+      "cls"
+    ],
     "tags": [
       "oop",
       "builtin"
     ],
     "examples": [
-      "class Date:",
-      "    def __init__(self, y, m, d):",
-      "        self.y, self.m, self.d = y, m, d",
-      "    @classmethod",
-      "    def from_string(cls, s):",
-      "        y, m, d = map(int, s.split('-'))",
-      "        return cls(y, m, d)",
-      "d = Date.from_string('2024-03-15')",
-      "print(d.y, d.m, d.d)  # → 2024 3 15",
-      "class Dog:",
-      "    count = 0",
-      "    def __init__(self, name):",
-      "        self.name = name",
-      "        Dog.count += 1",
-      "    @classmethod",
-      "    def get_count(cls):",
-      "        return cls.count",
-      "Dog('Rex'); Dog('Max')",
-      "print(Dog.get_count())  # → 2",
-      "class Temperature:",
-      "    def __init__(self, celsius):",
-      "        self.celsius = celsius",
-      "    @classmethod",
-      "    def from_fahrenheit(cls, f):",
-      "        return cls((f - 32) * 5/9)",
-      "    @classmethod",
-      "    def from_kelvin(cls, k):",
-      "        return cls(k - 273.15)",
-      "t = Temperature.from_fahrenheit(212)",
-      "print(round(t.celsius))  # → 100",
-      "class Pizza:",
-      "    ingredients = []",
-      "    def __init__(self, ingredients):",
-      "        self.ingredients = ingredients",
-      "    @classmethod",
-      "    def margherita(cls):",
-      "        return cls(['mozzarella', 'tomato'])",
-      "    @classmethod",
-      "    def hawaiian(cls):",
-      "        return cls(['mozzarella', 'tomato', 'pineapple'])",
-      "p = Pizza.margherita()",
-      "print(p.ingredients)  # → ['mozzarella', 'tomato']",
-      "# Через экземпляр тоже работает",
-      "class A:",
-      "    x = 10",
-      "    @classmethod",
-      "    def get_x(cls):",
-      "        return cls.x",
-      "a = A()",
-      "print(a.get_x())  # → 10",
-      "# Наследование + classmethod",
-      "class Animal:",
-      "    @classmethod",
-      "    def make(cls, name):",
-      "        obj = cls.__new__(cls)",
-      "        obj.name = name",
-      "        return obj",
-      "class Cat(Animal):",
-      "    pass",
-      "cat = Cat.make('Whiskers')",
-      "print(type(cat).__name__, cat.name)  # → Cat Whiskers"
+      [
+        "class Date:",
+        "    def __init__(self, y, m, d):",
+        "        self.y, self.m, self.d = y, m, d",
+        "    @classmethod",
+        "    def from_string(cls, s):",
+        "        y, m, d = map(int, s.split('-'))",
+        "        return cls(y, m, d)",
+        "d = Date.from_string('2024-03-15')",
+        "print(d.y, d.m, d.d)  # → 2024 3 15"
+      ],
+      [
+        "class Dog:",
+        "    count = 0",
+        "    def __init__(self, name):",
+        "        self.name = name",
+        "        Dog.count += 1",
+        "    @classmethod",
+        "    def get_count(cls):",
+        "        return cls.count",
+        "Dog('Rex'); Dog('Max')",
+        "print(Dog.get_count())  # → 2"
+      ],
+      [
+        "class Temperature:",
+        "    def __init__(self, celsius):",
+        "        self.celsius = celsius",
+        "    @classmethod",
+        "    def from_fahrenheit(cls, f):",
+        "        return cls((f - 32) * 5/9)",
+        "    @classmethod",
+        "    def from_kelvin(cls, k):",
+        "        return cls(k - 273.15)",
+        "t = Temperature.from_fahrenheit(212)",
+        "print(round(t.celsius))  # → 100"
+      ],
+      [
+        "class Pizza:",
+        "    ingredients = []",
+        "    def __init__(self, ingredients):",
+        "        self.ingredients = ingredients",
+        "    @classmethod",
+        "    def margherita(cls):",
+        "        return cls(['mozzarella', 'tomato'])",
+        "    @classmethod",
+        "    def hawaiian(cls):",
+        "        return cls(['mozzarella', 'tomato', 'pineapple'])",
+        "p = Pizza.margherita()",
+        "print(p.ingredients)  # → ['mozzarella', 'tomato']"
+      ],
+      [
+        "# Через экземпляр тоже работает",
+        "class A:",
+        "    x = 10",
+        "    @classmethod",
+        "    def get_x(cls):",
+        "        return cls.x",
+        "a = A()",
+        "print(a.get_x())  # → 10"
+      ],
+      [
+        "# Наследование + classmethod",
+        "class Animal:",
+        "    @classmethod",
+        "    def make(cls, name):",
+        "        obj = cls.__new__(cls)",
+        "        obj.name = name",
+        "        return obj",
+        "class Cat(Animal):",
+        "    pass",
+        "cat = Cat.make('Whiskers')",
+        "print(type(cat).__name__, cat.name)  # → Cat Whiskers"
+      ],
+      [
+        "# Python 3.13+",
+        "class A:",
+        "    @classmethod",
+        "    @property",
+        "    def name(cls):",
+        "        return cls.__name__",
+        "print(type(A.name).__name__)  # → method — а не 'A': цепочка удалена в 3.13"
+      ]
     ],
     "related": [
       "staticmethod",
@@ -752,7 +1629,10 @@
   },
   {
     "id": "property",
-    "title": "@property",
+    "title": {
+      "ru": "@property",
+      "en": "@property"
+    },
     "kind": "term",
     "summary": {
       "ru": "Превращает метод в атрибут (геттер). @x.setter — сеттер. @x.deleter — делитер. Вычисляемые атрибуты.",
@@ -765,110 +1645,136 @@
     "syntax": "@property\ndef x(self): return self._x\nproperty(fget=None, fset=None, fdel=None)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#property",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "property",
+    "subcat": {
+      "ru": "property",
+      "en": "property"
+    },
     "aliases": [
       "геттер и сеттер",
       "вычисляемый атрибут",
       "свойство класса"
     ],
-    "keywords": [],
+    "keywords": [
+      "property",
+      "@x.setter",
+      "getter"
+    ],
     "tags": [
       "oop",
       "builtin"
     ],
     "examples": [
-      "class Circle:",
-      "    def __init__(self, r):",
-      "        self._r = r",
-      "    @property",
-      "    def radius(self):",
-      "        return self._r",
-      "    @radius.setter",
-      "    def radius(self, value):",
-      "        if value < 0:",
-      "            raise ValueError('radius must be >= 0')",
-      "        self._r = value",
-      "c = Circle(5)",
-      "print(c.radius)  # → 5",
-      "c.radius = 10",
-      "print(c.radius)  # → 10",
-      "class Celsius:",
-      "    def __init__(self, temp):",
-      "        self.temperature = temp",
-      "    @property",
-      "    def fahrenheit(self):",
-      "        return self.temperature * 9/5 + 32",
-      "c = Celsius(100)",
-      "print(c.fahrenheit)  # → 212.0",
-      "class Person:",
-      "    def __init__(self, first, last):",
-      "        self.first = first",
-      "        self.last = last",
-      "    @property",
-      "    def full_name(self):",
-      "        return f'{self.first} {self.last}'",
-      "    @full_name.setter",
-      "    def full_name(self, name):",
-      "        self.first, self.last = name.split()",
-      "p = Person('John', 'Doe')",
-      "print(p.full_name)  # → John Doe",
-      "p.full_name = 'Jane Smith'",
-      "print(p.first)  # → Jane",
-      "class Square:",
-      "    def __init__(self, side):",
-      "        self._side = side",
-      "    @property",
-      "    def side(self):",
-      "        return self._side",
-      "    @side.setter",
-      "    def side(self, v):",
-      "        self._side = v",
-      "    @property",
-      "    def area(self):",
-      "        return self._side ** 2",
-      "    @property",
-      "    def perimeter(self):",
-      "        return 4 * self._side",
-      "s = Square(5)",
-      "print(s.area)      # → 25",
-      "print(s.perimeter) # → 20",
-      "class BankAccount:",
-      "    def __init__(self, balance):",
-      "        self._balance = balance",
-      "    @property",
-      "    def balance(self):",
-      "        return self._balance",
-      "    @balance.setter",
-      "    def balance(self, amount):",
-      "        if amount < 0:",
-      "            raise ValueError('Balance cannot be negative')",
-      "        self._balance = amount",
-      "acc = BankAccount(100)",
-      "print(acc.balance)  # → 100",
-      "# @property.deleter",
-      "class Profile:",
-      "    def __init__(self):",
-      "        self._avatar = 'default.png'",
-      "    @property",
-      "    def avatar(self):",
-      "        return self._avatar",
-      "    @avatar.deleter",
-      "    def avatar(self):",
-      "        self._avatar = 'default.png'",
-      "p2 = Profile()",
-      "p2._avatar = 'photo.jpg'",
-      "del p2.avatar",
-      "print(p2.avatar)  # → default.png",
-      "# property как декоратор-класс",
-      "class Temperature:",
-      "    def __init__(self, c=0):",
-      "        self._c = c",
-      "    temperature = property(lambda self: self._c,",
-      "        lambda self, v: setattr(self, '_c', v))",
-      "t = Temperature(25)",
-      "print(t.temperature)  # → 25"
+      [
+        "class Circle:",
+        "    def __init__(self, r):",
+        "        self._r = r",
+        "    @property",
+        "    def radius(self):",
+        "        return self._r",
+        "    @radius.setter",
+        "    def radius(self, value):",
+        "        if value < 0:",
+        "            raise ValueError('radius must be >= 0')",
+        "        self._r = value",
+        "c = Circle(5)",
+        "print(c.radius)  # → 5",
+        "c.radius = 10",
+        "print(c.radius)  # → 10"
+      ],
+      [
+        "class Celsius:",
+        "    def __init__(self, temp):",
+        "        self.temperature = temp",
+        "    @property",
+        "    def fahrenheit(self):",
+        "        return self.temperature * 9/5 + 32",
+        "c = Celsius(100)",
+        "print(c.fahrenheit)  # → 212.0"
+      ],
+      [
+        "class Person:",
+        "    def __init__(self, first, last):",
+        "        self.first = first",
+        "        self.last = last",
+        "    @property",
+        "    def full_name(self):",
+        "        return f'{self.first} {self.last}'",
+        "    @full_name.setter",
+        "    def full_name(self, name):",
+        "        self.first, self.last = name.split()",
+        "p = Person('John', 'Doe')",
+        "print(p.full_name)  # → John Doe",
+        "p.full_name = 'Jane Smith'",
+        "print(p.first)  # → Jane"
+      ],
+      [
+        "class Square:",
+        "    def __init__(self, side):",
+        "        self._side = side",
+        "    @property",
+        "    def side(self):",
+        "        return self._side",
+        "    @side.setter",
+        "    def side(self, v):",
+        "        self._side = v",
+        "    @property",
+        "    def area(self):",
+        "        return self._side ** 2",
+        "    @property",
+        "    def perimeter(self):",
+        "        return 4 * self._side",
+        "s = Square(5)",
+        "print(s.area)      # → 25",
+        "print(s.perimeter) # → 20"
+      ],
+      [
+        "class BankAccount:",
+        "    def __init__(self, balance):",
+        "        self._balance = balance",
+        "    @property",
+        "    def balance(self):",
+        "        return self._balance",
+        "    @balance.setter",
+        "    def balance(self, amount):",
+        "        if amount < 0:",
+        "            raise ValueError('Balance cannot be negative')",
+        "        self._balance = amount",
+        "acc = BankAccount(100)",
+        "print(acc.balance)  # → 100"
+      ],
+      [
+        "# @property.deleter",
+        "class Profile:",
+        "    def __init__(self):",
+        "        self._avatar = 'default.png'",
+        "    @property",
+        "    def avatar(self):",
+        "        return self._avatar",
+        "    @avatar.deleter",
+        "    def avatar(self):",
+        "        self._avatar = 'default.png'",
+        "p2 = Profile()",
+        "p2._avatar = 'photo.jpg'",
+        "del p2.avatar",
+        "print(p2.avatar)  # → default.png"
+      ],
+      [
+        "# property как декоратор-класс",
+        "class Temperature:",
+        "    def __init__(self, c=0):",
+        "        self._c = c",
+        "    temperature = property(lambda self: self._c,",
+        "        lambda self, v: setattr(self, '_c', v))",
+        "t = Temperature(25)",
+        "print(t.temperature)  # → 25"
+      ]
     ],
     "related": [
       "functools.cached_property",
@@ -879,7 +1785,10 @@
   },
   {
     "id": "self",
-    "title": "self",
+    "title": {
+      "ru": "self",
+      "en": "self"
+    },
     "kind": "term",
     "summary": {
       "ru": "Ссылка на текущий экземпляр класса. Первый параметр методов экземпляра (имя — соглашение).",
@@ -892,68 +1801,79 @@
     "syntax": "def method(self): self.x = ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/tutorial/classes.html#random-remarks",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "self",
+    "subcat": {
+      "ru": "self",
+      "en": "self"
+    },
     "aliases": [
       "ссылка на текущий объект",
       "первый параметр метода",
       "зачем нужен первый аргумент в методе"
     ],
-    "keywords": [],
+    "keywords": [
+      "self"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Box:",
-      "    def __init__(self, size):",
-      "        self.size = size",
-      "    def double(self):",
-      "        self.size *= 2",
-      "        b = Box(5)",
-      "        b.double()",
-      "        print(b.size)  # → 10",
-      "class Greeter:",
-      "    def __init__(self, greeting):",
-      "        self.greeting = greeting",
-      "    def greet(self, name):",
-      "        return f'{self.greeting}, {name}!'",
-      "g = Greeter('Hi')",
-      "print(g.greet('Bob'))  # → Hi, Bob!",
-      "class Node:",
-      "    def __init__(self, val):",
-      "        self.val = val",
-      "        self.next = None",
-      "    def set_next(self, node):",
-      "        self.next = node",
-      "        n1 = Node(1)",
-      "        n2 = Node(2)",
-      "        n1.set_next(n2)",
-      "        print(n1.next.val)  # → 2",
-      "class Builder:",
-      "    def __init__(self):",
-      "        self.items = []",
-      "    def add(self, item):",
-      "        self.items.append(item)",
-      "        return self  # цепочка!",
-      "    def build(self):",
-      "        return self.items",
-      "b2 = Builder().add(1).add(2).add(3).build()",
-      "print(b2)  # → [1, 2, 3]",
-      "# Передача self явно",
-      "class Calc:",
-      "    def sq(self):",
-      "        return self.n ** 2",
-      "c2 = Calc()",
-      "c2.n = 5",
-      "print(Calc.sq(c2))  # → 25 (явно)",
-      "class Logger:",
-      "    prefix = '[LOG]'",
-      "    def log(self, msg):",
-      "        print(f'{self.prefix} {msg}')",
-      "        l = Logger()",
-      "        l.prefix = '[INFO]'",
-      "        l.log('test')  # → [INFO] test"
+      [
+        "class Box:",
+        "    def __init__(self, size):",
+        "        self.size = size",
+        "    def double(self):",
+        "        self.size *= 2",
+        "b = Box(5)",
+        "b.double()  # то же, что Box.double(b): self — это b",
+        "print(b.size)  # → 10"
+      ],
+      [
+        "class Node:",
+        "    def __init__(self, val):",
+        "        self.val = val",
+        "        self.next = None",
+        "    def set_next(self, node):",
+        "        self.next = node",
+        "n1 = Node(1)",
+        "n2 = Node(2)",
+        "n1.set_next(n2)",
+        "print(n1.next.val)  # → 2",
+        "class Builder:",
+        "    def __init__(self):",
+        "        self.items = []",
+        "    def add(self, item):",
+        "        self.items.append(item)",
+        "        return self  # цепочка!",
+        "    def build(self):",
+        "        return self.items",
+        "b2 = Builder().add(1).add(2).add(3).build()",
+        "print(b2)  # → [1, 2, 3]"
+      ],
+      [
+        "# Передача self явно",
+        "class Calc:",
+        "    def sq(self):",
+        "        return self.n ** 2",
+        "c2 = Calc()",
+        "c2.n = 5",
+        "print(Calc.sq(c2))  # → 25 (явно)"
+      ],
+      [
+        "class Logger:",
+        "    prefix = '[LOG]'",
+        "    def log(self, msg):",
+        "        print(f'{self.prefix} {msg}')",
+        "l = Logger()",
+        "l.prefix = '[INFO]'",
+        "l.log('test')  # → [INFO] test"
+      ]
     ],
     "related": [
       "методы-экземпляра",
@@ -964,7 +1884,10 @@
   },
   {
     "id": "staticmethod",
-    "title": "@staticmethod",
+    "title": {
+      "ru": "@staticmethod",
+      "en": "@staticmethod"
+    },
     "kind": "term",
     "summary": {
       "ru": "Статический метод. Не принимает self или cls. Просто функция внутри класса — логическая группировка.",
@@ -977,52 +1900,68 @@
     "syntax": "@staticmethod\ndef method(...): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#staticmethod",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "методы",
+    "subcat": {
+      "ru": "методы",
+      "en": "methods"
+    },
     "aliases": [
       "статический метод",
       "метод без self"
     ],
-    "keywords": [],
+    "keywords": [
+      "staticmethod"
+    ],
     "tags": [
       "oop",
       "builtin"
     ],
     "examples": [
-      "class MathUtils:",
-      "    @staticmethod",
-      "    def add(a, b):",
-      "        return a + b",
-      "    @staticmethod",
-      "    def multiply(a, b):",
-      "        return a * b",
-      "print(MathUtils.add(3, 4))       # → 7",
-      "print(MathUtils.multiply(3, 4))  # → 12",
-      "class Validator:",
-      "    @staticmethod",
-      "    def is_email(s):",
-      "        return '@' in s and '.' in s.split('@')[-1]",
-      "print(Validator.is_email('user@example.com'))  # → True",
-      "print(Validator.is_email('not-an-email'))       # → False",
-      "class Temperature:",
-      "    @staticmethod",
-      "    def celsius_to_fahrenheit(c):",
-      "        return c * 9/5 + 32",
-      "    @staticmethod",
-      "    def fahrenheit_to_celsius(f):",
-      "        return (f - 32) * 5/9",
-      "print(Temperature.celsius_to_fahrenheit(0))  # → 32.0",
-      "# Вызов через экземпляр",
-      "v = Validator()",
-      "print(v.is_email('a@b.com'))  # → True",
-      "class StringUtils:",
-      "    @staticmethod",
-      "    def is_palindrome(s):",
-      "        s = s.lower().replace(' ', '')",
-      "        return s == s[::-1]",
-      "print(StringUtils.is_palindrome('racecar'))  # → True",
-      "print(StringUtils.is_palindrome('hello'))    # → False"
+      [
+        "class MathUtils:",
+        "    @staticmethod",
+        "    def add(a, b):",
+        "        return a + b",
+        "    @staticmethod",
+        "    def multiply(a, b):",
+        "        return a * b",
+        "print(MathUtils.add(3, 4))       # → 7",
+        "print(MathUtils.multiply(3, 4))  # → 12"
+      ],
+      [
+        "class Validator:",
+        "    @staticmethod",
+        "    def is_email(s):",
+        "        return '@' in s and '.' in s.split('@')[-1]",
+        "print(Validator.is_email('user@example.com'))  # → True",
+        "print(Validator.is_email('not-an-email'))       # → False",
+        "class Temperature:",
+        "    @staticmethod",
+        "    def celsius_to_fahrenheit(c):",
+        "        return c * 9/5 + 32",
+        "    @staticmethod",
+        "    def fahrenheit_to_celsius(f):",
+        "        return (f - 32) * 5/9",
+        "print(Temperature.celsius_to_fahrenheit(0))  # → 32.0",
+        "# Вызов через экземпляр",
+        "v = Validator()",
+        "print(v.is_email('a@b.com'))  # → True"
+      ],
+      [
+        "class StringUtils:",
+        "    @staticmethod",
+        "    def is_palindrome(s):",
+        "        s = s.lower().replace(' ', '')",
+        "        return s == s[::-1]",
+        "print(StringUtils.is_palindrome('racecar'))  # → True",
+        "print(StringUtils.is_palindrome('hello'))    # → False"
+      ]
     ],
     "related": [
       "classmethod",
@@ -1033,7 +1972,10 @@
   },
   {
     "id": "super",
-    "title": "super()",
+    "title": {
+      "ru": "super()",
+      "en": "super()"
+    },
     "kind": "function",
     "summary": {
       "ru": "Возвращает прокси-объект родительского класса. Используется для вызова методов родителя без явного указания имени.",
@@ -1046,84 +1988,79 @@
     "syntax": "super().__init__(...)\nsuper().method(...)\nsuper(type, obj_or_type)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#super",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "наследование",
+    "subcat": {
+      "ru": "наследование",
+      "en": "inheritance"
+    },
     "aliases": [
       "вызов метода родителя",
       "вызвать конструктор родителя",
       "обращение к родительскому классу"
     ],
-    "keywords": [],
+    "keywords": [
+      "super"
+    ],
     "tags": [
       "oop",
       "builtin"
     ],
     "examples": [
-      "class Animal:",
-      "    def __init__(self, name):",
-      "        self.name = name",
-      "class Dog(Animal):",
-      "    def __init__(self, name, breed):",
-      "        super().__init__(name)",
-      "        self.breed = breed",
-      "        d = Dog('Rex', 'Lab')",
-      "        print(d.name, d.breed)  # → Rex Lab",
-      "class Base:",
-      "    def greet(self):",
-      "        return 'Hello from Base'",
-      "class Child(Base):",
-      "    def greet(self):",
-      "        return super().greet() + ' and Child'",
-      "print(Child().greet())  # → Hello from Base and Child",
-      "# super() с MRO",
-      "class A:",
-      "    def method(self):",
-      "        return 'A'",
-      "class B(A):",
-      "    def method(self):",
-      "        return 'B+' + super().method()",
-      "class C(B):",
-      "    def method(self):",
-      "        return 'C+' + super().method()",
-      "print(C().method())  # → C+B+A",
-      "class LoggedList(list):",
-      "    def append(self, item):",
-      "        print(f'Adding {item}')",
-      "        super().append(item)",
-      "        ll = LoggedList()",
-      "        ll.append(1)  # → Adding 1",
-      "        print(ll)     # → [1]",
-      "# Множественное наследование + super",
-      "class A:",
-      "    def __init__(self):",
-      "        print('A.__init__')",
-      "class B(A):",
-      "    def __init__(self):",
-      "        super().__init__()",
-      "        print('B.__init__')",
-      "class C(A):",
-      "    def __init__(self):",
-      "        super().__init__()",
-      "        print('C.__init__')",
-      "class D(B, C):",
-      "    def __init__(self):",
-      "        super().__init__()",
-      "        print('D.__init__')",
-      "        D()  # → A / C / B / D (по MRO)",
-      "# super() без аргументов (Python 3)",
-      "class Shape:",
-      "    def area(self):",
-      "        return 0",
-      "class Rectangle(Shape):",
-      "    def __init__(self, w, h):",
-      "        self.w = w; self.h = h",
-      "    def area(self):",
-      "        return self.w * self.h",
-      "class Square(Rectangle):",
-      "    def __init__(self, side):",
-      "        super().__init__(side, side)",
-      "        print(Square(5).area())  # → 25"
+      [
+        "class Animal:",
+        "    def __init__(self, name):",
+        "        self.name = name",
+        "class Dog(Animal):",
+        "    def __init__(self, name, breed):",
+        "        super().__init__(name)",
+        "        self.breed = breed",
+        "d = Dog('Rex', 'Lab')",
+        "print(d.name, d.breed)  # → Rex Lab"
+      ],
+      [
+        "class Base:",
+        "    def greet(self):",
+        "        return 'Hello from Base'",
+        "class Child(Base):",
+        "    def greet(self):",
+        "        return super().greet() + ' and Child'",
+        "print(Child().greet())  # → Hello from Base and Child"
+      ],
+      [
+        "class LoggedList(list):",
+        "    def append(self, item):",
+        "        print(f'Adding {item}')",
+        "        super().append(item)",
+        "ll = LoggedList()",
+        "ll.append(1)  # → Adding 1",
+        "print(ll)  # → [1]"
+      ],
+      [
+        "# Множественное наследование: super() идёт по MRO, а не к «родителю»",
+        "class A:",
+        "    def __init__(self):",
+        "        print('A')",
+        "class B(A):",
+        "    def __init__(self):",
+        "        super().__init__()",
+        "        print('B')",
+        "class C(A):",
+        "    def __init__(self):",
+        "        super().__init__()",
+        "        print('C')",
+        "class D(B, C):",
+        "    def __init__(self):",
+        "        super().__init__()",
+        "        print('D')",
+        "D()  # → A / C / B / D",
+        "print([k.__name__ for k in D.__mro__])  # → ['D', 'B', 'C', 'A', 'object']"
+      ]
     ],
     "related": [
       "наследование",
@@ -1136,7 +2073,10 @@
   },
   {
     "id": "абстрактные-классы",
-    "title": "Абстрактные классы",
+    "title": {
+      "ru": "Абстрактные классы",
+      "en": "Abstract classes"
+    },
     "kind": "term",
     "summary": {
       "ru": "abc.ABC и @abstractmethod запрещают создание экземпляров класса без реализации всех абстрактных методов.",
@@ -1149,74 +2089,92 @@
     "syntax": "from abc import ABC, abstractmethod\nclass Shape(ABC):\n    @abstractmethod\n    def area(self): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/abc.html#abc.ABC",
-    "version": "3.4",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "ABC",
+    "subcat": {
+      "ru": "ABC",
+      "en": "ABC"
+    },
     "aliases": [
       "запретить создание экземпляра",
       "обязательный метод в наследнике",
       "интерфейс класса"
     ],
-    "keywords": [],
+    "keywords": [
+      "abc.ABC",
+      "abc.abstractmethod",
+      "ABC",
+      "abstractmethod"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "from abc import ABC, abstractmethod",
-      "class Shape(ABC):",
-      "    @abstractmethod",
-      "    def area(self) -> float:",
-      "        pass",
-      "    @abstractmethod",
-      "    def perimeter(self) -> float:",
-      "        pass",
-      "class Circle(Shape):",
-      "    def __init__(self, r):",
-      "        self.r = r",
-      "    def area(self):",
-      "        import math",
-      "        return math.pi * self.r**2",
-      "    def perimeter(self):",
-      "        import math",
-      "        return 2 * math.pi * self.r",
-      "print(round(Circle(5).area(), 2))  # → 78.54",
-      "# TypeError при попытке создать экземпляр ABC",
-      "try:",
-      "    Shape()",
-      "except TypeError as e:",
-      "    print(e)  # → Can't instantiate abstract class Shape...",
-      "class Animal(ABC):",
-      "    @abstractmethod",
-      "    def speak(self) -> str:",
-      "        pass",
-      "    def describe(self):",
-      "        return f'I say: {self.speak()}'",
-      "class Dog(Animal):",
-      "    def speak(self):",
-      "        return 'Woof!'",
-      "print(Dog().describe())  # → I say: Woof!",
-      "# Абстрактное свойство",
-      "class Base(ABC):",
-      "    @property",
-      "    @abstractmethod",
-      "    def name(self) -> str:",
-      "        pass",
-      "class Concrete(Base):",
-      "    @property",
-      "    def name(self):",
-      "        return 'Concrete'",
-      "print(Concrete().name)  # → Concrete",
-      "# ABCMeta без ABC",
-      "from abc import ABCMeta",
-      "class Interface(metaclass=ABCMeta):",
-      "    @abstractmethod",
-      "    def process(self): pass",
-      "class Impl(Interface):",
-      "    def process(self): return 'done'",
-      "print(Impl().process())  # → done",
-      "# isinstance с ABC",
-      "print(isinstance(Dog(), Animal))  # → True",
-      "print(issubclass(Dog, Animal))    # → True"
+      [
+        "from abc import ABC, abstractmethod",
+        "class Shape(ABC):",
+        "    @abstractmethod",
+        "    def area(self) -> float:",
+        "        pass",
+        "    @abstractmethod",
+        "    def perimeter(self) -> float:",
+        "        pass",
+        "class Circle(Shape):",
+        "    def __init__(self, r):",
+        "        self.r = r",
+        "    def area(self):",
+        "        import math",
+        "        return math.pi * self.r**2",
+        "    def perimeter(self):",
+        "        import math",
+        "        return 2 * math.pi * self.r",
+        "print(round(Circle(5).area(), 2))  # → 78.54",
+        "# TypeError при попытке создать экземпляр ABC",
+        "try:",
+        "    Shape()",
+        "except TypeError as e:",
+        "    print(e)  # → Can't instantiate abstract class Shape..."
+      ],
+      [
+        "from abc import ABC, abstractmethod",
+        "class Animal(ABC):",
+        "    @abstractmethod",
+        "    def speak(self) -> str:",
+        "        pass",
+        "    def describe(self):",
+        "        return f'I say: {self.speak()}'",
+        "class Dog(Animal):",
+        "    def speak(self):",
+        "        return 'Woof!'",
+        "print(Dog().describe())  # → I say: Woof!",
+        "# Абстрактное свойство",
+        "class Base(ABC):",
+        "    @property",
+        "    @abstractmethod",
+        "    def name(self) -> str:",
+        "        pass",
+        "class Concrete(Base):",
+        "    @property",
+        "    def name(self):",
+        "        return 'Concrete'",
+        "print(Concrete().name)  # → Concrete",
+        "# ABCMeta без ABC",
+        "from abc import ABCMeta",
+        "class Interface(metaclass=ABCMeta):",
+        "    @abstractmethod",
+        "    def process(self): pass",
+        "class Impl(Interface):",
+        "    def process(self): return 'done'",
+        "print(Impl().process())  # → done",
+        "# isinstance с ABC",
+        "print(isinstance(Dog(), Animal))  # → True",
+        "print(issubclass(Dog, Animal))    # → True"
+      ]
     ],
     "related": [
       "abc.ABC",
@@ -1228,7 +2186,10 @@
   },
   {
     "id": "атрибуты-экземпляра-и-класса",
-    "title": "Атрибуты экземпляра и класса",
+    "title": {
+      "ru": "Атрибуты экземпляра и класса",
+      "en": "Instance and class attributes"
+    },
     "kind": "term",
     "summary": {
       "ru": "Атрибуты класса — общие для всех экземпляров. Атрибуты экземпляра — уникальные для каждого. Изменяемые атрибуты класса — ловушка!",
@@ -1241,60 +2202,82 @@
     "syntax": "class C:\n    class_attr = 0  # классовый\n    def __init__(self):\n        self.inst_attr = 1  # экземплярный",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/tutorial/classes.html#class-and-instance-variables",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "атрибуты",
+    "subcat": {
+      "ru": "атрибуты",
+      "en": "attributes"
+    },
     "aliases": [
       "поле объекта",
       "общая переменная для всех объектов",
       "переменная класса"
     ],
-    "keywords": [],
+    "keywords": [
+      "self",
+      "__dict__",
+      "class attribute"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Dog:",
-      "    species = 'Canis lupus'  # классовый",
-      "    def __init__(self, name):",
-      "        self.name = name   # экземплярный",
-      "d1 = Dog('Rex')",
-      "d2 = Dog('Max')",
-      "print(d1.species, d2.species)  # → Canis lupus Canis lupus",
-      "print(d1.name, d2.name)  # → Rex Max",
-      "# Изменение классового атрибута через класс",
-      "Dog.species = 'Canis familiaris'",
-      "print(d1.species)  # → Canis familiaris",
-      "# Затенение классового атрибута",
-      "d1.species = 'Wolf'  # только у d1",
-      "print(d1.species)  # → Wolf",
-      "print(d2.species)  # → Canis familiaris",
-      "# Изменяемый классовый атрибут — ловушка!",
-      "class BadList:",
-      "    items = []  # общий для всех!",
-      "b1 = BadList(); b2 = BadList()",
-      "b1.items.append(1)",
-      "print(b2.items)  # → [1] (список общий на всех — ловушка)",
-      "class GoodList:",
-      "    def __init__(self):",
-      "        self.items = []  # каждому свой",
-      "g1 = GoodList(); g2 = GoodList()",
-      "g1.items.append(1)",
-      "print(g2.items)  # → []",
-      "class Counter2:",
-      "    count = 0",
-      "    def __init__(self):",
-      "        Counter2.count += 1",
-      "        self.id = Counter2.count",
-      "Counter2(); c3 = Counter2()",
-      "print(c3.id, Counter2.count)  # → 2 2",
-      "# vars() vs dir()",
-      "class A:",
-      "    x = 1",
-      "    def __init__(self):",
-      "        self.y = 2",
-      "a = A()",
-      "print(vars(a))  # → {'y': 2} (только экземплярные)"
+      [
+        "class Dog:",
+        "    species = 'Canis lupus'  # классовый",
+        "    def __init__(self, name):",
+        "        self.name = name   # экземплярный",
+        "d1 = Dog('Rex')",
+        "d2 = Dog('Max')",
+        "print(d1.species, d2.species)  # → Canis lupus Canis lupus",
+        "print(d1.name, d2.name)  # → Rex Max",
+        "# Изменение классового атрибута через класс",
+        "Dog.species = 'Canis familiaris'",
+        "print(d1.species)  # → Canis familiaris",
+        "# Затенение классового атрибута",
+        "d1.species = 'Wolf'  # только у d1",
+        "print(d1.species)  # → Wolf",
+        "print(d2.species)  # → Canis familiaris"
+      ],
+      [
+        "# Изменяемый классовый атрибут — ловушка!",
+        "class BadList:",
+        "    items = []  # общий для всех!",
+        "b1 = BadList(); b2 = BadList()",
+        "b1.items.append(1)",
+        "print(b2.items)  # → [1] (список общий на всех — ловушка)"
+      ],
+      [
+        "class GoodList:",
+        "    def __init__(self):",
+        "        self.items = []  # каждому свой",
+        "g1 = GoodList(); g2 = GoodList()",
+        "g1.items.append(1)",
+        "print(g2.items)  # → []"
+      ],
+      [
+        "class Counter2:",
+        "    count = 0",
+        "    def __init__(self):",
+        "        Counter2.count += 1",
+        "        self.id = Counter2.count",
+        "Counter2(); c3 = Counter2()",
+        "print(c3.id, Counter2.count)  # → 2 2"
+      ],
+      [
+        "# vars() vs dir()",
+        "class A:",
+        "    x = 1",
+        "    def __init__(self):",
+        "        self.y = 2",
+        "a = A()",
+        "print(vars(a))  # → {'y': 2} (только экземплярные)"
+      ]
     ],
     "related": [
       "__init__",
@@ -1306,7 +2289,10 @@
   },
   {
     "id": "инкапсуляция-_private-__mangled",
-    "title": "Инкапсуляция — _private, __mangled",
+    "title": {
+      "ru": "Инкапсуляция — _private, __mangled",
+      "en": "Encapsulation — _private, __mangled"
+    },
     "kind": "term",
     "summary": {
       "ru": "Одиночный _ — соглашение (внутренний). Двойной __ — name mangling (переименование _Class__attr). Нет настоящих private в Python.",
@@ -1319,74 +2305,95 @@
     "syntax": "self._protected\nself.__private",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/tutorial/classes.html#private-variables",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "инкапсуляция",
+    "subcat": {
+      "ru": "инкапсуляция",
+      "en": "encapsulation"
+    },
     "aliases": [
       "приватный атрибут",
       "закрытое поле класса",
       "искажение имён"
     ],
-    "keywords": [],
+    "keywords": [
+      "_private",
+      "__mangled",
+      "name mangling"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class BankAccount:",
-      "    def __init__(self, balance):",
-      "        self._balance = balance  # 'protected'",
-      "    def get_balance(self):",
-      "        return self._balance",
-      "acc = BankAccount(100)",
-      "print(acc.get_balance())  # → 100",
-      "print(acc._balance)  # → 100 (можно, но нежелательно)",
-      "class Secret:",
-      "    def __init__(self):",
-      "        self.__secret = 42",
-      "    def reveal(self):",
-      "        return self.__secret",
-      "s = Secret()",
-      "print(s.reveal())  # → 42",
-      "try:",
-      "    print(s.__secret)  # → AttributeError",
-      "except AttributeError as e:",
-      "    print(e)",
-      "    # Name mangling",
-      "    print(s._Secret__secret)  # → 42 (доступ через mangling)",
-      "# В наследовании __attr не переопределяется случайно",
-      "class Base:",
-      "    def __init__(self):",
-      "        self.__x = 'base'",
-      "    def get_x(self):",
-      "        return self.__x",
-      "class Child(Base):",
-      "    def __init__(self):",
-      "        super().__init__()",
-      "        self.__x = 'child'  # → _Child__x, не трогает _Base__x",
-      "    def get_child_x(self):",
-      "        return self.__x",
-      "ch = Child()",
-      "print(ch.get_x())       # → base",
-      "print(ch.get_child_x()) # → child",
-      "class Config:",
-      "    _default = {'timeout': 30}",
-      "    def __init__(self, **kwargs):",
-      "        self._settings = {**self._default, **kwargs}",
-      "    def get(self, key):",
-      "        return self._settings.get(key)",
-      "cfg = Config(timeout=60)",
-      "print(cfg.get('timeout'))  # → 60",
-      "# Конвенция: _ означает 'не трогай'",
-      "class Transformer:",
-      "    def transform(self, data):",
-      "        data = self._preprocess(data)",
-      "        return self._process(data)",
-      "    def _preprocess(self, data):",
-      "        return [x.strip() for x in data]",
-      "    def _process(self, data):",
-      "        return [x.upper() for x in data]",
-      "t = Transformer()",
-      "print(t.transform(['  hello ', ' world ']))  # → ['HELLO','WORLD']"
+      [
+        "class BankAccount:",
+        "    def __init__(self, balance):",
+        "        self._balance = balance  # 'protected'",
+        "    def get_balance(self):",
+        "        return self._balance",
+        "acc = BankAccount(100)",
+        "print(acc.get_balance())  # → 100",
+        "print(acc._balance)  # → 100 (можно, но нежелательно)"
+      ],
+      [
+        "class Secret:",
+        "    def __init__(self):",
+        "        self.__secret = 42",
+        "    def reveal(self):",
+        "        return self.__secret",
+        "s = Secret()",
+        "print(s.reveal())  # → 42",
+        "try:",
+        "    s.__secret",
+        "except AttributeError as e:",
+        "    print(e)  # → 'Secret' object has no attribute '__secret'",
+        "print(s._Secret__secret)  # → 42 — имя искажено, но доступно"
+      ],
+      [
+        "# В наследовании __attr не переопределяется случайно",
+        "class Base:",
+        "    def __init__(self):",
+        "        self.__x = 'base'",
+        "    def get_x(self):",
+        "        return self.__x",
+        "class Child(Base):",
+        "    def __init__(self):",
+        "        super().__init__()",
+        "        self.__x = 'child'  # → _Child__x, не трогает _Base__x",
+        "    def get_child_x(self):",
+        "        return self.__x",
+        "ch = Child()",
+        "print(ch.get_x())       # → base",
+        "print(ch.get_child_x()) # → child"
+      ],
+      [
+        "class Config:",
+        "    _default = {'timeout': 30}",
+        "    def __init__(self, **kwargs):",
+        "        self._settings = {**self._default, **kwargs}",
+        "    def get(self, key):",
+        "        return self._settings.get(key)",
+        "cfg = Config(timeout=60)",
+        "print(cfg.get('timeout'))  # → 60"
+      ],
+      [
+        "# Конвенция: _ означает 'не трогай'",
+        "class Transformer:",
+        "    def transform(self, data):",
+        "        data = self._preprocess(data)",
+        "        return self._process(data)",
+        "    def _preprocess(self, data):",
+        "        return [x.strip() for x in data]",
+        "    def _process(self, data):",
+        "        return [x.upper() for x in data]",
+        "t = Transformer()",
+        "print(t.transform(['  hello ', ' world ']))  # → ['HELLO','WORLD']"
+      ]
     ],
     "related": [
       "property",
@@ -1397,7 +2404,10 @@
   },
   {
     "id": "методы-экземпляра",
-    "title": "Методы экземпляра",
+    "title": {
+      "ru": "Методы экземпляра",
+      "en": "Instance methods"
+    },
     "kind": "term",
     "summary": {
       "ru": "Обычные методы класса. Первый параметр — self (ссылка на экземпляр). Могут читать и изменять состояние.",
@@ -1410,91 +2420,114 @@
     "syntax": "def method(self, ...): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/datamodel.html#instance-methods",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "методы",
+    "subcat": {
+      "ru": "методы",
+      "en": "methods"
+    },
     "aliases": [
       "метод с self",
       "обычный метод класса",
       "первый параметр self"
     ],
-    "keywords": [],
+    "keywords": [
+      "self",
+      "method"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Rectangle:",
-      "    def __init__(self, w, h):",
-      "        self.w = w",
-      "        self.h = h",
-      "    def area(self):",
-      "        return self.w * self.h",
-      "    def perimeter(self):",
-      "        return 2 * (self.w + self.h)",
-      "r = Rectangle(3, 4)",
-      "print(r.area())      # → 12",
-      "print(r.perimeter()) # → 14",
-      "class Stack:",
-      "    def __init__(self):",
-      "        self._data = []",
-      "    def push(self, item):",
-      "        self._data.append(item)",
-      "        return self  # цепочка",
-      "    def pop(self):",
-      "        return self._data.pop()",
-      "    def peek(self):",
-      "        return self._data[-1]",
-      "s = Stack()",
-      "s.push(1).push(2).push(3)",
-      "print(s.pop())  # → 3",
-      "class Temperature:",
-      "    def __init__(self, celsius):",
-      "        self.celsius = celsius",
-      "    def to_fahrenheit(self):",
-      "        return self.celsius * 9/5 + 32",
-      "    def to_kelvin(self):",
-      "        return self.celsius + 273.15",
-      "t = Temperature(100)",
-      "print(t.to_fahrenheit())  # → 212.0",
-      "print(t.to_kelvin())      # → 373.15",
-      "# Метод вызывает другой метод",
-      "class Circle:",
-      "    def __init__(self, r):",
-      "        self.r = r",
-      "    def area(self):",
-      "        import math",
-      "        return math.pi * self.r ** 2",
-      "    def scale(self, factor):",
-      "        self.r *= factor",
-      "        return self.area()",
-      "c = Circle(5)",
-      "print(c.scale(2))  # → 314.159...",
-      "class BankAccount:",
-      "    def __init__(self, balance=0):",
-      "        self.balance = balance",
-      "    def deposit(self, amount):",
-      "        self.balance += amount",
-      "    def withdraw(self, amount):",
-      "        if amount > self.balance:",
-      "            raise ValueError('Insufficient funds')",
-      "        self.balance -= amount",
-      "acc = BankAccount(100)",
-      "acc.deposit(50)",
-      "acc.withdraw(30)",
-      "print(acc.balance)  # → 120",
-      "class WordCounter:",
-      "    def __init__(self):",
-      "        self._words = []",
-      "    def add(self, text):",
-      "        self._words.extend(text.split())",
-      "    def count(self):",
-      "        return len(self._words)",
-      "    def most_common(self):",
-      "        from collections import Counter",
-      "        return Counter(self._words).most_common(3)",
-      "wc = WordCounter()",
-      "wc.add('the cat sat on the mat')",
-      "print(wc.count())  # → 6"
+      [
+        "class Rectangle:",
+        "    def __init__(self, w, h):",
+        "        self.w = w",
+        "        self.h = h",
+        "    def area(self):",
+        "        return self.w * self.h",
+        "    def perimeter(self):",
+        "        return 2 * (self.w + self.h)",
+        "r = Rectangle(3, 4)",
+        "print(r.area())      # → 12",
+        "print(r.perimeter()) # → 14"
+      ],
+      [
+        "class Stack:",
+        "    def __init__(self):",
+        "        self._data = []",
+        "    def push(self, item):",
+        "        self._data.append(item)",
+        "        return self  # цепочка",
+        "    def pop(self):",
+        "        return self._data.pop()",
+        "    def peek(self):",
+        "        return self._data[-1]",
+        "s = Stack()",
+        "s.push(1).push(2).push(3)",
+        "print(s.pop())  # → 3"
+      ],
+      [
+        "class Temperature:",
+        "    def __init__(self, celsius):",
+        "        self.celsius = celsius",
+        "    def to_fahrenheit(self):",
+        "        return self.celsius * 9/5 + 32",
+        "    def to_kelvin(self):",
+        "        return self.celsius + 273.15",
+        "t = Temperature(100)",
+        "print(t.to_fahrenheit())  # → 212.0",
+        "print(t.to_kelvin())      # → 373.15"
+      ],
+      [
+        "# Метод вызывает другой метод",
+        "class Circle:",
+        "    def __init__(self, r):",
+        "        self.r = r",
+        "    def area(self):",
+        "        import math",
+        "        return math.pi * self.r ** 2",
+        "    def scale(self, factor):",
+        "        self.r *= factor",
+        "        return self.area()",
+        "c = Circle(5)",
+        "print(c.scale(2))  # → 314.159..."
+      ],
+      [
+        "class BankAccount:",
+        "    def __init__(self, balance=0):",
+        "        self.balance = balance",
+        "    def deposit(self, amount):",
+        "        self.balance += amount",
+        "    def withdraw(self, amount):",
+        "        if amount > self.balance:",
+        "            raise ValueError('Insufficient funds')",
+        "        self.balance -= amount",
+        "acc = BankAccount(100)",
+        "acc.deposit(50)",
+        "acc.withdraw(30)",
+        "print(acc.balance)  # → 120"
+      ],
+      [
+        "class WordCounter:",
+        "    def __init__(self):",
+        "        self._words = []",
+        "    def add(self, text):",
+        "        self._words.extend(text.split())",
+        "    def count(self):",
+        "        return len(self._words)",
+        "    def most_common(self):",
+        "        from collections import Counter",
+        "        return Counter(self._words).most_common(3)",
+        "wc = WordCounter()",
+        "wc.add('the cat sat on the mat')",
+        "print(wc.count())  # → 6"
+      ]
     ],
     "related": [
       "self",
@@ -1505,7 +2538,10 @@
   },
   {
     "id": "множественное-наследование-mro",
-    "title": "Множественное наследование / MRO",
+    "title": {
+      "ru": "Множественное наследование / MRO",
+      "en": "Multiple inheritance / MRO"
+    },
     "kind": "term",
     "summary": {
       "ru": "Python поддерживает множественное наследование. Порядок разрешения методов (MRO) — C3-линеаризация.",
@@ -1518,9 +2554,17 @@
     "syntax": "class C(A, B): ...\nC.__mro__",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/tutorial/classes.html#multiple-inheritance",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "наследование",
+    "subcat": {
+      "ru": "наследование",
+      "en": "inheritance"
+    },
     "aliases": [
       "порядок разрешения методов",
       "наследование от двух классов",
@@ -1533,60 +2577,70 @@
       "oop"
     ],
     "examples": [
-      "class A:",
-      "    def hello(self):",
-      "        return 'A'",
-      "class B:",
-      "    def hello(self):",
-      "        return 'B'",
-      "class C(A, B):",
-      "    pass",
-      "print(C().hello())  # → A (первый в MRO)",
-      "print([c.__name__ for c in C.__mro__])  # → ['C', 'A', 'B', 'object']",
-      "# Diamond problem",
-      "class Base:",
-      "    def method(self):",
-      "        return 'Base'",
-      "class Left(Base):",
-      "    def method(self):",
-      "        return 'Left+' + super().method()",
-      "class Right(Base):",
-      "    def method(self):",
-      "        return 'Right+' + super().method()",
-      "class Diamond(Left, Right):",
-      "    pass",
-      "print(Diamond().method())  # → Left+Right+Base (каждый Base вызывается раз!)",
-      "print([c.__name__ for c in Diamond.__mro__])  # → ['Diamond', 'Left', 'Right', 'Base', 'object']",
-      "# Mixin pattern",
-      "class JSONMixin:",
-      "    def to_json(self):",
-      "        import json",
-      "        return json.dumps(self.__dict__)",
-      "class LogMixin:",
-      "    def log(self):",
-      "        print(f'{type(self).__name__}: {self.__dict__}')",
-      "class User(JSONMixin, LogMixin):",
-      "    def __init__(self, name, age):",
-      "        self.name = name",
-      "        self.age = age",
-      "u = User('Alice', 30)",
-      "print(u.to_json())  # → {\"name\": \"Alice\", \"age\": 30}",
-      "# Проверка MRO",
-      "class X: pass",
-      "class Y(X): pass",
-      "class Z(X): pass",
-      "class W(Y, Z): pass",
-      "print([c.__name__ for c in W.__mro__])  # → ['W','Y','Z','X','object']",
-      "# super() в множественном наследовании",
-      "class A:",
-      "    def f(self): return ['A']",
-      "class B(A):",
-      "    def f(self): return ['B'] + super().f()",
-      "class C(A):",
-      "    def f(self): return ['C'] + super().f()",
-      "class D(B, C):",
-      "    def f(self): return ['D'] + super().f()",
-      "print(D().f())  # → ['D','B','C','A']"
+      [
+        "class A:",
+        "    def hello(self):",
+        "        return 'A'",
+        "class B:",
+        "    def hello(self):",
+        "        return 'B'",
+        "class C(A, B):",
+        "    pass",
+        "print(C().hello())  # → A (первый в MRO)",
+        "print([c.__name__ for c in C.__mro__])  # → ['C', 'A', 'B', 'object']"
+      ],
+      [
+        "# Diamond problem",
+        "class Base:",
+        "    def method(self):",
+        "        return 'Base'",
+        "class Left(Base):",
+        "    def method(self):",
+        "        return 'Left+' + super().method()",
+        "class Right(Base):",
+        "    def method(self):",
+        "        return 'Right+' + super().method()",
+        "class Diamond(Left, Right):",
+        "    pass",
+        "print(Diamond().method())  # → Left+Right+Base (каждый Base вызывается раз!)",
+        "print([c.__name__ for c in Diamond.__mro__])  # → ['Diamond', 'Left', 'Right', 'Base', 'object']"
+      ],
+      [
+        "# Mixin pattern",
+        "class JSONMixin:",
+        "    def to_json(self):",
+        "        import json",
+        "        return json.dumps(self.__dict__)",
+        "class LogMixin:",
+        "    def log(self):",
+        "        print(f'{type(self).__name__}: {self.__dict__}')",
+        "class User(JSONMixin, LogMixin):",
+        "    def __init__(self, name, age):",
+        "        self.name = name",
+        "        self.age = age",
+        "u = User('Alice', 30)",
+        "print(u.to_json())  # → {\"name\": \"Alice\", \"age\": 30}"
+      ],
+      [
+        "# Проверка MRO",
+        "class X: pass",
+        "class Y(X): pass",
+        "class Z(X): pass",
+        "class W(Y, Z): pass",
+        "print([c.__name__ for c in W.__mro__])  # → ['W','Y','Z','X','object']"
+      ],
+      [
+        "# super() в множественном наследовании",
+        "class A:",
+        "    def f(self): return ['A']",
+        "class B(A):",
+        "    def f(self): return ['B'] + super().f()",
+        "class C(A):",
+        "    def f(self): return ['C'] + super().f()",
+        "class D(B, C):",
+        "    def f(self): return ['D'] + super().f()",
+        "print(D().f())  # → ['D','B','C','A']"
+      ]
     ],
     "related": [
       "наследование",
@@ -1597,7 +2651,10 @@
   },
   {
     "id": "наследование",
-    "title": "Наследование",
+    "title": {
+      "ru": "Наследование",
+      "en": "Inheritance"
+    },
     "kind": "term",
     "summary": {
       "ru": "Дочерний класс наследует атрибуты и методы родительского. Переопределение методов — полиморфизм.",
@@ -1610,90 +2667,96 @@
     "syntax": "class Child(Parent): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/tutorial/classes.html#inheritance",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "наследование",
+    "subcat": {
+      "ru": "наследование",
+      "en": "inheritance"
+    },
     "aliases": [
       "наследование классов",
       "дочерний класс",
       "базовый класс"
     ],
-    "keywords": [],
+    "keywords": [
+      "Inheritance"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Animal:",
-      "    def __init__(self, name):",
-      "        self.name = name",
-      "    def speak(self):",
-      "        return '...'",
-      "class Dog(Animal):",
-      "    def speak(self):",
-      "        return 'Woof!'",
-      "class Cat(Animal):",
-      "    def speak(self):",
-      "        return 'Meow!'",
-      "for a in [Dog('Rex'), Cat('Whiskers')]:",
-      "    print(a.name, a.speak())  # → Rex Woof! / Whiskers Meow!",
-      "    print(isinstance(Dog('x'), Animal))  # → True",
-      "    print(isinstance(Dog('x'), Dog))    # → True",
-      "    print(isinstance(Dog('x'), Cat))    # → False",
-      "class Shape:",
-      "    def area(self):",
-      "        raise NotImplementedError",
-      "class Rectangle(Shape):",
-      "    def __init__(self, w, h):",
-      "        self.w = w",
-      "        self.h = h",
-      "    def area(self):",
-      "        return self.w * self.h",
-      "print(Rectangle(3, 4).area())  # → 12",
-      "# Дочерний класс добавляет атрибуты",
-      "class Vehicle:",
-      "    def __init__(self, brand):",
-      "        self.brand = brand",
-      "class Car(Vehicle):",
-      "    def __init__(self, brand, doors):",
-      "        super().__init__(brand)",
-      "        self.doors = doors",
-      "        c = Car('Toyota', 4)",
-      "        print(c.brand, c.doors)  # → Toyota 4",
-      "        # issubclass",
-      "        print(issubclass(Dog, Animal))  # → True",
-      "        print(issubclass(Dog, Cat))     # → False",
-      "# Наследование встроенных классов",
-      "class MyList(list):",
-      "    def sum(self):",
-      "        return sum(self)",
-      "ml = MyList([1,2,3,4])",
-      "print(ml.sum())  # → 10",
-      "print(ml[0])     # → 1",
-      "# MRO — Method Resolution Order",
-      "class A:",
-      "    def hello(self):",
-      "        return 'A'",
-      "class B(A):",
-      "    pass",
-      "class C(B):",
-      "    pass",
-      "print(C().hello())  # → A (из A)",
-      "print(C.__mro__)  # → (C, B, A, object)",
-      "# Переопределение с вызовом родителя",
-      "class Employee:",
-      "    def __init__(self, name, salary):",
-      "        self.name = name",
-      "        self.salary = salary",
-      "    def describe(self):",
-      "        return f'{self.name}: {self.salary}'",
-      "class Manager(Employee):",
-      "    def __init__(self, name, salary, dept):",
-      "        super().__init__(name, salary)",
-      "        self.dept = dept",
-      "    def describe(self):",
-      "        return super().describe() + f' [{self.dept}]'",
-      "m = Manager('Alice', 80000, 'IT')",
-      "print(m.describe())  # → Alice: 80000 [IT]"
+      [
+        "class Animal:",
+        "    def __init__(self, name):",
+        "        self.name = name",
+        "    def speak(self):",
+        "        return '...'",
+        "class Dog(Animal):",
+        "    def speak(self):",
+        "        return 'Woof!'",
+        "class Cat(Animal):",
+        "    def speak(self):",
+        "        return 'Meow!'",
+        "for a in [Dog('Rex'), Cat('Whiskers')]:",
+        "    print(a.name, a.speak())  # → Rex Woof! / Whiskers Meow!",
+        "print(isinstance(Dog('x'), Animal))  # → True",
+        "print(isinstance(Dog('x'), Cat))  # → False",
+        "print(issubclass(Dog, Animal))  # → True"
+      ],
+      [
+        "# Дочерний класс добавляет атрибуты",
+        "class Vehicle:",
+        "    def __init__(self, brand):",
+        "        self.brand = brand",
+        "class Car(Vehicle):",
+        "    def __init__(self, brand, doors):",
+        "        super().__init__(brand)",
+        "        self.doors = doors",
+        "c = Car('Toyota', 4)",
+        "print(c.brand, c.doors)  # → Toyota 4"
+      ],
+      [
+        "# Наследование встроенных классов",
+        "class MyList(list):",
+        "    def total(self):",
+        "        return sum(self)",
+        "ml = MyList([1, 2, 3, 4])",
+        "print(ml.total())  # → 10",
+        "print(ml[0])  # → 1 — всё поведение list сохранилось"
+      ],
+      [
+        "# Поиск метода идёт по MRO",
+        "class A:",
+        "    def hello(self):",
+        "        return 'A'",
+        "class B(A):",
+        "    pass",
+        "class C(B):",
+        "    pass",
+        "print(C().hello())  # → A",
+        "print([k.__name__ for k in C.__mro__])  # → ['C', 'B', 'A', 'object']"
+      ],
+      [
+        "# Переопределение с вызовом родителя",
+        "class Employee:",
+        "    def __init__(self, name, salary):",
+        "        self.name = name",
+        "        self.salary = salary",
+        "    def describe(self):",
+        "        return f'{self.name}: {self.salary}'",
+        "class Manager(Employee):",
+        "    def __init__(self, name, salary, dept):",
+        "        super().__init__(name, salary)",
+        "        self.dept = dept",
+        "    def describe(self):",
+        "        return super().describe() + f' [{self.dept}]'",
+        "print(Manager('Alice', 80000, 'IT').describe())  # → Alice: 80000 [IT]"
+      ]
     ],
     "related": [
       "super",
@@ -1705,7 +2768,10 @@
   },
   {
     "id": "полиморфизм",
-    "title": "Полиморфизм",
+    "title": {
+      "ru": "Полиморфизм",
+      "en": "Polymorphism"
+    },
     "kind": "term",
     "summary": {
       "ru": "Один интерфейс — разные реализации. В Python достигается переопределением методов и duck typing.",
@@ -1718,76 +2784,94 @@
     "syntax": "for obj in objects:\n    obj.method()  # разные реализации",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/glossary.html#term-duck-typing",
-    "version": "",
+    "added": "<3.0",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
     "section": "ООП",
-    "subcat": "полиморфизм",
+    "subcat": {
+      "ru": "полиморфизм",
+      "en": "polymorphism"
+    },
     "aliases": [
       "утиная типизация",
       "переопределение методов",
       "разные реализации одного метода"
     ],
-    "keywords": [],
+    "keywords": [
+      "Polymorphism"
+    ],
     "tags": [
       "oop"
     ],
     "examples": [
-      "class Shape:",
-      "    def area(self):",
-      "        raise NotImplementedError",
-      "class Circle:",
-      "    def __init__(self, r):",
-      "        self.r = r",
-      "    def area(self):",
-      "        import math",
-      "        return math.pi * self.r**2",
-      "class Rectangle:",
-      "    def __init__(self, w, h):",
-      "        self.w = w; self.h = h",
-      "    def area(self):",
-      "        return self.w * self.h",
-      "shapes = [Circle(3), Rectangle(4,5)]",
-      "for s in shapes:",
-      "    print(round(s.area(), 2))  # → 28.27 / 20",
-      "# Duck typing",
-      "class Dog:",
-      "    def speak(self):",
-      "        return 'Woof!'",
-      "class Cat:",
-      "    def speak(self):",
-      "        return 'Meow!'",
-      "class Duck:",
-      "    def speak(self):",
-      "        return 'Quack!'",
-      "for animal in [Dog(), Cat(), Duck()]:",
-      "    print(animal.speak())  # → Woof! Meow! Quack!",
-      "# Общая функция — полиморфный вызов",
-      "def make_sound(animal):",
-      "    print(animal.speak())",
-      "    make_sound(Dog())   # → Woof!",
-      "    make_sound(Duck())  # → Quack!",
-      "# Перегрузка операторов — полиморфизм",
-      "class Vector:",
-      "    def __init__(self, x):",
-      "        self.x = x",
-      "    def __add__(self, other):",
-      "        return Vector(self.x + other.x)",
-      "class Matrix:",
-      "    def __init__(self, data):",
-      "        self.data = data",
-      "    def __add__(self, other):",
-      "        return Matrix([[a+b for a,b in zip(r1,r2)]",
-      "for r1,r2 in zip(self.data, other.data)])",
-      "print((Vector(1)+Vector(2)).x)  # → 3",
-      "# isinstance + полиморфизм",
-      "def describe(obj):",
-      "    if isinstance(obj, list):",
-      "        return f'list of {len(obj)}'",
-      "    elif isinstance(obj, str):",
-      "        return f'string: {obj!r}'",
-      "    else:",
-      "        return f'other: {type(obj).__name__}'",
-      "print(describe([1,2,3]))  # → list of 3",
-      "print(describe('hi'))     # → string: 'hi'"
+      [
+        "class Shape:",
+        "    def area(self):",
+        "        raise NotImplementedError",
+        "class Circle(Shape):",
+        "    def __init__(self, r):",
+        "        self.r = r",
+        "    def area(self):",
+        "        import math",
+        "        return math.pi * self.r**2",
+        "class Rectangle(Shape):",
+        "    def __init__(self, w, h):",
+        "        self.w = w; self.h = h",
+        "    def area(self):",
+        "        return self.w * self.h",
+        "shapes = [Circle(3), Rectangle(4,5)]",
+        "for s in shapes:",
+        "    print(round(s.area(), 2))  # → 28.27 / 20"
+      ],
+      [
+        "# Duck typing",
+        "class Dog:",
+        "    def speak(self):",
+        "        return 'Woof!'",
+        "class Cat:",
+        "    def speak(self):",
+        "        return 'Meow!'",
+        "class Duck:",
+        "    def speak(self):",
+        "        return 'Quack!'",
+        "for animal in [Dog(), Cat(), Duck()]:",
+        "    print(animal.speak())  # → Woof! Meow! Quack!",
+        "# Общая функция — полиморфный вызов",
+        "def make_sound(animal):",
+        "    print(animal.speak())",
+        "make_sound(Dog())   # → Woof!",
+        "make_sound(Duck())  # → Quack!"
+      ],
+      [
+        "# Перегрузка операторов — полиморфизм",
+        "class Vector:",
+        "    def __init__(self, x):",
+        "        self.x = x",
+        "    def __add__(self, other):",
+        "        return Vector(self.x + other.x)",
+        "class Matrix:",
+        "    def __init__(self, data):",
+        "        self.data = data",
+        "    def __add__(self, other):",
+        "        return Matrix([[a + b for a, b in zip(r1, r2)]",
+        "                       for r1, r2 in zip(self.data, other.data)])",
+        "print((Vector(1)+Vector(2)).x)  # → 3"
+      ],
+      [
+        "# isinstance + полиморфизм",
+        "def describe(obj):",
+        "    if isinstance(obj, list):",
+        "        return f'list of {len(obj)}'",
+        "    elif isinstance(obj, str):",
+        "        return f'string: {obj!r}'",
+        "    else:",
+        "        return f'other: {type(obj).__name__}'",
+        "print(describe([1,2,3]))  # → list of 3",
+        "print(describe('hi'))     # → string: 'hi'"
+      ]
     ],
     "related": [
       "наследование",

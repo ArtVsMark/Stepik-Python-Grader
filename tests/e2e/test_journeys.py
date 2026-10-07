@@ -333,7 +333,10 @@ def test_glossary_related_links_navigate(page: Any, e2e_server: str, tmp_path: P
     # Ждём именно заголовок, а не location.hash: хэш меняется синхронно по клику,
     # а сосед вне текущей выборки дорисовывается после fetch /api/glossary/<id>
     # (см. selectGlossaryCard в content.js) — проверка хэша прошла бы до рендера.
-    expect(heading).to_have_text("dict.get", timeout=_TIMEOUT_MS)
+    # Заголовок начинается с имени, за ним — значки жизненного цикла («со
+    # времён Python 2» и т. п.): сравниваем начало, а не весь текст, иначе тест
+    # ломался бы от каждого нового значка, ничего не говоря о навигации.
+    expect(heading).to_have_text(re.compile(r"^dict\.get(\s|$)"), timeout=_TIMEOUT_MS)
 
     # `related_errors` хранит имя исключения (FileNotFoundError), а ссылка ведёт
     # на id карточки в нижнем регистре — проверяем именно это преобразование.

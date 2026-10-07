@@ -110,22 +110,11 @@ jobs:
       # без pip install — держим в том же быстром job, что и docs-guardrails.
       - name: Locale message catalog guardrails (issue #264)
         run: python scripts/check_locale_guardrails.py
-      # issue #955: пример карточки, который не собирается в валидный Python,
-      # пользователь копирует в «Песочницу» и получает IndentationError — на
-      # учебной поверхности это учит неверному. Храповик исполнения такой
-      # пример помечал `unverifiable` и проходил мимо: чем сильнее сломан
-      # пример, тем меньше к нему вопросов. Здесь встречная проверка с
-      # бюджетом, который обязан уменьшаться.
-      - name: Примеры карточек глоссария компилируются (issue #955)
-        run: python scripts/check_glossary_examples.py
-      # issue #919 (ADD-3-06): карточка — конечная станция, и уходят из неё в
-      # официальную документацию по docs_url. Девять карточек iter.json,
-      # включая четыре функции itertools со своими якорями, ссылались на общий
-      # термин glossary#term-generator, а pathlib.path — на страницу open().
-      # Проверка не ходит в сеть: гейт, зависящий от доступности
-      # docs.python.org, отвечал бы про сеть, а не про базу.
-      - name: Ссылки карточек ведут к описываемому имени (issue #919)
-        run: python scripts/check_glossary_docs_links.py
+      # issue #1573: проверки СОДЕРЖАНИЯ карточек (компиляция примеров #955,
+      # адреса docs_url #919) уехали вместе с содержанием в Glossary-Python —
+      # там они исполняют примеры по блокам и сверяют ссылки на каждом изменении
+      # карточки. Здесь карточки не правятся, а читаются выгрузкой
+      # (scripts/import_glossary.py), и проверять их второй раз — дубль.
       # issue #547: локализация web-UI оболочки (ui.json + data-i18n #545 +
       # t()/tp() #546) — паритет ru/en, покрытие ключей, нет голой кириллицы вне
       # каталога. Тоже чистый stdlib (html.parser/json), без pip install.
@@ -649,7 +638,6 @@ jobs:
               echo "::warning::coverage.xml ubuntu-job'а недоступен — per-OS бейдж пропущен, прошлое значение остаётся."
             fi
             python scripts/generate_version_badge.py
-            python scripts/generate_glossary_badge.py
             # Факты проекта для соседних репозиториев: витрина иначе клонирует
             # нас целиком ради двух подсчётов по tests/ и разбирает наш ci.yml
             # регулярным выражением. Едет тем же `cp .github/badges/*.json`
@@ -800,14 +788,30 @@ jobs:
       # до трёх попыток по 3 минуты вместо одного ожидания на десять.
       # `--kill-after`: установщик зовёт `apt-get`, и попытка, пережившая TERM,
       # держала бы dpkg-лок для следующей.
+      #
+      # Вторая итерация (07.10): три попытки падали быстро — за минуту каждая, —
+      # то есть установщик отвечал ошибкой (зеркало apt), а не висел; причину
+      # снаружи не видел никто. Поэтому:
+      # - хвост вывода неудачной попытки уходит в аннотацию — её облачная сессия
+      #   читает через `check-runs/{id}/annotations`, лог — нет;
+      # - неудача установки не решает за тесты: у образа раннера большая часть
+      #   библиотек уже стоит, а если какой-то нет, Chromium не запустится в
+      #   тестах, и сводка падений назовёт её. Вердикт по-прежнему выносят тесты,
+      #   и ложного зелёного здесь не бывает.
       - name: Install Playwright OS deps (issue #1566)
         timeout-minutes: 10
         run: |
+          log="${RUNNER_TEMP:-/tmp}/playwright-deps.log"
           for attempt in 1 2 3; do
-            if timeout --kill-after=15 180 playwright install-deps chromium; then exit 0; fi
-            echo "::warning::зависимости ОС для Playwright: попытка $attempt не уложилась в 3 мин или упала"
+            if timeout --kill-after=15 180 playwright install-deps chromium >"$log" 2>&1; then
+              tail -n 5 "$log"
+              exit 0
+            fi
+            reason=$(tail -n 4 "$log" | tr '\n' ' ' | cut -c1-600)
+            echo "::warning title=Playwright OS deps, попытка $attempt::$reason"
           done
-          exit 1
+          echo "::warning title=Playwright OS deps::три попытки не удались — тесты решат, хватает ли библиотек образа"
+          exit 0
 
       - name: Install Playwright Chromium (issue #1566)
         timeout-minutes: 10
