@@ -60,6 +60,7 @@ from typing import Any
 __all__ = [
     "ABSENCE_KEY",
     "BINDINGS",
+    "CATALOGUE_FIELDS",
     "GATE_DEBT",
     "MECHANISMS",
     "STATUSES",
@@ -73,6 +74,7 @@ __all__ = [
     "named_paths",
     "neighbour_holds",
     "proposal_drift",
+    "proposal_form",
     "reachable_gates",
     "unfinished_rule_work",
     "unheld_count",
@@ -619,6 +621,51 @@ def proposal_drift(catalogue: Path, *, root: Path | None = None) -> list[str]:
     ]
 
 
+#: Поля, которые в контракте предложения принадлежат КАТАЛОГУ (issue #1579):
+#: номер он присваивает при приёме, и отправитель их не заполняет. Утверждение
+#: правила лежит в ``claim`` — положенное в ``rule``, оно читается каталогом
+#: как попытка занять номер, а сводка показывает «Утверждение. —».
+CATALOGUE_FIELDS = ("id", "number", "rule")
+
+
+def proposal_form(*, root: Path | None = None) -> list[str]:
+    """Форма наших предложений каталогу: утверждение в ``claim``, без полей каталога.
+
+    Проверяется на каждом PR, без клона каталога: форма — свойство нашего
+    файла, а не их выгрузки. Отсутствие файла — законное «канал не подключён».
+
+    Args:
+        root: Корень репозитория; ``None`` — свой собственный.
+
+    Returns:
+        Список находок; пустой — форма верна или файла нет.
+    """
+    base = root if root is not None else _ROOT
+    path = base / ".rules" / "proposals.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f".rules/proposals.json не разбирается ({exc})"]
+
+    problems: list[str] = []
+    for index, raw in enumerate(data.get("proposals") or []):
+        if not isinstance(raw, dict):
+            problems.append(f"предложение №{index + 1} — не объект")
+            continue
+        name = str(raw.get("slug") or f"№{index + 1}")
+        taken = [field for field in CATALOGUE_FIELDS if field in raw]
+        if taken:
+            problems.append(
+                f"предложение {name} несёт поле каталога ({', '.join(taken)}): номер "
+                "присваивает каталог, утверждение кладётся в claim"
+            )
+        if not str(raw.get("claim") or "").strip():
+            problems.append(f"предложение {name} без утверждения: поле claim пусто")
+    return problems
+
+
 #: Поле, которым ответ «предмета нет» несёт СВОЙ рецепт опровержения
 #: (правило 175). Не всякая проза сводится к наличию объекта, поэтому поле
 #: необязательное: требовать его от всякого отрицания значило бы завести гейт,
@@ -755,6 +802,7 @@ def main(argv: list[str] | None = None) -> int:
     problems = binding_violations(data)
     problems.extend(version_subjects())
     problems.extend(absence_claims(data))
+    problems.extend(proposal_form())
 
     if args.catalogue is not None:
         try:

@@ -684,3 +684,50 @@ class TestUnfinishedRuleWorkIsNamedFirst:
 
         assert unreviewed == "1"
         assert unheld == "2", "нерассмотренное считается необеспеченным наравне с «ничем»"
+
+
+# --- issue #1579: форма предложения каталогу ---------------------------------
+
+
+def _proposals(root: pathlib.Path, *entries: dict[str, Any]) -> None:
+    """Положить `.rules/proposals.json` с такими предложениями."""
+    (root / ".rules").mkdir(parents=True, exist_ok=True)
+    payload = {"schema": "1.0", "proposals": list(entries)}
+    (root / ".rules" / "proposals.json").write_text(
+        json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def test_repository_proposals_have_the_catalogue_form() -> None:
+    """Наш собственный файл предложений держит форму контракта."""
+    assert _MODULE.proposal_form() == []
+
+
+def test_claim_in_rule_field_is_rejected(tmp_path: pathlib.Path) -> None:
+    """Живой случай: утверждение в `rule` каталог прочёл как «Утверждение. —»."""
+    _proposals(tmp_path, {"slug": "x", "rule": "Утверждение правила."})
+
+    problems = _MODULE.proposal_form(root=tmp_path)
+
+    assert any("поле каталога (rule)" in problem for problem in problems)
+    assert any("без утверждения" in problem for problem in problems)
+
+
+@pytest.mark.parametrize("field", ["id", "number"])
+def test_catalogue_number_fields_are_rejected(tmp_path: pathlib.Path, field: str) -> None:
+    """Номер присваивает каталог — отправитель его не занимает."""
+    _proposals(tmp_path, {"slug": "x", "claim": "Утверждение.", field: "211"})
+
+    assert any(f"({field})" in problem for problem in _MODULE.proposal_form(root=tmp_path))
+
+
+def test_claim_is_accepted(tmp_path: pathlib.Path) -> None:
+    """Верная форма — утверждение в `claim`, полей каталога нет."""
+    _proposals(tmp_path, {"slug": "x", "claim": "Утверждение."})
+
+    assert _MODULE.proposal_form(root=tmp_path) == []
+
+
+def test_missing_file_is_not_a_finding(tmp_path: pathlib.Path) -> None:
+    """Нет файла — канал не подключён, это не нарушение формы."""
+    assert _MODULE.proposal_form(root=tmp_path) == []
