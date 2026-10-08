@@ -353,9 +353,13 @@ class TestRunLockAndStamp:
     def test_fresh_lock_blocks_second_run(
         self, preflight: ModuleType, tmp_path: pathlib.Path
     ) -> None:
-        """Свежая блокировка = прогон идёт: второй pytest роняет тесты с subprocess."""
+        """Свежая блокировка живого процесса = прогон идёт.
+
+        Владелец — этот самый процесс, а не `pid 1`: на Windows процесса с таким
+        номером нет, и с проверкой живости (#1523) блокировка честно свободна.
+        """
         lock = tmp_path / "preflight.lock"
-        lock.write_text(json.dumps({"pid": 1, "at": time.time()}), encoding="utf-8")
+        lock.write_text(json.dumps({"pid": os.getpid(), "at": time.time()}), encoding="utf-8")
 
         assert preflight.lock_is_active(lock)
 
