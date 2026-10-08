@@ -57,7 +57,7 @@ def _drain(pipe: Any, sink: list[bytes], on_chunk: Any) -> None:
         for chunk in iter(lambda: pipe.read1(65536), b""):
             sink.append(chunk)
             on_chunk(len(chunk))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         pass
 
 
@@ -96,10 +96,10 @@ def _poll_memory(
                     exceeded.set()
                     proc.kill()
                     break
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
                 break
             stop.wait(0.02)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
+    except psutil.NoSuchProcess, psutil.AccessDenied:
         pass
 
 

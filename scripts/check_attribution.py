@@ -125,7 +125,7 @@ def agreed_identities(settings: pathlib.Path = AGREED_SETTINGS) -> set[Identity]
     """
     try:
         raw = json.loads(settings.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return set()
     block = raw.get("attribution") if isinstance(raw, dict) else None
     commit = block.get("commit") if isinstance(block, dict) else None
@@ -151,7 +151,7 @@ def owner_identity(pyproject: pathlib.Path | None = None) -> Identity | None:
     path = pyproject if pyproject is not None else _ROOT / "pyproject.toml"
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
+    except OSError, tomllib.TOMLDecodeError:
         return None
     authors = data.get("project", {}).get("authors") or []
     for author in authors:

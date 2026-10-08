@@ -98,10 +98,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # issue #1570: рядом с планкой ставятся младшие версии — для сторожа
+      # ниже. Последняя в списке становится `python` по умолчанию.
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: |
+            3.11
+            3.12
+            3.14
+      # issue #1570 / эпик #1575: код, который исполняет НЕ интерпретатор
+      # грейдера, обязан разбираться своим интерпретатором. Три файла движка
+      # исполняются внутри Python кода студента (движок 3.12); хуки окна —
+      # системным python облачного образа (3.11), до которого PATH окружения
+      # не доходит. Ruff держит их per-file целью (`pyproject.toml`), но цель
+      # линтера — обещание; компиляция настоящим интерпретатором — проверка.
+      - name: Код для младших интерпретаторов разбирается ими (issue #1570)
+        run: |
+          python3.12 -m py_compile \
+            src/stepik_grader/core/tracer.py \
+            src/stepik_grader/core/wrapper_builder.py \
+            src/stepik_grader/core/sandbox/_posix_bootstrap.py
+          python3.11 -m py_compile .claude/hooks/*.py
       - name: README line-budget + Markdown link-check
         run: python scripts/check_docs_guardrails.py
       # issue #264: message_id-каталог веб-API (web/i18n.py) — ru.json должен
@@ -267,7 +285,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Install dependencies
         timeout-minutes: 10
@@ -303,7 +321,6 @@ jobs:
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 30
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
     # issue #808 (SUP-04): матрица гоняет тесты, ставит зависимости и исполняет
     # сторонний код на 9 комбинациях — права на запись в main ей не нужны и
     # раньше выдавались только ради одного шага с бейджами. Сам шаг переехал в
@@ -323,32 +340,13 @@ jobs:
     # укладывается в минуты, поэтому каждое состояние main наконец проверяется —
     # пусть и одной ОС. Кросс-платформенное покрытие даёт ночной прогон.
     #
-    # issue #454: версия без верхней границы в `requires-python = ">=3.12"`
-    # обещана пользователю, поэтому покрывается на всех трёх ОС — sandbox
-    # завязан на OS-специфичные backend'ы, которые смена версии Python задевает
-    # вероятнее всего. `experimental: true` → `continue-on-error`, merge не
-    # блокируется; coverage-combine и бейджи фильтруются по 3.12 &&
-    # !experimental.
-    #
-    # issue #1529: КАКАЯ ВЕРСИЯ ЭКСПЕРИМЕНТАЛЬНАЯ — ВОПРОС К ЧУЖОМУ КАЛЕНДАРЮ.
-    # Флаг стоял на 3.14 с тех пор, как она была предрелизной, и пережил её
-    # выход: замер по манифесту раннера 09.09.2026 — 3.14.7 `stable=True`
-    # (седьмой патч), 3.15.0-rc.2 `stable=False`. Целый цикл релизов падения на
-    # полноценной поддерживаемой версии не блокировали мерж, и ни один прогон
-    # не покраснел: флаг делал ровно то, что написано. Цена измерена на PR
-    # #1522 — единственная упавшая ячейка была 3.14, PR уехал в main, причина
-    # осталась неизвестной (сводка не приходит, пока `continue-on-error` держит
-    # `needs.test.result` зелёным, — #1526).
-    #
-    # issue #1232: на предрелизных раннерах спавн подпроцесса стабильно не
-    # укладывается в дефолтные двадцать секунд — три разных теста падали по
-    # одной этой причине, и падение читалось как регрессия кода. Порог
-    # поднимается ТОЛЬКО здесь и ТОЛЬКО настоящей экспериментальной: дефолт в
-    # коде отличает «подвисло навсегда» от «система под нагрузкой» на машине
-    # пользователя, и поднимать его до полутора минут значило бы заставить
-    # каждого столько ждать.
-    env:
-      STEPIK_GRADER_LAUNCH_TIMEOUT_S: ${{ matrix.experimental && '90' || '' }}
+    # issue #1564: ВЕРСИЯ ОДНА — ПЛАНКА. Грейдер поддерживает Python от
+    # `requires-python`, и матрица проверяет ровно её на всех трёх ОС: sandbox
+    # завязан на OS-специфичные backend'ы, которые смена версии задевает
+    # вероятнее всего. Предрелизная версия следующего цикла живёт отдельным
+    # прогоном `python-next.yml`: внутри этого файла она красила бы его общим
+    # цветом (или пряталась под `continue-on-error` — #1529), а отдельный
+    # прогон отвечает о ней своим цветом и слияние не держит.
     strategy:
       fail-fast: false
       matrix:
@@ -368,15 +366,7 @@ jobs:
         # (`check_pr_ready.py` отвечает «ждать»). Плата — мерж примерно раз в
         # четверть часа.
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
-        python-version: ["3.12", "3.13", "3.14"]
-        experimental: [false]
-        include:
-          # Предрелизная версия следующего цикла. `allow-prereleases: true`
-          # ниже разрешает раннеру взять rc; выйдет 3.15 — переезжает в строку
-          # `python-version` выше, а сюда встаёт 3.16.
-          - {os: "ubuntu-latest",  python-version: "3.15", experimental: true}
-          - {os: "windows-latest", python-version: "3.15", experimental: true}
-          - {os: "macos-latest",   python-version: "3.15", experimental: true}
+        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -390,7 +380,6 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
 
       - name: Install dependencies
         timeout-minutes: 10
@@ -476,15 +465,13 @@ jobs:
       # well below what the test suite actually exercises across the matrix.
       # Rename + upload this job's .coverage data file so the coverage-combine
       # job (below) can merge all three OSes into one honest cross-platform
-      # number. One Python version per OS is enough — the sandbox backends
-      # aren't Python-version-dependent, no need to duplicate across 3.13.
+      # number. The matrix carries one Python version (the floor), so every
+      # OS job uploads exactly one data file — no version filter needed.
       - name: Rename coverage data file for combine (issue #283)
-        if: matrix.python-version == '3.12' && matrix.experimental == false
         shell: bash
         run: mv .coverage ".coverage.${{ matrix.os }}"
 
       - name: Upload coverage data (issue #283)
-        if: matrix.python-version == '3.12' && matrix.experimental == false
         # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -502,9 +489,7 @@ jobs:
         # issue #1227: и ночной прогон тоже — он обновляет те же бейджи.
         if: |
           (github.event_name == 'push' || github.event_name == 'schedule') &&
-          matrix.os == 'ubuntu-latest' &&
-          matrix.python-version == '3.12' &&
-          matrix.experimental == false
+          matrix.os == 'ubuntu-latest'
         # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
         # Потребитель этого артефакта (`coverage-combine`) уже скачивает его с
         # `continue-on-error`, то есть готов к его отсутствию.
@@ -550,7 +535,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       # issue #808: сюда переехали ВСЕ бейджи, а бейдж глоссария считает карточки
       # через stepik_grader.glossary — пакет нужен установленным, одного
@@ -746,7 +731,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Install dependencies (dev + e2e extras)
         timeout-minutes: 10
@@ -891,7 +876,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Download test reports from all matrix jobs
         timeout-minutes: 5
@@ -951,7 +936,7 @@ jobs:
     timeout-minutes: 20
     runs-on: ubuntu-latest
     container:
-      image: python:3.12-slim
+      image: python:3.14-slim
       options: --privileged
     steps:
       # git нужен ДО checkout: без него actions/checkout тянет tarball через REST
@@ -1026,7 +1011,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: Install package (runtime deps) + pip-audit
         timeout-minutes: 10
         run: |

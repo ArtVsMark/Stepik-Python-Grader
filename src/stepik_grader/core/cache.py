@@ -113,7 +113,7 @@ class GraderCache:
             return self._empty()
         try:
             data = load_json_file(self.cache_file)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             return self._empty()
         if data.get("version") != _CACHE_VERSION or not isinstance(data.get("entries"), dict):
             return self._empty()

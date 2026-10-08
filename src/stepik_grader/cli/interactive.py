@@ -332,7 +332,7 @@ def _maybe_grade_downloaded(
         print(ctx.t("grade_downloaded_many", count=len(downloaded)))
     try:
         answer = input(ctx.t("grade_downloaded_prompt", path=task_dir)).strip().lower()
-    except (EOFError, KeyboardInterrupt):
+    except EOFError, KeyboardInterrupt:
         # Симметрично остальному пункту 8: отказ от ответа — это отказ от
         # прогона, а не падение меню.
         print()

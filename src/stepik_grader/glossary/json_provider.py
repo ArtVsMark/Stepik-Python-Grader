@@ -603,7 +603,7 @@ def _ensure_queue_db(path: pathlib.Path) -> None:
         # упадёт ``GlossaryError``, как и до issue #794.
         try:
             legacy = _read_legacy_json_queue(path)
-        except (GlossaryError, OSError, ValueError):
+        except GlossaryError, OSError, ValueError:
             # ``ValueError`` — это и ``UnicodeDecodeError`` (issue #794, MIGR-04):
             # битый заголовок трактовался как legacy JSON, ошибка декодирования
             # утекала мимо suppress и наверху переклеивалась в «ошибка записи

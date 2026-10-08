@@ -98,7 +98,7 @@ def _read_meta(task_dir: Path) -> dict[str, Any]:
     """
     try:
         data = json.loads((task_dir / _META_NAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}
     return data if isinstance(data, dict) else {}
 

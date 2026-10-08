@@ -43,6 +43,14 @@ _CI_YML = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "ci.y
 _CLAUDE_MD = pathlib.Path(__file__).parent.parent / "CLAUDE.md"
 
 
+def _floor() -> str:
+    """Планка из `requires-python` — версия не вписывается в тест числом (005)."""
+    text = (pathlib.Path(__file__).parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'requires-python = ">=([\d.]+)"', text)
+    assert match is not None
+    return match.group(1)
+
+
 @pytest.fixture(scope="module")
 def ci_yml() -> str:
     return _CI_YML.read_text(encoding="utf-8")
@@ -140,32 +148,33 @@ class TestMatrixIsTheSameForEveryEvent:
         block = _job_block(ci_yml, "test")
         assert os_name in block
 
-    @pytest.mark.parametrize("version", ["3.12", "3.13", "3.14"])
-    def test_every_supported_version_runs(self, ci_yml: str, version: str) -> None:
-        """issue #454: версия, обещанная `requires-python`, покрывается матрицей.
+    def test_the_floor_version_runs(self, ci_yml: str) -> None:
+        """issue #454/#1564: версия, обещанная `requires-python`, — и только она.
 
-        3.14 стоит здесь наравне с остальными с тех пор, как вышла из
-        предрелиза (issue #1529): под `continue-on-error` она год пропускала
-        падения на полноценной поддерживаемой версии.
+        Число не вписывается: планка читается из `pyproject.toml`, иначе тест
+        застывал бы при каждом её подъёме.
         """
         block = _job_block(ci_yml, "test")
-        assert f'"{version}"' in block
+        assert f'python-version: ["{_floor()}"]' in block
 
-    def test_the_prerelease_cell_covers_three_os(self, ci_yml: str) -> None:
-        """Предрелизная версия следующего цикла идёт на всех трёх ОС.
+    def test_the_prerelease_runs_on_three_os_in_its_own_workflow(self) -> None:
+        """Предрелизная версия следующего цикла — на трёх ОС, отдельным прогоном.
 
         Номер здесь не называется намеренно: какая версия предрелизная — вопрос
-        к чужому календарю, и имя в тесте устаревало бы вместе с флагом. Что
-        флаг не пережил выход версии, сверяет `check_experimental_python.py`.
+        к чужому календарю. Что она не пережила выход, сверяет
+        `check_experimental_python.py`.
         """
-        block = _job_block(ci_yml, "test")
+        text = (_CI_YML.parent / "python-next.yml").read_text(encoding="utf-8")
 
-        assert block.count("experimental: true}") == 3
+        assert 'os: ["ubuntu-latest", "windows-latest", "macos-latest"]' in text
+        assert "allow-prereleases: true" in text
 
-    def test_the_prerelease_cell_does_not_block(self, ci_yml: str) -> None:
-        """Предрелизная комбинация не должна ронять мерж."""
-        block = _job_block(ci_yml, "test")
-        assert "continue-on-error" in block
+    def test_the_prerelease_does_not_hold_the_merge(self) -> None:
+        """Предрелизный прогон не просыпается на PR — слияние его не ждёт (084)."""
+        text = (_CI_YML.parent / "python-next.yml").read_text(encoding="utf-8")
+        triggers = text[text.index("\non:") : text.index("\npermissions:")]
+
+        assert "pull_request" not in triggers
 
 
 class TestNightlyCrossOsCoverage:

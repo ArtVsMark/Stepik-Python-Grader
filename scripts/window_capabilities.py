@@ -152,7 +152,7 @@ def installed_browser_version(build_dir: pathlib.Path) -> str | None:
                 timeout=_VERSION_TIMEOUT_S,
                 check=False,
             )
-        except (OSError, subprocess.SubprocessError):
+        except OSError, subprocess.SubprocessError:
             return None
         if done.returncode != 0:
             return None

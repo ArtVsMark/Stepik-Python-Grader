@@ -177,7 +177,7 @@ def attribution_line(settings: Path | None = None) -> str:
     path = settings or _SETTINGS
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return ""
     attribution = data.get("attribution") if isinstance(data, dict) else None
     line = attribution.get("pr") if isinstance(attribution, dict) else None

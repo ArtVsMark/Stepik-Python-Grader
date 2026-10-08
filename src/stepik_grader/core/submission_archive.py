@@ -131,7 +131,7 @@ def _load_existing_meta(meta_path: pathlib.Path) -> dict[int, dict[str, Any]]:
             continue
         try:
             known[int(entry["submission_id"])] = entry
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
     return known
 

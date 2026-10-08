@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -25,6 +26,8 @@ _ROOT = Path(__file__).parent.parent
 _SCRIPTS = _ROOT / "scripts"
 _SCRIPT = _SCRIPTS / "ci_matrix.py"
 _CI = _ROOT / ".github" / "workflows" / "ci.yml"
+_NEXT = _ROOT / ".github" / "workflows" / "python-next.yml"
+_PYPROJECT = _ROOT / "pyproject.toml"
 
 
 def _load_module() -> ModuleType:
@@ -90,6 +93,16 @@ def test_a_stable_cell_holds_the_merge(matrix: ModuleType) -> None:
     assert matrix.is_blocking("test (ubuntu-latest, 3.14, false)") is True
 
 
+def test_a_cell_without_the_experimental_axis_holds_the_merge(matrix: ModuleType) -> None:
+    """Матрица на планке без измерения `experimental` — ячейки обязательны (issue #1564).
+
+    Прежнее правило «обязательна, только если имя кончается на `, false)`»
+    объявило бы `test (ubuntu-latest, 3.14)` необязательной: слияние перестало
+    бы ждать единственную версию, которую грейдер обещает.
+    """
+    assert matrix.is_blocking("test (ubuntu-latest, 3.14)") is True
+
+
 @pytest.mark.parametrize("name", ["ci-complete", "static", "e2e", "docs-guardrails"])
 def test_a_plain_job_holds_the_merge(matrix: ModuleType, name: str) -> None:
     """Джоб без матрицы под правило не подпадает — он обязателен как есть."""
@@ -122,14 +135,30 @@ def test_blocking_names_keeps_the_order(matrix: ModuleType) -> None:
 # --- живое дерево --------------------------------------------------------------
 
 
-def test_the_live_matrix_has_both_kinds(matrix: ModuleType) -> None:
-    """В настоящем `ci.yml` есть и обязательные ячейки, и предрелизная.
+def test_the_live_matrix_checks_the_floor_and_holds_the_merge(matrix: ModuleType) -> None:
+    """В настоящем `ci.yml` каждая ячейка обязательна и проверяет ровно планку.
 
-    Ни одной предрелизной — следующий цикл Python не проверяется вовсе; ни
-    одной обязательной — матрица не держит ничего.
+    Предрелизная версия живёт отдельным прогоном `python-next.yml` (issue
+    #1564): ячейка внутри `ci.yml` либо красила бы общий вердикт, либо
+    пряталась под `continue-on-error`.
     """
     names = matrix.matrix_names(_CI.read_text(encoding="utf-8"))
-    blocking = matrix.blocking_names(names)
+    floor = re.search(r'requires-python = ">=([\d.]+)"', _PYPROJECT.read_text(encoding="utf-8"))
 
-    assert blocking, "матрица не даёт ни одной обязательной ячейки"
-    assert len(blocking) < len(names), "предрелизной ячейки в матрице нет"
+    assert names, "матрица не даёт ни одной ячейки"
+    assert matrix.blocking_names(names) == names, "необязательная ячейка в ci.yml"
+    assert floor is not None
+    assert all(f", {floor.group(1)})" in name for name in names), names
+
+
+def test_the_next_python_is_checked_by_its_own_workflow() -> None:
+    """Следующий цикл проверяется — отдельным прогоном и выше планки."""
+    text = _NEXT.read_text(encoding="utf-8")
+    floor = re.search(r'requires-python = ">=([\d.]+)"', _PYPROJECT.read_text(encoding="utf-8"))
+    versions = re.findall(r'python-version:\s*\["([\d.]+)"\]', text)
+
+    assert floor is not None and versions, "в python-next.yml нет версии"
+    assert "allow-prereleases: true" in text
+    assert all(
+        tuple(map(int, v.split("."))) > tuple(map(int, floor.group(1).split("."))) for v in versions
+    ), (versions, floor.group(1))

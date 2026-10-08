@@ -210,7 +210,7 @@ def load_ui_messages(lang: str) -> dict[str, str]:
         path = _LOCALES_DIR / f"{candidate}.json"
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             continue
         if isinstance(data, dict):
             return {k: v for k, v in data.items() if isinstance(v, str)}
@@ -343,7 +343,7 @@ def default_workdir(cwd: Path | None = None) -> Path:
         return fallback
     try:
         data = json.loads(config.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+    except OSError, json.JSONDecodeError, UnicodeDecodeError:
         return fallback
     raw = str(data.get("root_dir") or "").strip() if isinstance(data, dict) else ""
     if not raw:
@@ -512,7 +512,7 @@ def our_server_on(port: int, *, host: str = DEFAULT_HOST, timeout: float = 1.0) 
         if response.status != 200:
             return False
         return b"data-sandbox" in response.read(4096)
-    except (OSError, http.client.HTTPException):
+    except OSError, http.client.HTTPException:
         return False
     finally:
         conn.close()

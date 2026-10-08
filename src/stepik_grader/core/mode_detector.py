@@ -221,7 +221,7 @@ def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
         meta = load_json_file(meta_path)
         name = meta.get("function_name")
         return str(name) if name else None
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return None
 
 
@@ -236,7 +236,7 @@ def _ast_function_names(solution_path: pathlib.Path) -> list[str]:
     try:
         source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
-    except (SyntaxError, OSError):
+    except SyntaxError, OSError:
         return []
     return [
         node.name for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
@@ -254,7 +254,7 @@ def _ast_class_names(solution_path: pathlib.Path) -> list[str]:
     try:
         source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
-    except (SyntaxError, OSError):
+    except SyntaxError, OSError:
         return []
     return [node.name for node in tree.body if isinstance(node, ast.ClassDef)]
 
@@ -279,7 +279,7 @@ def _ast_function_name(solution_path: pathlib.Path) -> str | None:
         # для любого синтаксически неверного файла.
         source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
-    except (SyntaxError, OSError):
+    except SyntaxError, OSError:
         return None
     top_level = [
         node.name for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)

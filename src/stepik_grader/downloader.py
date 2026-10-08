@@ -619,7 +619,7 @@ def _iter_urls_interactively() -> Iterator[str]:
     while True:
         try:
             step_url = input(f"{_t('dl_step_url_prompt')}: ").strip()
-        except (EOFError, KeyboardInterrupt, OSError):
+        except EOFError, KeyboardInterrupt, OSError:
             print()
             return
         if not step_url:

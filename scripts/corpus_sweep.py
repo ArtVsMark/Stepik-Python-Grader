@@ -204,7 +204,7 @@ def discover_base(base_dir: pathlib.Path) -> list[SweepTask]:
         if meta_path.is_file():
             try:
                 meta = load_json_file(meta_path)
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 meta = {}
 
         tasks.append(

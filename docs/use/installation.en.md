@@ -20,8 +20,10 @@
 
 ## Requirements
 
-- **Python 3.12 or 3.13.** Version 3.14 is experimental (and may break);
-  install it only if you know what you're doing. Check your version: `python --version`.
+- **Python 3.14.** Check your version: `python --version`. On Python
+  3.12–3.13, release **1.12** keeps working — the last one that supports them:
+  `pip`/`pipx` pick it automatically from the version requirement. Your
+  solution runs on the same Python as the grader.
 - **Git** — required only for installation from source.
 
 > **Quick tip for beginners:** if you just want to use the tool, install it via

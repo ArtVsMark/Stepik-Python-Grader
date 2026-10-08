@@ -302,7 +302,7 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
         print(_t("ai_consent_recipient", endpoint=endpoint))
     try:
         answer = input(_t("ai_consent_prompt")).strip().lower()
-    except (EOFError, KeyboardInterrupt):
+    except EOFError, KeyboardInterrupt:
         print()
         return False
 
