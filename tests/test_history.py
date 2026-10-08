@@ -1012,6 +1012,52 @@ def test_transient_lock_stays_silent(tmp_path: Path, capsys) -> None:
     assert capsys.readouterr().err == ""
 
 
+def test_snapshot_of_a_neighbour_connect_is_not_called_corrupt(tmp_path: Path, capsys) -> None:
+    """Сосед дописывает заголовок — совета удалить базу нет (issue #1539).
+
+    Гонка воспроизводится детерминированно, тем же приёмом, что в #1533: вернуть
+    ответ, который sqlite законно даёт в середине чужого `connect`. Файл при
+    этом — живая база, и переспрос это показывает.
+    """
+    path = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+
+    def _mid_connect(_db_path: Path) -> sqlite3.Connection:
+        raise sqlite3.DatabaseError("file is not a database")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(history, "_connect", _mid_connect)
+        history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+
+    err = capsys.readouterr().err
+    assert "Удалите" not in err
+    assert "История прогонов недоступна" not in err
+    assert len(history.read_recent_runs(path)) == 1, "живая база должна остаться нетронутой"
+
+
+def test_snapshot_does_not_silence_a_later_real_corruption(tmp_path: Path, capsys) -> None:
+    """Неподтверждённый снимок не попадает в дедуп: настоящая порча названа позже."""
+    path = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+    history._note_unusable_db(path, sqlite3.DatabaseError("file is not a database"))
+
+    path.unlink()
+    path.write_bytes(b"\x8a\xff\xfe this is not sqlite at all " * 8)
+    history._note_unusable_db(path, sqlite3.DatabaseError("file is not a database"))
+
+    assert "Удалите" in capsys.readouterr().err
+
+
+def test_an_empty_file_is_not_called_corrupt(tmp_path: Path, capsys) -> None:
+    """Ноль байт — чужое `connect` мгновение назад, а не повреждение."""
+    path = tmp_path / "history.db"
+    path.touch()
+
+    history._note_unusable_db(path, sqlite3.DatabaseError("file is not a database"))
+
+    assert capsys.readouterr().err == ""
+
+
 def test_rolled_back_grader_refuses_future_schema(tmp_path: Path, capsys) -> None:
     """БД от более новой версии: запись пропускается, причина названа (MIGR-01).
 
