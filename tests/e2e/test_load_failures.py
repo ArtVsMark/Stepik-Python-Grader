@@ -25,6 +25,8 @@ from typing import Any
 
 from playwright.sync_api import expect
 
+from tests.e2e._helpers import uncovered_call
+
 _TIMEOUT_MS = 10_000
 # Текст кнопки повтора в обеих локалях: язык интерфейса берётся из браузера, а
 # он на CI-раннере может быть любым.
@@ -141,8 +143,8 @@ def test_terms_panel_renders_concept_without_card(
 ) -> None:
     """Панель «Функции в коде» переживает концепт, которого нет в глоссарии.
 
-    ``cmath.polar`` карточки не имеет, а ``cmath`` — имеет; покрытые идут
-    первыми, поэтому падение на непокрытом обрывало уже начатый рендер, и
+    ``sorted`` карточку имеет, а вызов из ``uncovered_call`` — нет; покрытые
+    идут первыми, поэтому падение на непокрытом обрывало уже начатый рендер, и
     панель оставалась пустой целиком.
     """
     page.goto(e2e_server + "/")
@@ -150,13 +152,14 @@ def test_terms_panel_renders_concept_without_card(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.insert_text("import cmath\ncmath.polar(1)")
+    imp, call, concept = uncovered_call()
+    page.keyboard.insert_text("xs = sorted([1])\n" + imp + call)
 
     # Приглушённая карточка без ссылки — та самая, на которой всё падало.
     expect(page.locator("#check-terms .term-card-nocard")).to_have_count(1, timeout=_TIMEOUT_MS)
     titles = [x.lower() for x in page.locator("#check-terms .term-card-title").all_inner_texts()]
-    assert "cmath" in titles, titles
-    assert "cmath.polar" in titles, titles
+    assert "sorted" in titles, titles
+    assert concept in titles, titles
 
 
 def test_a_stale_terms_response_does_not_overwrite_a_fresh_one(page: Any, e2e_server: str) -> None:
@@ -184,7 +187,8 @@ def test_a_stale_terms_response_does_not_overwrite_a_fresh_one(page: Any, e2e_se
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
 
-    page.keyboard.insert_text("import cmath\n")
+    imp, call, _concept = uncovered_call()
+    page.keyboard.insert_text(imp)
     # Обработчик маршрута срабатывает только пока страница ждёт — поэтому ждём
     # короткими шагами, пока debounce не отправит первый запрос.
     for _ in range(_TIMEOUT_MS // 100):
@@ -193,7 +197,7 @@ def test_a_stale_terms_response_does_not_overwrite_a_fresh_one(page: Any, e2e_se
         page.wait_for_timeout(100)
     assert held, "первый запрос к /api/code-terms не ушёл"
 
-    page.keyboard.insert_text("cmath.polar(1)")
+    page.keyboard.insert_text(call)
     nocard = page.locator("#check-terms .term-card-nocard")
     expect(nocard).to_have_count(1, timeout=_TIMEOUT_MS)
 
@@ -227,14 +231,15 @@ def test_a_stale_sandbox_terms_response_does_not_overwrite_a_fresh_one(
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#sandbox-editor .cm-content")
 
-    page.keyboard.insert_text("import cmath\n")
+    imp, call, _concept = uncovered_call()
+    page.keyboard.insert_text(imp)
     for _ in range(_TIMEOUT_MS // 100):
         if held:
             break
         page.wait_for_timeout(100)
     assert held, "первый запрос к /api/code-terms не ушёл"
 
-    page.keyboard.insert_text("cmath.polar(1)")
+    page.keyboard.insert_text(call)
     nocard = page.locator("#sandbox-terms .term-card-nocard")
     expect(nocard).to_have_count(1, timeout=_TIMEOUT_MS)
 
