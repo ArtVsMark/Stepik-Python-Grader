@@ -1040,7 +1040,8 @@
     "aliases": [
       "многоточие",
       "три точки",
-      "заглушка вместо кода"
+      "заглушка вместо кода",
+      "types.EllipsisType"
     ],
     "keywords": [
       "...",
@@ -2246,8 +2247,8 @@
       "en": "Accepts any number of keyword arguments as a dictionary."
     },
     "body": {
-      "ru": "Внутри функции kwargs — обычный словарь, и начиная с Python 3.7 он хранит аргументы в порядке их передачи. В сигнатуре **kwargs идёт последним; двойная звёздочка в вызове f(**d) делает обратное — раскладывает словарь в именованные аргументы.",
-      "en": "Inside the function kwargs is a plain dict, and since Python 3.7 it preserves the order in which arguments were passed. In the signature **kwargs comes last; a double star at the call site, f(**d), does the reverse — spreading a dict into keyword arguments."
+      "ru": "Внутри функции kwargs — обычный словарь, и начиная с Python 3.6 (PEP 468) он хранит аргументы в порядке их передачи. В сигнатуре **kwargs идёт последним; двойная звёздочка в вызове f(**d) делает обратное — раскладывает словарь в именованные аргументы.",
+      "en": "Inside the function kwargs is a plain dict, and since Python 3.6 (PEP 468) it preserves the order in which arguments were passed. In the signature **kwargs comes last; a double star at the call site, f(**d), does the reverse — spreading a dict into keyword arguments."
     },
     "syntax": "def f(**kwargs): ...",
     "status": "ready",
@@ -2576,7 +2577,8 @@
     "aliases": [
       "пустое значение",
       "отсутствие значения",
-      "ничего не возвращает"
+      "ничего не возвращает",
+      "types.NoneType"
     ],
     "keywords": [
       "NoneType"
@@ -2620,8 +2622,8 @@
       "en": "Opens a file. Modes: r (read), w (write, truncating), a (append), x (create), b (binary). Use it with with."
     },
     "body": {
-      "ru": "Всегда указывай encoding='utf-8' явно: без него текстовый режим берёт кодировку из локали системы (utf-8 — только в UTF-8 Mode, -X utf8), и файл, который спокойно читается на Linux, роняет UnicodeDecodeError на Windows с cp1251. Режим 'w' обрезает файл до нуля уже в момент открытия, до первой записи, — если нужно создать файл, но не затереть существующий, бери 'x': он бросит FileExistsError вместо потери данных.",
-      "en": "Always pass encoding='utf-8' explicitly: without it text mode falls back to the system locale (utf-8 only in UTF-8 Mode, -X utf8), so a file that reads fine on Linux blows up with UnicodeDecodeError on a Windows machine using cp1251. Mode 'w' empties the file the moment it is opened, before any write happens — if you want to create a file without clobbering an existing one, use 'x', which raises FileExistsError instead of destroying data."
+      "ru": "Всегда указывай encoding='utf-8' явно: без него до Python 3.15 текстовый режим берёт кодировку из локали системы (utf-8 — только в UTF-8 Mode, -X utf8; с 3.15 этот режим включён по умолчанию, PEP 686), и файл, который спокойно читается на Linux, роняет UnicodeDecodeError на Windows с cp1251. Режим 'w' обрезает файл до нуля уже в момент открытия, до первой записи, — если нужно создать файл, но не затереть существующий, бери 'x': он бросит FileExistsError вместо потери данных.",
+      "en": "Always pass encoding='utf-8' explicitly: without it, before Python 3.15, text mode falls back to the system locale (utf-8 only in UTF-8 Mode, -X utf8; since 3.15 that mode is on by default, PEP 686), so a file that reads fine on Linux blows up with UnicodeDecodeError on a Windows machine using cp1251. Mode 'w' empties the file the moment it is opened, before any write happens — if you want to create a file without clobbering an existing one, use 'x', which raises FileExistsError instead of destroying data."
     },
     "syntax": "open(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None)",
     "status": "ready",

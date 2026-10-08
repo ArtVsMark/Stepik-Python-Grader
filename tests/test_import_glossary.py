@@ -182,6 +182,21 @@ class TestRejection:
         with pytest.raises(importer.DeliveryRejected, match="незнакомые ключевые слова"):
             importer.verify_delivery(_delivery(), schema)
 
+    def test_all_of_runs_every_subschema(self, importer: ModuleType) -> None:
+        """``allOf`` исполняется, а не пропускается: нарушение любой подсхемы — отказ.
+
+        Выгрузка формы 6.1 описывает им раздел навигации; проверщик, знающий
+        слово, но не исполняющий его, пропустил бы битый раздел молча.
+        """
+        schema = copy.deepcopy(_SCHEMA)
+        schema["properties"]["form"] = {"allOf": [{"type": "string"}, {"pattern": r"^6\."}]}
+
+        importer.verify_delivery(_delivery(form="6.1"), schema)
+        with pytest.raises(importer.DeliveryRejected) as caught:
+            importer.verify_delivery(_delivery(form="6"), schema)
+
+        assert any("/form" in reason for reason in caught.value.reasons)
+
     def test_a_schema_violation_is_named_by_path(self, importer: ModuleType) -> None:
         delivery = _delivery()
         delivery["groups"]["builtin"][0]["kind"] = "banana"

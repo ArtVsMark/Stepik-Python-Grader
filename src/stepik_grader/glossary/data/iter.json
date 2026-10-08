@@ -144,7 +144,7 @@
       "en": "Wraps a coroutine in a Task and schedules it on the event loop: it starts at the current coroutine's next await, and you need not await its result right away."
     },
     "body": {
-      "ru": "Корутина не стартует прямо в точке вызова: задача лишь ставится в очередь event loop и начинает выполняться, когда текущая корутина сама дойдёт до ближайшего await. Вторая ловушка — ссылка: loop держит на задачу только слабую ссылку, поэтому task, никуда не сохранённый, может быть собран сборщиком мусора посреди работы; храните его в переменной или во множестве до завершения. И исключение внутри задачи молчит, пока её не заawait'или — потерянные задачи легко прячут ошибки.",
+      "ru": "Корутина не стартует прямо в точке вызова: задача лишь ставится в очередь event loop и начинает выполняться, когда текущая корутина сама дойдёт до ближайшего await. Вторая ловушка — ссылка: loop держит на задачу только слабую ссылку, поэтому task, никуда не сохранённый, может быть собран сборщиком мусора посреди работы; храните его в переменной или во множестве до завершения. И исключение внутри задачи молчит, пока её не дождались через await — потерянные задачи легко прячут ошибки.",
       "en": "Nothing runs at the call site itself: the task is queued on the event loop and only starts once the current coroutine reaches its next await. Also keep a reference — the loop holds only a weak one, so a task assigned nowhere can be garbage-collected mid-flight; park it in a variable or a set until it finishes. An exception raised inside a task stays silent until someone awaits it, which is how fire-and-forget tasks swallow bugs."
     },
     "syntax": "task = asyncio.create_task(coro())",
@@ -399,7 +399,7 @@
       "ru": "Главная ошибка — оставить в корутине time.sleep(): он замораживает весь поток вместе с event loop, и параллельные задачи встают, хотя код внешне выглядит асинхронным. Указанное время — минимум, а не точность: возврат произойдёт не раньше него, но насколько позже — зависит от загруженности цикла. Вызов asyncio.sleep(0) — идиома «уступить управление»: спать не нужно, но другим готовым задачам дают шанс поработать.",
       "en": "The classic mistake is leaving time.sleep() inside a coroutine: it freezes the whole thread along with the event loop, so every concurrent task stalls even though the code looks asynchronous. The delay is a lower bound, not a guarantee — you never resume earlier, but how much later depends on how busy the loop is. asyncio.sleep(0) is the idiom for yielding control: no real waiting, just a chance for other ready tasks to run."
     },
-    "syntax": "await asyncio.sleep(seconds)",
+    "syntax": "await asyncio.sleep(delay, result=None)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.sleep",
     "added": "3.4",
@@ -2199,6 +2199,4684 @@
       "iter",
       "itertools.pairwise",
       "itertools.islice"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.AbstractEventLoop",
+    "title": {
+      "ru": "asyncio.AbstractEventLoop",
+      "en": "asyncio.AbstractEventLoop"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс цикла событий: описывает, что умеет любой event loop asyncio — планировать вызовы, следить за сокетами, запускать процессы.",
+      "en": "The abstract base class of asyncio event loops: it lists what every loop can do — schedule callbacks, watch sockets, run subprocesses."
+    },
+    "body": {
+      "ru": "Учащемуся он почти никогда не нужен: программа целиком запускается через asyncio.run(), а задачи создаются asyncio.create_task(), и цикл остаётся за кадром. Объект цикла достают только ради редких методов — loop.run_in_executor() (увести блокирующий вызов в поток) или loop.time(), — и берут его asyncio.get_running_loop() внутри корутины, а не asyncio.get_event_loop(), который вне цикла ведёт себя по-разному в разных версиях. Наследоваться от AbstractEventLoop имеет смысл только автору собственного цикла вроде uvloop.",
+      "en": "Learners almost never need it: asyncio.run() starts the whole program, asyncio.create_task() schedules work, and the loop stays behind the scenes. You fetch the loop object only for rare methods — loop.run_in_executor() to push a blocking call into a thread, or loop.time() — and you get it with asyncio.get_running_loop() inside a coroutine, not asyncio.get_event_loop(), whose behaviour outside a loop differs between versions. Subclassing it only makes sense when you write a loop implementation such as uvloop."
+    },
+    "syntax": "loop = asyncio.get_running_loop()  # isinstance(loop, asyncio.AbstractEventLoop)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.AbstractEventLoop",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "объект цикла событий",
+      "получить event loop",
+      "методы loop asyncio",
+      "asyncio.BaseEventLoop"
+    ],
+    "keywords": [
+      "asyncio.AbstractEventLoop",
+      "AbstractEventLoop",
+      "get_running_loop",
+      "run_in_executor",
+      "call_soon",
+      "call_later"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import time",
+        "def blocking():",
+        "    time.sleep(0.01)  # обычная блокирующая функция",
+        "    return 'готово'",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    print(isinstance(loop, asyncio.AbstractEventLoop))  # → True",
+        "    result = await loop.run_in_executor(None, blocking)  # в пуле потоков, цикл не стоит",
+        "    print(result)  # → готово",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.run",
+      "asyncio.create_task",
+      "asyncio.EventLoop",
+      "ThreadPoolExecutor"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.EventLoop",
+    "title": {
+      "ru": "asyncio.EventLoop",
+      "en": "asyncio.EventLoop"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Псевдоним самого подходящего цикла событий для текущей ОС: SelectorEventLoop на Unix и ProactorEventLoop на Windows. Появился в Python 3.13.",
+      "en": "An alias for the most efficient event loop on the current OS: SelectorEventLoop on Unix and ProactorEventLoop on Windows. Added in Python 3.13."
+    },
+    "body": {
+      "ru": "Это не новый цикл, а имя для того, что asyncio.run() и так создаёт по умолчанию; проверка asyncio.EventLoop is asyncio.SelectorEventLoop на Linux даёт True. Нужен он там, где цикл передают явно — asyncio.run(main(), loop_factory=asyncio.EventLoop) или asyncio.Runner(loop_factory=...), — и он заменяет устаревшую с 3.14 возню с политиками циклов. В Python 3.11 и 3.12 имени нет — будет AttributeError.",
+      "en": "It is not a new loop but a name for what asyncio.run() already creates by default; on Linux asyncio.EventLoop is asyncio.SelectorEventLoop is True. You need it where the loop is passed explicitly — asyncio.run(main(), loop_factory=asyncio.EventLoop) or asyncio.Runner(loop_factory=...) — and it replaces fiddling with event loop policies, deprecated since 3.14. Python 3.11 and 3.12 lack the name: AttributeError."
+    },
+    "syntax": "asyncio.run(main(), loop_factory=asyncio.EventLoop)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.EventLoop",
+    "added": "3.13",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "цикл событий по умолчанию",
+      "выбрать event loop",
+      "loop_factory"
+    ],
+    "keywords": [
+      "asyncio.EventLoop",
+      "EventLoop",
+      "loop_factory",
+      "SelectorEventLoop",
+      "ProactorEventLoop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    await asyncio.sleep(0.01)",
+        "    return type(asyncio.get_running_loop()).__name__",
+        "name = asyncio.run(main(), loop_factory=asyncio.EventLoop)",
+        "print(name)  # → ? SelectorEventLoop на Linux и macOS, ProactorEventLoop на Windows",
+        "print(issubclass(asyncio.EventLoop, asyncio.AbstractEventLoop))  # → True"
+      ]
+    ],
+    "related": [
+      "asyncio.run",
+      "asyncio.SelectorEventLoop",
+      "asyncio.Runner",
+      "asyncio.AbstractEventLoop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.SelectorEventLoop",
+    "title": {
+      "ru": "asyncio.SelectorEventLoop",
+      "en": "asyncio.SelectorEventLoop"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Цикл событий на модуле selectors: ждёт готовности сокетов через select/epoll/kqueue. На Linux и macOS именно он создаётся по умолчанию.",
+      "en": "An event loop built on the selectors module: it waits for sockets via select/epoll/kqueue. It is the default loop on Linux and macOS."
+    },
+    "body": {
+      "ru": "Явно его выбирают в одном случае: на Windows по умолчанию работает ProactorEventLoop, а некоторым библиотекам (например, старым драйверам баз данных) нужен именно SelectorEventLoop. Цена на Windows — нет поддержки подпроцессов (create_subprocess_exec даст NotImplementedError) и предел в 512 сокетов у select(). Передавайте класс фабрикой — asyncio.Runner(loop_factory=asyncio.SelectorEventLoop), — а не через устаревшие политики циклов.",
+      "en": "You pick it explicitly in one case: Windows defaults to ProactorEventLoop, while some libraries (old database drivers, for instance) require SelectorEventLoop. The price on Windows is no subprocess support (create_subprocess_exec raises NotImplementedError) and select()'s 512-socket limit. Pass the class as a factory — asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) — rather than through the deprecated event loop policies."
+    },
+    "syntax": "with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.SelectorEventLoop",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "цикл на select",
+      "selector event loop windows",
+      "сменить цикл событий"
+    ],
+    "keywords": [
+      "asyncio.SelectorEventLoop",
+      "SelectorEventLoop",
+      "selectors",
+      "loop_factory"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    await asyncio.sleep(0.01)",
+        "    return type(asyncio.get_running_loop()).__name__",
+        "with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:",
+        "    print(runner.run(main()))  # → SelectorEventLoop"
+      ]
+    ],
+    "related": [
+      "asyncio.EventLoop",
+      "asyncio.Runner",
+      "asyncio.AbstractEventLoop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Runner",
+    "title": {
+      "ru": "asyncio.Runner",
+      "en": "asyncio.Runner"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Контекстный менеджер, который держит один цикл событий для нескольких вызовов run(). То же, что asyncio.run(), но цикл не закрывается между вызовами.",
+      "en": "A context manager that keeps one event loop alive across several run() calls. It is asyncio.run() whose loop is not closed between calls."
+    },
+    "body": {
+      "ru": "asyncio.run() каждый раз создаёт и закрывает новый цикл, поэтому объекты, привязанные к циклу (соединение, asyncio.Lock, в котором кто-то ждал), во втором вызове ломаются с RuntimeError. Runner решает это: в одном блоке with можно сделать runner.run(a()) и runner.run(b()) на общем цикле — удобно в тестах и в синхронном коде, который зовёт асинхронный по частям. Внутри уже работающего цикла runner.run() вызвать нельзя — там пишут await.",
+      "en": "asyncio.run() creates and closes a fresh loop every time, so loop-bound objects (a connection, an asyncio.Lock someone waited on) break with RuntimeError on the second call. Runner fixes that: inside one with block you can call runner.run(a()) and runner.run(b()) on a shared loop — handy in tests and in synchronous code that calls async code piece by piece. You cannot call runner.run() inside a running loop; use await there."
+    },
+    "syntax": "with asyncio.Runner(*, debug=None, loop_factory=None) as runner: runner.run(coro)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-runner.html#asyncio.Runner",
+    "added": "3.11",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "несколько asyncio.run подряд",
+      "один цикл событий на несколько вызовов",
+      "запуск корутины из синхронного кода"
+    ],
+    "keywords": [
+      "asyncio.Runner",
+      "Runner",
+      "run",
+      "get_loop",
+      "loop_factory"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def step(n):",
+        "    await asyncio.sleep(0.01)",
+        "    return id(asyncio.get_running_loop())",
+        "with asyncio.Runner() as runner:",
+        "    first = runner.run(step(1))",
+        "    second = runner.run(step(2))",
+        "    print(first == second)  # → True — цикл один и тот же"
+      ],
+      [
+        "import asyncio",
+        "with asyncio.Runner() as runner:",
+        "    runner.run(asyncio.sleep(0.01))",
+        "    loop = runner.get_loop()",
+        "    print(loop.is_closed())  # → False",
+        "print(loop.is_closed())  # → True — выход из with закрыл цикл"
+      ]
+    ],
+    "related": [
+      "asyncio.run",
+      "asyncio.EventLoop",
+      "unittest.IsolatedAsyncioTestCase"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Handle",
+    "title": {
+      "ru": "asyncio.Handle",
+      "en": "asyncio.Handle"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Объект запланированного обратного вызова: его возвращают loop.call_soon() и loop.call_soon_threadsafe(). Позволяет отменить вызов до того, как он случится.",
+      "en": "The object for a scheduled callback, returned by loop.call_soon() and loop.call_soon_threadsafe(). It lets you cancel the call before it happens."
+    },
+    "body": {
+      "ru": "Handle — не задача и не корутина: await на нём невозможен, результата у колбэка нет, а исключение из колбэка цикл только запишет в лог. Отменённый handle.cancel() вызов просто не выполнится, и handle.cancelled() вернёт True. Если нужно дождаться результата или отменить работу с откатом — берите asyncio.create_task() и await, а не call_soon().",
+      "en": "A Handle is neither a task nor a coroutine: you cannot await it, the callback has no result, and an exception from it is merely logged by the loop. After handle.cancel() the call simply never runs and handle.cancelled() returns True. If you need a result or cancellation with cleanup, use asyncio.create_task() and await instead of call_soon()."
+    },
+    "syntax": "handle = loop.call_soon(callback, *args); handle.cancel()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Handle",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "отменить call_soon",
+      "запланировать функцию в цикле событий"
+    ],
+    "keywords": [
+      "asyncio.Handle",
+      "Handle",
+      "call_soon",
+      "cancel",
+      "cancelled"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    h1 = loop.call_soon(print, 'первый')",
+        "    h2 = loop.call_soon(print, 'второй')",
+        "    h2.cancel()",
+        "    await asyncio.sleep(0.01)  # → первый — «второй» не напечатан",
+        "    print(type(h1).__name__, h2.cancelled())  # → Handle True",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.TimerHandle",
+      "asyncio.AbstractEventLoop",
+      "asyncio.create_task"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.TimerHandle",
+    "title": {
+      "ru": "asyncio.TimerHandle",
+      "en": "asyncio.TimerHandle"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Handle отложенного вызова: его возвращают loop.call_later() и loop.call_at(). Метод when() говорит, на какое время цикла вызов назначен.",
+      "en": "The Handle of a delayed callback, returned by loop.call_later() and loop.call_at(). Its when() method tells when the call is scheduled in loop time."
+    },
+    "body": {
+      "ru": "when() возвращает не секунды до вызова и не время по часам, а отметку loop.time() — монотонных часов цикла, у которых ноль ничему не соответствует; задержка — это handle.when() - loop.time(). Отменять ненужный таймер стоит явно: иначе колбэк сработает даже после того, как ждавшая его корутина ушла дальше. Для «подождать и продолжить» в корутине таймеры не нужны — достаточно await asyncio.sleep().",
+      "en": "when() returns neither seconds until the call nor wall-clock time but a loop.time() value — the loop's monotonic clock whose zero means nothing; the delay is handle.when() - loop.time(). Cancel timers you no longer need: otherwise the callback fires even after the coroutine that wanted it has moved on. To wait and continue inside a coroutine you need no timers at all — just await asyncio.sleep()."
+    },
+    "syntax": "handle = loop.call_later(delay, callback, *args)  # handle.when(), handle.cancel()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.TimerHandle",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "отложенный вызов asyncio",
+      "таймер в цикле событий",
+      "call_later"
+    ],
+    "keywords": [
+      "asyncio.TimerHandle",
+      "TimerHandle",
+      "call_later",
+      "call_at",
+      "when",
+      "loop.time"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    h = loop.call_later(10, print, 'не дождёмся')",
+        "    print(type(h).__name__)  # → TimerHandle",
+        "    print(round(h.when() - loop.time()))  # → 10 — секунд до вызова",
+        "    h.cancel()",
+        "    print(h.cancelled())  # → True",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.Handle",
+      "asyncio.sleep",
+      "asyncio.AbstractEventLoop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Future",
+    "title": {
+      "ru": "asyncio.Future",
+      "en": "asyncio.Future"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Низкоуровневый объект «результат появится позже»: его можно ждать через await, а значение кладут set_result() или set_exception(). На нём построена asyncio.Task.",
+      "en": "A low-level 'result will arrive later' object: you can await it, and the value is set with set_result() or set_exception(). asyncio.Task is built on it."
+    },
+    "body": {
+      "ru": "Это не concurrent.futures.Future: тот живёт в потоках и его не ждут через await, а asyncio.Future не потокобезопасен и привязан к циклу. Результат кладётся ровно один раз — второй set_result() или result() у незавершённого future дают InvalidStateError. Создавать его лучше loop.create_future(), а в прикладном коде он почти не нужен: для работы в фоне есть create_task(), для сигнала между задачами — asyncio.Event.",
+      "en": "This is not concurrent.futures.Future: that one lives in threads and is not awaited, whereas asyncio.Future is not thread-safe and is bound to a loop. A result is set exactly once — a second set_result(), or result() on a pending future, raises InvalidStateError. Create one with loop.create_future(); application code rarely needs it: create_task() runs work in the background and asyncio.Event signals between tasks."
+    },
+    "syntax": "fut = loop.create_future(); fut.set_result(value); value = await fut",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-future.html#asyncio.Future",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "задачи",
+      "en": "tasks"
+    },
+    "aliases": [
+      "будущий результат asyncio",
+      "future в asyncio",
+      "дождаться значения из колбэка"
+    ],
+    "keywords": [
+      "asyncio.Future",
+      "Future",
+      "create_future",
+      "set_result",
+      "set_exception",
+      "result",
+      "InvalidStateError"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    fut = loop.create_future()",
+        "    loop.call_later(0.01, fut.set_result, 42)  # кто-то положит результат позже",
+        "    print(await fut)  # → 42",
+        "    try:",
+        "        fut.set_result(43)",
+        "    except asyncio.InvalidStateError:",
+        "        print('результат уже есть')  # → результат уже есть",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.Task",
+      "Future-cf",
+      "asyncio.create_task",
+      "asyncio.Event"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Task",
+    "title": {
+      "ru": "asyncio.Task",
+      "en": "asyncio.Task"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Задача — корутина, запущенная в цикле событий конкурентно с остальными. Создаётся asyncio.create_task() и позволяет ждать результат, отменять и именовать работу.",
+      "en": "A task is a coroutine scheduled on the event loop to run concurrently with others. It is created by asyncio.create_task() and can be awaited, cancelled and named."
+    },
+    "body": {
+      "ru": "Цикл держит на задачи только слабые ссылки: задача, которую никто не сохранил в переменную или множество, может быть собрана сборщиком мусора посреди работы. cancel() не останавливает задачу сразу, а бросает CancelledError в точке её текущего await; глотать это исключение в except Exception нельзя — с 3.8 оно наследует BaseException, но голый except его поймает. Напрямую asyncio.Task(...) не создают.",
+      "en": "The loop keeps only weak references to tasks: a task nobody stored in a variable or a set can be garbage-collected mid-flight. cancel() does not stop a task at once; it raises CancelledError at the task's current await. Do not swallow it — since 3.8 it derives from BaseException, so except Exception lets it through, but a bare except catches it. Never instantiate asyncio.Task(...) directly."
+    },
+    "syntax": "task = asyncio.create_task(coro, name=None); result = await task",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.Task",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "задачи",
+      "en": "tasks"
+    },
+    "aliases": [
+      "задача asyncio",
+      "отменить задачу",
+      "фоновая корутина"
+    ],
+    "keywords": [
+      "asyncio.Task",
+      "Task",
+      "cancel",
+      "done",
+      "result",
+      "get_name",
+      "CancelledError"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def work():",
+        "    await asyncio.sleep(0.01)",
+        "    return 'ok'",
+        "async def main():",
+        "    task = asyncio.create_task(work(), name='worker')",
+        "    print(task.get_name(), task.done())  # → worker False",
+        "    print(await task, task.done())  # → ok True",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def forever():",
+        "    try:",
+        "        await asyncio.sleep(10)",
+        "    except asyncio.CancelledError:",
+        "        print('отменили во время sleep')  # → отменили во время sleep",
+        "        raise",
+        "async def main():",
+        "    task = asyncio.create_task(forever())",
+        "    await asyncio.sleep(0.01)",
+        "    task.cancel()",
+        "    try:",
+        "        await task",
+        "    except asyncio.CancelledError:",
+        "        print(task.cancelled())  # → True",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.create_task",
+      "asyncio.TaskGroup",
+      "asyncio.Future",
+      "asyncio.gather"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.TaskGroup",
+    "title": {
+      "ru": "asyncio.TaskGroup",
+      "en": "asyncio.TaskGroup"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Асинхронный контекстный менеджер для группы задач: блок async with не завершится, пока не закончатся все задачи, а сбой одной отменяет остальные.",
+      "en": "An asynchronous context manager for a group of tasks: the async with block does not exit until every task finishes, and one failure cancels the rest."
+    },
+    "body": {
+      "ru": "В отличие от asyncio.gather(), после первой ошибки соседние задачи не продолжают работать в фоне, а отменяются; наружу выходит не само исключение, а ExceptionGroup со всеми ошибками, поэтому ловят его через except*, а обычный except ValueError не сработает. Результаты берут из сохранённых задач (task.result()) после выхода из блока. Добавлять задачи в уже закрытую группу нельзя — RuntimeError.",
+      "en": "Unlike asyncio.gather(), after the first error the sibling tasks do not keep running in the background — they are cancelled; what escapes is not the exception itself but an ExceptionGroup holding every error, so you catch it with except* and a plain except ValueError misses it. Read results from the saved tasks (task.result()) after the block. Adding tasks to a group that has exited raises RuntimeError."
+    },
+    "syntax": "async with asyncio.TaskGroup() as tg: task = tg.create_task(coro)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.TaskGroup",
+    "added": "3.11",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "задачи",
+      "en": "tasks"
+    },
+    "aliases": [
+      "группа задач",
+      "запустить задачи и дождаться всех",
+      "отменить все задачи при ошибке"
+    ],
+    "keywords": [
+      "asyncio.TaskGroup",
+      "TaskGroup",
+      "create_task",
+      "except*",
+      "ExceptionGroup"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def square(n):",
+        "    await asyncio.sleep(0.01)",
+        "    return n * n",
+        "async def main():",
+        "    async with asyncio.TaskGroup() as tg:",
+        "        tasks = [tg.create_task(square(n)) for n in (2, 3, 4)]",
+        "    print([t.result() for t in tasks])  # → [4, 9, 16]",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def bad():",
+        "    await asyncio.sleep(0.01)",
+        "    raise ValueError('сбой')",
+        "async def slow():",
+        "    try:",
+        "        await asyncio.sleep(10)",
+        "    except asyncio.CancelledError:",
+        "        print('slow отменена')  # → slow отменена",
+        "        raise",
+        "async def main():",
+        "    try:",
+        "        async with asyncio.TaskGroup() as tg:",
+        "            tg.create_task(bad())",
+        "            tg.create_task(slow())",
+        "    except* ValueError as eg:",
+        "        print(type(eg).__name__, eg.exceptions)  # → ExceptionGroup (ValueError('сбой'),)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.gather",
+      "asyncio.create_task",
+      "exceptiongroup",
+      "asyncio.Task"
+    ],
+    "related_errors": [
+      "exceptiongroup"
+    ]
+  },
+  {
+    "id": "asyncio.Lock",
+    "title": {
+      "ru": "asyncio.Lock",
+      "en": "asyncio.Lock"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Асинхронный мьютекс: пока одна задача держит замок, остальные ждут на async with, не блокируя цикл событий.",
+      "en": "An asynchronous mutex: while one task holds the lock, the others wait at async with without blocking the event loop."
+    },
+    "body": {
+      "ru": "Замок нужен только там, где между проверкой и изменением общего состояния есть await: без await задачи не переключаются, и гонки нет. threading.Lock в корутине останавливает весь цикл, а asyncio.Lock — нет, но он не потокобезопасен. Замок не реентерабельный: повторный async with lock в той же задаче ждёт сам себя вечно. Захватывают его только через async with — обычный with lock даст TypeError.",
+      "en": "You need a lock only where an await sits between checking and updating shared state: without an await tasks do not switch and there is no race. threading.Lock in a coroutine stalls the whole loop and asyncio.Lock does not, but it is not thread-safe. It is not reentrant: a nested async with lock in the same task waits for itself forever. Acquire it only with async with — a plain with lock raises TypeError."
+    },
+    "syntax": "lock = asyncio.Lock()\nasync with lock: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-sync.html#asyncio.Lock",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "синхронизация",
+      "en": "synchronization"
+    },
+    "aliases": [
+      "асинхронный замок",
+      "мьютекс asyncio",
+      "защитить общий ресурс в корутинах"
+    ],
+    "keywords": [
+      "asyncio.Lock",
+      "Lock",
+      "acquire",
+      "release",
+      "locked"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "counter = 0",
+        "async def add(lock):",
+        "    global counter",
+        "    async with lock:",
+        "        value = counter",
+        "        await asyncio.sleep(0.01)  # переключение здесь — без замка вышла бы гонка",
+        "        counter = value + 1",
+        "async def main():",
+        "    lock = asyncio.Lock()",
+        "    await asyncio.gather(*(add(lock) for _ in range(5)))",
+        "    print(counter)  # → 5",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def main():",
+        "    lock = asyncio.Lock()",
+        "    try:",
+        "        with lock:",
+        "            pass",
+        "    except TypeError:",
+        "        print('нужен async with')  # → нужен async with",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "threading-lock",
+      "asyncio.Semaphore",
+      "asyncio.Condition",
+      "asyncio.gather"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Event",
+    "title": {
+      "ru": "asyncio.Event",
+      "en": "asyncio.Event"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Флаг для сигнала между задачами: одни ждут await event.wait(), другая вызывает event.set(), и все ожидающие просыпаются разом.",
+      "en": "A flag for signalling between tasks: some wait with await event.wait(), another calls event.set(), and all waiters wake up at once."
+    },
+    "body": {
+      "ru": "После set() флаг остаётся поднятым: каждый следующий wait() вернётся мгновенно, пока не вызвать clear(), — Event не одноразовый «пинок», а состояние. set() — обычный метод, не корутина, его не ждут через await. Из другого потока set() звать нельзя, это не threading.Event: используйте loop.call_soon_threadsafe(event.set).",
+      "en": "After set() the flag stays raised: every later wait() returns immediately until you call clear() — an Event is a state, not a one-shot nudge. set() is a plain method, not a coroutine, so it is not awaited. Do not call set() from another thread — this is not threading.Event; use loop.call_soon_threadsafe(event.set)."
+    },
+    "syntax": "event = asyncio.Event(); await event.wait(); event.set(); event.clear()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-sync.html#asyncio.Event",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "синхронизация",
+      "en": "synchronization"
+    },
+    "aliases": [
+      "сигнал между корутинами",
+      "дождаться события asyncio",
+      "флаг готовности"
+    ],
+    "keywords": [
+      "asyncio.Event",
+      "Event",
+      "wait",
+      "set",
+      "clear",
+      "is_set"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def waiter(name, event):",
+        "    await event.wait()",
+        "    print(name, 'проснулся')",
+        "async def main():",
+        "    event = asyncio.Event()",
+        "    tasks = [asyncio.create_task(waiter(n, event)) for n in ('a', 'b')]",
+        "    await asyncio.sleep(0.01)",
+        "    event.set()",
+        "    await asyncio.gather(*tasks)  # → a проснулся / b проснулся",
+        "    print(event.is_set())  # → True — флаг остался поднят",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "threading-event",
+      "asyncio.Condition",
+      "asyncio.create_task"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Semaphore",
+    "title": {
+      "ru": "asyncio.Semaphore",
+      "en": "asyncio.Semaphore"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Счётчик разрешений: пропускает в блок async with не больше N задач одновременно. Типичное применение — ограничить число одновременных запросов.",
+      "en": "A counter of permits: it lets at most N tasks into the async with block at once. The typical use is capping the number of concurrent requests."
+    },
+    "body": {
+      "ru": "Семафор ограничивает одновременность, а не скорость: задачи всё равно создаются все сразу и ждут своей очереди внутри, так что тысячи корутин в gather() по-прежнему занимают память. Лишний release() без acquire() молча увеличивает счётчик выше начального — ошибка в логике пропустит больше задач, чем задумано; чтобы такое ловить, есть asyncio.BoundedSemaphore.",
+      "en": "A semaphore limits concurrency, not rate: all tasks are still created up front and wait their turn inside, so thousands of coroutines in gather() still take memory. An extra release() without acquire() silently raises the counter above its start value — a logic bug then lets more tasks through than intended; asyncio.BoundedSemaphore exists to catch that."
+    },
+    "syntax": "sem = asyncio.Semaphore(value=1)\nasync with sem: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-sync.html#asyncio.Semaphore",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "синхронизация",
+      "en": "synchronization"
+    },
+    "aliases": [
+      "ограничить число одновременных задач",
+      "семафор asyncio",
+      "не больше N запросов сразу"
+    ],
+    "keywords": [
+      "asyncio.Semaphore",
+      "Semaphore",
+      "acquire",
+      "release",
+      "locked"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "active = 0",
+        "peak = 0",
+        "async def job(sem):",
+        "    global active, peak",
+        "    async with sem:",
+        "        active += 1",
+        "        peak = max(peak, active)",
+        "        await asyncio.sleep(0.01)",
+        "        active -= 1",
+        "async def main():",
+        "    sem = asyncio.Semaphore(2)",
+        "    await asyncio.gather(*(job(sem) for _ in range(6)))",
+        "    print(peak)  # → 2 — больше двух одновременно не было",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.BoundedSemaphore",
+      "threading-semaphore",
+      "asyncio.Lock",
+      "asyncio.gather"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.BoundedSemaphore",
+    "title": {
+      "ru": "asyncio.BoundedSemaphore",
+      "en": "asyncio.BoundedSemaphore"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Семафор, который не даёт счётчику подняться выше начального значения: лишний release() бросает ValueError вместо того, чтобы молча пропустить лишнюю задачу.",
+      "en": "A semaphore that never lets its counter rise above the initial value: an extra release() raises ValueError instead of silently letting one more task through."
+    },
+    "body": {
+      "ru": "Поведение при правильном использовании то же, что у asyncio.Semaphore, разница только в ошибке: Semaphore(2) после лишнего release() пустит трёх, а BoundedSemaphore(2) сразу скажет «released too many times». Поэтому для «не больше N одновременно» разумно брать именно его — ошибка в подсчёте видна сразу, а не через неделю под нагрузкой.",
+      "en": "Used correctly it behaves exactly like asyncio.Semaphore; the difference is the error: Semaphore(2) after a stray release() admits three tasks, whereas BoundedSemaphore(2) immediately reports 'released too many times'. So for 'at most N at once' it is the sensible default — a counting bug shows up at once, not a week later under load."
+    },
+    "syntax": "sem = asyncio.BoundedSemaphore(value=1)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-sync.html#asyncio.BoundedSemaphore",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "синхронизация",
+      "en": "synchronization"
+    },
+    "aliases": [
+      "ограниченный семафор",
+      "ошибка лишнего release"
+    ],
+    "keywords": [
+      "asyncio.BoundedSemaphore",
+      "BoundedSemaphore",
+      "release",
+      "ValueError"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    sem = asyncio.BoundedSemaphore(1)",
+        "    async with sem:",
+        "        await asyncio.sleep(0.01)",
+        "    try:",
+        "        sem.release()  # лишний release",
+        "    except ValueError as e:",
+        "        print(e)  # → BoundedSemaphore released too many times",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.Semaphore",
+      "threading.BoundedSemaphore",
+      "asyncio.Lock"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Condition",
+    "title": {
+      "ru": "asyncio.Condition",
+      "en": "asyncio.Condition"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Условная переменная: задача ждёт под замком, пока не выполнится условие, а другая задача меняет состояние и будит ждущих notify() или notify_all().",
+      "en": "A condition variable: a task waits under a lock until some condition holds, while another task changes the state and wakes waiters with notify() or notify_all()."
+    },
+    "body": {
+      "ru": "И wait(), и notify() разрешены только внутри async with cond, иначе RuntimeError. Проснувшаяся задача не знает, что условие выполнено, — её могли разбудить, а состояние успели изменить снова, поэтому вместо if с wait() пишут цикл или сразу await cond.wait_for(предикат). Если ждут только «событие случилось», проще asyncio.Event; если очередь данных — asyncio.Queue.",
+      "en": "Both wait() and notify() are allowed only inside async with cond, otherwise RuntimeError. A woken task does not know the condition holds — the state may have changed again — so instead of if plus wait() you write a loop or simply await cond.wait_for(predicate). If you only wait for 'it happened', asyncio.Event is simpler; for passing data, asyncio.Queue."
+    },
+    "syntax": "cond = asyncio.Condition()\nasync with cond: await cond.wait_for(predicate)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-sync.html#asyncio.Condition",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "синхронизация",
+      "en": "synchronization"
+    },
+    "aliases": [
+      "условная переменная asyncio",
+      "ждать условия в корутине",
+      "notify_all"
+    ],
+    "keywords": [
+      "asyncio.Condition",
+      "Condition",
+      "wait",
+      "wait_for",
+      "notify",
+      "notify_all"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "items = []",
+        "async def consumer(cond):",
+        "    async with cond:",
+        "        await cond.wait_for(lambda: len(items) >= 2)",
+        "        print('получено', items)  # → получено [1, 2]",
+        "async def main():",
+        "    cond = asyncio.Condition()",
+        "    task = asyncio.create_task(consumer(cond))",
+        "    for x in (1, 2):",
+        "        await asyncio.sleep(0.01)",
+        "        async with cond:",
+        "            items.append(x)",
+        "            cond.notify_all()",
+        "    await task",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def main():",
+        "    cond = asyncio.Condition()",
+        "    try:",
+        "        cond.notify()",
+        "    except RuntimeError as e:",
+        "        print(e)  # → cannot notify on un-acquired lock",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.Event",
+      "asyncio.Lock",
+      "asyncio.queue"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Barrier",
+    "title": {
+      "ru": "asyncio.Barrier",
+      "en": "asyncio.Barrier"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Барьер: задачи ждут await barrier.wait(), пока их не наберётся заданное число parties, и только тогда продолжают все вместе. Появился в Python 3.11.",
+      "en": "A barrier: tasks wait in await barrier.wait() until the given number of parties has arrived, and only then do they all continue together. Added in Python 3.11."
+    },
+    "body": {
+      "ru": "Барьер многоразовый: после того как партия прошла, он снова ждёт parties задач. Если задач меньше, чем parties, ожидающие висят вечно, — поэтому wait() стоит обернуть в asyncio.timeout(). Отмена ждущей задачи барьер не ломает — она просто выходит, и ждущих становится меньше; ломает его barrier.abort(), и тогда все ждущие получают asyncio.BrokenBarrierError. wait() возвращает номер от 0 до parties-1 — удобно, чтобы ровно одна задача выполнила общий шаг.",
+      "en": "The barrier is reusable: once a batch passes, it waits for parties tasks again. With fewer tasks than parties the waiters hang forever, so wrap wait() in asyncio.timeout(). Cancelling a waiting task does not break the barrier — that task just leaves and the waiting count drops; barrier.abort() breaks it, and then every waiter gets asyncio.BrokenBarrierError. wait() returns an index from 0 to parties-1 — handy to let exactly one task do a shared step."
+    },
+    "syntax": "barrier = asyncio.Barrier(parties); index = await barrier.wait()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-sync.html#asyncio.Barrier",
+    "added": "3.11",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "синхронизация",
+      "en": "synchronization"
+    },
+    "aliases": [
+      "барьер asyncio",
+      "дождаться, пока соберутся все задачи",
+      "синхронизировать старт задач"
+    ],
+    "keywords": [
+      "asyncio.Barrier",
+      "Barrier",
+      "parties",
+      "wait",
+      "abort",
+      "BrokenBarrierError"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def worker(name, barrier):",
+        "    await asyncio.sleep(0.01)",
+        "    index = await barrier.wait()",
+        "    if index == 0:",
+        "        print('все на месте')  # → все на месте",
+        "async def main():",
+        "    barrier = asyncio.Barrier(3)",
+        "    await asyncio.gather(*(worker(n, barrier) for n in 'abc'))",
+        "    print(barrier.parties, barrier.n_waiting)  # → 3 0",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "threading.Barrier",
+      "asyncio.Event",
+      "asyncio.gather",
+      "asyncio.timeout"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.LifoQueue",
+    "title": {
+      "ru": "asyncio.LifoQueue",
+      "en": "asyncio.LifoQueue"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Асинхронная очередь «последним пришёл — первым вышел»: get() отдаёт элемент, положенный последним. Интерфейс тот же, что у asyncio.Queue.",
+      "en": "An asynchronous last-in, first-out queue: get() returns the most recently added item. The interface is the same as asyncio.Queue."
+    },
+    "body": {
+      "ru": "По сути это стек с ожиданием: get() на пустой очереди ждёт, put() на полной (если задан maxsize) тоже ждёт. Для стека внутри одной корутины очередь не нужна — хватит списка с append() и pop(); LifoQueue оправдана, когда кладут и забирают разные задачи. Это не queue.LifoQueue из модуля queue: та для потоков и её get() блокирует весь цикл событий.",
+      "en": "It is essentially a stack with waiting: get() on an empty queue waits, and so does put() on a full one (when maxsize is set). For a stack inside one coroutine you need no queue — a list with append() and pop() will do; LifoQueue pays off when different tasks push and pop. It is not queue.LifoQueue from the queue module: that one is for threads and its get() blocks the whole event loop."
+    },
+    "syntax": "q = asyncio.LifoQueue(maxsize=0); await q.put(x); x = await q.get()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-queue.html#asyncio.LifoQueue",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "очередь",
+      "en": "queue"
+    },
+    "aliases": [
+      "асинхронный стек",
+      "очередь lifo asyncio"
+    ],
+    "keywords": [
+      "asyncio.LifoQueue",
+      "LifoQueue",
+      "put",
+      "get",
+      "put_nowait",
+      "get_nowait"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    q = asyncio.LifoQueue()",
+        "    for x in (1, 2, 3):",
+        "        await q.put(x)",
+        "    await asyncio.sleep(0.01)",
+        "    print([q.get_nowait() for _ in range(3)])  # → [3, 2, 1]",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.queue",
+      "asyncio.PriorityQueue"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.PriorityQueue",
+    "title": {
+      "ru": "asyncio.PriorityQueue",
+      "en": "asyncio.PriorityQueue"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Асинхронная очередь с приоритетом: get() отдаёт наименьший элемент. Обычно кладут кортежи (приоритет, данные).",
+      "en": "An asynchronous priority queue: get() returns the smallest item. You usually put (priority, data) tuples."
+    },
+    "body": {
+      "ru": "Элементы сравниваются целиком: при равных приоритетах кортежи сравниваются по второму полю, и если там словари или объекты без порядка — TypeError в момент put(). Поэтому кладут (приоритет, счётчик, данные), где счётчик ещё и сохраняет порядок поступления. Меньшее число — более высокий приоритет; для «больше — важнее» приоритет берут со знаком минус.",
+      "en": "Items are compared as a whole: with equal priorities the tuples are compared by the second field, and dicts or unordered objects there raise TypeError at put() time. So you put (priority, counter, data), where the counter also keeps arrival order. A smaller number means higher priority; for 'bigger is more urgent' negate it."
+    },
+    "syntax": "q = asyncio.PriorityQueue(); await q.put((priority, data)); priority, data = await q.get()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-queue.html#asyncio.PriorityQueue",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "очередь",
+      "en": "queue"
+    },
+    "aliases": [
+      "очередь с приоритетом asyncio",
+      "обработать важные задачи первыми"
+    ],
+    "keywords": [
+      "asyncio.PriorityQueue",
+      "PriorityQueue",
+      "put",
+      "get",
+      "heapq"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    q = asyncio.PriorityQueue()",
+        "    for prio, job in [(2, 'отчёт'), (1, 'авария'), (3, 'почта')]:",
+        "        await q.put((prio, job))",
+        "    await asyncio.sleep(0.01)",
+        "    while not q.empty():",
+        "        print(await q.get())  # → (1, 'авария') / (2, 'отчёт') / (3, 'почта')",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def main():",
+        "    q = asyncio.PriorityQueue()",
+        "    await q.put((1, {'id': 'a'}))",
+        "    try:",
+        "        await q.put((1, {'id': 'b'}))  # равный приоритет — сравнение словарей",
+        "    except TypeError as e:",
+        "        print(type(e).__name__)  # → TypeError",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.queue",
+      "asyncio.LifoQueue",
+      "куча-как-приоритетная-очередь",
+      "heapq.heappush"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.BaseProtocol",
+    "title": {
+      "ru": "asyncio.BaseProtocol",
+      "en": "asyncio.BaseProtocol"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс всех протоколов asyncio: колбэки connection_made(), connection_lost(), pause_writing() и resume_writing(), которые вызывает транспорт.",
+      "en": "The base class of all asyncio protocols: the callbacks connection_made(), connection_lost(), pause_writing() and resume_writing() invoked by a transport."
+    },
+    "body": {
+      "ru": "Учащемуся этот уровень обычно не нужен: для TCP есть потоки asyncio.open_connection() и asyncio.start_server(), для процессов — asyncio.create_subprocess_exec(). Напрямую от BaseProtocol не наследуются — берут Protocol, BufferedProtocol, DatagramProtocol или SubprocessProtocol. Его методы — колбэки: их зовёт цикл, а не ваш код, они обычные функции (не async def), и await внутри них невозможен — долгую работу из колбэка запускают asyncio.create_task().",
+      "en": "Learners rarely need this layer: streams (asyncio.open_connection() and asyncio.start_server()) cover TCP, and asyncio.create_subprocess_exec() covers processes. Nobody subclasses BaseProtocol directly — you pick Protocol, BufferedProtocol, DatagramProtocol or SubprocessProtocol. Its methods are callbacks: the loop calls them, not your code; they are plain functions (not async def), so await is impossible inside — start long work from a callback with asyncio.create_task()."
+    },
+    "syntax": "class MyProto(asyncio.Protocol): def connection_made(self, transport): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.BaseProtocol",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "протокол asyncio",
+      "колбэки соединения",
+      "низкоуровневый сетевой api asyncio"
+    ],
+    "keywords": [
+      "asyncio.BaseProtocol",
+      "BaseProtocol",
+      "connection_made",
+      "connection_lost",
+      "pause_writing",
+      "resume_writing"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "print([c.__name__ for c in asyncio.Protocol.__mro__])  # → ['Protocol', 'BaseProtocol', 'object']",
+        "print(issubclass(asyncio.DatagramProtocol, asyncio.BaseProtocol))  # → True",
+        "async def main():",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.Protocol",
+      "asyncio.BaseTransport",
+      "asyncio.StreamReader"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Protocol",
+    "title": {
+      "ru": "asyncio.Protocol",
+      "en": "asyncio.Protocol"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол потокового соединения (TCP, Unix-сокет, SSL): цикл вызывает data_received() на каждую порцию байтов и eof_received() в конце.",
+      "en": "The protocol for a stream connection (TCP, Unix socket, SSL): the loop calls data_received() for every chunk of bytes and eof_received() at the end."
+    },
+    "body": {
+      "ru": "Учащемуся этот уровень обычно не нужен: для TCP есть потоки asyncio.open_connection() и asyncio.start_server(), для процессов — asyncio.create_subprocess_exec(). Главная ловушка — data_received() не знает границ сообщений: одно отправленное сообщение может прийти двумя кусками, а два — одним, так что буфер и поиск разделителя пишете вы сами (в StreamReader это готовые readline() и readuntil()). Протокол оправдан там, где нужна максимальная скорость без лишних корутин.",
+      "en": "Learners rarely need this layer: streams (asyncio.open_connection() and asyncio.start_server()) cover TCP, and asyncio.create_subprocess_exec() covers processes. The main trap: data_received() knows nothing about message boundaries — one sent message may arrive in two chunks and two may arrive as one, so buffering and delimiter search are yours to write (StreamReader ships readline() and readuntil()). A protocol pays off only when you need raw speed without extra coroutines."
+    },
+    "syntax": "transport, protocol = await loop.create_connection(ProtocolClass, host, port)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.Protocol",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "протокол tcp asyncio",
+      "data_received",
+      "свой сетевой протокол"
+    ],
+    "keywords": [
+      "asyncio.Protocol",
+      "Protocol",
+      "data_received",
+      "eof_received",
+      "connection_made",
+      "create_connection",
+      "create_server"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "class Echo(asyncio.Protocol):",
+        "    def connection_made(self, transport):",
+        "        self.transport = transport",
+        "    def data_received(self, data):",
+        "        print('получено', data)  # → получено b'ping'",
+        "        self.transport.write(data.upper())",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    left, right = socket.socketpair()  # локальная пара сокетов вместо сети",
+        "    transport, proto = await loop.create_connection(Echo, sock=left)",
+        "    right.sendall(b'ping')",
+        "    await asyncio.sleep(0.01)",
+        "    print(right.recv(10))  # → b'PING'",
+        "    transport.close()",
+        "    right.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.BaseProtocol",
+      "asyncio.StreamReader",
+      "asyncio.BaseTransport",
+      "asyncio.BufferedProtocol"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.BufferedProtocol",
+    "title": {
+      "ru": "asyncio.BufferedProtocol",
+      "en": "asyncio.BufferedProtocol"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Потоковый протокол с ручным буфером: цикл просит буфер через get_buffer(), пишет в него данные и сообщает их длину в buffer_updated(). Появился в Python 3.7.",
+      "en": "A streaming protocol with a manual buffer: the loop asks for a buffer via get_buffer(), writes data into it and reports the length in buffer_updated(). Added in Python 3.7."
+    },
+    "body": {
+      "ru": "Учащемуся этот уровень обычно не нужен: для TCP есть потоки asyncio.open_connection() и asyncio.start_server(), для процессов — asyncio.create_subprocess_exec(). BufferedProtocol — оптимизация поверх Protocol: данные пишутся прямо в ваш bytearray без создания нового bytes на каждую порцию. Это выигрыш только при очень больших потоках; get_buffer() обязан вернуть непустой изменяемый буфер, а читать надо ровно nbytes из buffer_updated(), а не весь буфер — хвост там остался от прошлых порций.",
+      "en": "Learners rarely need this layer: streams (asyncio.open_connection() and asyncio.start_server()) cover TCP, and asyncio.create_subprocess_exec() covers processes. BufferedProtocol is an optimisation over Protocol: data lands straight in your bytearray instead of a fresh bytes object per chunk. It only pays off for very large streams; get_buffer() must return a non-empty writable buffer, and you must read exactly nbytes from buffer_updated(), not the whole buffer — the tail holds leftovers from earlier chunks."
+    },
+    "syntax": "class P(asyncio.BufferedProtocol): def get_buffer(self, sizehint): ...; def buffer_updated(self, nbytes): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.BufferedProtocol",
+    "added": "3.7",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "протокол без копирования данных",
+      "get_buffer buffer_updated"
+    ],
+    "keywords": [
+      "asyncio.BufferedProtocol",
+      "BufferedProtocol",
+      "get_buffer",
+      "buffer_updated"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "class Reader(asyncio.BufferedProtocol):",
+        "    def __init__(self):",
+        "        self.buf = bytearray(16)",
+        "        self.chunks = []",
+        "    def get_buffer(self, sizehint):",
+        "        return self.buf",
+        "    def buffer_updated(self, nbytes):",
+        "        self.chunks.append(bytes(self.buf[:nbytes]))  # ровно nbytes, не весь буфер",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    left, right = socket.socketpair()",
+        "    transport, proto = await loop.create_connection(Reader, sock=left)",
+        "    right.sendall(b'hello')",
+        "    await asyncio.sleep(0.01)",
+        "    print(proto.chunks)  # → [b'hello']",
+        "    transport.close()",
+        "    right.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.Protocol",
+      "asyncio.BaseProtocol",
+      "asyncio.StreamReader"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.DatagramProtocol",
+    "title": {
+      "ru": "asyncio.DatagramProtocol",
+      "en": "asyncio.DatagramProtocol"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол для датаграмм (UDP): цикл вызывает datagram_received(data, addr) на каждый пакет и error_received() при ошибке отправки или приёма.",
+      "en": "The protocol for datagrams (UDP): the loop calls datagram_received(data, addr) for every packet and error_received() on a send or receive error."
+    },
+    "body": {
+      "ru": "Для UDP высокоуровневого API потоков в asyncio нет, поэтому DatagramProtocol — единственный штатный путь. В отличие от TCP, границы сообщений сохраняются: один sendto() — один datagram_received(), но доставка и порядок не гарантированы. Отправляют через transport.sendto(), а не через write(); error_received() часто означает ICMP «порт недоступен» после sendto() на закрытый порт.",
+      "en": "asyncio has no high-level streams API for UDP, so DatagramProtocol is the only built-in route. Unlike TCP, message boundaries survive: one sendto() means one datagram_received(), but delivery and order are not guaranteed. Send with transport.sendto(), not write(); error_received() often signals an ICMP 'port unreachable' after sendto() to a closed port."
+    },
+    "syntax": "transport, protocol = await loop.create_datagram_endpoint(ProtocolClass, local_addr=...)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.DatagramProtocol",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "udp в asyncio",
+      "приём датаграмм",
+      "datagram_received"
+    ],
+    "keywords": [
+      "asyncio.DatagramProtocol",
+      "DatagramProtocol",
+      "datagram_received",
+      "error_received",
+      "create_datagram_endpoint"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "class Collector(asyncio.DatagramProtocol):",
+        "    def datagram_received(self, data, addr):",
+        "        print('пакет', data)  # → пакет b'one' / пакет b'two'",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    server, _ = await loop.create_datagram_endpoint(Collector, local_addr=('127.0.0.1', 0))",
+        "    addr = server.get_extra_info('sockname')",
+        "    client, _ = await loop.create_datagram_endpoint(",
+        "        asyncio.DatagramProtocol, remote_addr=addr)",
+        "    client.sendto(b'one')",
+        "    client.sendto(b'two')",
+        "    await asyncio.sleep(0.01)",
+        "    client.close()",
+        "    server.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.DatagramTransport",
+      "asyncio.BaseProtocol",
+      "asyncio.Protocol"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.SubprocessProtocol",
+    "title": {
+      "ru": "asyncio.SubprocessProtocol",
+      "en": "asyncio.SubprocessProtocol"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол для дочернего процесса: колбэки pipe_data_received(fd, data) на вывод из stdout/stderr, pipe_connection_lost() и process_exited().",
+      "en": "The protocol for a child process: the callbacks pipe_data_received(fd, data) for stdout/stderr output, pipe_connection_lost() and process_exited()."
+    },
+    "body": {
+      "ru": "Учащемуся этот уровень обычно не нужен: для TCP есть потоки asyncio.open_connection() и asyncio.start_server(), для процессов — asyncio.create_subprocess_exec(). Вместо протокола почти всегда удобнее asyncio.create_subprocess_exec() и await proc.communicate(): вывод приходит целиком, без разбора, какой fd что прислал. Ловушка протокола — process_exited() может прийти раньше, чем дочитан последний вывод из канала, поэтому «процесс завершился» не значит «все данные уже получены».",
+      "en": "Learners rarely need this layer: streams (asyncio.open_connection() and asyncio.start_server()) cover TCP, and asyncio.create_subprocess_exec() covers processes. Instead of a protocol, asyncio.create_subprocess_exec() with await proc.communicate() is almost always easier: the output arrives whole, with no sorting of which fd sent what. The protocol's trap: process_exited() may come before the last pipe output is read, so 'the process exited' does not mean 'all data has arrived'."
+    },
+    "syntax": "transport, protocol = await loop.subprocess_exec(ProtocolClass, program, *args)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.SubprocessProtocol",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "вывод процесса асинхронно",
+      "протокол подпроцесса asyncio"
+    ],
+    "keywords": [
+      "asyncio.SubprocessProtocol",
+      "SubprocessProtocol",
+      "pipe_data_received",
+      "process_exited",
+      "subprocess_exec"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import sys",
+        "class Out(asyncio.SubprocessProtocol):",
+        "    def __init__(self, done):",
+        "        self.done = done",
+        "        self.data = b''",
+        "    def pipe_data_received(self, fd, data):",
+        "        self.data += data",
+        "    def connection_lost(self, exc):",
+        "        self.done.set_result(True)  # все каналы закрыты — вывод получен целиком",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    done = loop.create_future()",
+        "    transport, proto = await loop.subprocess_exec(",
+        "        lambda: Out(done), sys.executable, '-c', 'print(6 * 7)', stdin=None)",
+        "    await done",
+        "    print(proto.data.strip(), transport.get_returncode())  # → b'42' 0",
+        "    transport.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.SubprocessTransport",
+      "subprocess-run",
+      "asyncio.BaseProtocol"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.BaseTransport",
+    "title": {
+      "ru": "asyncio.BaseTransport",
+      "en": "asyncio.BaseTransport"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс транспортов — объектов, которые asyncio даёт протоколу для работы с сокетом, каналом или процессом: close(), is_closing(), get_extra_info().",
+      "en": "The base class of transports — objects asyncio hands to a protocol to work with a socket, pipe or process: close(), is_closing(), get_extra_info()."
+    },
+    "body": {
+      "ru": "Учащемуся этот уровень обычно не нужен: для TCP есть потоки asyncio.open_connection() и asyncio.start_server(), для процессов — asyncio.create_subprocess_exec(). Транспорт сами не создают: его возвращают loop.create_connection() и соседние методы, а протокол получает его в connection_made(). close() не закрывает немедленно — буфер записи дописывается асинхронно, а connection_lost() придёт позже. get_extra_info('peername') или 'socket' — способ узнать адрес собеседника и достать низкоуровневый объект; у StreamWriter есть тот же метод.",
+      "en": "Learners rarely need this layer: streams (asyncio.open_connection() and asyncio.start_server()) cover TCP, and asyncio.create_subprocess_exec() covers processes. You never create a transport yourself: loop.create_connection() and its siblings return one, and the protocol receives it in connection_made(). close() is not immediate — the write buffer is flushed asynchronously and connection_lost() comes later. get_extra_info('peername') or 'socket' is how you learn the peer address or reach the low-level object; StreamWriter has the same method."
+    },
+    "syntax": "transport.get_extra_info(name, default=None); transport.close(); transport.is_closing()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.BaseTransport",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "транспорт asyncio",
+      "get_extra_info peername",
+      "закрыть соединение asyncio"
+    ],
+    "keywords": [
+      "asyncio.BaseTransport",
+      "BaseTransport",
+      "close",
+      "is_closing",
+      "get_extra_info",
+      "get_protocol"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    left, right = socket.socketpair()",
+        "    transport, proto = await loop.create_connection(asyncio.Protocol, sock=left)",
+        "    print(isinstance(transport, asyncio.BaseTransport))  # → True",
+        "    print(transport.get_extra_info('socket') is not None)  # → True",
+        "    transport.close()",
+        "    print(transport.is_closing())  # → True",
+        "    await asyncio.sleep(0.01)",
+        "    right.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.BaseProtocol",
+      "asyncio.ReadTransport",
+      "asyncio.StreamWriter"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.ReadTransport",
+    "title": {
+      "ru": "asyncio.ReadTransport",
+      "en": "asyncio.ReadTransport"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Интерфейс транспорта, из которого читают: pause_reading(), resume_reading() и is_reading() управляют потоком данных в data_received().",
+      "en": "The interface of a transport you read from: pause_reading(), resume_reading() and is_reading() control the flow of data into data_received()."
+    },
+    "body": {
+      "ru": "Учащемуся этот уровень обычно не нужен: для TCP есть потоки asyncio.open_connection() и asyncio.start_server(), для процессов — asyncio.create_subprocess_exec(). pause_reading() — ручное противодавление: если протокол не успевает обработать входящие данные, чтение из сокета приостанавливают, иначе они копятся в памяти. В потоках StreamReader делает это сам, когда его буфер переполнен (параметр limit). Повторный вызов pause_reading() или resume_reading() безопасен — с 3.7 он ничего не делает.",
+      "en": "Learners rarely need this layer: streams (asyncio.open_connection() and asyncio.start_server()) cover TCP, and asyncio.create_subprocess_exec() covers processes. pause_reading() is manual backpressure: when the protocol cannot keep up with incoming data, you pause reading from the socket, otherwise it piles up in memory. With streams, StreamReader does this itself when its buffer fills up (the limit parameter). Calling pause_reading() or resume_reading() twice is safe — since 3.7 the second call is a no-op."
+    },
+    "syntax": "transport.pause_reading(); transport.resume_reading(); transport.is_reading()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.ReadTransport",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "приостановить чтение asyncio",
+      "противодавление при чтении"
+    ],
+    "keywords": [
+      "asyncio.ReadTransport",
+      "ReadTransport",
+      "pause_reading",
+      "resume_reading",
+      "is_reading"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    left, right = socket.socketpair()",
+        "    transport, proto = await loop.create_connection(asyncio.Protocol, sock=left)",
+        "    print(isinstance(transport, asyncio.ReadTransport))  # → True",
+        "    transport.pause_reading()",
+        "    print(transport.is_reading())  # → False",
+        "    transport.resume_reading()",
+        "    print(transport.is_reading())  # → True",
+        "    transport.close()",
+        "    await asyncio.sleep(0.01)",
+        "    right.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.BaseTransport",
+      "asyncio.Protocol",
+      "asyncio.StreamReader"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.DatagramTransport",
+    "title": {
+      "ru": "asyncio.DatagramTransport",
+      "en": "asyncio.DatagramTransport"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Транспорт для датаграмм (UDP): sendto(data, addr) отправляет пакет, abort() закрывает сразу. Его возвращает loop.create_datagram_endpoint().",
+      "en": "The transport for datagrams (UDP): sendto(data, addr) sends a packet and abort() closes at once. loop.create_datagram_endpoint() returns it."
+    },
+    "body": {
+      "ru": "Это пара к asyncio.DatagramProtocol; для TCP он не нужен вовсе. sendto() — не корутина и не ждёт доставки: пакет уходит в буфер, а потеря по дороге никак не сообщается. Если при создании задан remote_addr, адрес в sendto() не передают (или передают тот же), иначе ValueError; без remote_addr адрес обязателен на каждый пакет. В Python 3.11 UDP-транспорт селекторного цикла даже не наследует DatagramTransport, так что isinstance() ненадёжен.",
+      "en": "It pairs with asyncio.DatagramProtocol and is useless for TCP. sendto() is not a coroutine and does not wait for delivery: the packet goes into a buffer, and loss on the way is never reported. If remote_addr was given at creation, omit the address in sendto() (or pass the same one), otherwise ValueError; without remote_addr every packet needs an address. On Python 3.11 the selector loop's UDP transport does not even inherit DatagramTransport, so isinstance() is unreliable."
+    },
+    "syntax": "transport.sendto(data, addr=None); transport.abort()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.DatagramTransport",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "отправить udp пакет asyncio",
+      "sendto asyncio"
+    ],
+    "keywords": [
+      "asyncio.DatagramTransport",
+      "DatagramTransport",
+      "sendto",
+      "abort",
+      "create_datagram_endpoint"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "class Echo(asyncio.DatagramProtocol):",
+        "    def connection_made(self, transport):",
+        "        self.transport = transport",
+        "    def datagram_received(self, data, addr):",
+        "        self.transport.sendto(data.upper(), addr)  # ответить отправителю",
+        "class Client(asyncio.DatagramProtocol):",
+        "    def datagram_received(self, data, addr):",
+        "        print('ответ', data)  # → ответ b'HI'",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    server, _ = await loop.create_datagram_endpoint(Echo, local_addr=('127.0.0.1', 0))",
+        "    client, _ = await loop.create_datagram_endpoint(Client, local_addr=('127.0.0.1', 0))",
+        "    client.sendto(b'hi', server.get_extra_info('sockname'))",
+        "    await asyncio.sleep(0.01)",
+        "    client.close()",
+        "    server.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.DatagramProtocol",
+      "asyncio.BaseTransport"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.SubprocessTransport",
+    "title": {
+      "ru": "asyncio.SubprocessTransport",
+      "en": "asyncio.SubprocessTransport"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Транспорт дочернего процесса: get_pid(), get_returncode(), get_pipe_transport(fd), terminate() и kill(). Его возвращает loop.subprocess_exec().",
+      "en": "The transport of a child process: get_pid(), get_returncode(), get_pipe_transport(fd), terminate() and kill(). loop.subprocess_exec() returns it."
+    },
+    "body": {
+      "ru": "Учащемуся этот уровень обычно не нужен: для TCP есть потоки asyncio.open_connection() и asyncio.start_server(), для процессов — asyncio.create_subprocess_exec(). Объект Process из create_subprocess_exec() — обёртка как раз над этим транспортом, и у него есть pid, returncode, wait() и communicate(). get_returncode() возвращает None, пока процесс жив, — это не «код 0». Транспорт нужно закрыть close(), иначе при сборке мусора будет ResourceWarning.",
+      "en": "Learners rarely need this layer: streams (asyncio.open_connection() and asyncio.start_server()) cover TCP, and asyncio.create_subprocess_exec() covers processes. The Process object from create_subprocess_exec() wraps exactly this transport and offers pid, returncode, wait() and communicate(). get_returncode() returns None while the process is alive — that is not 'exit code 0'. Close the transport with close(), or garbage collection emits a ResourceWarning."
+    },
+    "syntax": "transport, protocol = await loop.subprocess_exec(Proto, program, *args)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.SubprocessTransport",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "код возврата процесса asyncio",
+      "pid подпроцесса asyncio"
+    ],
+    "keywords": [
+      "asyncio.SubprocessTransport",
+      "SubprocessTransport",
+      "get_pid",
+      "get_returncode",
+      "get_pipe_transport",
+      "terminate",
+      "kill"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import sys",
+        "class Waiter(asyncio.SubprocessProtocol):",
+        "    def __init__(self, done):",
+        "        self.done = done",
+        "    def process_exited(self):",
+        "        self.done.set_result(True)",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    done = loop.create_future()",
+        "    transport, _ = await loop.subprocess_exec(",
+        "        lambda: Waiter(done), sys.executable, '-c', 'raise SystemExit(3)',",
+        "        stdin=None, stdout=None, stderr=None)",
+        "    print(isinstance(transport.get_pid(), int))  # → True",
+        "    await done",
+        "    print(transport.get_returncode())  # → 3",
+        "    transport.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.SubprocessProtocol",
+      "subprocess-Popen",
+      "asyncio.BaseTransport"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.StreamReader",
+    "title": {
+      "ru": "asyncio.StreamReader",
+      "en": "asyncio.StreamReader"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Читающая половина асинхронного соединения: read(), readline(), readexactly(), readuntil(). Её возвращают asyncio.open_connection() и start_server().",
+      "en": "The reading half of an asynchronous connection: read(), readline(), readexactly(), readuntil(). asyncio.open_connection() and start_server() return it."
+    },
+    "body": {
+      "ru": "read(n) возвращает до n байт — сколько уже пришло, а не ровно n; ровно n даёт readexactly(n), который при обрыве бросает IncompleteReadError. read() без аргумента ждёт конца потока, а не конца строки, и на живом соединении может висеть вечно. readline() оставляет b'\\n' на конце и на EOF возвращает b'' без ошибки. Создавать StreamReader() руками не нужно.",
+      "en": "read(n) returns up to n bytes — whatever has arrived, not exactly n; readexactly(n) gives exactly n and raises IncompleteReadError if the stream ends early. read() with no argument waits for end of stream, not end of line, and can hang forever on a live connection. readline() keeps the trailing b'\\n' and returns b'' at EOF without an error. You never build a StreamReader() by hand."
+    },
+    "syntax": "reader, writer = await asyncio.open_connection(host, port); line = await reader.readline()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-stream.html#asyncio.StreamReader",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "потоки ввода-вывода",
+      "en": "streams"
+    },
+    "aliases": [
+      "прочитать из сокета asyncio",
+      "readline asyncio",
+      "асинхронное чтение по сети",
+      "asyncio.StreamReaderProtocol"
+    ],
+    "keywords": [
+      "asyncio.StreamReader",
+      "StreamReader",
+      "read",
+      "readline",
+      "readexactly",
+      "readuntil",
+      "at_eof",
+      "IncompleteReadError"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "async def main():",
+        "    left, right = socket.socketpair()  # локальная пара сокетов вместо сети",
+        "    reader, writer = await asyncio.open_connection(sock=left)",
+        "    right.sendall(b'first\\nsecond\\n')",
+        "    right.close()",
+        "    print(await reader.readline())  # → b'first\\n'",
+        "    print(await reader.readline())  # → b'second\\n'",
+        "    print(await reader.readline(), reader.at_eof())  # → b'' True",
+        "    writer.close()",
+        "    await writer.wait_closed()",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "import socket",
+        "async def main():",
+        "    left, right = socket.socketpair()",
+        "    reader, writer = await asyncio.open_connection(sock=left)",
+        "    right.sendall(b'abc')",
+        "    right.close()",
+        "    try:",
+        "        await reader.readexactly(5)",
+        "    except asyncio.IncompleteReadError as e:",
+        "        print(e.partial)  # → b'abc'",
+        "    writer.close()",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.StreamWriter",
+      "asyncio.Server",
+      "asyncio.Protocol"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.StreamWriter",
+    "title": {
+      "ru": "asyncio.StreamWriter",
+      "en": "asyncio.StreamWriter"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Пишущая половина асинхронного соединения: write() кладёт байты в буфер, drain() ждёт, пока буфер освободится, close() и wait_closed() закрывают соединение.",
+      "en": "The writing half of an asynchronous connection: write() puts bytes into a buffer, drain() waits for the buffer to empty, close() and wait_closed() shut the connection."
+    },
+    "body": {
+      "ru": "write() — обычный метод, не корутина: он ничего не отправляет сразу, а копит байты, и без await writer.drain() быстрый писатель раздует память. Принимает только bytes — строку надо закодировать, иначе TypeError. close() тоже не ждёт: чтобы соединение действительно закрылось, после него пишут await writer.wait_closed().",
+      "en": "write() is a plain method, not a coroutine: it sends nothing right away but accumulates bytes, and without await writer.drain() a fast writer bloats memory. It accepts only bytes — encode strings first, otherwise TypeError. close() does not wait either: to really close the connection follow it with await writer.wait_closed()."
+    },
+    "syntax": "writer.write(data); await writer.drain(); writer.close(); await writer.wait_closed()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-stream.html#asyncio.StreamWriter",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "потоки ввода-вывода",
+      "en": "streams"
+    },
+    "aliases": [
+      "записать в сокет asyncio",
+      "drain asyncio",
+      "закрыть соединение"
+    ],
+    "keywords": [
+      "asyncio.StreamWriter",
+      "StreamWriter",
+      "write",
+      "drain",
+      "close",
+      "wait_closed",
+      "get_extra_info"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "async def main():",
+        "    left, right = socket.socketpair()",
+        "    reader, writer = await asyncio.open_connection(sock=left)",
+        "    writer.write('привет\\n'.encode())",
+        "    await writer.drain()",
+        "    await asyncio.sleep(0.01)",
+        "    print(right.recv(100).decode())  # → привет",
+        "    try:",
+        "        writer.write('строка')",
+        "    except TypeError:",
+        "        print('нужны bytes')  # → нужны bytes",
+        "    writer.close()",
+        "    await writer.wait_closed()",
+        "    right.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.StreamReader",
+      "asyncio.Server",
+      "asyncio.BaseTransport"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Server",
+    "title": {
+      "ru": "asyncio.Server",
+      "en": "asyncio.Server"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Объект запущенного сервера, который возвращают asyncio.start_server() и loop.create_server(): принимает соединения, закрывается close() и wait_closed().",
+      "en": "The running-server object returned by asyncio.start_server() and loop.create_server(): it accepts connections and shuts down with close() and wait_closed()."
+    },
+    "body": {
+      "ru": "Сервер начинает принимать соединения сразу после start_server(), а serve_forever() лишь держит корутину, пока сервер не закроют; без await программа просто дойдёт до конца asyncio.run() и сервер умрёт. Порт 0 просит ОС выбрать свободный — узнать его можно через server.sockets[0].getsockname(). Под именем asyncio.Server класс доступен с 3.11 (и с 3.9.11/3.10.3); создавать его руками нельзя.",
+      "en": "The server starts accepting connections right after start_server(); serve_forever() only keeps the coroutine alive until the server is closed — without an await the program simply reaches the end of asyncio.run() and the server dies. Port 0 asks the OS for a free port, readable via server.sockets[0].getsockname(). The name asyncio.Server exists since 3.11 (and 3.9.11/3.10.3); never instantiate it."
+    },
+    "syntax": "server = await asyncio.start_server(handler, host, port)\nasync with server: await server.serve_forever()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.Server",
+    "added": "3.11",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "потоки ввода-вывода",
+      "en": "streams"
+    },
+    "aliases": [
+      "асинхронный tcp сервер",
+      "start_server asyncio",
+      "остановить сервер asyncio",
+      "asyncio.AbstractServer"
+    ],
+    "keywords": [
+      "asyncio.Server",
+      "Server",
+      "start_server",
+      "serve_forever",
+      "close",
+      "wait_closed",
+      "sockets"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def handle(reader, writer):",
+        "    data = await reader.readline()",
+        "    writer.write(data.upper())",
+        "    await writer.drain()",
+        "    writer.close()",
+        "async def main():",
+        "    server = await asyncio.start_server(handle, '127.0.0.1', 0)  # только локальный адрес",
+        "    host, port = server.sockets[0].getsockname()[:2]",
+        "    async with server:",
+        "        reader, writer = await asyncio.open_connection(host, port)",
+        "        writer.write(b'ping\\n')",
+        "        print(await reader.readline())  # → b'PING\\n'",
+        "        writer.close()",
+        "        await writer.wait_closed()",
+        "    print(type(server).__name__, server.is_serving())  # → Server False",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.StreamReader",
+      "asyncio.StreamWriter",
+      "asyncio.Protocol"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.FutureCallGraph",
+    "title": {
+      "ru": "asyncio.FutureCallGraph",
+      "en": "asyncio.FutureCallGraph"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Снимок графа ожиданий для задачи или future: кто её ждёт (awaited_by) и на каких кадрах она стоит (call_stack). Возвращается capture_call_graph(), Python 3.14+.",
+      "en": "A snapshot of the await graph for a task or future: who awaits it (awaited_by) and which frames it is suspended in (call_stack). Returned by capture_call_graph(), 3.14+."
+    },
+    "body": {
+      "ru": "Это замороженный dataclass с полями future, call_stack и awaited_by — данные для отладки зависшей программы, а не управление задачами. Обычный traceback показывает только стек одной корутины, а граф видит и цепочку «задача A ждёт задачу B». Чтобы просто посмотреть, хватит asyncio.print_call_graph() или python -m asyncio ps PID; в Python 3.13 и раньше имени нет.",
+      "en": "It is a frozen dataclass with the fields future, call_stack and awaited_by — data for debugging a stuck program, not a way to control tasks. A normal traceback shows one coroutine's stack, while the graph also sees the chain 'task A awaits task B'. To just look, asyncio.print_call_graph() or python -m asyncio ps PID is enough; Python 3.13 and earlier lack the name."
+    },
+    "syntax": "graph = asyncio.capture_call_graph(future=None, *, depth=1, limit=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-graph.html#asyncio.capture_call_graph",
+    "added": "3.14",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "граф вызовов",
+      "en": "call graph"
+    },
+    "aliases": [
+      "кто ждёт задачу asyncio",
+      "граф ожиданий корутин",
+      "отладить зависшую задачу"
+    ],
+    "keywords": [
+      "asyncio.FutureCallGraph",
+      "FutureCallGraph",
+      "capture_call_graph",
+      "awaited_by",
+      "call_stack"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def child():",
+        "    await asyncio.sleep(0.01)",
+        "    return asyncio.capture_call_graph()",
+        "async def main():",
+        "    graph = await asyncio.create_task(child(), name='child')",
+        "    print(type(graph).__name__, graph.future.get_name())  # → FutureCallGraph child",
+        "    print(len(graph.awaited_by))  # → 1 — её ждёт main",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.FrameCallGraphEntry",
+      "asyncio.Task",
+      "asyncio.create_task"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.FrameCallGraphEntry",
+    "title": {
+      "ru": "asyncio.FrameCallGraphEntry",
+      "en": "asyncio.FrameCallGraphEntry"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Элемент стека в графе вызовов asyncio: обёртка над одним кадром (поле frame). Из таких элементов состоит FutureCallGraph.call_stack. Python 3.14+.",
+      "en": "A stack entry in the asyncio call graph: a wrapper around one frame (the frame field). FutureCallGraph.call_stack consists of them. Python 3.14+."
+    },
+    "body": {
+      "ru": "У него одно поле frame — настоящий объект кадра, так что имя функции берут через entry.frame.f_code.co_name, а строку — entry.frame.f_lineno. Первый элемент call_stack — самый глубокий кадр, где корутина стоит сейчас. Хранить кадры дольше отладки не стоит: кадр держит все локальные переменные функции и мешает их освобождению.",
+      "en": "It has a single field, frame — a real frame object, so the function name is entry.frame.f_code.co_name and the line is entry.frame.f_lineno. The first entry of call_stack is the innermost frame, where the coroutine is suspended right now. Do not keep frames beyond debugging: a frame holds every local variable of its function and keeps them from being freed."
+    },
+    "syntax": "for entry in graph.call_stack: entry.frame.f_code.co_name",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-graph.html#asyncio.capture_call_graph",
+    "added": "3.14",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "граф вызовов",
+      "en": "call graph"
+    },
+    "aliases": [
+      "кадр в графе вызовов asyncio",
+      "стек корутины"
+    ],
+    "keywords": [
+      "asyncio.FrameCallGraphEntry",
+      "FrameCallGraphEntry",
+      "frame",
+      "call_stack",
+      "capture_call_graph"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def inner():",
+        "    await asyncio.sleep(0.01)",
+        "    graph = asyncio.capture_call_graph()",
+        "    return [e.frame.f_code.co_name for e in graph.call_stack]",
+        "async def outer():",
+        "    return await inner()",
+        "async def main():",
+        "    names = await asyncio.create_task(outer())",
+        "    print(names)  # → ['inner', 'outer']",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.FutureCallGraph",
+      "asyncio.Task"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.Transport",
+    "title": {
+      "ru": "asyncio.Transport",
+      "en": "asyncio.Transport"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Двунаправленный транспорт asyncio: соединение, в которое можно и писать, и из которого читать. Объединяет ReadTransport и WriteTransport.",
+      "en": "A bidirectional asyncio transport: a connection you can both write to and read from. It combines ReadTransport and WriteTransport."
+    },
+    "body": {
+      "ru": "Транспорт не создают сами: его отдаёт цикл (loop.create_connection, create_server) или его можно достать из потока как writer.transport. Транспорт — это «как передать байты», а протокол — «что с ними делать»; данные приходят не возвратом из read(), а вызовом protocol.data_received(). close() дожидается отправки буфера, а abort() бросает его и рвёт соединение сразу; после close() is_closing() уже True, хотя сокет закроется на следующей итерации цикла.",
+      "en": "You never construct a transport yourself: the loop hands one out (loop.create_connection, create_server), or you reach it from a stream as writer.transport. The transport is \"how bytes travel\" and the protocol is \"what to do with them\"; incoming data arrives through protocol.data_received(), not as a return value of read(). close() flushes the buffer first while abort() drops it and cuts the connection at once; is_closing() turns True right after close(), although the socket closes on a later loop iteration."
+    },
+    "syntax": "transport.write(data); transport.close(); transport.abort(); transport.get_extra_info(name)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.Transport",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "транспорт asyncio",
+      "низкоуровневое соединение asyncio",
+      "закрыть транспорт"
+    ],
+    "keywords": [
+      "asyncio.Transport",
+      "Transport",
+      "ReadTransport",
+      "WriteTransport",
+      "is_closing",
+      "abort",
+      "get_extra_info"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "async def main():",
+        "    a, b = socket.socketpair()",
+        "    reader, writer = await asyncio.open_connection(sock=a)",
+        "    t = writer.transport",
+        "    print(isinstance(t, asyncio.Transport))  # → True",
+        "    print(isinstance(t, asyncio.ReadTransport), isinstance(t, asyncio.WriteTransport))  # → True True",
+        "    print(t.is_closing())  # → False",
+        "    t.close()",
+        "    print(t.is_closing())  # → True — закрытие уже начато",
+        "    await asyncio.sleep(0.01)",
+        "    b.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.WriteTransport",
+      "asyncio.open_connection",
+      "asyncio.start_server"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.WriteTransport",
+    "title": {
+      "ru": "asyncio.WriteTransport",
+      "en": "asyncio.WriteTransport"
+    },
+    "kind": "term",
+    "summary": {
+      "ru": "Транспорт только для записи: write() кладёт байты в буфер и возвращается сразу, а водяные знаки буфера управляют обратным давлением.",
+      "en": "A write-only transport: write() puts bytes into a buffer and returns immediately, while the buffer watermarks drive back-pressure."
+    },
+    "body": {
+      "ru": "write() не корутина и ничего не ждёт: если получатель медленный, буфер растёт без предела, пока протокол не начнёт слушать pause_writing()/resume_writing(). Пороги задаёт set_write_buffer_limits(high, low), по умолчанию это 64 КиБ и 16 КиБ. В потоках ту же задачу решает await writer.drain() — именно поэтому его нельзя пропускать в цикле записи. write_eof() закрывает только запись, если can_write_eof() истинно.",
+      "en": "write() is not a coroutine and never waits: with a slow peer the buffer grows without bound until the protocol honours pause_writing()/resume_writing(). set_write_buffer_limits(high, low) sets the thresholds, 64 KiB and 16 KiB by default. With streams the same job is done by await writer.drain(), which is why a write loop must not skip it. write_eof() half-closes the write side when can_write_eof() is true."
+    },
+    "syntax": "transport.write(data); transport.writelines(list_of_data); transport.set_write_buffer_limits(high=None, low=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-protocol.html#asyncio.WriteTransport",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "протоколы и транспорты",
+      "en": "protocols and transports"
+    },
+    "aliases": [
+      "запись в транспорт",
+      "буфер записи asyncio",
+      "обратное давление asyncio"
+    ],
+    "keywords": [
+      "asyncio.WriteTransport",
+      "WriteTransport",
+      "write",
+      "writelines",
+      "write_eof",
+      "can_write_eof",
+      "get_write_buffer_size",
+      "set_write_buffer_limits",
+      "get_write_buffer_limits"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import socket",
+        "async def main():",
+        "    a, b = socket.socketpair()",
+        "    reader, writer = await asyncio.open_connection(sock=a)",
+        "    t = writer.transport",
+        "    print(t.get_write_buffer_limits())  # → (16384, 65536) — (low, high)",
+        "    t.write(b'ping')  # без await: байты ушли в буфер",
+        "    print(t.can_write_eof())  # → True",
+        "    await asyncio.sleep(0.01)",
+        "    print(b.recv(10))  # → b'ping'",
+        "    t.close()",
+        "    await asyncio.sleep(0.01)",
+        "    b.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.Transport",
+      "asyncio.open_connection",
+      "asyncio.start_server"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.all_tasks",
+    "title": {
+      "ru": "asyncio.all_tasks()",
+      "en": "asyncio.all_tasks()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает множество ещё не завершённых задач текущего цикла событий — в том числе задачу, которая вызвала функцию.",
+      "en": "Returns the set of not-yet-finished tasks of the running event loop, including the task that made the call."
+    },
+    "body": {
+      "ru": "В множество входит и сама вызывающая задача (у asyncio.run это main), поэтому «дождаться всех остальных» пишут как all_tasks() - {current_task()}, иначе gather будет ждать сам себя вечно. Завершённые задачи в ответ не попадают. Без работающего цикла функция бросает RuntimeError; до 3.7 был метод Task.all_tasks(), он удалён в 3.9.",
+      "en": "The set includes the calling task itself (main under asyncio.run), so \"wait for all the others\" is written as all_tasks() - {current_task()}; otherwise gather would wait for itself forever. Finished tasks are not reported. Without a running loop the function raises RuntimeError; the old Task.all_tasks() method was removed in 3.9."
+    },
+    "syntax": "asyncio.all_tasks(loop=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.all_tasks",
+    "added": "3.7",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
+    "aliases": [
+      "список всех задач asyncio",
+      "какие задачи ещё работают",
+      "дождаться всех задач"
+    ],
+    "keywords": [
+      "asyncio.all_tasks",
+      "all_tasks",
+      "current_task",
+      "Task"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def job():",
+        "    await asyncio.sleep(0.01)",
+        "async def main():",
+        "    tasks = [asyncio.create_task(job()) for _ in range(2)]",
+        "    print(len(asyncio.all_tasks()))  # → 3 — две job и сама main",
+        "    others = asyncio.all_tasks() - {asyncio.current_task()}",
+        "    await asyncio.gather(*others)",
+        "    print(len(asyncio.all_tasks()))  # → 1",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "try:",
+        "    asyncio.all_tasks()",
+        "except RuntimeError as e:",
+        "    print(e)  # → no running event loop"
+      ]
+    ],
+    "related": [
+      "asyncio.current_task",
+      "asyncio.create_task",
+      "asyncio.gather"
+    ],
+    "related_errors": [
+      "runtimeerror"
+    ]
+  },
+  {
+    "id": "asyncio.current_task",
+    "title": {
+      "ru": "asyncio.current_task()",
+      "en": "asyncio.current_task()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает задачу Task, которая выполняется сейчас, или None, если код идёт вне задачи (например, в обычном колбэке цикла).",
+      "en": "Returns the Task that is running right now, or None when the code runs outside a task (for example in a plain loop callback)."
+    },
+    "body": {
+      "ru": "Удобна, чтобы задача отменила сама себя, узнала своё имя или исключила себя из all_tasks(). Вне работающего цикла бросает RuntimeError, а не возвращает None: None означает «цикл есть, но мы в колбэке, а не в задаче». Внутри asyncio.run() главная корутина тоже обёрнута в задачу, по умолчанию с именем вида Task-1.",
+      "en": "Handy when a task needs to cancel itself, learn its own name or exclude itself from all_tasks(). Outside a running loop it raises RuntimeError rather than returning None: None means \"the loop runs, but we are in a callback, not a task\". Under asyncio.run() the main coroutine is wrapped in a task too, named like Task-1 by default."
+    },
+    "syntax": "asyncio.current_task(loop=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.current_task",
+    "added": "3.7",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
+    "aliases": [
+      "текущая задача asyncio",
+      "имя текущей задачи",
+      "узнать свою задачу"
+    ],
+    "keywords": [
+      "asyncio.current_task",
+      "current_task",
+      "get_name",
+      "Task"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def worker():",
+        "    print(asyncio.current_task().get_name())  # → загрузчик",
+        "async def main():",
+        "    await asyncio.create_task(worker(), name='загрузчик')",
+        "    loop = asyncio.get_running_loop()",
+        "    loop.call_soon(lambda: print(asyncio.current_task()))  # → None — колбэк, а не задача",
+        "    await asyncio.sleep(0.01)",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.all_tasks",
+      "asyncio.create_task",
+      "asyncio.run"
+    ],
+    "related_errors": [
+      "runtimeerror"
+    ]
+  },
+  {
+    "id": "asyncio.iscoroutine",
+    "title": {
+      "ru": "asyncio.iscoroutine()",
+      "en": "asyncio.iscoroutine()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что объект — объект корутины, то есть результат вызова async-функции, а не сама функция.",
+      "en": "Checks whether an object is a coroutine object, i.e. the result of calling an async function rather than the function itself."
+    },
+    "body": {
+      "ru": "Частая путаница: iscoroutine(fetch) — False, iscoroutine(fetch()) — True. Сам вызов fetch() ничего не выполняет, а лишь создаёт объект; если его не дождаться и не закрыть, Python напишет RuntimeWarning «coroutine was never awaited». Для проверки функции нужен inspect.iscoroutinefunction, а для «можно ли сделать await» — inspect.isawaitable: Task и Future не корутины.",
+      "en": "A common mix-up: iscoroutine(fetch) is False while iscoroutine(fetch()) is True. Calling fetch() runs nothing, it only creates the object; if you neither await nor close it, Python emits RuntimeWarning \"coroutine was never awaited\". To test a function use inspect.iscoroutinefunction, and for \"can I await this\" use inspect.isawaitable: a Task or a Future is not a coroutine."
+    },
+    "syntax": "asyncio.iscoroutine(obj)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.iscoroutine",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
+    "aliases": [
+      "проверить что это корутина",
+      "объект корутины или функция"
+    ],
+    "keywords": [
+      "asyncio.iscoroutine",
+      "iscoroutine",
+      "inspect.iscoroutine",
+      "inspect.isawaitable"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def fetch():",
+        "    return 1",
+        "coro = fetch()",
+        "print(asyncio.iscoroutine(fetch))  # → False — это функция",
+        "print(asyncio.iscoroutine(coro))  # → True",
+        "coro.close()  # иначе RuntimeWarning: coroutine was never awaited"
+      ],
+      [
+        "import asyncio",
+        "async def main():",
+        "    task = asyncio.create_task(asyncio.sleep(0.01))",
+        "    print(asyncio.iscoroutine(task))  # → False — задача awaitable, но не корутина",
+        "    await task",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.iscoroutinefunction",
+      "asyncio.isfuture",
+      "async-def-await"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.iscoroutinefunction",
+    "title": {
+      "ru": "asyncio.iscoroutinefunction()",
+      "en": "asyncio.iscoroutinefunction()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Deprecated: устаревшая проверка «функция объявлена через async def»; с 3.14 даёт DeprecationWarning, removal in 3.16. Замена — inspect.iscoroutinefunction().",
+      "en": "Deprecated check that a function is declared with async def; since 3.14 it emits DeprecationWarning, removal in 3.16. Use inspect.iscoroutinefunction() instead."
+    },
+    "body": {
+      "ru": "Функция жила в asyncio ради старых генераторных корутин @asyncio.coroutine (удалены в 3.11) и не попала в справочник модуля — её объявили устаревшей в 3.14. inspect.iscoroutinefunction делает то же и понимает functools.partial; для обычной функции, возвращающей awaitable, её помечают inspect.markcoroutinefunction (3.12+). Обе проверки смотрят на объявление, а не на поведение: def, возвращающая корутину, даст False.",
+      "en": "The function lived in asyncio for the old generator-based @asyncio.coroutine (removed in 3.11), was never in the module reference, and was deprecated in 3.14. inspect.iscoroutinefunction does the same job and also sees through functools.partial; a plain function returning an awaitable can be marked with inspect.markcoroutinefunction (3.12+). Both look at the declaration, not the behaviour: a def that returns a coroutine still gives False."
+    },
+    "syntax": "inspect.iscoroutinefunction(func)  # вместо asyncio.iscoroutinefunction(func)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/whatsnew/3.14.html#deprecated",
+    "added": "3.4",
+    "deprecated": "3.14",
+    "removed": "3.16",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
+    "aliases": [
+      "проверить async функцию",
+      "функция объявлена через async def"
+    ],
+    "keywords": [
+      "asyncio.iscoroutinefunction",
+      "iscoroutinefunction",
+      "inspect.iscoroutinefunction",
+      "markcoroutinefunction"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import inspect",
+        "async def fetch():",
+        "    return 1",
+        "def wrapper():",
+        "    return fetch()",
+        "print(inspect.iscoroutinefunction(fetch))  # → True",
+        "print(inspect.iscoroutinefunction(wrapper))  # → False — смотрит на объявление"
+      ],
+      [
+        "import asyncio",
+        "import warnings",
+        "async def fetch():",
+        "    return 1",
+        "with warnings.catch_warnings():",
+        "    warnings.simplefilter('ignore', DeprecationWarning)  # с 3.14 здесь DeprecationWarning",
+        "    print(asyncio.iscoroutinefunction(fetch))  # → True"
+      ]
+    ],
+    "related": [
+      "asyncio.iscoroutine",
+      "async-def-await",
+      "asyncio.coroutine"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.isfuture",
+    "title": {
+      "ru": "asyncio.isfuture()",
+      "en": "asyncio.isfuture()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что объект похож на asyncio.Future: это сам Future, Task или объект с совместимым интерфейсом.",
+      "en": "Checks whether an object is Future-like: an asyncio.Future, a Task, or an object with a compatible interface."
+    },
+    "body": {
+      "ru": "Ловушка: concurrent.futures.Future из пула потоков — не asyncio-Future, и isfuture() даёт для него False; await на нём не работает, пока его не обернуть в wrap_future(). Корутина тоже не Future. Проверка утиная: смотрит на атрибут _asyncio_future_blocking, а не на isinstance, поэтому подходит и сторонним циклам вроде uvloop.",
+      "en": "The trap: a concurrent.futures.Future from a thread pool is not an asyncio Future, so isfuture() returns False and you cannot await it until wrapped with wrap_future(). A coroutine is not a Future either. The check is duck-typed on the _asyncio_future_blocking attribute rather than isinstance, so it also accepts third-party loops such as uvloop."
+    },
+    "syntax": "asyncio.isfuture(obj)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-future.html#asyncio.isfuture",
+    "added": "3.5",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "интроспекция",
+      "en": "introspection"
+    },
+    "aliases": [
+      "проверить future asyncio",
+      "чем Future отличается от корутины"
+    ],
+    "keywords": [
+      "asyncio.isfuture",
+      "isfuture",
+      "Future",
+      "Task",
+      "_asyncio_future_blocking"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import concurrent.futures",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    task = asyncio.create_task(asyncio.sleep(0.01))",
+        "    print(asyncio.isfuture(loop.create_future()), asyncio.isfuture(task))  # → True True",
+        "    print(asyncio.isfuture(concurrent.futures.Future()))  # → False — другой Future",
+        "    await task",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.wrap_future",
+      "asyncio.iscoroutine",
+      "Future-cf"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.as_completed",
+    "title": {
+      "ru": "asyncio.as_completed()",
+      "en": "asyncio.as_completed()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Отдаёт результаты набора awaitable-объектов по мере их готовности, а не в порядке передачи; можно задать общий тайм-аут.",
+      "en": "Yields the results of a set of awaitables as they complete, not in the order they were passed; an overall timeout can be set."
+    },
+    "body": {
+      "ru": "До 3.13 это обычный итератор, и он отдаёт не исходные задачи, а новые корутины: for c in as_completed(aws): r = await c — так что сопоставить результат с задачей можно только по самому результату. С 3.13 работает и async for, который отдаёт исходные задачи. timeout общий на весь цикл: по его истечении очередное ожидание бросает TimeoutError, а незавершённые задачи не отменяются — их надо отменить самим.",
+      "en": "Before 3.13 it is a plain iterator yielding fresh coroutines, not your tasks: for c in as_completed(aws): r = await c — so you can match a result to its task only through the result itself. Since 3.13 async for also works and yields the original tasks. The timeout covers the whole loop: once it expires the next await raises TimeoutError, and unfinished tasks are not cancelled — cancel them yourself."
+    },
+    "syntax": "for coro in asyncio.as_completed(aws, *, timeout=None): result = await coro",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.as_completed",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "параллельность",
+      "en": "concurrency"
+    },
+    "aliases": [
+      "результаты по мере готовности",
+      "первый готовый результат asyncio"
+    ],
+    "keywords": [
+      "asyncio.as_completed",
+      "as_completed",
+      "timeout",
+      "aws"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def fetch(name, delay):",
+        "    await asyncio.sleep(delay)",
+        "    return name",
+        "async def main():",
+        "    aws = [fetch('медленный', 0.03), fetch('быстрый', 0.01)]",
+        "    for coro in asyncio.as_completed(aws):",
+        "        print(await coro)  # → быстрый / медленный",
+        "asyncio.run(main())"
+      ],
+      [
+        "# Python 3.13+",
+        "import asyncio",
+        "async def fetch(delay):",
+        "    await asyncio.sleep(delay)",
+        "    return delay",
+        "async def main():",
+        "    tasks = [asyncio.create_task(fetch(d)) for d in (0.02, 0.01)]",
+        "    async for task in asyncio.as_completed(tasks):",
+        "        print(task is tasks[1], task.result())  # → True 0.01 / False 0.02",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.wait",
+      "asyncio.gather",
+      "as-completed"
+    ],
+    "related_errors": [
+      "timeouterror"
+    ]
+  },
+  {
+    "id": "asyncio.wait",
+    "title": {
+      "ru": "asyncio.wait()",
+      "en": "asyncio.wait()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Ждёт набор задач и возвращает два множества — готовые и ещё ждущие; условие остановки задаёт return_when.",
+      "en": "Waits for a set of tasks and returns two sets, done and pending; return_when sets the stopping condition."
+    },
+    "body": {
+      "ru": "В отличие от gather и wait_for, wait() ничего не бросает и ничего не отменяет: исключения остаются внутри задач (их достают task.result() или task.exception()), а задачи из pending продолжают работать и после тайм-аута. С 3.11 передать голые корутины нельзя — TypeError; нужны задачи из create_task. FIRST_COMPLETED удобен для «кто первый», FIRST_EXCEPTION — чтобы остановиться на первой ошибке.",
+      "en": "Unlike gather and wait_for, wait() neither raises nor cancels: exceptions stay inside the tasks (fetch them with task.result() or task.exception()), and pending tasks keep running after the timeout. Since 3.11 bare coroutines are rejected with TypeError; pass tasks from create_task. FIRST_COMPLETED suits \"whoever is first\", FIRST_EXCEPTION stops on the first failure."
+    },
+    "syntax": "done, pending = await asyncio.wait(aws, *, timeout=None, return_when=ALL_COMPLETED)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.wait",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "параллельность",
+      "en": "concurrency"
+    },
+    "aliases": [
+      "дождаться первой задачи",
+      "done и pending asyncio",
+      "ждать задачи с тайм-аутом"
+    ],
+    "keywords": [
+      "asyncio.wait",
+      "wait",
+      "FIRST_COMPLETED",
+      "FIRST_EXCEPTION",
+      "ALL_COMPLETED",
+      "return_when",
+      "timeout"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    fast = asyncio.create_task(asyncio.sleep(0.01, result='быстрый'))",
+        "    slow = asyncio.create_task(asyncio.sleep(1, result='медленный'))",
+        "    done, pending = await asyncio.wait({fast, slow}, return_when=asyncio.FIRST_COMPLETED)",
+        "    print([t.result() for t in done], len(pending))  # → ['быстрый'] 1",
+        "    for t in pending:",
+        "        t.cancel()  # сам wait ничего не отменяет",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def main():",
+        "    coro = asyncio.sleep(0.01)",
+        "    try:",
+        "        await asyncio.wait([coro])",
+        "    except TypeError:",
+        "        print('нужны задачи, а не корутины')  # → нужны задачи, а не корутины",
+        "    finally:",
+        "        coro.close()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.wait_for",
+      "asyncio.as_completed",
+      "asyncio.gather",
+      "concurrent.futures.wait"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.shield",
+    "title": {
+      "ru": "asyncio.shield()",
+      "en": "asyncio.shield()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Защищает awaitable от отмены: если отменят того, кто ждёт, внутренняя задача продолжит работу до конца.",
+      "en": "Protects an awaitable from cancellation: if the waiter is cancelled, the inner task keeps running to completion."
+    },
+    "body": {
+      "ru": "Отмена всё равно доходит до вызывающего: await shield(...) бросает CancelledError (или wait_for — TimeoutError), просто внутренняя задача её не получает. Если передать корутину, shield сам создаст задачу, и ссылки на неё у вас не будет — цикл держит задачи слабыми ссылками, и её может собрать сборщик мусора. Поэтому задачу создают заранее, хранят и позже дожидаются.",
+      "en": "Cancellation still reaches the caller: await shield(...) raises CancelledError (or TimeoutError under wait_for), only the inner task does not receive it. Pass a coroutine and shield creates a task you hold no reference to; the loop keeps tasks only by weak references, so it may be garbage-collected. Create the task yourself, keep it, and await it later."
+    },
+    "syntax": "result = await asyncio.shield(aw)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.shield",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "задачи",
+      "en": "tasks"
+    },
+    "aliases": [
+      "защитить задачу от отмены",
+      "не отменять сохранение при тайм-ауте"
+    ],
+    "keywords": [
+      "asyncio.shield",
+      "shield",
+      "aw",
+      "cancel",
+      "CancelledError"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def save():",
+        "    await asyncio.sleep(0.03)",
+        "    print('сохранено')",
+        "async def main():",
+        "    task = asyncio.create_task(save())",
+        "    try:",
+        "        await asyncio.wait_for(asyncio.shield(task), timeout=0.01)",
+        "    except TimeoutError:",
+        "        print('тайм-аут, но запись идёт')",
+        "    await task  # держим ссылку и дожидаемся",
+        "asyncio.run(main())  # → тайм-аут, но запись идёт / сохранено"
+      ]
+    ],
+    "related": [
+      "asyncio.wait_for",
+      "asyncio.create_task",
+      "asyncio.timeout"
+    ],
+    "related_errors": [
+      "timeouterror"
+    ]
+  },
+  {
+    "id": "asyncio.wait_for",
+    "title": {
+      "ru": "asyncio.wait_for()",
+      "en": "asyncio.wait_for()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Ждёт awaitable не дольше заданного числа секунд; по истечении отменяет его и бросает TimeoutError.",
+      "en": "Waits for an awaitable for at most the given number of seconds; on expiry it cancels it and raises TimeoutError."
+    },
+    "body": {
+      "ru": "В отличие от wait(), wait_for отменяет то, чего ждал, и дожидается завершения отмены, поэтому может задержаться дольше timeout, если задача долго чистит за собой. С 3.11 бросается встроенный TimeoutError (asyncio.TimeoutError стал его псевдонимом), до 3.11 ловить приходилось asyncio.TimeoutError. timeout=None ждёт бесконечно; для блока из нескольких await удобнее async with asyncio.timeout().",
+      "en": "Unlike wait(), wait_for cancels what it was waiting for and waits for the cancellation to finish, so it may return later than timeout if the task cleans up slowly. Since 3.11 it raises the built-in TimeoutError (asyncio.TimeoutError became an alias); earlier you had to catch asyncio.TimeoutError. timeout=None waits forever; for a block of several awaits async with asyncio.timeout() reads better."
+    },
+    "syntax": "result = await asyncio.wait_for(aw, timeout)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.wait_for",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "тайм-ауты",
+      "en": "timeouts"
+    },
+    "aliases": [
+      "ограничить время ожидания корутины",
+      "тайм-аут для await"
+    ],
+    "keywords": [
+      "asyncio.wait_for",
+      "wait_for",
+      "timeout",
+      "TimeoutError"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def slow():",
+        "    try:",
+        "        await asyncio.sleep(1)",
+        "    except asyncio.CancelledError:",
+        "        print('отменена')",
+        "        raise",
+        "async def main():",
+        "    try:",
+        "        await asyncio.wait_for(slow(), timeout=0.01)",
+        "    except TimeoutError:",
+        "        print('не успела')",
+        "asyncio.run(main())  # → отменена / не успела"
+      ]
+    ],
+    "related": [
+      "asyncio.timeout",
+      "asyncio.wait",
+      "asyncio.shield"
+    ],
+    "related_errors": [
+      "timeouterror"
+    ]
+  },
+  {
+    "id": "asyncio.timeout",
+    "title": {
+      "ru": "asyncio.timeout()",
+      "en": "asyncio.timeout()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Асинхронный контекстный менеджер с тайм-аутом на весь блок: если блок не успел за delay секунд, он прерывается и наружу выходит TimeoutError.",
+      "en": "An asynchronous context manager that times out a whole block: if the block does not finish within delay seconds it is interrupted and TimeoutError escapes."
+    },
+    "body": {
+      "ru": "Внутри блока по тайм-ауту летит CancelledError, и лишь на выходе из async with менеджер превращает её в TimeoutError — ловить его надо снаружи блока, а не внутри. Срок можно сдвинуть на ходу: cm.reschedule(); timeout(None) означает «без срока, назначим позже». Подавлять CancelledError внутри блока нельзя — тайм-аут тогда не сработает. Появилась в 3.11; до неё был только wait_for. Менеджер — объект asyncio.Timeout; его конструктор Timeout(when) принимает абсолютное время цикла (loop.time()), а не задержку: Timeout(5) — момент, который давно прошёл.",
+      "en": "Inside the block a timeout arrives as CancelledError, and only on leaving async with does the manager turn it into TimeoutError, so catch it outside the block, not inside. The deadline can be moved on the fly with cm.reschedule(); timeout(None) means \"no deadline yet\". Do not swallow CancelledError inside the block or the timeout will not fire. Added in 3.11; before that there was only wait_for. The manager is an asyncio.Timeout object; its constructor Timeout(when) takes an absolute loop time (loop.time()), not a delay: Timeout(5) is a moment long gone."
+    },
+    "syntax": "async with asyncio.timeout(delay) as cm: ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.timeout",
+    "added": "3.11",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "тайм-ауты",
+      "en": "timeouts"
+    },
+    "aliases": [
+      "тайм-аут на блок кода asyncio",
+      "async with timeout",
+      "ограничить время нескольких await",
+      "asyncio.Timeout"
+    ],
+    "keywords": [
+      "asyncio.timeout",
+      "timeout",
+      "delay",
+      "reschedule",
+      "expired",
+      "Timeout"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    try:",
+        "        async with asyncio.timeout(0.01) as cm:",
+        "            await asyncio.sleep(0.01)",
+        "            await asyncio.sleep(1)",
+        "    except TimeoutError:",
+        "        print('блок не уложился', cm.expired())  # → блок не уложился True",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def main():",
+        "    async with asyncio.timeout(None) as cm:",
+        "        cm.reschedule(asyncio.get_running_loop().time() + 1)",
+        "        await asyncio.sleep(0.01)",
+        "    print(cm.expired())  # → False",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    async with asyncio.Timeout(loop.time() + 1) as cm:  # абсолютное время цикла",
+        "        await asyncio.sleep(0.01)",
+        "    print(cm.expired())  # → False",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.timeout_at",
+      "asyncio.wait_for",
+      "async-for-async-with"
+    ],
+    "related_errors": [
+      "timeouterror"
+    ]
+  },
+  {
+    "id": "asyncio.timeout_at",
+    "title": {
+      "ru": "asyncio.timeout_at()",
+      "en": "asyncio.timeout_at()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Как asyncio.timeout(), но принимает абсолютный момент по часам цикла событий, а не длительность.",
+      "en": "Like asyncio.timeout(), but takes an absolute deadline on the event loop clock instead of a duration."
+    },
+    "body": {
+      "ru": "Момент считается по loop.time() — монотонным часам цикла, а не по time.time(): передать сюда отметку Unix-времени значит получить срок через десятки лет или уже истёкший. Удобна, когда один дедлайн делят несколько шагов: вычислили deadline = loop.time() + 5 один раз и передаёте его дальше. Появилась в 3.11.",
+      "en": "The deadline is measured with loop.time(), the loop's monotonic clock, not time.time(): passing a Unix timestamp yields a deadline decades away or one already past. Useful when several steps share one deadline: compute deadline = loop.time() + 5 once and pass it along. Added in 3.11."
+    },
+    "syntax": "async with asyncio.timeout_at(when): ...",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.timeout_at",
+    "added": "3.11",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "тайм-ауты",
+      "en": "timeouts"
+    },
+    "aliases": [
+      "общий дедлайн для нескольких шагов",
+      "тайм-аут к моменту времени"
+    ],
+    "keywords": [
+      "asyncio.timeout_at",
+      "timeout_at",
+      "when",
+      "loop.time",
+      "Timeout"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    deadline = loop.time() + 0.02  # часы цикла, не time.time()",
+        "    try:",
+        "        async with asyncio.timeout_at(deadline):",
+        "            await asyncio.sleep(0.01)",
+        "            print('шаг 1')",
+        "            await asyncio.sleep(1)",
+        "    except TimeoutError:",
+        "        print('дедлайн')",
+        "asyncio.run(main())  # → шаг 1 / дедлайн"
+      ]
+    ],
+    "related": [
+      "asyncio.timeout",
+      "asyncio.wait_for",
+      "asyncio.sleep"
+    ],
+    "related_errors": [
+      "timeouterror"
+    ]
+  },
+  {
+    "id": "asyncio.eager_task_factory",
+    "title": {
+      "ru": "asyncio.eager_task_factory()",
+      "en": "asyncio.eager_task_factory()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Готовая фабрика «жадных» задач: корутина начинает выполняться сразу в create_task, до первого await, а не на следующей итерации цикла.",
+      "en": "A ready-made eager task factory: the coroutine starts running inside create_task, up to its first await, instead of on the next loop iteration."
+    },
+    "body": {
+      "ru": "Включается loop.set_task_factory(asyncio.eager_task_factory). Если корутина завершилась без единой приостановки, задача сразу done и вовсе не попадает в планировщик — это заметно ускоряет код с кэшами. Но меняется порядок: код до первого await выполняется раньше строки, следующей за create_task, и программы, которые на старый порядок полагались, ломаются. Появилась в 3.12.",
+      "en": "Enable it with loop.set_task_factory(asyncio.eager_task_factory). A coroutine that finishes without suspending yields a task that is done immediately and never touches the scheduler, a real speed-up for cache-heavy code. But ordering changes: code before the first await runs before the line after create_task, and programs relying on the old order break. Added in 3.12."
+    },
+    "syntax": "loop.set_task_factory(asyncio.eager_task_factory)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.eager_task_factory",
+    "added": "3.12",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "задачи",
+      "en": "tasks"
+    },
+    "aliases": [
+      "жадные задачи asyncio",
+      "запустить задачу сразу",
+      "eager task"
+    ],
+    "keywords": [
+      "asyncio.eager_task_factory",
+      "eager_task_factory",
+      "set_task_factory",
+      "create_eager_task_factory"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def cached():",
+        "    print('выполняется')",
+        "    return 42",
+        "async def main():",
+        "    asyncio.get_running_loop().set_task_factory(asyncio.eager_task_factory)",
+        "    task = asyncio.create_task(cached())  # → выполняется — ещё внутри create_task",
+        "    print(task.done(), task.result())  # → True 42",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.create_eager_task_factory",
+      "asyncio.create_task"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.create_eager_task_factory",
+    "title": {
+      "ru": "asyncio.create_eager_task_factory()",
+      "en": "asyncio.create_eager_task_factory()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт фабрику жадных задач на основе своего класса задачи — например, подкласса Task с журналированием.",
+      "en": "Builds an eager task factory around a custom task class, for example a Task subclass that adds logging."
+    },
+    "body": {
+      "ru": "eager_task_factory — это и есть create_eager_task_factory(asyncio.Task); своя фабрика нужна, только если вы подменяете класс задачи. Класс обязан принимать параметр eager_start, как asyncio.Task: обычный подкласс, не трогающий __init__, подходит. Жадный старт меняет порядок выполнения так же, как у готовой фабрики. Появилась в 3.12.",
+      "en": "eager_task_factory is exactly create_eager_task_factory(asyncio.Task); you need your own factory only to swap the task class. The class must accept the eager_start argument like asyncio.Task does: a plain subclass that leaves __init__ alone works. Eager start changes execution order just as the stock factory does. Added in 3.12."
+    },
+    "syntax": "loop.set_task_factory(asyncio.create_eager_task_factory(custom_task_constructor))",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.create_eager_task_factory",
+    "added": "3.12",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "задачи",
+      "en": "tasks"
+    },
+    "aliases": [
+      "своя фабрика задач",
+      "подкласс Task с жадным стартом"
+    ],
+    "keywords": [
+      "asyncio.create_eager_task_factory",
+      "create_eager_task_factory",
+      "custom_task_constructor",
+      "set_task_factory",
+      "eager_start"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "class MyTask(asyncio.Task):",
+        "    pass",
+        "async def quick():",
+        "    return 'готово'",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    loop.set_task_factory(asyncio.create_eager_task_factory(MyTask))",
+        "    task = asyncio.create_task(quick())",
+        "    print(type(task).__name__, task.done())  # → MyTask True",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.eager_task_factory",
+      "asyncio.create_task"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.ensure_future",
+    "title": {
+      "ru": "asyncio.ensure_future()",
+      "en": "asyncio.ensure_future()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Превращает awaitable в Future: корутину оборачивает в задачу, а Future или Task возвращает как есть.",
+      "en": "Turns an awaitable into a Future: a coroutine is wrapped in a task, while a Future or Task is returned unchanged."
+    },
+    "body": {
+      "ru": "Для своего кода документация советует create_task: тот принимает только корутины и честно говорит, что создаёт задачу. ensure_future нужна в библиотеках, которые получают «что-то ожидаемое» и хотят единый Future. Ловушка — вызов вне работающего цикла: в 3.12–3.13 он даёт DeprecationWarning и берёт цикл неявно, а с 3.14 бросает RuntimeError. Как и любую задачу, результат надо хранить, иначе её соберёт сборщик мусора.",
+      "en": "For your own code the docs recommend create_task: it accepts only coroutines and says plainly that it creates a task. ensure_future is for libraries that receive \"anything awaitable\" and want a single Future. The trap is calling it without a running loop: on 3.12–3.13 that is a DeprecationWarning with the loop picked implicitly, and since 3.14 it raises RuntimeError. As with any task, keep a reference or it may be garbage-collected."
+    },
+    "syntax": "fut = asyncio.ensure_future(obj, *, loop=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-future.html#asyncio.ensure_future",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "задачи",
+      "en": "tasks"
+    },
+    "aliases": [
+      "обернуть корутину в future",
+      "ensure_future или create_task"
+    ],
+    "keywords": [
+      "asyncio.ensure_future",
+      "ensure_future",
+      "create_task",
+      "Future",
+      "loop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def job():",
+        "    return 5",
+        "async def main():",
+        "    fut = asyncio.get_running_loop().create_future()",
+        "    print(asyncio.ensure_future(fut) is fut)  # → True — Future не трогается",
+        "    task = asyncio.ensure_future(job())",
+        "    print(type(task).__name__, await task)  # → Task 5",
+        "    fut.cancel()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.create_task",
+      "asyncio.isfuture",
+      "asyncio.wrap_future"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.capture_call_graph",
+    "title": {
+      "ru": "asyncio.capture_call_graph()",
+      "en": "asyncio.capture_call_graph()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Снимает асинхронный граф вызовов: какая задача что выполняет и кто её ждёт. Возвращает FutureCallGraph или None вне задачи.",
+      "en": "Captures the async call graph: what a task is executing and who awaits it. Returns a FutureCallGraph, or None outside a task."
+    },
+    "body": {
+      "ru": "Обычный traceback в asyncio обрывается на границе задачи: виден стек самой корутины, но не то, какая задача её ждёт. Граф добавляет awaited_by — цепочку ожидающих задач, вплоть до main. Без аргумента берётся текущая задача; limit обрезает стеки, а limit=0 оставляет только связи ожидания, что дешевле. Появилась в 3.14.",
+      "en": "A plain traceback in asyncio stops at the task boundary: you see the coroutine's own stack but not which task awaits it. The graph adds awaited_by, the chain of waiting tasks up to main. With no argument the current task is used; limit trims the stacks, and limit=0 keeps only the await links, which is cheaper. Added in 3.14."
+    },
+    "syntax": "graph = asyncio.capture_call_graph(future=None, /, *, depth=1, limit=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-graph.html#asyncio.capture_call_graph",
+    "added": "3.14",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "граф вызовов",
+      "en": "call graph"
+    },
+    "aliases": [
+      "кто ждёт эту задачу",
+      "граф вызовов asyncio",
+      "асинхронный стек вызовов"
+    ],
+    "keywords": [
+      "asyncio.capture_call_graph",
+      "capture_call_graph",
+      "FutureCallGraph",
+      "FrameCallGraphEntry",
+      "awaited_by",
+      "call_stack",
+      "limit",
+      "depth"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "# Python 3.14+",
+        "import asyncio",
+        "async def child():",
+        "    graph = asyncio.capture_call_graph()",
+        "    print(graph.future.get_name())  # → child",
+        "    print([g.future.get_name() for g in graph.awaited_by])  # → ['Task-1'] — её ждёт main",
+        "    print(asyncio.capture_call_graph(limit=0).call_stack)  # → ()",
+        "async def main():",
+        "    await asyncio.create_task(child(), name='child')",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.format_call_graph",
+      "asyncio.print_call_graph",
+      "asyncio.current_task"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.format_call_graph",
+    "title": {
+      "ru": "asyncio.format_call_graph()",
+      "en": "asyncio.format_call_graph()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает асинхронный граф вызовов текущей задачи или переданного Future в виде читаемой строки — для логов и отладки.",
+      "en": "Returns the async call graph of the current task or a given Future as a readable string, for logs and debugging."
+    },
+    "body": {
+      "ru": "Строка включает адреса объектов (id=0x…) и полные пути к файлам, поэтому в тестах её не сравнивают целиком. Каждая задача — строка «* Task(name=…)», под ней «+ Call stack» и «+ Awaited by». Это та же информация, что у capture_call_graph, только уже отформатированная; печатать сразу умеет print_call_graph. Вне задачи возвращает пустую строку. Появилась в 3.14.",
+      "en": "The string contains object addresses (id=0x...) and full file paths, so tests never compare it whole. Each task is a \"* Task(name=...)\" line followed by \"+ Call stack\" and \"+ Awaited by\". It carries the same data as capture_call_graph, just formatted; print_call_graph prints it directly. Outside a task it returns an empty string. Added in 3.14."
+    },
+    "syntax": "text = asyncio.format_call_graph(future=None, /, *, depth=1, limit=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-graph.html#asyncio.format_call_graph",
+    "added": "3.14",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "граф вызовов",
+      "en": "call graph"
+    },
+    "aliases": [
+      "вывести граф задач строкой",
+      "отладка зависших задач asyncio"
+    ],
+    "keywords": [
+      "asyncio.format_call_graph",
+      "format_call_graph",
+      "capture_call_graph",
+      "limit",
+      "depth"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "# Python 3.14+",
+        "import asyncio",
+        "async def child():",
+        "    text = asyncio.format_call_graph()",
+        "    print(text.splitlines()[0].startswith(\"* Task(name='child'\"))  # → True",
+        "    print('+ Awaited by:' in text)  # → True",
+        "async def main():",
+        "    await asyncio.create_task(child(), name='child')",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.capture_call_graph",
+      "asyncio.print_call_graph"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.print_call_graph",
+    "title": {
+      "ru": "asyncio.print_call_graph()",
+      "en": "asyncio.print_call_graph()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Печатает асинхронный граф вызовов текущей задачи или переданного Future: стек корутины и цепочку задач, которые её ждут.",
+      "en": "Prints the async call graph of the current task or a given Future: the coroutine's stack and the chain of tasks awaiting it."
+    },
+    "body": {
+      "ru": "Аналог traceback.print_stack() для asyncio: обычный стек кончается на границе задачи, а здесь видно, кто кого ждёт. По умолчанию пишет в sys.stdout, а не в stderr, как traceback; параметр file перенаправляет вывод, например в io.StringIO или в лог-файл. Вывод содержит пути и адреса, поэтому от запуска к запуску различается. Появилась в 3.14.",
+      "en": "The asyncio counterpart of traceback.print_stack(): a plain stack ends at the task boundary, while this shows who awaits whom. It writes to sys.stdout by default, not stderr as traceback does; the file argument redirects it, for example into io.StringIO or a log file. The output contains paths and addresses, so it differs between runs. Added in 3.14."
+    },
+    "syntax": "asyncio.print_call_graph(future=None, /, *, file=None, depth=1, limit=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-graph.html#asyncio.print_call_graph",
+    "added": "3.14",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "граф вызовов",
+      "en": "call graph"
+    },
+    "aliases": [
+      "напечатать стек задач asyncio",
+      "кто ждёт задачу отладка"
+    ],
+    "keywords": [
+      "asyncio.print_call_graph",
+      "print_call_graph",
+      "capture_call_graph",
+      "format_call_graph",
+      "file"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "# Python 3.14+",
+        "import asyncio",
+        "import io",
+        "async def child():",
+        "    buf = io.StringIO()",
+        "    asyncio.print_call_graph(file=buf, limit=0)",
+        "    print(buf.getvalue().count('* Task('))  # → 2 — child и ждущая её main",
+        "async def main():",
+        "    await asyncio.create_task(child(), name='child')",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.capture_call_graph",
+      "asyncio.format_call_graph"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.future_add_to_awaited_by",
+    "title": {
+      "ru": "asyncio.future_add_to_awaited_by()",
+      "en": "asyncio.future_add_to_awaited_by()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Вручную записывает в граф вызовов, что future ждёт задача waiter, — для своих примитивов синхронизации поверх Future.",
+      "en": "Manually records in the call graph that future is awaited by waiter, for custom synchronisation primitives built on Future."
+    },
+    "body": {
+      "ru": "Когда задача делает await на Future, связь «кто кого ждёт» видна графу вызовов сама. Ручная запись нужна там, где ожидание идёт в обход await, — как внутри gather или shield. Каждый вызов обязан иметь парный future_discard_from_awaited_by с теми же аргументами, иначе граф будет показывать давно ушедшего ожидающего. Объекты не Future/Task молча игнорируются. Появилась в 3.14.",
+      "en": "When a task awaits a Future, the \"who waits for whom\" link reaches the call graph on its own. A manual record is needed where waiting bypasses await, as inside gather or shield. Every call must be paired with future_discard_from_awaited_by with the same arguments, or the graph keeps showing a waiter that is long gone. Objects that are not a Future or Task are silently ignored. Added in 3.14."
+    },
+    "syntax": "asyncio.future_add_to_awaited_by(future, waiter, /)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-graph.html#asyncio.future_add_to_awaited_by",
+    "added": "3.14",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "граф вызовов",
+      "en": "call graph"
+    },
+    "aliases": [
+      "отметить ожидание в графе вызовов",
+      "свой примитив синхронизации asyncio"
+    ],
+    "keywords": [
+      "asyncio.future_add_to_awaited_by",
+      "future_add_to_awaited_by",
+      "future_discard_from_awaited_by",
+      "awaited_by",
+      "waiter"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "# Python 3.14+",
+        "import asyncio",
+        "async def main():",
+        "    fut = asyncio.get_running_loop().create_future()",
+        "    me = asyncio.current_task()",
+        "    asyncio.future_add_to_awaited_by(fut, me)",
+        "    graph = asyncio.capture_call_graph(fut)",
+        "    print([g.future is me for g in graph.awaited_by])  # → [True]",
+        "    asyncio.future_discard_from_awaited_by(fut, me)  # парный вызов обязателен",
+        "    fut.cancel()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.future_discard_from_awaited_by",
+      "asyncio.capture_call_graph"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.future_discard_from_awaited_by",
+    "title": {
+      "ru": "asyncio.future_discard_from_awaited_by()",
+      "en": "asyncio.future_discard_from_awaited_by()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает из графа вызовов запись о том, что future ждёт задача waiter; парная функция к future_add_to_awaited_by().",
+      "en": "Removes the call-graph record that future is awaited by waiter; the counterpart of future_add_to_awaited_by()."
+    },
+    "body": {
+      "ru": "Вызывают её в finally, чтобы связь снималась и при отмене или ошибке ожидающего, иначе отладочный вывод покажет задачу, которая уже ничего не ждёт. Удаление отсутствующей связи не ошибка, как у set.discard, а не set.remove. Для объектов не Future/Task функция ничего не делает. Появилась в 3.14.",
+      "en": "Call it in a finally block so the link is dropped even when the waiter is cancelled or fails; otherwise debugging output shows a task that no longer waits for anything. Removing a missing link is not an error, like set.discard rather than set.remove. For objects that are not a Future or Task it does nothing. Added in 3.14."
+    },
+    "syntax": "asyncio.future_discard_from_awaited_by(future, waiter, /)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-graph.html#asyncio.future_discard_from_awaited_by",
+    "added": "3.14",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "граф вызовов",
+      "en": "call graph"
+    },
+    "aliases": [
+      "снять ожидание в графе вызовов",
+      "убрать связь awaited_by"
+    ],
+    "keywords": [
+      "asyncio.future_discard_from_awaited_by",
+      "future_discard_from_awaited_by",
+      "future_add_to_awaited_by",
+      "awaited_by",
+      "waiter"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "# Python 3.14+",
+        "import asyncio",
+        "async def main():",
+        "    fut = asyncio.get_running_loop().create_future()",
+        "    me = asyncio.current_task()",
+        "    asyncio.future_add_to_awaited_by(fut, me)",
+        "    try:",
+        "        pass  # здесь было бы ожидание в обход await",
+        "    finally:",
+        "        asyncio.future_discard_from_awaited_by(fut, me)",
+        "    print(asyncio.capture_call_graph(fut).awaited_by)  # → ()",
+        "    asyncio.future_discard_from_awaited_by(fut, me)  # повтор — не ошибка",
+        "    fut.cancel()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.future_add_to_awaited_by",
+      "asyncio.capture_call_graph"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.create_subprocess_exec",
+    "title": {
+      "ru": "asyncio.create_subprocess_exec()",
+      "en": "asyncio.create_subprocess_exec()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Запускает программу как дочерний процесс, не блокируя цикл событий; аргументы передаются списком, без оболочки.",
+      "en": "Starts a program as a child process without blocking the event loop; arguments are passed one by one, without a shell."
+    },
+    "body": {
+      "ru": "Аргументы идут отдельными параметрами: create_subprocess_exec('ls', '-l'), а не строкой 'ls -l'. С stdout=PIPE читайте вывод через await proc.communicate(): если вызвать только proc.wait(), а ребёнок заполнит буфер канала, оба зависнут навсегда. Для текущего интерпретатора берут sys.executable, а не строку 'python'. На Windows нужен ProactorEventLoop — он стоит по умолчанию с 3.8.",
+      "en": "Arguments go as separate parameters: create_subprocess_exec('ls', '-l'), not the string 'ls -l'. With stdout=PIPE read the output via await proc.communicate(): calling only proc.wait() deadlocks forever once the child fills the pipe buffer. Use sys.executable, not the string 'python', for the current interpreter. Windows needs ProactorEventLoop, the default since 3.8."
+    },
+    "syntax": "proc = await asyncio.create_subprocess_exec(program, *args, stdin=None, stdout=None, stderr=None, **kwds)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.create_subprocess_exec",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "подпроцессы",
+      "en": "subprocesses"
+    },
+    "aliases": [
+      "запустить процесс асинхронно",
+      "subprocess в asyncio",
+      "прочитать вывод программы asyncio"
+    ],
+    "keywords": [
+      "asyncio.create_subprocess_exec",
+      "create_subprocess_exec",
+      "Process",
+      "communicate",
+      "PIPE",
+      "returncode"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import sys",
+        "async def main():",
+        "    proc = await asyncio.create_subprocess_exec(",
+        "        sys.executable, '-c', 'print(6 * 7)',",
+        "        stdout=asyncio.subprocess.PIPE,",
+        "    )",
+        "    out, _ = await proc.communicate()  # не wait(): тот зависнет на полном канале",
+        "    print(out.decode().strip(), proc.returncode)  # → 42 0",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.create_subprocess_shell",
+      "subprocess-run",
+      "subprocess-Popen"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.create_subprocess_shell",
+    "title": {
+      "ru": "asyncio.create_subprocess_shell()",
+      "en": "asyncio.create_subprocess_shell()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Запускает команду через оболочку (sh на Unix, cmd.exe на Windows), не блокируя цикл событий; команда передаётся одной строкой.",
+      "en": "Runs a command through the shell (sh on Unix, cmd.exe on Windows) without blocking the event loop; the command is a single string."
+    },
+    "body": {
+      "ru": "Оболочка разбирает строку целиком, поэтому подставлять в неё ввод пользователя без shlex.quote() — прямая дорога к внедрению команд. Возвращаемый Process — это процесс оболочки: proc.pid и proc.kill() относятся к sh, а не к запущенной программе, и её дети могут пережить kill(). Если оболочка не нужна (каналы, *, &&), берите create_subprocess_exec.",
+      "en": "The shell parses the whole string, so inserting user input without shlex.quote() is a direct path to command injection. The returned Process is the shell process: proc.pid and proc.kill() refer to sh, not to the program it launched, whose children may survive kill(). If you need no shell features (pipes, *, &&), use create_subprocess_exec."
+    },
+    "syntax": "proc = await asyncio.create_subprocess_shell(cmd, stdin=None, stdout=None, stderr=None, **kwds)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.create_subprocess_shell",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "подпроцессы",
+      "en": "subprocesses"
+    },
+    "aliases": [
+      "выполнить команду оболочки асинхронно",
+      "shell команда asyncio"
+    ],
+    "keywords": [
+      "asyncio.create_subprocess_shell",
+      "create_subprocess_shell",
+      "Process",
+      "communicate",
+      "PIPE",
+      "shlex.quote"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import shlex",
+        "async def main():",
+        "    name = \"мир; rm -rf /\"  # чужой ввод",
+        "    proc = await asyncio.create_subprocess_shell(",
+        "        'echo ' + shlex.quote(name),",
+        "        stdout=asyncio.subprocess.PIPE,",
+        "    )",
+        "    out, _ = await proc.communicate()",
+        "    print(out.decode().strip())  # → мир; rm -rf /",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.create_subprocess_exec",
+      "subprocess-run",
+      "subprocess.getoutput"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.get_running_loop",
+    "title": {
+      "ru": "asyncio.get_running_loop()",
+      "en": "asyncio.get_running_loop()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает цикл событий, работающий в текущем потоке ОС; вызывается из корутин и колбэков.",
+      "en": "Returns the event loop running in the current OS thread; call it from coroutines and callbacks."
+    },
+    "body": {
+      "ru": "Предпочтительная замена get_event_loop() внутри async-кода: поведение однозначное — цикла нет, значит RuntimeError, и никакого неявного создания цикла. Из обычной функции вне asyncio.run() её звать бессмысленно. Цикл нужен для низкоуровневых вызовов: loop.time(), call_later, run_in_executor, create_future. Появилась в 3.7.",
+      "en": "The preferred replacement for get_event_loop() inside async code: its behaviour is unambiguous, no loop means RuntimeError, and nothing is created implicitly. Calling it from plain code outside asyncio.run() is pointless. You need the loop for low-level calls: loop.time(), call_later, run_in_executor, create_future. Added in 3.7."
+    },
+    "syntax": "loop = asyncio.get_running_loop()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_running_loop",
+    "added": "3.7",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "получить текущий цикл событий",
+      "loop внутри корутины"
+    ],
+    "keywords": [
+      "asyncio.get_running_loop",
+      "get_running_loop",
+      "loop",
+      "get_event_loop",
+      "run_in_executor",
+      "call_later"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    loop.call_later(0.01, print, 'через 10 мс')",
+        "    await asyncio.sleep(0.02)",
+        "    print(loop.is_running())  # → True",
+        "asyncio.run(main())  # → через 10 мс / True"
+      ],
+      [
+        "import asyncio",
+        "asyncio.get_running_loop()  # → RuntimeError: no running event loop"
+      ]
+    ],
+    "related": [
+      "asyncio.get_event_loop",
+      "asyncio.run",
+      "asyncio.new_event_loop"
+    ],
+    "related_errors": [
+      "runtimeerror"
+    ]
+  },
+  {
+    "id": "asyncio.get_event_loop",
+    "title": {
+      "ru": "asyncio.get_event_loop()",
+      "en": "asyncio.get_event_loop()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущий цикл событий: внутри корутины — работающий, вне её — установленный для потока. В async-коде лучше get_running_loop().",
+      "en": "Returns the current event loop: the running one inside a coroutine, otherwise the one set for the thread. In async code prefer get_running_loop()."
+    },
+    "body": {
+      "ru": "Самая изменчивая функция asyncio. До 3.10 она тихо создавала цикл, если его не было; в 3.10–3.13 такое создание сопровождалось DeprecationWarning, а с 3.14 без установленного цикла она бросает RuntimeError. Поэтому старые рецепты loop = asyncio.get_event_loop(); loop.run_until_complete(...) больше не работают — их заменяет asyncio.run(). Внутри корутины она эквивалентна get_running_loop().",
+      "en": "The most volatile function in asyncio. Before 3.10 it silently created a loop when none existed; in 3.10-3.13 that creation came with a DeprecationWarning, and since 3.14 it raises RuntimeError when no loop is set. So old recipes like loop = asyncio.get_event_loop(); loop.run_until_complete(...) no longer work; asyncio.run() replaces them. Inside a coroutine it equals get_running_loop()."
+    },
+    "syntax": "loop = asyncio.get_event_loop()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.get_event_loop",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "получить цикл событий",
+      "get_event_loop устарело",
+      "старый способ запуска asyncio"
+    ],
+    "keywords": [
+      "asyncio.get_event_loop",
+      "get_event_loop",
+      "loop",
+      "get_running_loop",
+      "run_until_complete"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    print(asyncio.get_event_loop() is asyncio.get_running_loop())  # → True",
+        "asyncio.run(main())  # вместо get_event_loop().run_until_complete(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.get_running_loop",
+      "asyncio.set_event_loop",
+      "asyncio.run"
+    ],
+    "related_errors": [
+      "runtimeerror"
+    ]
+  },
+  {
+    "id": "asyncio.new_event_loop",
+    "title": {
+      "ru": "asyncio.new_event_loop()",
+      "en": "asyncio.new_event_loop()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт новый цикл событий. Не делает его текущим и не закрывает сам — обычно вместо неё берут asyncio.run() или asyncio.Runner.",
+      "en": "Creates a new event loop. It neither makes it current nor closes it; asyncio.run() or asyncio.Runner is usually the better choice."
+    },
+    "body": {
+      "ru": "Созданный цикл живёт, пока его не закрыть: без loop.close() остаются открытые дескрипторы и ResourceWarning. Он не становится текущим, поэтому get_event_loop() его не увидит без set_event_loop(). asyncio.run() делает всё это сам: создаёт, запускает, дожидается асинхронных генераторов, гасит пул потоков и закрывает цикл. Ручной цикл нужен, например, в отдельном потоке с долгоживущим циклом.",
+      "en": "A new loop lives until you close it: without loop.close() file descriptors leak and a ResourceWarning follows. It does not become current, so get_event_loop() will not see it without set_event_loop(). asyncio.run() handles all of this: it creates, runs, finalizes async generators, shuts down the thread pool and closes the loop. A manual loop fits, for example, a long-lived loop in its own thread."
+    },
+    "syntax": "loop = asyncio.new_event_loop()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.new_event_loop",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "создать цикл событий вручную",
+      "свой event loop в потоке"
+    ],
+    "keywords": [
+      "asyncio.new_event_loop",
+      "new_event_loop",
+      "loop",
+      "run_until_complete",
+      "close"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    await asyncio.sleep(0.01)",
+        "    return 'готово'",
+        "loop = asyncio.new_event_loop()",
+        "try:",
+        "    print(loop.run_until_complete(main()))  # → готово",
+        "finally:",
+        "    loop.close()  # закрыть обязательно",
+        "print(loop.is_closed())  # → True"
+      ]
+    ],
+    "related": [
+      "asyncio.run",
+      "asyncio.set_event_loop",
+      "asyncio.get_running_loop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.set_event_loop",
+    "title": {
+      "ru": "asyncio.set_event_loop()",
+      "en": "asyncio.set_event_loop()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Делает цикл текущим для этого потока ОС, чтобы get_event_loop() возвращал его вне корутин.",
+      "en": "Makes a loop current for this OS thread, so that get_event_loop() returns it outside coroutines."
+    },
+    "body": {
+      "ru": "Нужна только при ручном управлении циклом: asyncio.run() и asyncio.Runner ставят и снимают текущий цикл сами. Текущий цикл свой у каждого потока, поэтому цикл, установленный в главном потоке, в рабочем потоке не виден. После закрытия цикла вызывают set_event_loop(None), иначе get_event_loop() вернёт закрытый цикл.",
+      "en": "You need it only when managing a loop by hand: asyncio.run() and asyncio.Runner set and clear the current loop themselves. Each thread has its own current loop, so a loop set in the main thread is invisible to a worker thread. After closing the loop call set_event_loop(None), or get_event_loop() will hand back a closed loop."
+    },
+    "syntax": "asyncio.set_event_loop(loop)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.set_event_loop",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "установить текущий цикл событий",
+      "цикл событий для потока"
+    ],
+    "keywords": [
+      "asyncio.set_event_loop",
+      "set_event_loop",
+      "loop",
+      "get_event_loop",
+      "new_event_loop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "loop = asyncio.new_event_loop()",
+        "asyncio.set_event_loop(loop)",
+        "print(asyncio.get_event_loop() is loop)  # → True",
+        "loop.run_until_complete(asyncio.sleep(0.01))",
+        "loop.close()",
+        "asyncio.set_event_loop(None)  # не оставлять закрытый цикл текущим"
+      ]
+    ],
+    "related": [
+      "asyncio.new_event_loop",
+      "asyncio.get_event_loop",
+      "asyncio.run"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.get_event_loop_policy",
+    "title": {
+      "ru": "asyncio.get_event_loop_policy()",
+      "en": "asyncio.get_event_loop_policy()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Deprecated: возвращает глобальную политику цикла событий; с 3.14 устарела, removal in 3.16. Цикл выбирают через loop_factory у asyncio.run().",
+      "en": "Deprecated: returns the global event loop policy; deprecated since 3.14 with removal in 3.16. Pick the loop via loop_factory of asyncio.run()."
+    },
+    "body": {
+      "ru": "Политика — глобальный объект, решавший, какой цикл создаётся и какой считается текущим; её подменяли, чтобы поставить uvloop или WindowsSelectorEventLoop. Вся система политик устарела в 3.14: вместо глобальной подмены цикл передают явно — asyncio.run(main(), loop_factory=...) (3.12+) или asyncio.Runner(loop_factory=...) (3.11+). С 3.14 вызов даёт DeprecationWarning.",
+      "en": "A policy is a global object that decided which loop gets created and which counts as current; people swapped it to install uvloop or WindowsSelectorEventLoop. The whole policy system is deprecated in 3.14: instead of a global swap, pass the loop explicitly with asyncio.run(main(), loop_factory=...) (3.12+) or asyncio.Runner(loop_factory=...) (3.11+). Since 3.14 the call emits DeprecationWarning."
+    },
+    "syntax": "policy = asyncio.get_event_loop_policy()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-policy.html#asyncio.get_event_loop_policy",
+    "added": "3.4",
+    "deprecated": "3.14",
+    "removed": "3.16",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "политика цикла событий",
+      "чем заменить event loop policy"
+    ],
+    "keywords": [
+      "asyncio.get_event_loop_policy",
+      "get_event_loop_policy",
+      "loop_factory",
+      "Runner",
+      "set_event_loop_policy",
+      "AbstractEventLoopPolicy"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    return type(asyncio.get_running_loop()).__name__",
+        "with asyncio.Runner(loop_factory=asyncio.new_event_loop) as runner:  # замена политике",
+        "    print(runner.run(main()).endswith('EventLoop'))  # → True"
+      ],
+      [
+        "import asyncio",
+        "import warnings",
+        "with warnings.catch_warnings():",
+        "    warnings.simplefilter('ignore', DeprecationWarning)  # с 3.14 вызов устарел",
+        "    policy = asyncio.get_event_loop_policy()",
+        "loop = policy.new_event_loop()",
+        "print(loop.is_closed())  # → False",
+        "loop.close()"
+      ]
+    ],
+    "related": [
+      "asyncio.set_event_loop_policy",
+      "asyncio.run",
+      "asyncio.new_event_loop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.set_event_loop_policy",
+    "title": {
+      "ru": "asyncio.set_event_loop_policy()",
+      "en": "asyncio.set_event_loop_policy()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Deprecated: заменяет глобальную политику цикла событий; с 3.14 устарела, removal in 3.16. Замена — loop_factory у asyncio.run() и Runner.",
+      "en": "Deprecated: replaces the global event loop policy; deprecated since 3.14 with removal in 3.16. Use loop_factory of asyncio.run() and Runner instead."
+    },
+    "body": {
+      "ru": "Типичный старый рецепт — set_event_loop_policy(uvloop.EventLoopPolicy()) или WindowsSelectorEventLoopPolicy() ради библиотек, не работающих с Proactor. Подмена глобальная: она действует на весь процесс, включая чужие библиотеки и тесты. Сейчас то же делается локально: asyncio.run(main(), loop_factory=uvloop.new_event_loop). set_event_loop_policy(None) возвращает политику по умолчанию.",
+      "en": "The classic old recipe is set_event_loop_policy(uvloop.EventLoopPolicy()) or WindowsSelectorEventLoopPolicy() for libraries that fail under Proactor. The swap is global: it affects the whole process, other libraries and tests included. Today the same is done locally: asyncio.run(main(), loop_factory=uvloop.new_event_loop). set_event_loop_policy(None) restores the default policy."
+    },
+    "syntax": "asyncio.set_event_loop_policy(policy)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-policy.html#asyncio.set_event_loop_policy",
+    "added": "3.4",
+    "deprecated": "3.14",
+    "removed": "3.16",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "event loop",
+      "en": "event loop"
+    },
+    "aliases": [
+      "сменить политику цикла событий",
+      "поставить uvloop",
+      "WindowsSelectorEventLoopPolicy"
+    ],
+    "keywords": [
+      "asyncio.set_event_loop_policy",
+      "set_event_loop_policy",
+      "loop_factory",
+      "Runner",
+      "get_event_loop_policy",
+      "uvloop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "# Python 3.12+",
+        "import asyncio",
+        "async def main():",
+        "    await asyncio.sleep(0.01)",
+        "    return 'ок'",
+        "# вместо set_event_loop_policy(...) — цикл для одного запуска",
+        "print(asyncio.run(main(), loop_factory=asyncio.new_event_loop))  # → ок"
+      ],
+      [
+        "import asyncio",
+        "import warnings",
+        "with warnings.catch_warnings():",
+        "    warnings.simplefilter('ignore', DeprecationWarning)  # с 3.14 вызов устарел",
+        "    asyncio.set_event_loop_policy(None)  # None — политика по умолчанию",
+        "print(asyncio.run(asyncio.sleep(0.01, result='ок')))  # → ок"
+      ]
+    ],
+    "related": [
+      "asyncio.get_event_loop_policy",
+      "asyncio.run",
+      "asyncio.new_event_loop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.to_thread",
+    "title": {
+      "ru": "asyncio.to_thread()",
+      "en": "asyncio.to_thread()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Выполняет обычную блокирующую функцию в отдельном потоке и даёт дождаться её через await, не останавливая цикл событий.",
+      "en": "Runs an ordinary blocking function in a separate thread and lets you await it without stalling the event loop."
+    },
+    "body": {
+      "ru": "Подходит для блокирующего ввода-вывода: requests, чтение файла, time.sleep. Для вычислений ускорения нет — из-за GIL поток считает по очереди с циклом; тут нужен ProcessPoolExecutor через run_in_executor. Отмена await не останавливает поток: функция доработает до конца. В отличие от run_in_executor, to_thread переносит contextvars и принимает именованные аргументы. Появилась в 3.9.",
+      "en": "Good for blocking I/O: requests, file reads, time.sleep. There is no gain for CPU work, because under the GIL the thread takes turns with the loop; use ProcessPoolExecutor via run_in_executor for that. Cancelling the await does not stop the thread: the function runs to the end. Unlike run_in_executor, to_thread propagates contextvars and accepts keyword arguments. Added in 3.9."
+    },
+    "syntax": "result = await asyncio.to_thread(func, /, *args, **kwargs)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.to_thread",
+    "added": "3.9",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "связь с потоками",
+      "en": "threads interop"
+    },
+    "aliases": [
+      "выполнить блокирующую функцию в asyncio",
+      "time.sleep в корутине",
+      "запустить в потоке"
+    ],
+    "keywords": [
+      "asyncio.to_thread",
+      "to_thread",
+      "func",
+      "run_in_executor",
+      "contextvars"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import time",
+        "def blocking(name):",
+        "    time.sleep(0.02)  # блокирующий вызов",
+        "    return name",
+        "async def main():",
+        "    results = await asyncio.gather(",
+        "        asyncio.to_thread(blocking, 'a'),",
+        "        asyncio.to_thread(blocking, name='b'),",
+        "    )",
+        "    print(results)  # → ['a', 'b']",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.run_coroutine_threadsafe",
+      "ThreadPoolExecutor",
+      "GIL"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.run_coroutine_threadsafe",
+    "title": {
+      "ru": "asyncio.run_coroutine_threadsafe()",
+      "en": "asyncio.run_coroutine_threadsafe()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Отправляет корутину в цикл событий, работающий в другом потоке, и возвращает concurrent.futures.Future для ожидания результата.",
+      "en": "Submits a coroutine to an event loop running in another thread and returns a concurrent.futures.Future to wait for the result."
+    },
+    "body": {
+      "ru": "Это мост из обычного потока в цикл: из рабочего потока нельзя звать create_task, а эта функция потокобезопасна. Возвращается Future из concurrent.futures, его ждут через fut.result(timeout) — блокирующе. Вызвать result() в потоке самого цикла значит повесить программу: цикл ждёт сам себя. Цикл передают явно, потому что в чужом потоке текущего цикла нет.",
+      "en": "This is the bridge from a plain thread into the loop: a worker thread may not call create_task, but this function is thread-safe. It returns a concurrent.futures Future, waited on with fut.result(timeout), which blocks. Calling result() on the loop's own thread hangs the program: the loop waits for itself. The loop is passed explicitly, because a foreign thread has no current loop."
+    },
+    "syntax": "future = asyncio.run_coroutine_threadsafe(coro, loop)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.run_coroutine_threadsafe",
+    "added": "3.5",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "связь с потоками",
+      "en": "threads interop"
+    },
+    "aliases": [
+      "вызвать корутину из другого потока",
+      "передать задачу в цикл из потока"
+    ],
+    "keywords": [
+      "asyncio.run_coroutine_threadsafe",
+      "run_coroutine_threadsafe",
+      "coro",
+      "loop",
+      "concurrent.futures.Future",
+      "call_soon_threadsafe"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def add(a, b):",
+        "    await asyncio.sleep(0.01)",
+        "    return a + b",
+        "def worker(loop):",
+        "    fut = asyncio.run_coroutine_threadsafe(add(2, 3), loop)",
+        "    return fut.result(timeout=1)  # блокирует рабочий поток, а не цикл",
+        "async def main():",
+        "    loop = asyncio.get_running_loop()",
+        "    print(await asyncio.to_thread(worker, loop))  # → 5",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.to_thread",
+      "asyncio.wrap_future",
+      "Future-cf"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.wrap_future",
+    "title": {
+      "ru": "asyncio.wrap_future()",
+      "en": "asyncio.wrap_future()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Оборачивает concurrent.futures.Future (из пула потоков или процессов) в asyncio.Future, чтобы его можно было ждать через await.",
+      "en": "Wraps a concurrent.futures.Future (from a thread or process pool) in an asyncio.Future so it can be awaited."
+    },
+    "body": {
+      "ru": "await на concurrent.futures.Future напрямую даёт TypeError — это другой класс с блокирующим result(). Обычно обёртку делает за вас loop.run_in_executor(); wrap_future нужна, когда Future пришёл из чужого кода, например из executor.submit(). Отмена обёртки пытается отменить исходный Future, но уже идущую в потоке функцию это не остановит.",
+      "en": "Awaiting a concurrent.futures.Future directly raises TypeError: it is a different class with a blocking result(). Usually loop.run_in_executor() does the wrapping for you; wrap_future is for a Future that came from other code, such as executor.submit(). Cancelling the wrapper tries to cancel the original Future, but a function already running in a thread is not stopped."
+    },
+    "syntax": "fut = asyncio.wrap_future(future, *, loop=None)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-future.html#asyncio.wrap_future",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "связь с потоками",
+      "en": "threads interop"
+    },
+    "aliases": [
+      "await на concurrent future",
+      "ждать executor submit в asyncio"
+    ],
+    "keywords": [
+      "asyncio.wrap_future",
+      "wrap_future",
+      "concurrent.futures.Future",
+      "run_in_executor",
+      "submit"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "from concurrent.futures import ThreadPoolExecutor",
+        "async def main():",
+        "    with ThreadPoolExecutor() as pool:",
+        "        cf = pool.submit(sum, [1, 2, 3])",
+        "        try:",
+        "            await cf",
+        "        except TypeError:",
+        "            print('напрямую нельзя')  # → напрямую нельзя",
+        "        print(await asyncio.wrap_future(cf))  # → 6",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.isfuture",
+      "asyncio.run_coroutine_threadsafe",
+      "Future-cf",
+      "ThreadPoolExecutor"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.open_connection",
+    "title": {
+      "ru": "asyncio.open_connection()",
+      "en": "asyncio.open_connection()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Открывает TCP-соединение и возвращает пару (StreamReader, StreamWriter) для чтения и записи байтов через await.",
+      "en": "Opens a TCP connection and returns a (StreamReader, StreamWriter) pair for reading and writing bytes with await."
+    },
+    "body": {
+      "ru": "writer.write() не корутина: байты уходят в буфер, и только await writer.drain() дожидается, пока буфер освободится — без него быстрый отправитель раздувает память. reader.readline() на закрытом соединении возвращает b'', а не бросает исключение, поэтому цикл чтения проверяет пустой ответ. Закрывают парой writer.close() и await writer.wait_closed(). Работает и с готовым сокетом через sock=.",
+      "en": "writer.write() is not a coroutine: bytes go to a buffer, and only await writer.drain() waits for it to empty; skip it and a fast sender bloats memory. reader.readline() on a closed connection returns b'' instead of raising, so a read loop must check for the empty result. Close with writer.close() followed by await writer.wait_closed(). It also accepts a ready socket via sock=."
+    },
+    "syntax": "reader, writer = await asyncio.open_connection(host=None, port=None, *, limit=2**16, ssl=None, sock=None, **kwds)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-stream.html#asyncio.open_connection",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "потоки ввода-вывода",
+      "en": "streams"
+    },
+    "aliases": [
+      "tcp клиент asyncio",
+      "подключиться к серверу asyncio",
+      "reader writer asyncio"
+    ],
+    "keywords": [
+      "asyncio.open_connection",
+      "open_connection",
+      "StreamReader",
+      "StreamWriter",
+      "drain",
+      "wait_closed",
+      "readline",
+      "host",
+      "port"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def echo(reader, writer):",
+        "    writer.write(await reader.readline())",
+        "    await writer.drain()",
+        "    writer.close()",
+        "async def main():",
+        "    server = await asyncio.start_server(echo, '127.0.0.1', 0)",
+        "    port = server.sockets[0].getsockname()[1]",
+        "    async with server:",
+        "        reader, writer = await asyncio.open_connection('127.0.0.1', port)",
+        "        writer.write(b'hello\\n')",
+        "        await writer.drain()",
+        "        print(await reader.readline())  # → b'hello\\n'",
+        "        print(await reader.readline())  # → b'' — соединение закрыто, не исключение",
+        "        writer.close()",
+        "        await writer.wait_closed()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.start_server",
+      "asyncio.open_unix_connection",
+      "asyncio.Transport"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.start_server",
+    "title": {
+      "ru": "asyncio.start_server()",
+      "en": "asyncio.start_server()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Запускает TCP-сервер: на каждое входящее соединение вызывает колбэк с парой (StreamReader, StreamWriter).",
+      "en": "Starts a TCP server: for each incoming connection it calls a callback with a (StreamReader, StreamWriter) pair."
+    },
+    "body": {
+      "ru": "Сервер начинает принимать соединения сразу после await, а serve_forever() лишь держит программу. Если колбэк — корутина, каждый клиент получает свою задачу; исключение в ней не роняет сервер, а только пишется в лог, поэтому ошибки обработчика легко пропустить. port=0 просит у ОС свободный порт — настоящий берут из server.sockets[0].getsockname(). async with server закрывает сервер на выходе.",
+      "en": "The server accepts connections right after the await; serve_forever() merely keeps the program alive. If the callback is a coroutine, each client gets its own task; an exception there does not crash the server, it is only logged, so handler errors are easy to miss. port=0 asks the OS for a free port; read the real one from server.sockets[0].getsockname(). async with server closes it on exit."
+    },
+    "syntax": "server = await asyncio.start_server(client_connected_cb, host=None, port=None, *, limit=2**16, **kwds)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-stream.html#asyncio.start_server",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "AllOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "потоки ввода-вывода",
+      "en": "streams"
+    },
+    "aliases": [
+      "tcp сервер asyncio",
+      "эхо сервер asyncio",
+      "свободный порт для сервера"
+    ],
+    "keywords": [
+      "asyncio.start_server",
+      "start_server",
+      "client_connected_cb",
+      "Server",
+      "serve_forever",
+      "sockets",
+      "host",
+      "port"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def handle(reader, writer):",
+        "    data = await reader.read(100)",
+        "    writer.write(data.upper())",
+        "    await writer.drain()",
+        "    writer.close()",
+        "async def main():",
+        "    server = await asyncio.start_server(handle, '127.0.0.1', 0)",
+        "    host, port = server.sockets[0].getsockname()[:2]",
+        "    print(host, port > 0)  # → 127.0.0.1 True",
+        "    async with server:",
+        "        reader, writer = await asyncio.open_connection(host, port)",
+        "        writer.write(b'abc')",
+        "        print(await reader.read(100))  # → b'ABC'",
+        "        writer.close()",
+        "        await writer.wait_closed()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.open_connection",
+      "asyncio.start_unix_server",
+      "asyncio.Transport"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.open_unix_connection",
+    "title": {
+      "ru": "asyncio.open_unix_connection()",
+      "en": "asyncio.open_unix_connection()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Подключается к Unix-сокету по пути в файловой системе и возвращает пару (StreamReader, StreamWriter).",
+      "en": "Connects to a Unix domain socket by file-system path and returns a (StreamReader, StreamWriter) pair."
+    },
+    "body": {
+      "ru": "Работает как open_connection, но вместо хоста и порта — путь к файлу сокета; так общаются с локальными службами вроде Docker или PostgreSQL. Путь ограничен примерно 107 байтами, и длинный абсолютный путь даёт OSError; относительный путь отсчитывается от текущего каталога. Если файла нет, бросается FileNotFoundError, если никто не слушает — ConnectionRefusedError. Доступна только на Linux и macOS: на Windows Unix-сокетов у asyncio нет.",
+      "en": "Works like open_connection, but takes a socket file path instead of host and port; this is how you talk to local services such as Docker or PostgreSQL. The path is limited to about 107 bytes and a long absolute path raises OSError; a relative path is resolved from the current directory. A missing file raises FileNotFoundError, and nobody listening gives ConnectionRefusedError. Available on Linux and macOS only: asyncio has no Unix sockets on Windows."
+    },
+    "syntax": "reader, writer = await asyncio.open_unix_connection(path=None, *, limit=2**16, **kwds)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-stream.html#asyncio.open_unix_connection",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "Linux",
+      "macOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "потоки ввода-вывода",
+      "en": "streams"
+    },
+    "aliases": [
+      "подключиться к unix сокету",
+      "unix socket клиент asyncio"
+    ],
+    "keywords": [
+      "asyncio.open_unix_connection",
+      "open_unix_connection",
+      "path",
+      "StreamReader",
+      "StreamWriter",
+      "AF_UNIX"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "async def main():",
+        "    try:",
+        "        await asyncio.open_unix_connection('нет-такого.sock')",
+        "    except FileNotFoundError:",
+        "        print('сокета нет')  # → сокета нет",
+        "asyncio.run(main())"
+      ],
+      [
+        "import asyncio",
+        "async def hello(reader, writer):",
+        "    writer.write(b'hi')",
+        "    await writer.drain()",
+        "    writer.close()",
+        "async def main():",
+        "    async with await asyncio.start_unix_server(hello, 'demo.sock'):",
+        "        reader, writer = await asyncio.open_unix_connection('demo.sock')",
+        "        print(await reader.read())  # → b'hi'",
+        "        writer.close()",
+        "        await writer.wait_closed()",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.start_unix_server",
+      "asyncio.open_connection"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "asyncio.start_unix_server",
+    "title": {
+      "ru": "asyncio.start_unix_server()",
+      "en": "asyncio.start_unix_server()"
+    },
+    "kind": "function",
+    "summary": {
+      "ru": "Запускает сервер на Unix-сокете — файле в файловой системе; колбэк получает пару (StreamReader, StreamWriter).",
+      "en": "Starts a server on a Unix domain socket, a file in the file system; the callback gets a (StreamReader, StreamWriter) pair."
+    },
+    "body": {
+      "ru": "Файл сокета создаётся при старте, и до 3.13 он оставался на диске после закрытия: следующий запуск падал с OSError «Address already in use», пока файл не удалят руками. С 3.13 cleanup_socket=True убирает его сам. Доступ к сокету — это права на файл, так что сервер виден лишь тем пользователям, кому можно его открыть; сеть при этом не участвует вовсе. Доступна только на Linux и macOS: на Windows Unix-сокетов у asyncio нет.",
+      "en": "The socket file is created on start, and before 3.13 it stayed on disk after closing: the next run failed with OSError \"Address already in use\" until you deleted the file by hand. Since 3.13 cleanup_socket=True removes it for you. Access is governed by file permissions, so only users allowed to open the file can connect; the network is not involved at all. Available on Linux and macOS only: asyncio has no Unix sockets on Windows."
+    },
+    "syntax": "server = await asyncio.start_unix_server(client_connected_cb, path=None, *, limit=2**16, **kwds)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/asyncio-stream.html#asyncio.start_unix_server",
+    "added": "3.4",
+    "deprecated": "",
+    "removed": "",
+    "platforms": [
+      "Linux",
+      "macOS"
+    ],
+    "section": "Асинхронное программирование",
+    "subcat": {
+      "ru": "потоки ввода-вывода",
+      "en": "streams"
+    },
+    "aliases": [
+      "unix socket сервер asyncio",
+      "сервер на файле сокета"
+    ],
+    "keywords": [
+      "asyncio.start_unix_server",
+      "start_unix_server",
+      "path",
+      "cleanup_socket",
+      "client_connected_cb",
+      "AF_UNIX"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      [
+        "import asyncio",
+        "import os",
+        "async def upper(reader, writer):",
+        "    writer.write((await reader.read(10)).upper())",
+        "    await writer.drain()",
+        "    writer.close()",
+        "async def main():",
+        "    server = await asyncio.start_unix_server(upper, 'app.sock')",
+        "    print(os.path.exists('app.sock'))  # → True — сокет это файл",
+        "    async with server:",
+        "        reader, writer = await asyncio.open_unix_connection('app.sock')",
+        "        writer.write(b'ok')",
+        "        print(await reader.read())  # → b'OK'",
+        "        writer.close()",
+        "        await writer.wait_closed()",
+        "    if os.path.exists('app.sock'):  # до 3.13 файл остаётся",
+        "        os.remove('app.sock')",
+        "asyncio.run(main())"
+      ]
+    ],
+    "related": [
+      "asyncio.open_unix_connection",
+      "asyncio.start_server"
     ],
     "related_errors": []
   }

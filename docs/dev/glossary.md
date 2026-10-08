@@ -96,7 +96,7 @@ python scripts/import_glossary.py --file d.json --schema s.json --release v1.2.0
 
 ## Формат карточки (`GlossaryCard`)
 
-Форма — та, что у карточки выгрузки (сейчас **6.0**); `from_dict`/`to_dict`
+Форма — та, что у карточки выгрузки (сейчас **6.1**); `from_dict`/`to_dict`
 переводят её без потерь. Старые плоские поля (`title` строкой, `version`,
 `examples` списком строк) по-прежнему читаются — для чужих баз и фикстур.
 

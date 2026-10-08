@@ -745,7 +745,7 @@
       "en": "Strings are compared lexicographically by the Unicode code points of their characters."
     },
     "body": {
-      "ru": "Порядок по code point — не алфавитный: все заглавные латинские буквы идут раньше строчных, поэтому 'Zoo' < 'apple' даёт True, а кириллица и символы с диакритикой стоят вообще отдельным блоком. Для человеческой сортировки задавайте ключ, например key=str.lower или key=str.casefold. Второй típичный промах — сравнивать числа как строки: '10' < '9' истинно, потому что сопоставляется первый символ.",
+      "ru": "Порядок по code point — не алфавитный: все заглавные латинские буквы идут раньше строчных, поэтому 'Zoo' < 'apple' даёт True, а кириллица и символы с диакритикой стоят вообще отдельным блоком. Для человеческой сортировки задавайте ключ, например key=str.lower или key=str.casefold. Второй типичный промах — сравнивать числа как строки: '10' < '9' истинно, потому что сопоставляется первый символ.",
       "en": "Code point order is not alphabetical order: every uppercase ASCII letter sorts before every lowercase one, so 'Zoo' < 'apple' is True, and Cyrillic or accented letters form their own separate block. For human-friendly sorting pass a key such as key=str.lower or key=str.casefold. The other common slip is comparing numbers as text: '10' < '9' is True because only the first characters decide."
     },
     "syntax": "s1 == s2  |  s1 < s2  |  s1 > s2",

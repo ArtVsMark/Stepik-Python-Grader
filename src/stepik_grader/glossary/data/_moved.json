@@ -1,6 +1,7 @@
 {
   ".name-.value": "enum.Enum.name",
   ".stem-.suffix-.suffixes-.name-.parent-.p": "pathlib.PurePath.stem",
+  "__str__-__repr__": "repr-vs-str",
   "chainmap": "collections.chainmap",
   "copy-deepcopy-словаря": "dict.copy",
   "counter": "collections.counter",

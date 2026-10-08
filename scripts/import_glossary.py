@@ -127,6 +127,7 @@ _ASSERTIONS = frozenset(
         "pattern",
         "propertyNames",
         "$ref",
+        "allOf",
     }
 )
 
@@ -174,6 +175,10 @@ def _check(value: Any, schema: dict[str, Any], root: dict[str, Any], path: str) 
         )
     if "$ref" in schema:
         yield from _check(value, _resolve_ref(schema["$ref"], root), root, path)
+    # ``allOf`` — значение обязано пройти КАЖДУЮ подсхему; выгрузка формы 6.1
+    # описывает им раздел навигации («метка» плюс группа).
+    for sub in schema.get("allOf", []):
+        yield from _check(value, sub, root, path)
     if "type" in schema:
         names = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
         if not any(_type_ok(value, name) for name in names):
