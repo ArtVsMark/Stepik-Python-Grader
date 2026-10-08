@@ -170,7 +170,7 @@ def test_check_code_terms_panel_shows_exception_from_code(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.type('raise ValueError("bad")')
+    page.keyboard.insert_text('raise ValueError("bad")')
 
     page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
     titles = page.locator("#check-terms .term-card-title").all_inner_texts()
@@ -190,7 +190,7 @@ def test_check_code_terms_panel_shows_bare_name_reference(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.type("ok = isinstance(v, int)")
+    page.keyboard.insert_text("ok = isinstance(v, int)")
 
     page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
     titles = [t.lower() for t in page.locator("#check-terms .term-card-title").all_inner_texts()]
@@ -208,7 +208,7 @@ def test_check_code_terms_panel_and_mode_visibility(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.type("xs = sorted([3, 1, 2])")
+    page.keyboard.insert_text("xs = sorted([3, 1, 2])")
     page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
     titles = page.locator("#check-terms .term-card-title").all_inner_texts()
     assert any("sorted" in t.lower() for t in titles), titles
@@ -271,7 +271,7 @@ def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_
     # старому вместо замены. Набор чинился под Linux, и у контрибьютора на
     # macOS ломался по смыслу — «ControlOrMeta» разрешается платформой сам.
     page.keyboard.press("ControlOrMeta+A")
-    page.keyboard.type("print(int(input()) + 1)\n")  # correct code, in the editable window
+    page.keyboard.insert_text("print(int(input()) + 1)\n")  # correct code, in the editable window
 
     # issue #297: editing shows the unsaved-changes indicator.
     page.wait_for_selector("#editor-dirty:not([hidden])", timeout=_TIMEOUT_MS)
@@ -381,7 +381,7 @@ def test_sandbox_runs_code_with_stdin(page: Any, e2e_server: str, tmp_path: Path
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
 
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type("print(input().upper())")
+    page.keyboard.insert_text("print(input().upper())")
     page.fill("#sandbox-stdin", "hello")
     page.click("#sandbox-run")
 
@@ -406,7 +406,7 @@ def _type_sandbox_code(page: Any, code: str) -> None:
             page.keyboard.press("Home")
             page.keyboard.press("Shift+End")
             page.keyboard.press("Delete")
-        page.keyboard.type(line)
+        page.keyboard.insert_text(line)
 
 
 def _sandbox_var_value(page: Any, name: str) -> str | None:
@@ -527,7 +527,7 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
 
     # мини-карточка sorted появляется по мере ввода кода; клик открывает глоссарий
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type("xs = sorted([3, 1, 2])")
+    page.keyboard.insert_text("xs = sorted([3, 1, 2])")
     page.wait_for_selector("#sandbox-terms .term-card", timeout=_TIMEOUT_MS)
     titles = page.locator("#sandbox-terms .term-card-title").all_inner_texts()
     assert any("sorted" in t.lower() for t in titles), titles
@@ -542,7 +542,7 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
     page.click("#sandbox-editor .cm-content")
     page.keyboard.press("ControlOrMeta+a")
     page.keyboard.press("Delete")
-    page.keyboard.type("1 / 0")
+    page.keyboard.insert_text("1 / 0")
     page.click("#sandbox-run")
     page.wait_for_selector(".sandbox-errcard", timeout=_TIMEOUT_MS)
     assert "ZeroDivisionError" in page.locator(".sandbox-errcard").inner_text()
@@ -667,7 +667,7 @@ def test_english_localizes_dynamic_sandbox_output(
     page.click('[data-section="sandbox"]')
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type('print("hi")')
+    page.keyboard.insert_text('print("hi")')
     page.click("#sandbox-run")
 
     page.wait_for_selector("#sandbox-output pre.code-block", timeout=_TIMEOUT_MS)

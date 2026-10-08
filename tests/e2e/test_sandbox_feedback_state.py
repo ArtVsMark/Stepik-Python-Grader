@@ -61,7 +61,7 @@ def test_failed_cancel_returns_the_button(page: Any, e2e_server: str) -> None:
 
     _open_sandbox(page, e2e_server)
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type("print(1)")
+    page.keyboard.insert_text("print(1)")
     page.click("#sandbox-run")
 
     cancel = page.locator("#sandbox-cancel")

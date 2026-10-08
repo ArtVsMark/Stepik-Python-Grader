@@ -323,3 +323,43 @@ class TestKeyboardModifiersArePortable:
         assert any("ControlOrMeta" in path.read_text(encoding="utf-8") for path in sources), (
             "портируемого модификатора нет ни в одном файле — проверка смотрит не туда"
         )
+
+
+class TestCodeIsInsertedNotTyped:
+    """Код в e2e вводится одним событием, а не посимвольным набором.
+
+    Редактор — CodeMirror с автозакрытием скобок и кавычек. `keyboard.type`
+    шлёт символы по одному, и на загруженном раннере автозакрытие срабатывало
+    не так, как при живом наборе: `raise ValueError("bad")` превращался в
+    `raise ValueError("bad")")`. Такой код не разбирается, панель «Функции в
+    коде» получает пустой список, а трассировка — `invalid syntax`. В серии,
+    разобранной в issue #1582, джоб `e2e` краснел четыре попытки из пяти,
+    каждый раз на другом тесте. `keyboard.insert_text` вставляет строку целиком, и автозакрытию
+    срабатывать не на чем.
+    """
+
+    def test_no_char_by_char_typing_in_e2e_sources(self) -> None:
+        """Ни один e2e-файл не набирает текст через `keyboard.type(`."""
+        offenders: dict[str, list[str]] = {}
+        for path in sorted((pathlib.Path(e2e_conftest.__file__).parent).glob("*.py")):
+            found = [
+                f"строка {number}: {line.strip()}"
+                for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1)
+                if "keyboard.type(" in line
+            ]
+            if found:
+                offenders[path.name] = found
+
+        assert not offenders, (
+            "посимвольный набор в редактор искажается автозакрытием скобок на "
+            "медленном раннере (issue #1582). Используйте `keyboard.insert_text`:\n"
+            + "\n".join(f"  {name}: {'; '.join(lines)}" for name, lines in offenders.items())
+        )
+
+    def test_the_guard_reads_the_e2e_sources(self) -> None:
+        """Guard-the-guard: проверка смотрит туда, где код действительно вводят."""
+        sources = list((pathlib.Path(e2e_conftest.__file__).parent).glob("*.py"))
+
+        assert any(
+            "keyboard.insert_text(" in path.read_text(encoding="utf-8") for path in sources
+        ), "ни одного ввода кода в e2e-файлах — проверка смотрит не туда"

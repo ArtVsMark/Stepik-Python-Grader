@@ -150,7 +150,7 @@ def test_terms_panel_renders_concept_without_card(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.type("import cmath\ncmath.polar(1)")
+    page.keyboard.insert_text("import cmath\ncmath.polar(1)")
 
     # Приглушённая карточка без ссылки — та самая, на которой всё падало.
     expect(page.locator("#check-terms .term-card-nocard")).to_have_count(1, timeout=_TIMEOUT_MS)
@@ -184,7 +184,7 @@ def test_a_stale_terms_response_does_not_overwrite_a_fresh_one(page: Any, e2e_se
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
 
-    page.keyboard.type("import cmath\n")
+    page.keyboard.insert_text("import cmath\n")
     # Обработчик маршрута срабатывает только пока страница ждёт — поэтому ждём
     # короткими шагами, пока debounce не отправит первый запрос.
     for _ in range(_TIMEOUT_MS // 100):
@@ -193,7 +193,7 @@ def test_a_stale_terms_response_does_not_overwrite_a_fresh_one(page: Any, e2e_se
         page.wait_for_timeout(100)
     assert held, "первый запрос к /api/code-terms не ушёл"
 
-    page.keyboard.type("cmath.polar(1)")
+    page.keyboard.insert_text("cmath.polar(1)")
     nocard = page.locator("#check-terms .term-card-nocard")
     expect(nocard).to_have_count(1, timeout=_TIMEOUT_MS)
 
@@ -227,14 +227,14 @@ def test_a_stale_sandbox_terms_response_does_not_overwrite_a_fresh_one(
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#sandbox-editor .cm-content")
 
-    page.keyboard.type("import cmath\n")
+    page.keyboard.insert_text("import cmath\n")
     for _ in range(_TIMEOUT_MS // 100):
         if held:
             break
         page.wait_for_timeout(100)
     assert held, "первый запрос к /api/code-terms не ушёл"
 
-    page.keyboard.type("cmath.polar(1)")
+    page.keyboard.insert_text("cmath.polar(1)")
     nocard = page.locator("#sandbox-terms .term-card-nocard")
     expect(nocard).to_have_count(1, timeout=_TIMEOUT_MS)
 
