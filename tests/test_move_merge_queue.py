@@ -361,3 +361,25 @@ def test_red_main_says_the_queue_is_frozen(
 
     assert outcome.updated is None
     assert any("заморожена" in line for line in outcome.lines)
+
+
+def test_resolved_conflict_is_reached_and_unmarked(
+    mover: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Помеченный, но уже бесконфликтный PR мувер обновляет и метку снимает (#1545).
+
+    В ``ready`` очереди помеченного нет — головой он не называется, — поэтому
+    мувер обязан идти по ``candidates``: иначе метка стала бы вечной.
+    """
+    api = _wire(mover, monkeypatch, _FakeApi(ready=[], states={1528: "behind"}))
+    gh = mover.gh_rest
+    entry = gh.QueueEntry(number=1528, title="PR 1528", ready=True)
+    report = gh.QueueReport(
+        ready=(), waiting=(), main_busy=False, main_red=False, conflicted=(entry,)
+    )
+    monkeypatch.setattr(gh, "merge_queue", lambda *a, **k: report)
+
+    outcome = mover.move_queue("owner/repo", sleep=api.sleeps.append)
+
+    assert outcome.updated == 1528
+    assert api.unlabelled == [1528]

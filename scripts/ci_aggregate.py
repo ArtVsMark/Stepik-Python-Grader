@@ -59,7 +59,6 @@ __all__ = [
     "AGGREGATE_NAME",
     "CI_WORKFLOW",
     "DEADLINE_SECONDS",
-    "OK_CONCLUSIONS",
     "POLL_SECONDS",
     "expected_checks",
     "main",
@@ -74,15 +73,6 @@ CI_WORKFLOW = _ROOT / ".github" / "workflows" / "ci.yml"
 #: внешняя настройка, не должна меняться никогда — ни при переименовании джоба,
 #: ни при добавлении ОС в матрицу.
 AGGREGATE_NAME = "ci-complete"
-
-#: Исходы, которые слияние НЕ держат. Список закрытый и перечисляет только
-#: хорошее: всё остальное — отказ, потому что «не знаю» и «всё хорошо» разные
-#: вещи, а перечислять плохое означало бы пропускать неизвестное.
-#:
-#: ``skipped`` здесь намеренно: джоб может быть законно пропущен своим ``if:``,
-#: и требовать от него успеха значило бы краснеть на верном ответе.
-#: ``neutral`` — то же самое со стороны приложений.
-OK_CONCLUSIONS = frozenset({"success", "skipped", "neutral"})
 
 #: Сколько ждать. Матрица из трёх ОС идёт около десяти минут, ``e2e`` дольше;
 #: сорок пять минут — запас на очередь исполнителей, а не на зависший джоб.
@@ -135,7 +125,7 @@ def verdict(runs: list[dict[str, Any]], expected: set[str]) -> tuple[str, list[s
         f"{name}: {run.get('conclusion')}"
         for name, run in sorted(latest.items())
         if str(run.get("status")) == "completed"
-        and str(run.get("conclusion")) not in OK_CONCLUSIONS
+        and str(run.get("conclusion")) not in gh_rest.OK_CONCLUSIONS
     ]
     if failed:
         return "fail", ["обязательная проверка не прошла:", *(f"  - {line}" for line in failed)]
