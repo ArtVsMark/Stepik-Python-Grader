@@ -41,7 +41,7 @@ def read_build_info() -> dict[str, Any] | None:
     try:
         resource = importlib.resources.files(__package__ or "stepik_grader") / BUILD_INFO_NAME
         raw = resource.read_text(encoding="utf-8")
-    except (OSError, FileNotFoundError, ModuleNotFoundError, TypeError):
+    except OSError, FileNotFoundError, ModuleNotFoundError, TypeError:
         return None
     try:
         data = json.loads(raw)

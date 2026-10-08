@@ -172,7 +172,7 @@ def _beyond_double(number: str) -> bool:
         return True
     try:
         return not math.isfinite(float(number))
-    except (ValueError, OverflowError):  # pragma: no cover — regex даёт валидный синтаксис
+    except ValueError, OverflowError:  # pragma: no cover — regex даёт валидный синтаксис
         return True
 
 

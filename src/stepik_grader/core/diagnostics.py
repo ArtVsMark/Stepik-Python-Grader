@@ -216,7 +216,7 @@ def _redirect_endpoint(context: Context) -> tuple[str, int] | None:
     """Хост и порт из ``redirect_uri``; ``None`` — прочитать нечем."""
     try:
         _client_id, _secret, redirect_uri = oauth_flow.load_secrets(context.secrets_path)
-    except (OSError, ValueError, KeyError):
+    except OSError, ValueError, KeyError:
         return None
     parsed = urlparse(redirect_uri)
     if not parsed.hostname or not parsed.port:

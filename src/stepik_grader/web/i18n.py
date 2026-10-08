@@ -68,7 +68,7 @@ def render_message(message_id: str, lang: str = DEFAULT_LANG, **params: Any) -> 
         return template
     try:
         return template.format(**params)
-    except (KeyError, IndexError):
+    except KeyError, IndexError:
         return template
 
 

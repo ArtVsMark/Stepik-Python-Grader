@@ -401,7 +401,7 @@ def _ask(prompt_key: str, default: str = "") -> str:
         return default
     try:
         answer = input(_t(prompt_key)).strip()
-    except (EOFError, KeyboardInterrupt, OSError):
+    except EOFError, KeyboardInterrupt, OSError:
         print()
         return default
     return answer or default

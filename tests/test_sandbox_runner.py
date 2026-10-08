@@ -583,7 +583,7 @@ def _bwrap_netns_works() -> bool:
     argv += ["--unshare-net", "--unshare-user", "--", "/usr/bin/true"]
     try:
         return subprocess.run(argv, capture_output=True, timeout=15).returncode == 0
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return False
 
 

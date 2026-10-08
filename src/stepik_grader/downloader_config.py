@@ -185,7 +185,7 @@ def input_is_available() -> bool:
     """
     try:
         return bool(sys.stdin) and sys.stdin.isatty()
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return False
 
 
@@ -214,7 +214,7 @@ def load_or_create_config(
     _print(f"secrets_path: {config.get('secrets_path', '')}")
     try:
         change = input(f"{_t('dl_config_change_prompt')} [y/N]: ").strip().lower()
-    except (EOFError, OSError):
+    except EOFError, OSError:
         # Ввод пропал уже после проверки (терминал закрыли, поток отобрали).
         # Это не повод объявлять конфиг сломанным — работаем с тем, что есть.
         return config

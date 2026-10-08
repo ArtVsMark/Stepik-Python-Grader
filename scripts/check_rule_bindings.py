@@ -433,7 +433,7 @@ def export_contract(catalogue: Path) -> str | None:
     export = catalogue / "export" / "rules.json"
     try:
         data = json.loads(export.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return None
     contracts = data.get("contracts") if isinstance(data, dict) else None
     if not isinstance(contracts, dict):
@@ -679,7 +679,7 @@ def absence_claims(data: dict[str, Any], *, root: Path | None = None) -> list[st
                     continue
                 try:
                     text = path.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError):
+                except OSError, UnicodeDecodeError:
                     continue
                 if needle in text:
                     hits.append(path.relative_to(base).as_posix())
@@ -719,7 +719,7 @@ def unfinished_rule_work(
     else:
         try:
             unanswered = str(len(_export_ids(catalogue) - set(rules)))
-        except (FileNotFoundError, json.JSONDecodeError):
+        except FileNotFoundError, json.JSONDecodeError:
             unanswered = "не прочитано"
     return unanswered, str(unreviewed), str(unheld)
 

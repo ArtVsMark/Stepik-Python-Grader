@@ -65,7 +65,7 @@ def _load_navigation(path: pathlib.Path) -> tuple[dict[str, str], dict[str, str]
         groups = {name: str(entry["group"]) for name, entry in sections.items()}
         labels_en = {name: str(entry["en"]) for name, entry in sections.items()}
         order = tuple(str(group) for group in data["groups"])
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except OSError, ValueError, KeyError, TypeError, AttributeError:
         return {}, {}, ()
     return groups, labels_en, order
 

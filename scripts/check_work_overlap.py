@@ -79,7 +79,7 @@ def _git(*args: str) -> str:
             errors="replace",
             stderr=subprocess.DEVNULL,
         ).strip()
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return ""
 
 

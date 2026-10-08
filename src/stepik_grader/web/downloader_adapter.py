@@ -78,7 +78,7 @@ def read_config(workspace: pathlib.Path) -> dict[str, Any]:
     if configured:
         try:
             data = load_json_file(config_path)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             data = {}
         root_dir_value = str(data.get("root_dir") or root_dir_value)
         secrets_value = str(data.get("secrets_path") or secrets_value)
