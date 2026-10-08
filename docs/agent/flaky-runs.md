@@ -40,3 +40,4 @@
 | Прогон | Что мигнуло |
 |---|---|
 | [33001623776](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/runs/33001623776) · `main` 1127a82 · 26.08 | `test (windows-latest, 3.12, false)`. Тот же код на pull request прошёл **все** windows-джобы, включая 3.12; на `main` тот же коммит упал. Перезапустить из облачной сессии нечем (`actions` отвечает 403), а `AUTO_RERUN` держит только `claude-review` — значит перезапуск за владельцем. Лог недоступен по той же причине, поэтому имя упавшего теста здесь не названо: это цена запрета на запись в Actions, а не небрежность записи. |
+| [37700570576](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/runs/37700570576) · `main` c349387d · 08.10 | test_concurrent_creation_of_a_missing_queue_loses_nothing (ubuntu 3.14) и test_glossary_hit::test_hit_is_recorded (windows 3.12, timeout) — гонки конкурентной записи; влитая правка касалась только JS песочницы |

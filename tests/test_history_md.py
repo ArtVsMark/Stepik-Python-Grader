@@ -48,7 +48,7 @@ def test_every_tagged_release_has_an_entry(text: str) -> None:
     PR, что и запись, — это часть релизной процедуры, а не помеха ей.
     """
     documented = set(_RELEASE_HEADING.findall(text))
-    expected = {f"v1.{minor}.0" for minor in range(12)}
+    expected = {f"v1.{minor}.0" for minor in range(13)}
 
     assert documented == expected, f"нет записей: {sorted(expected - documented)}"
 
