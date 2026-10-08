@@ -1722,3 +1722,20 @@ class TestEditIssueCommand:
 
         assert code == module.EXIT_FAIL
         assert "стёрла бы чужую" in capsys.readouterr().err
+
+
+def test_green_conclusions_are_declared_once() -> None:
+    """Список зелёных исходов объявлен один раз — в транспорте (issue #1527).
+
+    Копии в гейте, агрегаторе и перезапуске, разойдясь на один элемент, дали бы
+    про один PR разные ответы «зелено ли», и никакой другой тест их между собой
+    не сравнивает.
+    """
+    scripts = pathlib.Path(__file__).parent.parent / "scripts"
+    declared = [
+        path.name
+        for path in sorted(scripts.glob("*.py"))
+        if '"success", "skipped", "neutral"' in path.read_text(encoding="utf-8")
+    ]
+
+    assert declared == ["gh_rest.py"]

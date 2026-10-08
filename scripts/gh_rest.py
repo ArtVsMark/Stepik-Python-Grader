@@ -108,6 +108,7 @@ __all__ = [
     "EXIT_WAIT",
     "FLAKE_LOG",
     "MAX_ATTEMPTS",
+    "OK_CONCLUSIONS",
     "Divergence",
     "GitHubError",
     "MissingToken",
@@ -178,8 +179,15 @@ EXIT_WAIT = 2
 # именно этому workflow — его и спрашиваем про занятость ветки.
 _CI_WORKFLOW = "ci.yml"
 
-# Пропущенный джоб — это условие в workflow, а не отказ.
-_OK_CONCLUSIONS = frozenset({"success", "skipped", "neutral"})
+#: Исходы, которые слияние НЕ держат (issue #1527) — единственное объявление
+#: на весь конвейер: гейт готовности, очередь, агрегатор и перезапуск красной
+#: базы спрашивают его отсюда. Копии, разойдясь на один элемент, дали бы про
+#: один PR разные ответы «зелено ли», и выглядело бы это случайным сбоем.
+#:
+#: Список закрытый и перечисляет только хорошее: всё остальное — отказ.
+#: ``skipped`` — джоб законно пропущен своим ``if:``; ``neutral`` — то же со
+#: стороны приложений.
+OK_CONCLUSIONS = frozenset({"success", "skipped", "neutral"})
 
 _API_VERSION = "2022-11-28"
 _TIMEOUT = 30
@@ -1136,7 +1144,7 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
     listed = [run for run in runs.get("workflow_runs", []) if isinstance(run, dict)]
     busy = any(run.get("status") != "completed" for run in listed)
     done = [run for run in listed if run.get("status") == "completed"]
-    red_main = bool(done) and done[0].get("conclusion") not in _OK_CONCLUSIONS
+    red_main = bool(done) and done[0].get("conclusion") not in OK_CONCLUSIONS
     ordered = queue_order(entries)
     if red_main:
         # issue #1326: красный `main` — не «пропусти вперёд», а «очередь
@@ -1862,7 +1870,7 @@ def summarize_checks(check_runs: dict[str, Any]) -> tuple[int, int, list[str]]:
     red = sorted(
         str(item.get("name", "?"))
         for item in runs
-        if item.get("status") == "completed" and item.get("conclusion") not in _OK_CONCLUSIONS
+        if item.get("status") == "completed" and item.get("conclusion") not in OK_CONCLUSIONS
     )
     return len(runs), completed, red
 

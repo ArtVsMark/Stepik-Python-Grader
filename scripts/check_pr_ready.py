@@ -109,10 +109,6 @@ _CI_WORKFLOW = "ci.yml"
 # то, что надо заменить именами из ci.yml головы PR.
 _MATRIX_PREFIX = "test ("
 
-# Заключения, которые не считаются провалом: пропущенный джоб — это условие в
-# workflow, а не отказ, и требовать от него `success` значит никогда не мержить.
-_OK_CONCLUSIONS = frozenset({"success", "skipped", "neutral"})
-
 Fetch = Callable[[str], Any]
 
 
@@ -244,7 +240,7 @@ def main_branch_blockers(main_runs: dict[str, Any]) -> list[str]:
     if not completed:
         return []
     newest = max(completed, key=_started)
-    if newest.get("conclusion") not in _OK_CONCLUSIONS:
+    if newest.get("conclusion") not in gh_rest.OK_CONCLUSIONS:
         return [
             f"последний прогон main красный (conclusion={newest.get('conclusion')}) — "
             "чинить его, а не копить поверх изменения"
@@ -517,7 +513,7 @@ def evaluate(
     failed_runs = [
         str(run.get("name", "workflow"))
         for run in runs
-        if run.get("status") == "completed" and run.get("conclusion") not in _OK_CONCLUSIONS
+        if run.get("status") == "completed" and run.get("conclusion") not in gh_rest.OK_CONCLUSIONS
     ]
     if failed_runs:
         reasons.append("красные прогоны: " + ", ".join(sorted(failed_runs)))
@@ -536,7 +532,7 @@ def evaluate(
     red = [
         str(run.get("name"))
         for run in listed
-        if run.get("status") == "completed" and run.get("conclusion") not in _OK_CONCLUSIONS
+        if run.get("status") == "completed" and run.get("conclusion") not in gh_rest.OK_CONCLUSIONS
     ]
     # issue #1532: экспериментальная ячейка матрицы слияние не держит — её и
     # площадка не требует. Прежде гейт отвечал «мержить нельзя» PR, который
@@ -594,7 +590,7 @@ def eternal_wait(pull: dict[str, Any], listed: list[dict[str, Any]]) -> str | No
         return None
     if any(run.get("status") != "completed" for run in listed):
         return None
-    if any(run.get("conclusion") not in _OK_CONCLUSIONS for run in listed):
+    if any(run.get("conclusion") not in gh_rest.OK_CONCLUSIONS for run in listed):
         return None
     return (
         "вечное ожидание: все проверки завершены и зелены, а слияние заблокировано — "
