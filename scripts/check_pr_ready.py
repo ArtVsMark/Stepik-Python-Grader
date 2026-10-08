@@ -15,7 +15,9 @@
    существует, и судить по ним нельзя.
 2. **Набор проверок сверяется с эталоном** — именами с последнего завершённого
    прогона на ``main``. Отсутствующее имя означает «джоб не создан», и это
-   ровно тот случай, который прошлую проверку обманул.
+   ровно тот случай, который прошлую проверку обманул. Имена ячеек матрицы
+   при этом берутся из ``ci.yml`` **головы PR** (issue #1591): PR, меняющий
+   матрицу, иначе ждал бы ячеек, которые сам и убрал.
 3. **Только REST.** ``gh pr view``/``gh pr checks`` ходят через GraphQL, и
    поллинг в цикле выжигает квоту 5000/час до нуля — посреди работы команды
    ``gh`` просто перестают отвечать. Интервал опроса — не чаще раза в 45-60 с.
@@ -54,6 +56,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import dataclasses
 import json
 import pathlib
@@ -70,6 +73,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import _require_python
 import check_attribution
+import ci_matrix
 import gh_rest
 
 __all__ = [
@@ -81,6 +85,7 @@ __all__ = [
     "default_fetch",
     "eternal_wait",
     "evaluate",
+    "head_matrix_names",
     "job_names",
     "latest_by_name",
     "main",
@@ -89,6 +94,7 @@ __all__ = [
     "pending_runs",
     "pull_labels",
     "queue_blockers",
+    "with_head_matrix",
     "workflows_running_on_pull_requests",
 ]
 
@@ -98,6 +104,10 @@ _REPO = gh_rest.DEFAULT_REPO
 # issue #1231: очередь, из-за которой прогоны main отменялись, принадлежит
 # именно этому workflow — его и спрашиваем про занятость ветки.
 _CI_WORKFLOW = "ci.yml"
+
+# issue #1591: начало имени матричной ячейки — по нему эталон с main отличает
+# то, что надо заменить именами из ci.yml головы PR.
+_MATRIX_PREFIX = "test ("
 
 # Заключения, которые не считаются провалом: пропущенный джоб — это условие в
 # workflow, а не отказ, и требовать от него `success` значит никогда не мержить.
@@ -619,14 +629,54 @@ def workflows_running_on_pull_requests(workflows_dir: pathlib.Path) -> set[str]:
     return names
 
 
-def _expected_names(fetch: Fetch, repo: str, workflows_dir: pathlib.Path) -> set[str]:
+def head_matrix_names(fetch: Fetch, repo: str, sha: str) -> list[str] | None:
+    """Имена матричных ячеек из ``ci.yml`` на коммите головы PR (issue #1591).
+
+    Один REST-запрос ``contents``. ``None`` — ответа нет или он не разобрался:
+    тогда эталон остаётся прежним, с ``main``, и гейт строже, а не слепее.
+    """
+    if not sha:
+        return None
+    try:
+        payload = fetch(f"repos/{repo}/contents/.github/workflows/{_CI_WORKFLOW}?ref={sha}")
+    except RuntimeError:
+        return None
+    if not isinstance(payload, dict) or payload.get("encoding") != "base64":
+        return None
+    try:
+        text = base64.b64decode(str(payload.get("content", ""))).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return ci_matrix.matrix_names(text) or None
+
+
+def with_head_matrix(main_names: set[str], head_names: list[str] | None) -> set[str]:
+    """Эталон с ``main``, где матричные ячейки заменены ячейками головы PR.
+
+    Случай 08.10 (issue #1591): PR сменил планку Python, все его проверки
+    зелёные, а гейт ждал ячеек ``main`` — тех самых, что PR убрал. Матрица
+    PR-а выводится из его же дерева, остальные джобы по-прежнему сверяются
+    с ``main``: их имена от правки матрицы не зависят.
+
+    ``head_names`` пуст или ``None`` — эталон не меняется.
+    """
+    if not head_names:
+        return set(main_names)
+    kept = {name for name in main_names if not name.startswith(_MATRIX_PREFIX)}
+    return kept | set(head_names)
+
+
+def _expected_names(
+    fetch: Fetch, repo: str, workflows_dir: pathlib.Path, head_sha: str = ""
+) -> set[str]:
     """Эталонный набор — джобы тех прогонов ``main``, что бывают и на PR.
 
     Эталон берётся из живого состояния, а не из константы в коде: список джобов
     меняется вместе с ``ci.yml``, а зашитое число устаревает молча. Прогоны,
     которые на PR не запускаются (у их workflow нет триггера ``pull_request``),
     из эталона исключаются — иначе недостающим числится то, чего быть и не
-    должно.
+    должно. Матричные ячейки берутся из ``ci.yml`` головы PR
+    (``with_head_matrix``), если она известна.
     """
     allowed = workflows_running_on_pull_requests(workflows_dir)
     try:
@@ -640,9 +690,9 @@ def _expected_names(fetch: Fetch, repo: str, workflows_dir: pathlib.Path) -> set
                 continue
             jobs = fetch(f"repos/{repo}/actions/runs/{run.get('id')}/jobs?per_page=100")
             names |= job_names(jobs)
-        return names
     except RuntimeError:
         return set()
+    return with_head_matrix(names, head_matrix_names(fetch, repo, head_sha))
 
 
 def _force_utf8_stdio() -> None:
@@ -726,7 +776,7 @@ def main(argv: list[str] | None = None, *, fetch: Fetch | None = None) -> int:
         print(f"Не удалось опросить GitHub: {exc}", file=sys.stderr)
         return 1
 
-    expected = _expected_names(call, args.repo, _ROOT / ".github" / "workflows")
+    expected = _expected_names(call, args.repo, _ROOT / ".github" / "workflows", sha)
     verdict = evaluate(
         pull,
         workflow_runs,

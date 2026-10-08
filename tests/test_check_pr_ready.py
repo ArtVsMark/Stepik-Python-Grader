@@ -7,6 +7,7 @@
 джобами.
 """
 
+import base64
 import importlib.util
 import pathlib
 import sys
@@ -882,3 +883,128 @@ def test_the_verdict_names_eternal_wait_separately(module: ModuleType) -> None:
     )
 
     assert any("вечное ожидание" in reason for reason in verdict.reasons)
+
+
+# --- issue #1591: матрица эталона — из ci.yml головы PR -----------------------
+
+_MAIN_NAMES = {
+    "static",
+    "test (ubuntu-latest, 3.12, false)",
+    "test (ubuntu-latest, 3.15, true)",
+}
+
+_HEAD_CI = (
+    "name: CI\non:\n  pull_request:\n    branches: [main]\n"
+    "jobs:\n  test:\n    strategy:\n      fail-fast: false\n"
+    "      matrix:\n"
+    '        os: ["ubuntu-latest", "windows-latest"]\n'
+    '        python-version: ["3.14"]\n'
+    "    runs-on: ${{ matrix.os }}\n"
+)
+
+
+def _contents(text: str) -> dict[str, Any]:
+    """Ответ REST ``contents`` для файла с таким содержимым."""
+    return {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}
+
+
+class TestExpectedFollowsHeadMatrix:
+    """PR, меняющий матрицу, сверяется со своей матрицей, а не с матрицей main."""
+
+    def test_matrix_cells_are_replaced_by_the_head(self, module: ModuleType) -> None:
+        """Ячейки main уходят, приходят ячейки головы; прочие джобы остаются."""
+        head = ["test (ubuntu-latest, 3.14)", "test (windows-latest, 3.14)"]
+
+        assert module.with_head_matrix(_MAIN_NAMES, head) == {"static", *head}
+
+    def test_unknown_head_matrix_keeps_main(self, module: ModuleType) -> None:
+        """Матрицу головы прочесть не удалось — эталон прежний, гейт не слепнет."""
+        assert module.with_head_matrix(_MAIN_NAMES, None) == _MAIN_NAMES
+        assert module.with_head_matrix(_MAIN_NAMES, []) == _MAIN_NAMES
+
+    def test_narrowed_matrix_with_green_cells_is_ready(self, module: ModuleType) -> None:
+        """Случай 08.10: PR убрал ячейки 3.12/3.15 — и не ждёт их."""
+        head = ["test (ubuntu-latest, 3.14)", "test (windows-latest, 3.14)"]
+        expected = module.with_head_matrix(_MAIN_NAMES, head)
+        checks = _checks(
+            ("static", "completed", "success"), *((n, "completed", "success") for n in head)
+        )
+
+        verdict = module.evaluate(_pull(), _runs(("completed", "success")), checks, expected)
+
+        assert verdict.ready, verdict.reasons
+
+    def test_missing_head_cell_still_blocks(self, module: ModuleType) -> None:
+        """Ячейка головы не создана — «не готов», как и раньше."""
+        head = ["test (ubuntu-latest, 3.14)", "test (windows-latest, 3.14)"]
+        expected = module.with_head_matrix(_MAIN_NAMES, head)
+        checks = _checks(
+            ("static", "completed", "success"),
+            ("test (ubuntu-latest, 3.14)", "completed", "success"),
+        )
+
+        verdict = module.evaluate(_pull(), _runs(("completed", "success")), checks, expected)
+
+        assert not verdict.ready
+        assert verdict.missing == ["test (windows-latest, 3.14)"]
+
+    def test_head_matrix_is_read_at_the_head_commit(self, module: ModuleType) -> None:
+        """Файл берётся одним запросом ``contents`` именно на коммите головы."""
+        asked: list[str] = []
+
+        def fetch(path: str) -> Any:
+            asked.append(path)
+            return _contents(_HEAD_CI)
+
+        names = module.head_matrix_names(fetch, "o/r", "cafe")
+
+        assert names == ["test (ubuntu-latest, 3.14)", "test (windows-latest, 3.14)"]
+        assert asked == ["repos/o/r/contents/.github/workflows/ci.yml?ref=cafe"]
+
+    @pytest.mark.parametrize(
+        "answer",
+        [
+            RuntimeError("нет сети"),
+            {"message": "Not Found"},
+            {"encoding": "base64", "content": "!!"},
+        ],
+    )
+    def test_unreadable_head_gives_none(self, module: ModuleType, answer: Any) -> None:
+        """Сбой, чужой ответ или битое содержимое — ``None``, а не исключение."""
+
+        def fetch(path: str) -> Any:
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+        assert module.head_matrix_names(fetch, "o/r", "cafe") is None
+
+    def test_no_sha_asks_nothing(self, module: ModuleType) -> None:
+        """Без SHA головы запроса нет вовсе."""
+
+        def fetch(path: str) -> Any:
+            raise AssertionError(path)
+
+        assert module.head_matrix_names(fetch, "o/r", "") is None
+
+    def test_expected_set_end_to_end(self, module: ModuleType, tmp_path: pathlib.Path) -> None:
+        """Полный путь сборки эталона: джобы main плюс матрица головы."""
+        (tmp_path / "ci.yml").write_text(_HEAD_CI, encoding="utf-8")
+        answers: dict[str, Any] = {
+            "repos/o/r/commits/main": {"sha": "m1"},
+            "repos/o/r/actions/runs?head_sha=m1&per_page=100": {
+                "workflow_runs": [{"id": 7, "name": "CI"}]
+            },
+            "repos/o/r/actions/runs/7/jobs?per_page=100": {
+                "jobs": [{"name": name} for name in sorted(_MAIN_NAMES)]
+            },
+            "repos/o/r/contents/.github/workflows/ci.yml?ref=h1": _contents(_HEAD_CI),
+        }
+
+        expected = module._expected_names(answers.__getitem__, "o/r", tmp_path, "h1")
+
+        assert expected == {
+            "static",
+            "test (ubuntu-latest, 3.14)",
+            "test (windows-latest, 3.14)",
+        }
