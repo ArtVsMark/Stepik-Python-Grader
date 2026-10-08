@@ -336,6 +336,73 @@ class TestNavigation:
         assert taxonomy._load_navigation(broken) == ({}, {}, ())
 
 
+class TestDrift:
+    """Сторож дрейфа: закрепление против последнего выпуска — исход каждого случая."""
+
+    def test_the_latest_pinned_is_clean(self, importer: ModuleType) -> None:
+        def never(tag: str) -> Any:
+            raise AssertionError("при совпадении выгрузка не нужна")
+
+        code, text = importer.drift_report("v1.4.0", "v1.4.0", never)
+
+        assert code == 0
+        assert "Закреплён последний выпуск" in text
+
+    def test_a_newer_release_the_import_accepts_names_the_command(
+        self, importer: ModuleType
+    ) -> None:
+        code, text = importer.drift_report(
+            "v1.4.0", "v1.5.0", lambda tag: (_delivery(form="6.1"), _SCHEMA)
+        )
+
+        assert code == importer.EXIT_CHECK_FAILED
+        assert "python scripts/import_glossary.py --release v1.5.0" in text
+
+    def test_a_newer_release_the_import_refuses_names_the_reasons(
+        self, importer: ModuleType
+    ) -> None:
+        """Отказ импорта — находка заранее, а не поломка сторожа."""
+        code, text = importer.drift_report(
+            "v1.4.0", "v2.0.0", lambda tag: (_delivery(form="7.0"), _SCHEMA)
+        )
+
+        assert code == importer.EXIT_CHECK_FAILED
+        assert "отвергает" in text and "v6 → v7.0" in text
+
+    def test_an_unreachable_source_is_not_a_clean_answer(
+        self, importer: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """«Не узнали» — код поломки, а не «нового нет»."""
+        (tmp_path / importer.SOURCE_FILE_NAME).write_text(
+            json.dumps({"release": "v1.4.0"}), encoding="utf-8"
+        )
+
+        def offline() -> str:
+            raise OSError("сети нет")
+
+        monkeypatch.setattr(importer, "latest_release", offline)
+
+        assert importer.main(["--drift", "--data-dir", str(tmp_path)]) == importer.EXIT_FETCH_FAILED
+
+    def test_without_a_pin_there_is_nothing_to_compare(
+        self, importer: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        assert importer.main(["--drift", "--data-dir", str(tmp_path)]) == importer.EXIT_FETCH_FAILED
+
+    def test_the_nightly_walk_runs_the_drift_guard(self) -> None:
+        """Сторож без запуска — текст: ночной обход обязан его звать."""
+        spec = importlib.util.spec_from_file_location(
+            "_nightly_checks", _SCRIPT.parent / "nightly_checks.py"
+        )
+        assert spec is not None and spec.loader is not None
+        nightly = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(nightly)
+
+        assert any(
+            check.argv == ["scripts/import_glossary.py", "--drift"] for check in nightly.CHECKS
+        )
+
+
 class TestRedirectsInTheProvider:
     def test_a_redirect_to_a_missing_card_is_an_error(self, tmp_path: pathlib.Path) -> None:
         """Обещание издателя «новый id существует» проверяется и здесь."""
