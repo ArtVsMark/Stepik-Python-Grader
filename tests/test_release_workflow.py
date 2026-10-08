@@ -76,3 +76,35 @@ def test_tag_outside_main_does_not_publish() -> None:
     text = _noncomment_text()
     assert "git merge-base --is-ancestor" in text
     assert "origin/main" in text
+
+
+def _job(name: str) -> str:
+    """Текст одного job'а release.yml: от его заголовка до следующего job'а."""
+    lines = _noncomment_text().splitlines()
+    start = lines.index(f"  {name}:")
+    end = next(
+        (
+            i
+            for i in range(start + 1, len(lines))
+            if lines[i].startswith("  ")
+            and not lines[i].startswith("   ")
+            and lines[i].rstrip().endswith(":")
+        ),
+        len(lines),
+    )
+    return "\n".join(lines[start:end])
+
+
+def test_verify_writes_nothing_into_the_tree_before_tests() -> None:
+    """`verify` не кладёт файлы в дерево репозитория: следом идёт `pytest`.
+
+    Гейт документации внутри набора читает каждый `.md` дерева как поясняющий
+    документ. `release-notes.md`, записанный в корень, — журнал работ с
+    номерами задач, и выпуск v1.12.0 упал на нём дважды; на PR и на `main`
+    этого файла нет, поэтому падение было видно только на теге.
+    """
+    verify = _job("verify")
+    outs = [line.strip() for line in verify.splitlines() if "--out " in line]
+
+    assert outs, "в verify нет извлечения заметок — проверка смотрит не туда"
+    assert all("$RUNNER_TEMP/" in line for line in outs), outs

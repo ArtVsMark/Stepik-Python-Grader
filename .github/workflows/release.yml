@@ -73,8 +73,14 @@ jobs:
       - name: Documentation guardrails (CHANGELOG rotation budget)
         run: python scripts/check_docs_guardrails.py
 
+      # Заметки пишутся в $RUNNER_TEMP, а не в дерево: следом идёт `pytest`, и
+      # `test_check_docs_guardrails` читает КАЖДЫЙ .md репозитория как
+      # поясняющий документ. Заметки — журнал работ с номерами задач, и выпуск
+      # v1.12.0 упал здесь дважды: на PR и на `main` этого файла нет, поэтому
+      # падение видно только на теге. `github-release` извлекает заметки
+      # заново в своём джобе — тестов там нет, и дерево ему не помеха.
       - name: Release notes for this tag exist (issue #834)
-        run: python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --out release-notes.md
+        run: python scripts/extract_release_notes.py "${GITHUB_REF_NAME}" --out "$RUNNER_TEMP/release-notes.md"
 
       # issue #1290: английский вклад принимается как есть, а русские артефакты
       # создаёт мержащий — значит, появился способ ошибиться: запись `changelog.d`
@@ -85,7 +91,7 @@ jobs:
       # неперезаписываема, и замеченное после публикации правится только
       # следующим релизом.
       - name: Release notes are translated (issue #1290)
-        run: python scripts/check_changelog_translated.py --strict release-notes.md
+        run: python scripts/check_changelog_translated.py --strict "$RUNNER_TEMP/release-notes.md"
 
       # issue #294: тот же per-OS coverage-конфиг, что и в матрице CI — иначе
       # sandbox-backend'ы двух других ОС считаются непокрытыми и гейт покрытия
