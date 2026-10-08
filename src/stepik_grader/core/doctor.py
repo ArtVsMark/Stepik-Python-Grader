@@ -16,8 +16,6 @@
 неверными учётными данными (находка ``JRN-3A-04``).
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 from typing import Any

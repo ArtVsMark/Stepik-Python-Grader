@@ -39,8 +39,6 @@
     python scripts/check_good_first_issues_bilingual.py [--repo OWNER/NAME]
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import os

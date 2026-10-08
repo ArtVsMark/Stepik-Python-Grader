@@ -11,8 +11,6 @@
 решения (core/grader_core.py). Извлечён из grader_core.py (Issue #45 A-01).
 """
 
-from __future__ import annotations
-
 import ast
 import pathlib
 from collections.abc import Iterable

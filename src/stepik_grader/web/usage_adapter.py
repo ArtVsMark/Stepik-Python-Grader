@@ -9,8 +9,6 @@
 ``core/usage_export.py``, а тут — перевод результата в форму ответа API.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from stepik_grader.core.usage_export import USAGE_SCHEMA, collect_events

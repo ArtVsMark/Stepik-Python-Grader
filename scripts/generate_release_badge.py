@@ -29,8 +29,6 @@
     python scripts/generate_release_badge.py [--out PATH] [--offline]
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import importlib.util

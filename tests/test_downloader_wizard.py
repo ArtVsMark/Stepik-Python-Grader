@@ -6,8 +6,6 @@ secrets.json через save_secrets, 0600) и точку входа в normaliz
 Плюс регресс на баг рекурсии _print (fallback без rich).
 """
 
-from __future__ import annotations
-
 import json
 import os
 import stat

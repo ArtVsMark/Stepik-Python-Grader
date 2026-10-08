@@ -5,8 +5,6 @@
 реальных HTTP-запросов и обращений к файловой системе вне tmp_path нет.
 """
 
-from __future__ import annotations
-
 import http.client
 import pathlib
 import socket

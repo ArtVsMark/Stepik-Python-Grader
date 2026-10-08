@@ -26,8 +26,6 @@ Best-effort по всему модулю (тот же принцип, что ``G
 диск — никогда не должны ронять грейдинг, только тихо пропустить запись.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import os

@@ -40,8 +40,6 @@ Node — детерминированно и кроссплатформенно.
     python scripts/check_web_imports.py     # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import contextlib
 import re
 import sys

@@ -25,8 +25,6 @@ privileged-контейнера ТИХО скипало весь cross-OS gate 9
         --require macos-latest --require sandbox-linux
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import os

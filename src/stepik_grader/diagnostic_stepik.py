@@ -11,8 +11,6 @@ OAuth делегируется в oauth_flow (фасад поверх stepik_cli
     python -m stepik_grader.diagnostic_stepik
 """
 
-from __future__ import annotations
-
 import argparse
 import html
 import json

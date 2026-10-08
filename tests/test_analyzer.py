@@ -5,8 +5,6 @@
     - is_solution_file           — валидатор имён файлов-решений
 """
 
-from __future__ import annotations
-
 import pathlib
 import textwrap
 

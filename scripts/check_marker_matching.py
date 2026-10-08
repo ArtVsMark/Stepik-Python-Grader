@@ -22,8 +22,6 @@
     python scripts/check_marker_matching.py
 """
 
-from __future__ import annotations
-
 import ast
 import contextlib
 import pathlib

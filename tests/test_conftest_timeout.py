@@ -13,8 +13,6 @@
 докстринге `tests/test_launch_timeout_override.py`.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

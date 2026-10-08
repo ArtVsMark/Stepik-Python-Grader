@@ -11,8 +11,6 @@
 артефакта, и подмена этого слоя проверяла бы что угодно, кроме него.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

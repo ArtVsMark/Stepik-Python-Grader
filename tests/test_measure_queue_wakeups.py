@@ -8,8 +8,6 @@
 42 — впятеро реже, интервалы от 55 минут до 13 часов 22 минут.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

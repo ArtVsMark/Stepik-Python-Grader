@@ -16,8 +16,6 @@ helper for aggregating/ranking per-file timings; those are covered below and in
 tests/test_microbench.py.
 """
 
-from __future__ import annotations
-
 import pathlib
 import stat
 import sys

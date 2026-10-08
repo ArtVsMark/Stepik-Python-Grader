@@ -10,8 +10,6 @@
 через сервер держит `tests/test_web.py`.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 from typing import Any

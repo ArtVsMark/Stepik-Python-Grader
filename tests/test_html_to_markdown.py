@@ -11,8 +11,6 @@
 нет намеренно — два гейта на один инвариант расходятся.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.core.html_to_markdown import html_to_markdown

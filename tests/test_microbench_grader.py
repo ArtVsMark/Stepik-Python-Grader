@@ -12,8 +12,6 @@ print like "10" gets parsed as a bogus timing). microbench_runner.py — now
 imported by grader.py via run_microbench — does NOT have this fix.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader import grader

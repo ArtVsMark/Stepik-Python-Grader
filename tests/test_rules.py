@@ -1,7 +1,5 @@
 """Тесты пакета rules/ — карточки правил PEP 8 (issue #345, эпик #342)."""
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 

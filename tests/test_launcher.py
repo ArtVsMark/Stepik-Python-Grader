@@ -8,8 +8,6 @@ GUI-free ядро (``build_server_command``/``port_available``/``ServerControlle
 (в CI без дисплея тесты помечаются skip, как ``_pick_path_via_dialog``).
 """
 
-from __future__ import annotations
-
 import contextlib
 import socket
 import subprocess

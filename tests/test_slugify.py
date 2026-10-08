@@ -1,7 +1,5 @@
 """Unit tests for downloader.slugify."""
 
-from __future__ import annotations
-
 from stepik_grader.downloader import slugify
 
 

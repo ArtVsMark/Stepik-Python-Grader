@@ -6,8 +6,6 @@
 решении, во второй — остановившийся CLI.
 """
 
-from __future__ import annotations
-
 import textwrap
 import time
 from pathlib import Path

@@ -32,8 +32,6 @@
 затёртая чужая работа дороже любого удобства.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 __all__ = [

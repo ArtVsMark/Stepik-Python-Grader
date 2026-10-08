@@ -7,8 +7,6 @@ JSON (чтение + in-place миграция + импорт ``.json``-сосе
 конкурентная межпроцессная дозапись ничего не теряет.
 """
 
-from __future__ import annotations
-
 import json
 import sqlite3
 import subprocess

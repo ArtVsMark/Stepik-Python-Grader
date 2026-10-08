@@ -40,8 +40,6 @@ Glossary-Python#76); здесь — копия, которую не правят
 (форма, схема, перенаправления, чтение с потерями).
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

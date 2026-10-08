@@ -5,8 +5,6 @@
 умолчанию файл не создаётся), уровни и активация через env.
 """
 
-from __future__ import annotations
-
 import logging
 import pathlib
 import sys

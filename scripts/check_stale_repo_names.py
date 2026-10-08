@@ -35,8 +35,6 @@
     python scripts/check_stale_repo_names.py --owner ArtVsMark
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib

@@ -13,8 +13,6 @@ bad/good примеры), а преждевременная абстракция
 похожих моделей. Симметричные ``from_dict``/``to_dict`` — как у ``GlossaryCard``.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any, Literal
 

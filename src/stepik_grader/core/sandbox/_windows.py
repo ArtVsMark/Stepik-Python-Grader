@@ -49,8 +49,6 @@ process-count нарушения, см. докстринг ``RunOutcome.sandbox_
   блокируются. Задокументировано как явный пробел, не пропущено молча.
 """
 
-from __future__ import annotations
-
 import contextlib
 import ctypes
 import os

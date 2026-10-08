@@ -11,8 +11,6 @@ heredoc» (правило 013) и «не пушь в чужую ветку» (п
 ПРИМЕРОМ внутри тела другого heredoc, — это данные, а не команда оболочки.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

@@ -9,8 +9,6 @@
 осознанное решение, которое должно править и тест, а не проходить молча.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

@@ -49,8 +49,6 @@
     python scripts/check_rule_bindings.py --catalogue <клон> --sync  # обновить
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

@@ -21,8 +21,6 @@
 `cli.X` в тестах — импортируется напрямую из `core.*`, без контекста.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib

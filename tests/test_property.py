@@ -14,8 +14,6 @@
 функциональный, без бюджета латентности.
 """
 
-from __future__ import annotations
-
 import re
 
 import pytest

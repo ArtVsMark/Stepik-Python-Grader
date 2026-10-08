@@ -10,8 +10,6 @@
 вовсе; недоступная выгрузка — третий исход, а не «всё в порядке».
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import sys

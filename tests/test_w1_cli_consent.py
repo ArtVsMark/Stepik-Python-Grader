@@ -6,8 +6,6 @@ Web-путь гейтит это с issue #543 (``403 consent_required``), CLI �
 согласие действует для обоих путей.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

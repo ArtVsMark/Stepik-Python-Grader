@@ -6,8 +6,6 @@ Guard-the-guard: на реальном репозитории проверка �
 ``test_check_web_imports.py``.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import subprocess
 import sys

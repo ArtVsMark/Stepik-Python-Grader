@@ -28,8 +28,6 @@
 `_resolve_cli_path_or_error` обязаны читать через `ctx.pick_path_via_dialog`.
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib

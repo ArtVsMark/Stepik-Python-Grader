@@ -15,8 +15,6 @@
 четыре теста две недели были зелёными на неработающем механизме.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

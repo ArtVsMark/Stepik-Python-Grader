@@ -13,8 +13,6 @@
 он и есть результат импорта закреплённого выпуска.
 """
 
-from __future__ import annotations
-
 import copy
 import importlib.util
 import json

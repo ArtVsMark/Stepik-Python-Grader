@@ -1,7 +1,5 @@
 """Тесты для storage.py — чтение и запись JSON-файлов."""
 
-from __future__ import annotations
-
 import json
 import pathlib
 import stat

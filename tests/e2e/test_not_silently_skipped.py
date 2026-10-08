@@ -22,8 +22,6 @@ Guard включается переменной ``STEPIK_REQUIRE_E2E_TESTS=1`` �
 пропускало и сами эти guard'ы (`QA-2-03`).
 """
 
-from __future__ import annotations
-
 import os
 from typing import Any
 

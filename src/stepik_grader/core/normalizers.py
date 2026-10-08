@@ -11,8 +11,6 @@ grader_core.py (нет UI-опции "сравнивать вывод без у�
 такой опции (Issue #21 finding, Sprint 6.2).
 """
 
-from __future__ import annotations
-
 import math
 import re
 from decimal import Decimal, InvalidOperation

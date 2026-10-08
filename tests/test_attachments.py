@@ -8,8 +8,6 @@
 Сеть мокается целиком: тесты обязаны работать без токена и без Stepik.
 """
 
-from __future__ import annotations
-
 import pathlib
 from unittest.mock import MagicMock, patch
 

@@ -7,8 +7,6 @@ test_step_content.py / test_downloader_config.py / test_test_source_fetcher.py.
 Сеть и пользовательский ввод замоканы; файловый I/O направлен в tmp_path.
 """
 
-from __future__ import annotations
-
 import pathlib
 from unittest.mock import MagicMock, patch
 

@@ -31,8 +31,6 @@
     python scripts/check_raw_values.py
 """
 
-from __future__ import annotations
-
 import ast
 import contextlib
 import pathlib

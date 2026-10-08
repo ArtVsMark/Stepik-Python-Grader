@@ -33,8 +33,6 @@ merge-коммиту, которого нет.
 который при релизе переименовывается в ``[X.Y.0] - ДАТА``, как и прежде.
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib

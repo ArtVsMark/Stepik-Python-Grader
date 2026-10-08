@@ -15,8 +15,6 @@ job'е с браузером. Значит его сторожа — код, к�
   ровно те тесты, которые заведены на этот случай.
 """
 
-from __future__ import annotations
-
 import ast
 import inspect
 import pathlib

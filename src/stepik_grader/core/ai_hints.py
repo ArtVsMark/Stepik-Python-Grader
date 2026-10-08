@@ -28,8 +28,6 @@
   а тот, кому код важнее подсказки, выключает его одной строкой конфига.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import re

@@ -6,8 +6,6 @@
 правила, ничего не сказав потребителю.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import pathlib

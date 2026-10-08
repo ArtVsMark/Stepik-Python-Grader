@@ -17,8 +17,6 @@ grader.py», и это был единственный инвариант кон
 этом абзаце было, механизма под ним не было.
 """
 
-from __future__ import annotations
-
 import types
 
 import pytest

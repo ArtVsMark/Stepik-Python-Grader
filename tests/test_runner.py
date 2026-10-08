@@ -9,8 +9,6 @@ Two halves:
   a temp directory, stdout/stderr capture, and launch failure (OSError).
 """
 
-from __future__ import annotations
-
 import contextlib
 import os
 import pathlib

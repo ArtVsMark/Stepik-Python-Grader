@@ -37,8 +37,6 @@ argv внешних утилит, где системные пути неизб�
     python scripts/check_test_isolation.py     # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import ast
 import re
 import sys

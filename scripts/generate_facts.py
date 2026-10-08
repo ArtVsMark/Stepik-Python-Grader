@@ -35,8 +35,6 @@
     python scripts/generate_facts.py --out .github/badges/facts.json
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import datetime as _datetime

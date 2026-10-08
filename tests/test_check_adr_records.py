@@ -6,8 +6,6 @@
 менять решение, который сам же и советует.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import pathlib

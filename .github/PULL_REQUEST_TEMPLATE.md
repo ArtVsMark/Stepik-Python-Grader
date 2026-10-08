@@ -27,8 +27,8 @@ Closes #
 - [ ] `pytest tests/ -x -q` — зелёные
 - [ ] `ruff check .` и `ruff format --check .` — чисто
 - [ ] `mypy src/stepik_grader scripts` — чисто
-- [ ] Новые функции: type hints + docstring; новые модули: `__all__` и
-      `from __future__ import annotations`
+- [ ] Новые функции: type hints + docstring; новые модули: `__all__`
+      (без `from __future__ import annotations` — с планки 3.14 он лишний)
 - [ ] Версия не правится вручную (динамическая, `setuptools-scm`)
 - [ ] Запись о изменении добавлена файлом `changelog.d/<slug>.<секция>.md` — в КАЖДОМ PR, без исключений для рефакторингов (формат — `changelog.d/README.md`)
 - [ ] HISTORY.md — НЕ на каждый PR, только при релизе

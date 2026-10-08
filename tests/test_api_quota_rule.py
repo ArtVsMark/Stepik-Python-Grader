@@ -10,8 +10,6 @@
 окно-наблюдатель. Переписать текст можно — потерять пункт нельзя.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

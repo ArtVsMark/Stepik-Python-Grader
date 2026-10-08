@@ -17,8 +17,6 @@
 позволил дефектам дожить до пользователя.
 """
 
-from __future__ import annotations
-
 import pathlib
 import sys
 

@@ -16,8 +16,6 @@ git-подпроцесс подвисает на десятки секунд, is
 вызывающая сторона просто не показывает строку версии.
 """
 
-from __future__ import annotations
-
 import importlib.resources
 import json
 from typing import Any

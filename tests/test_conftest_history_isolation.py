@@ -15,8 +15,6 @@ pytest сохраняет; запуск одного лишь ``test_...report``
 пройдёт — ложно-зелёный здесь безопаснее ложно-красного.
 """
 
-from __future__ import annotations
-
 import threading
 import time
 

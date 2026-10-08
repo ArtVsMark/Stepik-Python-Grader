@@ -9,8 +9,6 @@ Referer-guard (#242/#399/#631), конфайнмент путей в ``workspace
 сам миксин как HTTP-хендлер не регистрируется.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib

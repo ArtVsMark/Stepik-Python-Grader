@@ -31,8 +31,6 @@ CONFIG``) продолжает работать без изменений: `from
 условий прогона (issue #984).
 """
 
-from __future__ import annotations
-
 import codecs
 import dataclasses
 import os

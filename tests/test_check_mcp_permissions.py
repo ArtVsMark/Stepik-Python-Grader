@@ -9,8 +9,6 @@
 том самом дефекте, ради которого написан, — это повторение issue #1280.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

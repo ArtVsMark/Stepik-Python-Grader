@@ -7,8 +7,6 @@
     - collect_grouped_files            — группировка файлов по задачам
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader.grader import (

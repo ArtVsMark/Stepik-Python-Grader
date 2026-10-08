@@ -5,8 +5,6 @@ Guard-the-guard: на реальном репозитории зелёный, а
 — грузим по пути, тем же приёмом, что `test_check_web_imports.py`.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import subprocess
 import sys

@@ -11,8 +11,6 @@
 viewmodels, бизнес-логики не добавляет (docs/dev/architecture.md, ADR-0010).
 """
 
-from __future__ import annotations
-
 import contextlib
 import pathlib
 

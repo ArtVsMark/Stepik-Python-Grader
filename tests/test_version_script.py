@@ -13,8 +13,6 @@
 git обходит граф, и любой мок этот обход подменял — то есть маскировал дефект.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import re

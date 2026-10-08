@@ -13,8 +13,6 @@
 сломанном входе: нет отчёта, битый JSON, чужая структура.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import re

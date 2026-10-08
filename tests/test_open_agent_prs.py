@@ -8,8 +8,6 @@ Guard-the-guard: сеть не трогается вовсе. Проверяют
 что ``test_check_docs_guardrails.py``.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 from pathlib import Path

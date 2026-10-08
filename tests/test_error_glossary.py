@@ -6,8 +6,6 @@
 CLI (reporter) и web (viewmodels) показывают одну и ту же карточку.
 """
 
-from __future__ import annotations
-
 from dataclasses import fields
 
 from stepik_grader.core import error_glossary

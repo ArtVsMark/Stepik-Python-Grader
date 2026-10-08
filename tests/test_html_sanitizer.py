@@ -7,8 +7,6 @@
 Модуль ``core/html_sanitizer.py`` — leaf на stdlib, зовётся напрямую.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.core.html_sanitizer import sanitize_statement_html as clean

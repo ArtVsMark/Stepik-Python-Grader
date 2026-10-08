@@ -9,8 +9,6 @@ subprocess'ы, а не импортируют cli напрямую — тот ж
 использует tests/test_version_script.py.
 """
 
-from __future__ import annotations
-
 import shutil
 import subprocess
 import sys

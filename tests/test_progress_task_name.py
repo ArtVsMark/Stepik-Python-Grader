@@ -13,8 +13,6 @@
 разных курсов снова становятся неразличимы — ровно то, от чего спасал #990.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader.core import history, progress_export

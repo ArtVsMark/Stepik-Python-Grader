@@ -113,6 +113,12 @@ repos:
         pass_filenames: false
         files: '^src/stepik_grader/.*\.py$'
 
+      - id: check-py-style
+        name: код написан на версии планки
+        entry: python scripts/check_py_style.py
+        language: system
+        pass_filenames: false
+        files: '(\.py|^pyproject\.toml)$'
       - id: check-mcp-permissions
         name: запрет MCP держится формой, а не именами
         entry: python scripts/check_mcp_permissions.py

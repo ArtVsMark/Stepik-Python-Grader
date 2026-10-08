@@ -8,8 +8,6 @@
 полный каталог включает `timeout`, который честно ждёт таймаут на каждом кейсе.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

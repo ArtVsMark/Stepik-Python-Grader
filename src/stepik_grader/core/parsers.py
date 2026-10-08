@@ -8,8 +8,6 @@
   - downloader.py — для подсчёта числа тест-кейсов в скачанных input.txt
 """
 
-from __future__ import annotations
-
 import re
 import warnings
 

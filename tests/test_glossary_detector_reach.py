@@ -12,8 +12,6 @@ search-термом карточки. Иначе раздел «Функции �
 проверки расходятся молча, поэтому здесь зовётся сам детектор.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.glossary.detector import MissingConceptDetector

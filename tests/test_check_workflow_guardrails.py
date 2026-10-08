@@ -7,8 +7,6 @@
 линтеру, ни тестам и проявляется один раз, в момент релиза.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

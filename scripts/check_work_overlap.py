@@ -29,8 +29,6 @@
 лишь не даёт узнать о нём в момент мержа.
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib

@@ -19,8 +19,6 @@ stdout (или в файл через `--out`). Автосписок PR при �
 Без внешних зависимостей: `re` + `pathlib`, детерминированно и кроссплатформенно.
 """
 
-from __future__ import annotations
-
 import argparse
 import re
 import sys

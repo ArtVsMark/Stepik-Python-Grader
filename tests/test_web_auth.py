@@ -5,8 +5,6 @@
 без реального браузера). Эндпоинты /api/auth/* покрыты в test_web.py.
 """
 
-from __future__ import annotations
-
 import json
 import time
 from pathlib import Path

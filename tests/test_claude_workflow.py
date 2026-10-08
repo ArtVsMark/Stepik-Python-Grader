@@ -15,8 +15,6 @@ Workflow отдаёт шагу OAuth-токен владельца, а триг�
 проекта: `tests/test_release_workflow.py` устроен так же.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 _WORKFLOWS = pathlib.Path(__file__).parent.parent / ".github" / "workflows"

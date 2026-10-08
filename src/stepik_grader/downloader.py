@@ -23,8 +23,6 @@
   task{step_position}_3.py  — (добавляется вручную) альтернативное решение 2
 """
 
-from __future__ import annotations
-
 import argparse
 import pathlib
 from collections.abc import Iterator

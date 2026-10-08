@@ -4,8 +4,6 @@
 же приёмом, что и test_check_version_consistency.py / test_version_script.py.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

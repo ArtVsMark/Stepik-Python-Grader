@@ -6,8 +6,6 @@
   ``oauth_flow``/``web.auth_adapter``, обещавшим атомарность.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import pathlib

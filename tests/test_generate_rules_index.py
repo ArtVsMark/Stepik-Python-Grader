@@ -7,8 +7,6 @@
 а след в никуда роняет генератор.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import sys

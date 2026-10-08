@@ -159,7 +159,7 @@
 
 Полностью — в [`../CLAUDE.md`](../../CLAUDE.md) и
 [`../CONTRIBUTING.md`](../../CONTRIBUTING.md): ветвиться от свежего `main`, PR — в
-`main`; Python 3.12+ union-типы; `from __future__ import annotations`; `__all__`
+`main`; Python 3.14+ union-типы, без `from __future__ import annotations`; `__all__`
 в новых модулях; не добавлять зависимости без явного указания; не ломать
 `--serve`, `/api/grade` и DAG без циклов; `pytest` + `ruff` + `mypy` зелёные
 перед PR; запись в `CHANGELOG.md [Unreleased]`.

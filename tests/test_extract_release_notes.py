@@ -9,8 +9,6 @@ CHANGELOG, который ведётся в каждом PR, в релиз не 
 `scripts/` нет `__init__.py`, и обычный импорт по имени пакета там не работает.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import subprocess

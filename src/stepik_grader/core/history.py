@@ -36,8 +36,6 @@ Opt-in: путь передаётся явно (``db_path=``); по умолча
 у истории (в отличие от ``cache.py``/``stats.py``) раньше не было.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import sqlite3

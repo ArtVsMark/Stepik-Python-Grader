@@ -6,8 +6,6 @@
 Корневой `__init__` проверяет версию первым делом и выходит с сообщением.
 """
 
-from __future__ import annotations
-
 import ast
 import pathlib
 import re

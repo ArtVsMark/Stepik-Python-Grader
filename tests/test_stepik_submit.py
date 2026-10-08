@@ -6,8 +6,6 @@
 poll до вердикта и по таймауту, чтение step_id из meta.json.
 """
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from typing import Any

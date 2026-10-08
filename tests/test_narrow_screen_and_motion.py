@@ -20,8 +20,6 @@ max-content: у ``.panel-body`` пропадала опора для ``flex: 1``
 браузере (метрики до/после, обе раскладки) описан в PR.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

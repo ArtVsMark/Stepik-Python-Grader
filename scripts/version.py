@@ -34,8 +34,6 @@ setuptools-scm; статической ``[project].version`` в pyproject нет
     python scripts/version.py     # → напр. 1.2.17
 """
 
-from __future__ import annotations
-
 import contextlib
 import re
 import subprocess

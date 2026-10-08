@@ -19,8 +19,6 @@ issue #996 (``ARCH-3-05``): обычной атомарной записи JSON 
 принудительно, права цели не наследуются никогда (см. его докстринг).
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import os

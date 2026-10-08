@@ -16,8 +16,6 @@ stdout/stderr в список без предела, и решение с бес
 объём не ограничивает (``print('x' * 10**9)`` — это один шаг).
 """
 
-from __future__ import annotations
-
 import dataclasses
 import pathlib
 import threading

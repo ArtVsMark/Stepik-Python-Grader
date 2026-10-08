@@ -13,8 +13,6 @@ core/grader_core.py (загрузка/исполнение), core/reporter.py (�
 `stepik-grader` после `pip install -e .`)
 """
 
-from __future__ import annotations
-
 from stepik_grader.core.grader_core import *
 from stepik_grader.core.grader_core import (
     ENCODING,

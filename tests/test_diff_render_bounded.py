@@ -15,8 +15,6 @@
 решение человеку кнопкой «показать всё».
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

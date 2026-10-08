@@ -7,8 +7,6 @@
 сервера, а не текущей директории процесса.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

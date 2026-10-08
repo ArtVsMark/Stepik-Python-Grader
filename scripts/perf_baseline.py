@@ -31,8 +31,6 @@
     python scripts/perf_baseline.py --cases 500     # своё число кейсов
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

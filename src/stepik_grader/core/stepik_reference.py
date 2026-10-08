@@ -17,8 +17,6 @@ grading-core: импортированное решение — вторичны
 его как обычное решение. Высокий номер = соглашение-маркер «reference».
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

@@ -32,8 +32,6 @@ Markdown: у экспорта есть поле ``trails`` с репозитор
     python scripts/link_rules_to_issues.py --catalogue /tmp/playbook --apply  # запись
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import pathlib

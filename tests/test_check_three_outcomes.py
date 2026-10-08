@@ -8,8 +8,6 @@ GitHub и не получивший ответа, печатает то же, ч
 он не должен молчать о двух исходах и не должен шуметь на трёх.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

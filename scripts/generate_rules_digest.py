@@ -30,8 +30,6 @@
     python scripts/generate_rules_digest.py --catalogue /tmp/playbook --check
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

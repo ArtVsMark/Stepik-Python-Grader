@@ -20,8 +20,6 @@ core/mode_detector.py. Генерация wrapper-скриптов — core/wrap
 Перенесён в core/ (Issue #26).
 """
 
-from __future__ import annotations
-
 import contextlib
 import difflib
 import pathlib

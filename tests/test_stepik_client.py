@@ -1,7 +1,5 @@
 """Unit tests for stepik_client.py."""
 
-from __future__ import annotations
-
 import os
 import pathlib
 import time

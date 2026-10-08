@@ -7,8 +7,6 @@ README и CONTRIBUTING зовут новичка «взять issue с метк�
 Сеть в тестах не используется: `fetch_open_count` принимает `opener`.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import io
 import json

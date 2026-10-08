@@ -10,6 +10,4 @@
 [`docs/dev/architecture.md`](../../../docs/dev/architecture.md).
 """
 
-from __future__ import annotations
-
 __all__: list[str] = []

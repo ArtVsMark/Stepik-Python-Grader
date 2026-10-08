@@ -1,7 +1,5 @@
 """Tests for web.py — локальный веб-интерфейс грейдера (issue #58, эпик #80 Tier 1)."""
 
-from __future__ import annotations
-
 import dataclasses
 import http.client
 import json

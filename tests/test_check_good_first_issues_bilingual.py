@@ -8,8 +8,6 @@ Guard-the-guard: на подделанных телах issue проверка �
 что ``test_check_docs_guardrails.py``.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import io
 import json

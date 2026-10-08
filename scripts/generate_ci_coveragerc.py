@@ -32,8 +32,6 @@ files as always, some naturally at 0% on their machine's OS).
     python scripts/generate_ci_coveragerc.py <Linux|Darwin|Windows>
 """
 
-from __future__ import annotations
-
 import contextlib
 import sys
 import tomllib

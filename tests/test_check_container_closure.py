@@ -9,8 +9,6 @@
 В сеть не ходит ни один тест: состояние трекера подставляется.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

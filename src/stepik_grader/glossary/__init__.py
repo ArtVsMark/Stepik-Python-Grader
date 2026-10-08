@@ -14,8 +14,6 @@ Foundation полноценного локального глоссария WEB 
 ``GlossaryEntry.anchor``.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any
 
 from .detector import DEFAULT_NOTABLE_BUILTINS, MissingConceptDetector

@@ -8,8 +8,6 @@
 Сеть подменяется целиком: предмет здесь — решение «писать или не писать».
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

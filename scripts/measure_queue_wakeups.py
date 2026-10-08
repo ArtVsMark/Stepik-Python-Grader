@@ -30,8 +30,6 @@
     python scripts/measure_queue_wakeups.py --limit 200
 """
 
-from __future__ import annotations
-
 import argparse
 import collections
 import contextlib

@@ -8,8 +8,6 @@
 Все каталоги подменяются: настоящий `~/Desktop` не трогается ни разу.
 """
 
-from __future__ import annotations
-
 import os
 import pathlib
 import subprocess

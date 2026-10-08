@@ -8,8 +8,6 @@ Not a test module itself (no ``test_`` prefix, so pytest never collects it).
 из основного набора, а не только в job'е с браузером.
 """
 
-from __future__ import annotations
-
 import json
 from collections.abc import Iterable
 from pathlib import Path

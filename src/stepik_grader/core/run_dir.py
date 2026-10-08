@@ -24,8 +24,6 @@ temp навсегда: следующий запуск создаёт свой, 
 причине.
 """
 
-from __future__ import annotations
-
 import shutil
 import tempfile
 import time

@@ -10,8 +10,6 @@ Structure:
   as ``test_storage.py``'s POSIX-only permission-bits gating.
 """
 
-from __future__ import annotations
-
 import functools
 import logging
 import os

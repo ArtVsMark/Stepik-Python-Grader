@@ -8,8 +8,6 @@
 временном репозитории, где коммиты делаются от разных авторов.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import subprocess

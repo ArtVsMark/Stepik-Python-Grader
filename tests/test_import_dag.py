@@ -25,8 +25,6 @@ CLAUDE.md § «Архитектурные инварианты» фиксиру�
 TYPE_CHECKING): инвариант «не импортирует ничего из проекта» — абсолютный.
 """
 
-from __future__ import annotations
-
 import ast
 import functools
 import pathlib

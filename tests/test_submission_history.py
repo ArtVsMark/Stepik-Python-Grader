@@ -11,8 +11,6 @@
 пользователя: путь к базе приходит параметром, `None` означает «не писать».
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 from typing import Any

@@ -39,8 +39,6 @@ GitHub Issue Forms (``.github/ISSUE_TEMPLATE/*.yml``)::
 ``id:`` в YAML-шаблонах (парность стережёт ``tests/test_feedback.py``).
 """
 
-from __future__ import annotations
-
 import importlib.metadata
 import os
 import platform

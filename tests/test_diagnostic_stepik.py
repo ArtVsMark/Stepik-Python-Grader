@@ -6,8 +6,6 @@
 браузер), а не требует браузерной авторизации при живых токенах.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import time

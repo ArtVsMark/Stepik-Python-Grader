@@ -29,8 +29,6 @@ CI-job'е — условие вычисляется в рантайме. Фак�
     python scripts/skip_inventory.py --summary  # только сводка
 """
 
-from __future__ import annotations
-
 import argparse
 import ast
 import sys

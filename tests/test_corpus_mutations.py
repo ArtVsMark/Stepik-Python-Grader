@@ -9,8 +9,6 @@ test_generate_version_badge.py и соседи.
 корпусе, которое будет выглядеть как дефект ядра.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import pathlib

@@ -14,8 +14,6 @@
   импорта «класса» — стабильные ключи, JSON-совместимые значения.
 """
 
-from __future__ import annotations
-
 import html
 from pathlib import Path
 from typing import Any

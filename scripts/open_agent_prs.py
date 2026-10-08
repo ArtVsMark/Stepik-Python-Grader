@@ -40,8 +40,6 @@ Actions этого ограничения нет: PR, созданный с PAT 
     python scripts/open_agent_prs.py --dry-run      # только показать
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

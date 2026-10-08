@@ -34,8 +34,6 @@
     python scripts/generate_rules_index.py --catalogue ../Engineering-Incidents-Playbook --check
 """
 
-from __future__ import annotations
-
 import argparse
 import dataclasses
 import json

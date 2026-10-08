@@ -12,8 +12,6 @@
 которая резолвит это имя как facade-global в момент вызова.
 """
 
-from __future__ import annotations
-
 import contextlib
 import csv
 import io

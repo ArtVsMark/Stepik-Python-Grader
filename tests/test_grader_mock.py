@@ -12,8 +12,6 @@
     формат 3 (input.txt+output.txt)
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import subprocess

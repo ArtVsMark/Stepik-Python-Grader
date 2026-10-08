@@ -9,8 +9,6 @@
 Мутация `timeout` в тестах не используется: она честно ждёт таймаут.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

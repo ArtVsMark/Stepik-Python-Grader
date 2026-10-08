@@ -24,8 +24,6 @@
 задачи в него класть можно, а какие нельзя.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import pathlib

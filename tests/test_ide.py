@@ -1,7 +1,5 @@
 """Tests for ide.py + cli --init-vscode (эпик #80 Tier 2 / issue #58)."""
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import os

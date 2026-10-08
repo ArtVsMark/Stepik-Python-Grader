@@ -14,8 +14,6 @@ ZIP/GitHub. Сеть и извлечение остаются в ``downloader.py
     ``input.txt``/``output.txt`` с маркерами ``# TEST_N:``.
 """
 
-from __future__ import annotations
-
 import pathlib
 import shutil
 import warnings

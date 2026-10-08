@@ -22,8 +22,6 @@ grep по tests/, не предположение) — имена, которы�
 на каждый вызов, что и сохраняет late-binding monkeypatch-семантику.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path

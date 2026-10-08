@@ -20,8 +20,6 @@
     python scripts/check_generated_sources.py
 """
 
-from __future__ import annotations
-
 import contextlib
 import pathlib
 import re

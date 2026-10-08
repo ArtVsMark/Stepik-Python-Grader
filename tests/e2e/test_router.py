@@ -15,8 +15,6 @@
 Не входит в обычный ``pytest tests/`` — см. ``tests/e2e/conftest.py``.
 """
 
-from __future__ import annotations
-
 from typing import Any
 from urllib.parse import urlparse
 

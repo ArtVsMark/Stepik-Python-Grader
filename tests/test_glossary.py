@@ -4,8 +4,6 @@
 (web_vm._case_view) при вердикте RE.
 """
 
-from __future__ import annotations
-
 from stepik_grader.core.glossary import (
     GlossaryEntry,
     all_entries,

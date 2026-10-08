@@ -22,8 +22,6 @@
 никто не разрешал.
 """
 
-from __future__ import annotations
-
 import html
 import re
 from html.parser import HTMLParser

@@ -7,8 +7,6 @@
 предпросмотр показывает ровно то, что уедет в форму.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader import cli

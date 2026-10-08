@@ -7,8 +7,6 @@ N/T/K берутся из `CONFIG`; путь БД — `.grader_history.db` в р
 (#349) — логика не дублируется.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any

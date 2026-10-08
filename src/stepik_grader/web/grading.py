@@ -14,8 +14,6 @@ core-модулям сами (ADR-0010); этот фасад про grade/bench/
 собственной логики: он фиксирует ГРАНИЦУ, а не добавляет уровень абстракции.
 """
 
-from __future__ import annotations
-
 from stepik_grader.core.cache import hash_solution
 from stepik_grader.core.grader_core import (
     preflight_solution,

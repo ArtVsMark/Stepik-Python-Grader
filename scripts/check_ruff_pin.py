@@ -43,8 +43,6 @@ YAML-парсера: конфиг pre-commit читается построчно
     python scripts/check_ruff_pin.py     # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import contextlib
 import re
 import subprocess

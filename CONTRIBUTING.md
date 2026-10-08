@@ -607,8 +607,8 @@ Grader поддерживает три автодетектируемых фор
 
 ## Соглашения по коду
 
-Обязательные инварианты — union-типы вместо `Optional`/`List`, `from __future__
-import annotations` в новом файле, `pathlib` вместо `os.path`, `Path` в
+Обязательные инварианты — union-типы вместо `Optional`/`List`, без `from
+__future__ import annotations` (с планки 3.14 он лишний), `pathlib` вместо `os.path`, `Path` в
 путь-сигнатурах, `sys.executable` вместо строки `"python"`, `__all__` в новых
 модулях, вывод через `_console`, никаких голых `except:` — живут в
 [`CLAUDE.md § Стиль кода`](CLAUDE.md). Здесь только то, чего там нет:

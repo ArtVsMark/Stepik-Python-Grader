@@ -7,8 +7,6 @@
     - _resolve_test_dir_from_input(is_dir=True): Format 3 (input.txt + output.txt)
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader import cli, grader

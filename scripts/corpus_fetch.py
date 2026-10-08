@@ -26,8 +26,6 @@
 Полная инструкция локального прогона — [`docs/agent/local-sweep.md`](../docs/agent/local-sweep.md).
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import pathlib

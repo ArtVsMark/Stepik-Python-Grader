@@ -7,8 +7,6 @@
 PyYAML), как остальные guardrail-тесты проекта.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 _RELEASE = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "release.yml"

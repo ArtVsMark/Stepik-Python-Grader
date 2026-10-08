@@ -37,8 +37,6 @@
     python scripts/check_catalogue_name.py
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

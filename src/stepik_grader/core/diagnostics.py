@@ -36,8 +36,6 @@
     failed = [f for f in findings if f.status is diagnostics.Status.FAIL]
 """
 
-from __future__ import annotations
-
 import enum
 import json
 import pathlib

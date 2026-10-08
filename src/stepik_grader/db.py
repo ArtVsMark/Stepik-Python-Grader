@@ -24,8 +24,6 @@ Best-effort по духу (как ``core/history``/``core/cache``): вызыва
 обработчики ловили его сами и деградация оставалась штатной.
 """
 
-from __future__ import annotations
-
 import contextlib
 import os
 import sqlite3

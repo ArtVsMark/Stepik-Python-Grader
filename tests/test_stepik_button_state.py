@@ -16,8 +16,6 @@
 прогоном в браузере, он описан в PR.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

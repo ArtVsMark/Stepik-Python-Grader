@@ -11,8 +11,6 @@
 потому что браузер доигрывал последовательность клика уже после `close()`.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import re

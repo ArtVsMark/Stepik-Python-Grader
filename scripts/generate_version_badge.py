@@ -20,8 +20,6 @@ PATCH = число коммитов после него) как единстве
     python scripts/generate_version_badge.py [--out PATH]
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import importlib.util

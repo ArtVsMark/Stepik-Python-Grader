@@ -13,8 +13,6 @@ issue #936: `--mode 1/2` документированы как CI-сценари
 ни сбрасывать серию зачётов: прогона не было.
 """
 
-from __future__ import annotations
-
 import enum
 
 __all__ = ["ExitCode"]

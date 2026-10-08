@@ -4,8 +4,6 @@
 `learning_cards` — сценарные, поверх реальной SQLite-истории (#344).
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from stepik_grader.core import history, insights

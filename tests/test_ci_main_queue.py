@@ -32,8 +32,6 @@ Merge queue закрыла бы это штатно, но личному акк�
 его формулировки.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

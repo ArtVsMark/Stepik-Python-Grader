@@ -12,8 +12,6 @@
 `ruff` проверяется отдельно: там дефект был не в падении, а в мусоре на экране.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader import config

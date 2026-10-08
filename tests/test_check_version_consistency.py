@@ -4,8 +4,6 @@
 приёмом, что и test_version_script.py.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import subprocess
 import sys

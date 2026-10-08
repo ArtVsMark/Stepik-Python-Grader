@@ -37,8 +37,6 @@
     python scripts/merge_when_green.py --dry-run       # показать, ничего не меняя
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import sys

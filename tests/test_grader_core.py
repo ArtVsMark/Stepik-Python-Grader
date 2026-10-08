@@ -6,8 +6,6 @@ These pin down behavior that the upcoming refactoring touches indirectly, so
 regressions surface immediately.
 """
 
-from __future__ import annotations
-
 import pathlib
 import subprocess
 import sys

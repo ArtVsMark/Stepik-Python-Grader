@@ -15,8 +15,6 @@
 diagnostic_stepik.py. Источник истины — stepik_client.py.
 """
 
-from __future__ import annotations
-
 import pathlib
 import threading
 import time

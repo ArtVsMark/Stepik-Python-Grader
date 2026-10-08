@@ -27,8 +27,6 @@
     python scripts/rebuild_rules_digest.py --catalogue <клон каталога>
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib
