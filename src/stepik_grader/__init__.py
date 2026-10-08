@@ -21,9 +21,74 @@ src/-layout (Issue #35 / CLAUDE.md Sprint 8.2). Публичная точка в
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 
 __all__ = ["__version__"]
+
+# ---------------------------------------------------------------------------
+# Отказ словами под старым Python (issue #1570, эпик #1575).
+#
+# Этот файл исполняется ПЕРВЫМ при любом входе в пакет: консольные команды,
+# ``python -m stepik_grader.*``, лаунчер, pytest-плагин. После подъёма планки
+# код пакета перестаёт разбираться прежними интерпретаторами, и уже стоящий
+# ``.venv`` на 3.12/3.13 (editable-установка, ``git pull``) падал бы
+# ``SyntaxError`` с номером строки — поломкой грейдера, а не «обновите Python».
+#
+# ПОЭТОМУ ФАЙЛ ОБЯЗАН РАЗБИРАТЬСЯ СТАРЫМИ ИНТЕРПРЕТАТОРАМИ: ruff держит его
+# per-file целью ``py39``, шаг ``static`` в CI компилирует его 3.11 и 3.12.
+#
+# Планка — константа, а не чтение метаданных: здесь нельзя импортировать
+# ``importlib.metadata`` (он тянет ``json``, а ``json.py`` в каталоге задачи
+# его перекрывает — см. докстринг модуля). Расходиться с ``requires-python``
+# ей не даёт тест ``test_python_floor.py``.
+# ---------------------------------------------------------------------------
+
+#: Планка ``requires-python`` из ``pyproject.toml``.
+_PYTHON_FLOOR = (3, 14)
+#: Код возврата «запущено не тем интерпретатором» — тот же, что у гейтов
+#: (``scripts/_require_python.py``), чтобы обёртки различали его одинаково.
+_EXIT_WRONG_PYTHON = 3
+
+
+def _wrong_python_message(current: tuple, executable: str) -> str:
+    """Что сказать человеку, запустившему грейдер не тем Python."""
+    need = ".".join(str(part) for part in _PYTHON_FLOOR)
+    have = ".".join(str(part) for part in current[:3])
+    return (
+        f"Грейдеру нужен Python {need} или новее, а запущен Python {have}\n"
+        f"({executable}).\n"
+        "\n"
+        "Окружение собрано на старой версии — пересоздайте его в каталоге проекта:\n"
+        f"    python{need} -m venv .venv --clear\n"
+        '    .venv/bin/pip install -e ".[dev]"      (Windows: .venv\\Scripts\\pip ...)\n'
+        "\n"
+        "Остаться на Python 3.12–3.13 можно с выпуском 1.12 — последним, который\n"
+        'их поддерживает: pip install "stepik-python-grader<1.13"\n'
+    )
+
+
+def _refuse_old_python() -> None:
+    """Сообщить и выйти. Без консоли (``pythonw``) — окном, а не в никуда."""
+    message = _wrong_python_message(tuple(sys.version_info), sys.executable)
+    if sys.stderr is not None:
+        sys.stderr.write(message)
+    else:  # pragma: no cover — нужен pythonw: лаунчер на Windows
+        try:
+            import tkinter
+            from tkinter import messagebox
+
+            root = tkinter.Tk()
+            root.withdraw()
+            messagebox.showerror("Stepik Python Grader", message)
+            root.destroy()
+        except Exception:  # окна нет: сказать больше некуда
+            pass
+    raise SystemExit(_EXIT_WRONG_PYTHON)
+
+
+if sys.version_info < _PYTHON_FLOOR:
+    _refuse_old_python()
 
 
 def __getattr__(name: str) -> Any:
