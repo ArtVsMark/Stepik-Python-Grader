@@ -104,6 +104,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "предмет — состояние трекера: расписание, а не прогон на каждый PR (квота)",
     ),
     "check_locale_guardrails.py": (".github/workflows/ci.yml", "полнота локалей"),
+    "check_python_setup.py": (
+        ".github/workflows/ci.yml",
+        "работа без setup-python исполняет код системным python раннера",
+    ),
     "check_py_style.py": (
         ".github/workflows/ci.yml",
         "стиль планки: переезд на версию формальный, пока код написан на прежней",

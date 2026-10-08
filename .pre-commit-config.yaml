@@ -119,6 +119,12 @@ repos:
         language: system
         pass_filenames: false
         files: '(\.py|^pyproject\.toml)$'
+      - id: check-python-setup
+        name: работы зовут python только после setup-python
+        entry: python scripts/check_python_setup.py
+        language: system
+        pass_filenames: false
+        files: '^\.github/workflows/'
       - id: check-mcp-permissions
         name: запрет MCP держится формой, а не именами
         entry: python scripts/check_mcp_permissions.py
