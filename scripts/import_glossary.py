@@ -62,6 +62,7 @@ __all__ = [
     "EXIT_CHECK_FAILED",
     "EXIT_FETCH_FAILED",
     "EXIT_REJECTED",
+    "NAVIGATION_FILE_NAME",
     "SOURCE_FILE_NAME",
     "DeliveryRejected",
     "main",
@@ -85,6 +86,7 @@ ACCEPTED_FORM = 6
 #: Служебные файлы каталога данных: имя с ``_`` провайдер карточками не читает.
 SOURCE_FILE_NAME = "_source.json"
 MOVED_FILE_NAME = "_moved.json"
+NAVIGATION_FILE_NAME = "_navigation.json"
 
 EXIT_CHECK_FAILED = 1
 EXIT_FETCH_FAILED = 2
@@ -313,6 +315,10 @@ def render_files(delivery: dict[str, Any], release: str) -> dict[str, str]:
     """Имя файла каталога данных → содержимое. Чистая функция: та же выгрузка — те же байты."""
     files = {f"{group}.json": _dump(cards) for group, cards in delivery["groups"].items()}
     files[MOVED_FILE_NAME] = _dump(dict(sorted((delivery.get("moved") or {}).items())))
+    # Навигация формы 6.1 — семейства разделов и подписи. Порядок групп значим
+    # (так их показывает UI), поэтому словарь пишется как пришёл, без сортировки.
+    if "navigation" in delivery:
+        files[NAVIGATION_FILE_NAME] = _dump(delivery["navigation"])
     snapshot = delivery.get("snapshot", {})
     files[SOURCE_FILE_NAME] = _dump(
         {

@@ -25,6 +25,7 @@ from typing import Any
 
 import pytest
 
+from stepik_grader.glossary import taxonomy
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
     GlossaryError,
@@ -33,6 +34,15 @@ from stepik_grader.glossary.json_provider import (
 from stepik_grader.glossary.models import GlossaryCard
 
 _SCRIPT = pathlib.Path(__file__).parent.parent / "scripts" / "import_glossary.py"
+_UI_CATALOG = (
+    pathlib.Path(__file__).parent.parent
+    / "src"
+    / "stepik_grader"
+    / "web"
+    / "static"
+    / "locales"
+    / "ui.json"
+)
 
 
 @pytest.fixture(scope="module")
@@ -290,6 +300,42 @@ class TestWriting:
         assert "builtin.json" in capsys.readouterr().out
 
 
+class TestNavigation:
+    """Навигация формы 6.1 едет в каталог данных как пришла — порядок групп значим."""
+
+    _NAV: dict[str, Any] = {
+        "groups": ["types", "builtins", "other"],
+        "labels": {"types": {"ru": "Типы данных", "en": "Data types"}},
+        "sections": {
+            "Встроенные функции": {
+                "group": "builtins",
+                "ru": "Встроенные функции",
+                "en": "Built-in functions",
+            }
+        },
+    }
+
+    def test_navigation_is_written_in_the_order_it_came(self, importer: ModuleType) -> None:
+        files = importer.render_files(_delivery(form="6.1", navigation=self._NAV), "v1.4.0")
+
+        written = json.loads(files[importer.NAVIGATION_FILE_NAME])
+        assert written == self._NAV
+        assert written["groups"] == ["types", "builtins", "other"]
+
+    def test_a_delivery_without_navigation_writes_none(self, importer: ModuleType) -> None:
+        assert importer.NAVIGATION_FILE_NAME not in importer.render_files(_delivery(), "v1.2.0")
+
+    def test_a_missing_or_broken_navigation_leaves_the_defaults(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Сторонняя база без навигации остаётся рабочей: правило «Модуль X» и «Прочее»."""
+        broken = tmp_path / "_navigation.json"
+        broken.write_text("{не json", encoding="utf-8")
+
+        assert taxonomy._load_navigation(tmp_path / "нет.json") == ({}, {}, ())
+        assert taxonomy._load_navigation(broken) == ({}, {}, ())
+
+
 class TestRedirectsInTheProvider:
     def test_a_redirect_to_a_missing_card_is_an_error(self, tmp_path: pathlib.Path) -> None:
         """Обещание издателя «новый id существует» проверяется и здесь."""
@@ -320,6 +366,30 @@ class TestTheBundledCatalogue:
         assert source["cards"] == len(
             JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
         )
+
+    def test_the_bundled_navigation_classifies_every_section(self) -> None:
+        """Каждый раздел комплектных карточек назван в навигации явно.
+
+        Правило «Модуль X» и «Прочее» — запасной путь для сторонней базы; на
+        своей выгрузке раздел без строки навигации значит, что издатель и
+        потребитель разошлись.
+        """
+        sections = {
+            card.section for card in JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+        }
+
+        assert sections - set(taxonomy.SECTION_GROUPS) == set()
+
+    def test_group_labels_in_the_ui_match_the_navigation(self) -> None:
+        """Подписи семейств в ui.json — те же, что отдаёт издатель, на обоих языках."""
+        navigation = json.loads(
+            (BUNDLED_GLOSSARY_DIR / "_navigation.json").read_text(encoding="utf-8")
+        )
+        catalog = json.loads(_UI_CATALOG.read_text(encoding="utf-8"))
+
+        for group, label in navigation["labels"].items():
+            for lang in ("ru", "en"):
+                assert catalog[lang][f"glossary.group_{group}"] == label[lang], (group, lang)
 
     def test_every_bundled_redirect_resolves(self) -> None:
         provider = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR)

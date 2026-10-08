@@ -6,11 +6,14 @@
 пас-через: логика была недоступна CLI, а «тонкий адаптер» разросся до 600+
 строк (issue #831, ARCH-06).
 
-Зависит только от ``glossary/models.py`` и stdlib — ребра ``glossary → core``
-здесь нет и быть не должно (ADR-0011).
+Зависит только от ``glossary/models.py``, своего каталога данных и stdlib —
+ребра ``glossary → core`` здесь нет и быть не должно (ADR-0011).
 """
 
 from __future__ import annotations
+
+import json
+import pathlib
 
 from stepik_grader.glossary.models import GlossaryCard
 
@@ -35,81 +38,48 @@ SORTS = frozenset({"relevance", "az", "section", "version"})
 # Семейства разделов (issue #685) — грань ?group=, вычисляемая из ``section``,
 # без нового поля в карточках. Семейства покрывают ВСЕ разделы базы: в UI они
 # заменили собой селект «Раздел» и чипы, поэтому раздел без семейства стал бы
-# недостижимым в навигации. Страховка от такого дрейфа двойная: неизвестный
-# раздел падает в ``other`` («Прочее» — кнопка появляется, только если семейство
-# непусто), а тест ``test_every_bundled_section_has_explicit_group`` требует,
-# чтобы в комплектной базе ``other`` оставалось пустым — новый раздел из аудита
-# карточек (#684) обязан быть классифицирован здесь явно.
+# недостижимым в навигации.
+#
+# Классификацию ведёт Glossary-Python: выгрузка формы 6.1 несёт ``navigation`` —
+# порядок семейств и для каждого раздела его семейство и подписи. Импорт кладёт
+# её в ``data/_navigation.json``, а здесь она только читается. Прежде таблица
+# жила здесь копией, и новый раздел в выгрузке требовал правки грейдера — а
+# расхождение ловил лишь тест (issue #1573). Неизвестный раздел (сторонняя
+# база без навигации) классифицируется правилом «Модуль X» либо падает в
+# ``other``: кнопка «Прочее» появляется, только если семейство непусто.
 MODULE_SECTION_PREFIX = "Модуль "
-SECTION_GROUPS: dict[str, str] = {
-    # Типы данных — встроенные типы и их методы.
-    "Строки (str)": "types",
-    "Списки (list)": "types",
-    "Кортежи (tuple)": "types",
-    "Словари (dict)": "types",
-    "Множества (set)": "types",
-    "Байтовые последовательности": "types",
-    "Числа и математика": "types",
-    "Типы данных": "types",
-    "Встроенные типы": "types",
-    # Синтаксис языка — конструкции, а не библиотечные функции.
-    "Функции": "syntax",
-    "ООП": "syntax",
-    "Циклы": "syntax",
-    "Условный оператор": "syntax",
-    "Итераторы и генераторы": "syntax",
-    "Асинхронное программирование": "syntax",
-    "Арифметика и операторы": "syntax",
-    "Аннотации и typing": "syntax",
-    "Модули и импорт": "syntax",
-    # Встроенное и ошибки.
-    "Встроенные функции": "builtins",
-    "Исключения": "builtins",
-    # Ввод-вывод.
-    "Ввод и вывод": "io",
-    "Файлы и I/O": "io",
-    # Алгоритмы и структуры данных (учебная тема, не тип и не модуль).
-    "Алгоритмы и структуры данных": "algorithms",
-    # Модули, которых больше нет в stdlib (Glossary-Python #174): группа модулей,
-    # хотя имя раздела и не начинается с «Модуль ».
-    "Удалено из стандартной библиотеки": "modules",
-}
 OTHER_GROUP = "other"
-GROUPS = frozenset({"modules", *SECTION_GROUPS.values(), OTHER_GROUP})
+_NAVIGATION_FILE = pathlib.Path(__file__).parent / "data" / "_navigation.json"
 
-# EN-подписи разделов (issue #685). Имя раздела — серверное ЗНАЧЕНИЕ фильтра
-# (`?section=`) и остаётся русским; наружу вместе с ним едет `section_label` —
-# то, что показывает UI. Переводы живут здесь, рядом с классификацией, а не в
-# ui.json: там ключ пришлось бы синтезировать из русской строки, и любой
-# переименованный при аудите (#684) раздел давал бы маркер ⟦…⟧ вместо текста.
-# Здесь незнакомый раздел просто показывается как есть.
+
+def _load_navigation(path: pathlib.Path) -> tuple[dict[str, str], dict[str, str], tuple[str, ...]]:
+    """Семейство и EN-подпись каждого раздела и порядок семейств из навигации.
+
+    Файла нет или он не читается — пустая навигация: глоссарий остаётся рабочим
+    на правилах по умолчанию, а комплектный файл держит тест
+    ``test_the_bundled_navigation_classifies_every_section``.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        sections = data["sections"]
+        groups = {name: str(entry["group"]) for name, entry in sections.items()}
+        labels_en = {name: str(entry["en"]) for name, entry in sections.items()}
+        order = tuple(str(group) for group in data["groups"])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}, {}, ()
+    return groups, labels_en, order
+
+
+SECTION_GROUPS: dict[str, str]
+SECTION_LABELS_EN: dict[str, str]
+SECTION_GROUPS, SECTION_LABELS_EN, _GROUP_ORDER = _load_navigation(_NAVIGATION_FILE)
+GROUPS = frozenset({"modules", *SECTION_GROUPS.values(), *_GROUP_ORDER, OTHER_GROUP})
+
+# EN-подпись раздела модуля строится правилом «Модуль X» → «Module X», а не
+# берётся из навигации: там у раздела модуля подпись короткая (``abc``) — она
+# для списка внутри семейства «Модули». Здесь подпись идёт и в мету карточки,
+# где голое имя модуля читается хуже, поэтому интерфейс сохраняет прежний вид.
 _MODULE_SECTION_PREFIX_EN = "Module "
-SECTION_LABELS_EN: dict[str, str] = {
-    "Строки (str)": "Strings (str)",
-    "Списки (list)": "Lists (list)",
-    "Кортежи (tuple)": "Tuples (tuple)",
-    "Словари (dict)": "Dictionaries (dict)",
-    "Множества (set)": "Sets (set)",
-    "Байтовые последовательности": "Byte sequences",
-    "Числа и математика": "Numbers & math",
-    "Типы данных": "Data types",
-    "Встроенные типы": "Built-in types",
-    "Функции": "Functions",
-    "ООП": "OOP",
-    "Циклы": "Loops",
-    "Условный оператор": "Conditionals",
-    "Итераторы и генераторы": "Iterators & generators",
-    "Асинхронное программирование": "Async programming",
-    "Арифметика и операторы": "Arithmetic & operators",
-    "Аннотации и typing": "Annotations & typing",
-    "Модули и импорт": "Modules & imports",
-    "Встроенные функции": "Built-in functions",
-    "Исключения": "Exceptions",
-    "Ввод и вывод": "Input & output",
-    "Файлы и I/O": "Files & I/O",
-    "Алгоритмы и структуры данных": "Algorithms & data structures",
-    "Удалено из стандартной библиотеки": "Removed from the standard library",
-}
 
 # При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
 # метод основного типа, который новичок и имеет в виду: str → list → dict → …
@@ -147,9 +117,12 @@ def card_group(card: GlossaryCard) -> str:
     ряд кнопок-семейств, и список разделов внутри раскрытого семейства — правило
     классификации живёт только здесь и в JS не повторяется.
     """
+    group = SECTION_GROUPS.get(card.section)
+    if group is not None:
+        return group
     if card.section.startswith(MODULE_SECTION_PREFIX):
         return "modules"
-    return SECTION_GROUPS.get(card.section, OTHER_GROUP)
+    return OTHER_GROUP
 
 
 def sort_cards(cards: list[GlossaryCard], sort: str | None, query: str = "") -> list[GlossaryCard]:
