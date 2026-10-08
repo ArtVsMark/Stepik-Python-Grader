@@ -105,7 +105,7 @@ def fetch_pypi_version(url: str = PYPI_PROJECT_URL) -> str | None:
     try:
         with urllib.request.urlopen(url, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+    except urllib.error.URLError, TimeoutError, OSError, ValueError:
         return None
     info = payload.get("info") if isinstance(payload, dict) else None
     version = info.get("version") if isinstance(info, dict) else None

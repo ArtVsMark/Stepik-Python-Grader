@@ -200,7 +200,7 @@ def _short_path(path: str) -> str | None:
         # core/sandbox/_windows.py).
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         length = int(kernel32.GetShortPathNameW(path, buffer, len(buffer)))
-    except (OSError, AttributeError, ValueError):
+    except OSError, AttributeError, ValueError:
         return None
     # 0 — ошибка (каталога нет, 8.3 отключены); >= размера буфера — путь не влез
     # целиком, и обрезок сворачивать нельзя.
@@ -364,7 +364,7 @@ def _git_output(args: list[str], cwd: Path, timeout: float) -> str | None:
             timeout=timeout,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     if proc.returncode != 0:
         return None

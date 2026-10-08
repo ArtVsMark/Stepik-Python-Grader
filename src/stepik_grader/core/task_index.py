@@ -158,7 +158,7 @@ def _read_meta(meta_path: Path) -> dict[str, Any] | None:
     """``meta.json`` как словарь; ``None`` — нечитаемый или не объект."""
     try:
         data = json.loads(meta_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     return data if isinstance(data, dict) else None
 
@@ -173,7 +173,7 @@ def _as_int(value: Any) -> int | None:
         return None
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 

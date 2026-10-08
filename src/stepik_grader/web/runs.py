@@ -702,7 +702,7 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
                 job.status = "error"
                 job.message_fields = message_fields("stepik_network_error", lang, error=str(exc))
             return
-        except (OSError, ValueError):
+        except OSError, ValueError:
             # нет/битый secrets.json — трактуем как «нет авторизации», не как сбой
             session = None
         if session is None:

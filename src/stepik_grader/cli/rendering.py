@@ -33,7 +33,7 @@ def _is_ours(filename: str) -> bool:
     """Предупреждение испущено нашим кодом, а не сторонней библиотекой."""
     try:
         return str(pathlib.Path(filename).resolve()).startswith(_PACKAGE_ROOT)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return False
 
 

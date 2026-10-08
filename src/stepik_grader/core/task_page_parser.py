@@ -155,7 +155,7 @@ def is_function_style(input_text: str) -> bool:
         return False
     try:
         tree = ast.parse(stripped)
-    except (SyntaxError, ValueError):
+    except SyntaxError, ValueError:
         # Не парсится — режим не определить, считаем stdin. ValueError: ast.parse
         # документированно бросает его на исходнике с null-байтами (issue #691;
         # версинно-зависимо — часть CPython отдаёт SyntaxError). Вход — ячейка

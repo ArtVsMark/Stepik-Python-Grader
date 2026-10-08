@@ -1,0 +1,71 @@
+name: python-next
+
+# issue #1564: предрелизная версия следующего цикла — отдельным прогоном.
+#
+# Почему не ячейкой в ci.yml: значок и вердикт `CI` показывают исход всего
+# прогона. Ячейка под `continue-on-error` красила бы его зелёным при красной
+# 3.15 и не отвечала на вопрос о ней (так флаг пережил выход 3.14 — #1529), а
+# без него держала бы слияние из-за чужого календаря. Отдельный файл отвечает
+# своим цветом, и красное здесь честное: «на 3.15 пока не заработает», а не
+# «ветка сломана».
+#
+# Ни очередь мержа, ни перезапуск красного `main` этот прогон не видят: они
+# подписаны на workflow `CI` по имени. На `pull_request` он не просыпается —
+# необязательный канал не держит слияние (правило 084).
+#
+# Выйдет 3.15 — она переезжает в матрицу ci.yml и в `requires-python`, а сюда
+# встаёт 3.16. Что флаг «предрелизная» не пережил выход, сверяет ночной обход
+# (`scripts/check_experimental_python.py`).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Голова названа в группе (правило 179): иначе событие другого коммита
+# вытесняло бы прогон, и о свежей голове ответа не осталось бы.
+concurrency:
+  group: python-next-${{ github.ref }}-${{ github.sha }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
+    # issue #1232: на предрелизных раннерах спавн подпроцесса стабильно не
+    # укладывается в дефолтные двадцать секунд. Порог поднимается только здесь:
+    # дефолт в коде отличает «подвисло» от «под нагрузкой» на машине
+    # пользователя, и полторы минуты ожидания ему не нужны.
+    env:
+      STEPIK_GRADER_LAUNCH_TIMEOUT_S: "90"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        python-version: ["3.15"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      # Пакет требует `requires-python` планки, а предрелизная выше неё — pip
+      # ставит без оговорок.
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        env:
+          STEPIK_REQUIRE_SANDBOX_TESTS: ${{ (matrix.os == 'macos-latest' || matrix.os == 'windows-latest') && '1' || '' }}
+        run: pytest -q --no-cov

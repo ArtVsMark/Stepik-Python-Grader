@@ -35,7 +35,7 @@ keywords = [
 # переписывает — резолвит к pypi.org, поэтому README держит абсолютные адреса, а
 # следит за этим `scripts/check_docs_guardrails.check_pypi_readme_is_absolute`.
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 # Провенанс: без authors/urls связь «дистрибутив ↔ репозиторий» не выражена в
@@ -65,8 +65,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Education",
     "Topic :: Education :: Testing",
@@ -222,7 +220,26 @@ stepik_grader = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+# Цели нет намеренно: ruff выводит её из `requires-python` (issue #1570).
+# Вписанная копия застывает при следующем подъёме планки и молча
+# разрешает синтаксис, которого младший поддерживаемый Python не знает.
+#
+# Исключения — код, который исполняет НЕ интерпретатор грейдера:
+# - три файла движка кода студента (эпик #1575: движок 3.12);
+# - хуки окна: их запускает системный python облачного образа (3.11);
+# - точки входа гейтов и проверка версии (`_require_python.py` и зовущие):
+#   отказ «нужен Python X» печатается ПОСЛЕ разбора файла, и синтаксис новее
+#   старого интерпретатора превратил бы его в `SyntaxError` (issue #1507).
+# Компилирует их соответствующими версиями шаг `static` в ci.yml.
+[tool.ruff.per-file-target-version]
+"scripts/_require_python.py" = "py39"
+"scripts/preflight.py" = "py39"
+"scripts/gh_rest.py" = "py39"
+"scripts/check_pr_ready.py" = "py39"
+"src/stepik_grader/core/tracer.py" = "py312"
+"src/stepik_grader/core/wrapper_builder.py" = "py312"
+"src/stepik_grader/core/sandbox/_posix_bootstrap.py" = "py312"
+".claude/hooks/*.py" = "py311"
 
 [tool.ruff.lint]
 # issue #443: PTH (только pathlib, инвариант CLAUDE.md), SIM105/SIM115
@@ -265,7 +282,7 @@ convention = "google"
 # ошибки [attr-defined] на untyped-стабах сторонних либ (psutil/requests/
 # ctypes) — их не берём, чтобы не плодить # type: ignore на границе.
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 ignore_missing_imports = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

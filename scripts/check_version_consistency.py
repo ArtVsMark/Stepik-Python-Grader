@@ -75,7 +75,7 @@ def _latest_tag_baseline() -> tuple[int, int, int] | None:
             errors="replace",
             stderr=subprocess.DEVNULL,
         ).strip()
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     m = _SEMVERISH.search(out)
     if not m:

@@ -146,7 +146,7 @@ Stepik-Python-Grader/
 │   ├── corpus_sweep.py        # Сквозной прогон подсистем по локальной базе (docs/agent/local-sweep.md)
 │   └── corpus_fetch.py        # Сбор локальной базы: обход курса Stepik → downloader
 ├── docs/                      # База знаний (архитектура, структура, версии)
-├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
+├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.14 (3.15 — python-next.yml)
 ├── .pre-commit-config.yaml    # Pre-commit хуки: ruff + guardrail-скрипты CI
 ├── pyproject.toml             # Конфигурация проекта (ruff, mypy, pytest, зависимости, packages.find where=["src"])
 ├── LICENSE                    # MIT

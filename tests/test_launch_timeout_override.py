@@ -27,7 +27,6 @@ from __future__ import annotations
 import ast
 import importlib.util
 import pathlib
-import re
 import sys
 import threading
 import time
@@ -223,19 +222,17 @@ class TestPreflightThreshold:
 
 
 class TestCiRaisesItOnlyForExperimental:
-    def test_variable_is_set_in_the_test_job(self) -> None:
-        text = _CI_YML.read_text(encoding="utf-8")
+    def test_variable_is_set_for_the_prerelease_run(self) -> None:
+        """Порог поднят там, где живёт предрелизная версия (issue #1564)."""
+        text = (_CI_YML.parent / "python-next.yml").read_text(encoding="utf-8")
 
         assert spawn.ENV_LAUNCH_TIMEOUT in text
 
-    def test_stable_combinations_keep_the_default(self) -> None:
+    def test_the_main_ci_keeps_the_default(self) -> None:
         """Иначе подъём порога тихо распространился бы на весь проект.
 
-        Выражение отдаёт значение только при `matrix.experimental`; остальным
-        достаётся пустая строка, а она читается как «не задано».
+        Основной CI проверяет вышедшую версию — на ней дефолт обязан держать.
         """
         text = _CI_YML.read_text(encoding="utf-8")
-        line = re.search(rf"^\s*{spawn.ENV_LAUNCH_TIMEOUT}:\s*(.+)$", text, re.MULTILINE)
 
-        assert line, "переменная не задана в ci.yml"
-        assert "matrix.experimental" in line.group(1)
+        assert spawn.ENV_LAUNCH_TIMEOUT not in text

@@ -429,7 +429,7 @@ def queue_code_gaps(
         entries = MissingConceptDetector().detect_from_code(code, known=known, source=source)
         if entries:
             append_missing_entries(path, entries)
-    except (GlossaryError, OSError):
+    except GlossaryError, OSError:
         pass
 
 

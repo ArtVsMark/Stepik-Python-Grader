@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import pathlib
+import re
 import sys
 from typing import Any
 
@@ -197,6 +198,7 @@ def test_fixture_is_not_mutated_between_cases() -> None:
 
 
 _CI = pathlib.Path(__file__).parent.parent / ".github" / "workflows" / "ci.yml"
+_PYPROJECT_TEXT = (_CI.parent.parent.parent / "pyproject.toml").read_text(encoding="utf-8")
 
 
 class TestReferenceComesFromTheTree:
@@ -216,8 +218,10 @@ class TestReferenceComesFromTheTree:
         """Имя площадка складывает из значений в порядке объявления измерений."""
         names = guard.matrix_checks(_CI.read_text(encoding="utf-8"))
 
-        assert "test (ubuntu-latest, 3.12, false)" in names
-        assert "test (macos-latest, 3.15, true)" in names
+        floor = re.search(r'requires-python = ">=([\d.]+)"', _PYPROJECT_TEXT)
+        assert floor is not None
+        assert names[0] == f"test (ubuntu-latest, {floor.group(1)})"
+        assert f"test (macos-latest, {floor.group(1)})" in names
 
     def test_experimental_combinations_are_not_required(self) -> None:
         """Предрелизная ячейка под `continue-on-error` мерж блокировать не должна."""

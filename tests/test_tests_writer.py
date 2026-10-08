@@ -96,7 +96,7 @@ class TestReDownloadCleansStale:
         link = tmp_path / "tests"
         try:
             link.symlink_to(real, target_is_directory=True)
-        except (OSError, NotImplementedError):
+        except OSError, NotImplementedError:
             pytest.skip("symlinks unsupported on this platform/privilege")
 
         # save_tests пишет в tmp_path/tests (симлинк) — не должно бросать

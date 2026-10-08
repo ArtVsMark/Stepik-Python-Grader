@@ -38,10 +38,15 @@ _AXIS_RE = re.compile(r"^        ([\w-]+):\s*\[(.+?)\]\s*$", re.M)
 #: Добавленная комбинация: ``- {os: "x", python-version: "3.15", experimental: true}``.
 _INCLUDE_RE = re.compile(r"^\s*-\s*\{(.+?)\}\s*$", re.M)
 
-#: Хвост имени неэкспериментальной ячейки. Измерение ``experimental`` идёт в
+#: Хвост имени экспериментальной ячейки. Измерение ``experimental`` идёт в
 #: имени последним, и его значение — единственный признак, по которому ячейку
 #: отличают снаружи: у самого check-run'а поля «обязательна ли» нет.
-_STABLE_SUFFIX = ", false)"
+#:
+#: Признак — ЯВНОЕ ``true``, а не отсутствие ``false`` (issue #1564): матрица
+#: на планке 3.14 измерения ``experimental`` не несёт вовсе, и ячейка
+#: ``test (ubuntu-latest, 3.14)`` прежним правилом читалась бы необязательной —
+#: слияние перестало бы ждать единственную версию, которую грейдер обещает.
+_EXPERIMENTAL_SUFFIX = ", true)"
 
 
 def matrix_names(text: str) -> list[str]:
@@ -107,7 +112,7 @@ def is_blocking(name: str) -> bool:
     Returns:
         ``False`` только для экспериментальной ячейки матрицы.
     """
-    return not (name.startswith("test (") and not name.endswith(_STABLE_SUFFIX))
+    return not (name.startswith("test (") and name.endswith(_EXPERIMENTAL_SUFFIX))
 
 
 def blocking_names(names: list[str]) -> list[str]:

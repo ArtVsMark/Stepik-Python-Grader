@@ -1111,7 +1111,7 @@ def _step_key_from_meta(task_dir: Path) -> str | None:
     try:
         raw = (task_dir / "meta.json").read_text(encoding="utf-8")
         data = json.loads(raw)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     if not isinstance(data, dict):
         return None
@@ -1221,7 +1221,7 @@ def preview_purge(db_path: Path, *, task_key: str | None = None) -> PurgePreview
                 )
                 if row[0]
             ]
-    except (sqlite3.DatabaseError, OSError):
+    except sqlite3.DatabaseError, OSError:
         # Молча, как и остальной модуль: предпросмотр — вспомогательный шаг,
         # и его отказ не должен мешать самому удалению (битую базу как раз и
         # хотят снести).
@@ -1270,7 +1270,7 @@ def purge_history(db_path: Path, *, task_key: str | None = None) -> int:
             # вычитываемыми из файла сырым чтением, а обещание «удалили» — неполным.
             conn.execute("VACUUM")
             return int(cursor.rowcount or 0)
-    except (sqlite3.DatabaseError, OSError):
+    except sqlite3.DatabaseError, OSError:
         # Точечное удаление на битой базе невозможно: SQL не выполнить. Сносим
         # файл целиком — это шире запрошенного, но честнее молчаливого отказа,
         # и соответствует смыслу команды. Число прогонов неизвестно: база не
