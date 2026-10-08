@@ -1465,6 +1465,73 @@ class TestForkInTheQueue:
         assert report.ready[0].fork is False
 
 
+class TestConflictLabelInTheQueue:
+    """Помеченный мувером конфликт головой очереди не называется (issue #1545)."""
+
+    def _pull(self, number: int, *labels: str) -> dict[str, Any]:
+        return {
+            "number": number,
+            "title": f"PR {number}",
+            "head": {"ref": f"branch-{number}", "sha": f"sha{number}"},
+            "base": {"ref": "main"},
+            "user": {"login": "someone"},
+            "draft": False,
+            "updated_at": "2026-09-09T00:00:00Z",
+            "labels": [{"name": name} for name in labels],
+        }
+
+    def _green(self) -> dict[str, Any]:
+        return {"check_runs": [{"name": "test", "status": "completed", "conclusion": "success"}]}
+
+    def _report(self, module: ModuleType) -> Any:
+        """Случай 09.09: #1528 помечен needs-rebase, #1530 здоров."""
+        opener = _opener(
+            _FakeResponse([self._pull(1528, module.CONFLICT_LABEL), self._pull(1530)]),
+            _FakeResponse(self._green()),
+            _FakeResponse([{"filename": "one.py"}]),
+            _FakeResponse(self._green()),
+            _FakeResponse([{"filename": "two.py"}]),
+            _FakeResponse({"workflow_runs": [{"status": "completed", "conclusion": "success"}]}),
+        )
+        return module.merge_queue("owner/repo", opener=opener)
+
+    def test_conflicted_pull_is_not_the_head(self, module: ModuleType) -> None:
+        """Головой названо первое пригодное — то же, что двигает мувер."""
+        report = self._report(module)
+
+        assert report.head is not None and report.head.number == 1530
+        assert [entry.number for entry in report.ready] == [1530]
+        assert [entry.number for entry in report.conflicted] == [1528]
+        assert module.CONFLICT_LABEL in report.conflicted[0].reason
+
+    def test_conflicted_pull_is_not_ahead_of_anyone(self, module: ModuleType) -> None:
+        """Гейт готовности не ждёт конфликтный PR как стоящего впереди."""
+        assert self._report(module).ahead_of(1530) == []
+
+    def test_mover_still_walks_the_conflicted(self, module: ModuleType) -> None:
+        """Мувер обходит и помеченных — иначе метку снять некому."""
+        report = self._report(module)
+
+        assert [entry.number for entry in report.candidates] == [1528, 1530]
+
+    def test_cli_names_the_conflict_and_never_advises_updating_it(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Вывод `queue`: конфликт отдельной строкой, update-branch — на здоровый."""
+        report = self._report(module)
+        monkeypatch.setattr(module, "merge_queue", lambda *_a, **_k: report)
+
+        module.main(["queue"])
+        out = capsys.readouterr().out
+
+        assert "update-branch 1530" in out
+        assert "update-branch 1528" not in out
+        assert "конфликт с main" in out and "#1528" in out
+
+
 class TestRerunFailedJobs:
     """Перезапуск только упавших — и обязательный след (issue #1344)."""
 
@@ -1722,3 +1789,20 @@ class TestEditIssueCommand:
 
         assert code == module.EXIT_FAIL
         assert "стёрла бы чужую" in capsys.readouterr().err
+
+
+def test_green_conclusions_are_declared_once() -> None:
+    """Список зелёных исходов объявлен один раз — в транспорте (issue #1527).
+
+    Копии в гейте, агрегаторе и перезапуске, разойдясь на один элемент, дали бы
+    про один PR разные ответы «зелено ли», и никакой другой тест их между собой
+    не сравнивает.
+    """
+    scripts = pathlib.Path(__file__).parent.parent / "scripts"
+    declared = [
+        path.name
+        for path in sorted(scripts.glob("*.py"))
+        if '"success", "skipped", "neutral"' in path.read_text(encoding="utf-8")
+    ]
+
+    assert declared == ["gh_rest.py"]
