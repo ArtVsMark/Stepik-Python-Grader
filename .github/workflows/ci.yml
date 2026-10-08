@@ -120,6 +120,9 @@ jobs:
             src/stepik_grader/core/wrapper_builder.py \
             src/stepik_grader/core/sandbox/_posix_bootstrap.py
           python3.11 -m py_compile .claude/hooks/*.py
+          # Корневой `__init__` отказывает словами под старым Python — значит,
+          # обязан им разбираться (issue #1570).
+          python3.11 -m py_compile src/stepik_grader/__init__.py
       - name: README line-budget + Markdown link-check
         run: python scripts/check_docs_guardrails.py
       # issue #264: message_id-каталог веб-API (web/i18n.py) — ru.json должен
