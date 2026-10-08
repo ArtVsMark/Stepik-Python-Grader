@@ -48,7 +48,8 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 _ROOT = Path(__file__).resolve().parent.parent
-_CI = _ROOT / ".github" / "workflows" / "ci.yml"
+#: Где живёт предрелизная версия (issue #1564): отдельный прогон, а не ячейка ci.yml.
+_NEXT = _ROOT / ".github" / "workflows" / "python-next.yml"
 
 for _stream in (sys.stdout, sys.stderr):
     with contextlib.suppress(AttributeError, ValueError, OSError):
@@ -98,16 +99,28 @@ class Mismatch(NamedTuple):
         )
 
 
+#: Список версий матрицы: ``python-version: ["3.15"]``.
+_LIST_RE = re.compile(r"python-version:\s*\[([^\]]*)\]")
+
+
 def flagged_versions(text: str) -> set[str]:
-    """Версии, помеченные в матрице экспериментальными — чистая функция.
+    """Версии, объявленные предрелизными, — чистая функция.
+
+    Два вида объявления: ячейка ``experimental: true`` (прежняя раскладка, всё
+    ещё законная) и прогон с ``allow-prereleases: true`` — у ``python-next.yml``
+    предрелизны все его версии, ради них он и заведён (issue #1564).
 
     Args:
-        text: Содержимое ``ci.yml``.
+        text: Содержимое файла прогона.
 
     Returns:
         Множество вида ``{"3.15"}``.
     """
-    return {version for version, flag in _CELL_RE.findall(text) if flag == "true"}
+    flagged = {version for version, flag in _CELL_RE.findall(text) if flag == "true"}
+    if "allow-prereleases: true" in text:
+        for raw in _LIST_RE.findall(text):
+            flagged |= {item.strip().strip("\"'") for item in raw.split(",") if item.strip()}
+    return flagged
 
 
 def stable_minors(manifest: list[dict[str, Any]]) -> dict[str, str]:
@@ -163,7 +176,7 @@ def _load_manifest(source: Path | None) -> list[dict[str, Any]] | None:
             with urllib.request.urlopen(MANIFEST_URL, timeout=_TIMEOUT_S) as response:
                 raw = response.read().decode("utf-8")
         data = json.loads(raw)
-    except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError):
+    except OSError, urllib.error.URLError, json.JSONDecodeError, ValueError:
         return None
     return data if isinstance(data, list) else None
 
@@ -182,9 +195,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        text = _CI.read_text(encoding="utf-8")
+        text = _NEXT.read_text(encoding="utf-8")
     except OSError as exc:
-        print(f"Спросить не удалось: {_CI.name} не прочитан ({exc})", file=sys.stderr)
+        print(f"Спросить не удалось: {_NEXT.name} не прочитан ({exc})", file=sys.stderr)
         return EXIT_UNKNOWN
 
     manifest = _load_manifest(args.manifest)
@@ -205,9 +218,10 @@ def main(argv: list[str] | None = None) -> int:
     for item in found:
         print(item.line())
     print(
-        "::warning::пометка «экспериментальная» — утверждение о чужом календаре, и она "
-        "устарела. Пока флаг стоит, падения на вышедшей версии идут под "
-        "`continue-on-error` и мерж не блокируют, а сводка о них не приходит вовсе."
+        "::warning::пометка «предрелизная» — утверждение о чужом календаре, и она "
+        "устарела. Вышедшая версия переезжает в матрицу ci.yml и в requires-python, "
+        "а в python-next.yml встаёт следующая: пока она здесь, её падения слияние не "
+        "держат."
     )
     return EXIT_OK
 

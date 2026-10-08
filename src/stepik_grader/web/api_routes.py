@@ -96,7 +96,7 @@ def _int(values: list[str] | None, default: int) -> int:
     """Первое значение из query как int, иначе default (без падения)."""
     try:
         return int((values or [str(default)])[0])
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -113,7 +113,7 @@ def _to_int(value: Any, default: int) -> int:
         return default
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -699,7 +699,7 @@ class _ApiRoutesMixin(_GuardMixin):
             return True
         try:
             existing = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except OSError, ValueError:
             existing = None
         if isinstance(existing, dict) and "client_id" in existing:
             return True
@@ -767,7 +767,7 @@ class _ApiRoutesMixin(_GuardMixin):
                 return  # _confined_path уже отправил ошибку
             try:
                 terms_code = confined.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
+            except OSError, UnicodeDecodeError:
                 # issue #423: не-UTF8 файл не должен ронять /api/code-terms —
                 # best-effort детект пробелов на пустом коде.
                 terms_code = ""

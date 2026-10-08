@@ -8,7 +8,7 @@
 [![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 <!-- Бейджей покрытия два не случайно: что именно меряет каждый — CONTRIBUTING.md § Покрытие. -->
 [![Good first issues](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/good-first-issues.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/good%20first%20issue)
-![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
+![Python](https://img.shields.io/badge/python-3.14-blue)
 
 > **Status:** Stable &nbsp;·&nbsp; 🇬🇧 [English quick start & generic mode](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/README.en.md)
 
@@ -184,7 +184,7 @@ as-is).
 
 ## Прозрачность и доверие
 
-- ✅ **Автотесты на каждый PR** (pytest), CI-матрица на 3 ОС × Python 3.12/3.13/3.14
+- ✅ **Автотесты на каждый PR** (pytest), CI-матрица на 3 ОС × Python 3.14, предрелизная 3.15 — отдельным прогоном
   (+3.15 предрелизная, экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
 - 🧠 **Строгий mypy** (`disallow_untyped_defs`, `warn_return_any`, …) + `ruff`
   (lint + format) в pre-commit и CI — типы и стиль проверяются на каждый PR.
@@ -210,7 +210,8 @@ Commits) — в [CONTRIBUTING.md § Первый вклад за 15 минут](
 
 ## Python версия
 
-Python **3.12+** (3.15 — предрелизная, экспериментальная).
+Python **3.14+**. На 3.12–3.13 работает выпуск 1.12 — последний, который их
+поддерживает. Предрелизная 3.15 проверяется отдельным прогоном и слияние не держит.
 
 ---
 

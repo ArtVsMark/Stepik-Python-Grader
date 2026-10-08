@@ -157,7 +157,7 @@ def _load_export(catalogue: Path) -> dict[str, Any] | None:
     """Выгрузка правил каталога; ``None`` — прочитать не удалось."""
     try:
         data = json.loads((catalogue / "export" / "rules.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return None
     return data if isinstance(data, dict) else None
 

@@ -114,7 +114,7 @@ def ruff_available() -> bool:
             capture_output=True,
             timeout=_RUFF_TIMEOUT_S,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return False
     # issue #877: `None` — запуск завис; трактуем как «недоступен», а не ждём.
     # `check=True` заменён явной проверкой кода: обёртка возвращает результат,
@@ -171,7 +171,7 @@ def run_lint(
             errors="replace",
             timeout=_RUFF_TIMEOUT_S,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return []
     if proc is None:  # issue #877: запуск завис — раздел «Стиль» просто пуст
         return []

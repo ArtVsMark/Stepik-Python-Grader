@@ -194,7 +194,7 @@ def _is_code_step(session: requests.Session, lesson_id: int, position: int) -> b
     """
     try:
         step = fetch_step_data(session, lesson_id, position)
-    except (requests.RequestException, ValueError, KeyError):
+    except requests.RequestException, ValueError, KeyError:
         return False
     block: dict[str, Any] = step.get("block") or {}
     return str(block.get("name") or "") == _CODE_BLOCK_NAME

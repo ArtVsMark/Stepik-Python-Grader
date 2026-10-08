@@ -1006,7 +1006,7 @@ def _cached_api_get(
                     dict[str, Any],
                     _json_mod.loads(cache_file.read_text(encoding="utf-8")),
                 )
-            except (_json_mod.JSONDecodeError, OSError):
+            except _json_mod.JSONDecodeError, OSError:
                 pass
 
     response = _get_with_retry(session, url, params=params)
@@ -1413,7 +1413,7 @@ def read_step_id(task_dir: pathlib.Path) -> int | None:
     try:
         raw = (task_dir / "meta.json").read_text(encoding="utf-8")
         data = _json_mod.loads(raw)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     step_id = data.get("step_id") if isinstance(data, dict) else None
     return int(step_id) if isinstance(step_id, int) else None

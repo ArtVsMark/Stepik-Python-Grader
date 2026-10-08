@@ -51,11 +51,11 @@ def auth_status(secrets_path: pathlib.Path) -> dict[str, Any]:
         return {"authorized": False, "reason": "no_secrets"}
     try:
         secrets = load_json_file(secrets_path)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {"authorized": False, "reason": "no_secrets"}
     try:
         valid = token_is_valid(secrets)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         # Битый expires_at/access_token (напр. строка вместо числа) — трактуем как
         # «валидного токена нет», а не роняем сервер (best-effort, см. docstring).
         valid = False
@@ -91,7 +91,7 @@ def secrets_state(secrets_path: pathlib.Path) -> str:
         return "missing"
     try:
         secrets = load_json_file(secrets_path)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return "unreadable"
     if not all(str(secrets.get(field, "")).strip() for field in _CRED_FIELDS):
         return "incomplete"
@@ -112,7 +112,7 @@ def stored_credentials(secrets_path: pathlib.Path) -> dict[str, str]:
         return {}
     try:
         secrets = load_json_file(secrets_path)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}
     return {
         field: str(secrets.get(field, "")).strip()
@@ -142,7 +142,7 @@ def perform_browser_auth(
     if secrets_path.exists() and secrets_path.is_file():
         try:
             existing = load_json_file(secrets_path)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             existing = {}
     existing.update(
         {"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri}

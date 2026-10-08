@@ -198,7 +198,7 @@ def parse_report(path: pathlib.Path) -> list[Failure]:
     job = _job_name(path)
     try:
         tree = ET.parse(path)
-    except (ET.ParseError, OSError):
+    except ET.ParseError, OSError:
         # Обрезанный отчёт — не повод падать: он и пишется на аварийном пути.
         return []
 

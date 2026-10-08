@@ -334,12 +334,12 @@ def sample_tree_rss(proc: psutil.Process, *, children: list[Any] | None = None) 
     if children is None:
         try:
             children = proc.children(recursive=True)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
             return total
     for child in children:
         try:
             total += float(child.memory_info().rss) / 1024 / 1024
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
             continue
     return total
 
@@ -452,7 +452,7 @@ def _measure_peak_memory(
         if now >= next_refresh:
             try:
                 children = ps_proc.children(recursive=True)
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
                 children = []
             next_refresh = now + _CHILDREN_REFRESH_SEC
         return rss
@@ -461,17 +461,17 @@ def _measure_peak_memory(
         ps_proc = psutil.Process(proc.pid)
         try:
             remember(sample(ps_proc))
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
             _warn_unreliable()
             return
         while not stop.is_set():
             try:
                 remember(sample(ps_proc))
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
                 _warn_unreliable()
                 break
             stop.wait(_POLL_INTERVAL_SEC)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
+    except psutil.NoSuchProcess, psutil.AccessDenied:
         _warn_unreliable()
 
 
@@ -487,7 +487,7 @@ def _write_stdin(pipe: Any, data: bytes | None) -> None:
     try:
         if data is not None:
             pipe.write(data)
-    except (BrokenPipeError, OSError):
+    except BrokenPipeError, OSError:
         pass
     finally:
         with contextlib.suppress(OSError):
@@ -542,7 +542,7 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
     if psutil is not None:
         try:
             children = psutil.Process(proc.pid).children(recursive=True)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
             children = []
 
     if os.name == "posix":
@@ -865,7 +865,7 @@ class LocalRunner:
                     kept = budget.take(chunk)
                     if kept:
                         sink.append(kept)
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 pass
 
         readers = [

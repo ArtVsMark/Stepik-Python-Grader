@@ -142,7 +142,7 @@ def mentions(root: pathlib.Path | None = None) -> dict[str, list[str]]:
                 continue
             try:
                 text = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
+            except OSError, UnicodeDecodeError:
                 continue
             for pattern_re in _MENTION_RES:
                 for raw in pattern_re.findall(text):

@@ -124,7 +124,7 @@ def load_locale_values(lang: str) -> dict[str, str]:
     path = _LOCALES_DIR / f"{lang}.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {}
     if not isinstance(data, dict):
         return {}
@@ -136,7 +136,7 @@ def load_locale_keys(lang: str) -> set[str]:
     path = _LOCALES_DIR / f"{lang}.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return set()
     if not isinstance(data, dict):
         return set()

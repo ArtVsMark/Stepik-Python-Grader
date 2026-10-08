@@ -87,7 +87,7 @@ def _sampled_max_processes() -> int:
             for p in psutil.process_iter(["uids"])
             if p.info["uids"] is not None and p.info["uids"].real == uid
         )
-    except (psutil.Error, OSError):
+    except psutil.Error, OSError:
         current = 0
     return current + CONFIG.sandbox_max_processes
 

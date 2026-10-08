@@ -379,7 +379,7 @@ def _home() -> pathlib.Path | None:
     """Домашний каталог пользователя или ``None``, если его нет (CI, контейнер)."""
     try:
         return pathlib.Path.home()
-    except (OSError, RuntimeError):
+    except OSError, RuntimeError:
         return None
 
 

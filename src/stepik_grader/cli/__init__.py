@@ -695,7 +695,7 @@ def _confirm_purge(preview: PurgePreview, task_key: str | None) -> bool:
         return True
     try:
         answer = input(_t("history_purge_confirm")).strip().lower()
-    except (EOFError, KeyboardInterrupt):
+    except EOFError, KeyboardInterrupt:
         print()
         return False
     return answer in EXPLICIT_YES

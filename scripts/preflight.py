@@ -177,7 +177,7 @@ def _git_launch_timeout_s() -> float:
 _T = TypeVar("_T")
 
 
-def _run_guarded(call: Callable[[], _T]) -> _T | None:  # noqa: UP047 (см. комментарий выше)
+def _run_guarded(call: Callable[[], _T]) -> _T | None:
     """Выполнить ``call`` с дедлайном, покрывающим и ЗАПУСК процесса (issue #1149).
 
     ``timeout=`` у ``subprocess`` покрывает ожидание уже стартовавшего процесса,

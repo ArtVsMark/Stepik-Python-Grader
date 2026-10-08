@@ -29,7 +29,7 @@ import pytest
 _ROOT = Path(__file__).parent.parent
 _SCRIPTS = _ROOT / "scripts"
 _SCRIPT = _SCRIPTS / "check_experimental_python.py"
-_CI = _ROOT / ".github" / "workflows" / "ci.yml"
+_NEXT = _ROOT / ".github" / "workflows" / "python-next.yml"
 
 
 def _load_module() -> ModuleType:
@@ -124,14 +124,22 @@ def test_prereleases_never_count_as_released(guard: ModuleType) -> None:
 
 
 def test_the_live_matrix_flags_exactly_one_version(guard: ModuleType) -> None:
-    """В матрице ровно одна экспериментальная версия — предрелизная следующего цикла.
+    """Предрелизная версия ровно одна — следующего цикла, в `python-next.yml`.
 
     Ни одной означало бы, что следующий цикл не проверяется вовсе; две и больше
-    — что предыдущую забыли снять с флага, а это и есть чинимый дефект.
+    — что предыдущую забыли перенести в основной CI, а это и есть чинимый дефект.
     """
-    flagged = guard.flagged_versions(_CI.read_text(encoding="utf-8"))
+    flagged = guard.flagged_versions(_NEXT.read_text(encoding="utf-8"))
 
     assert len(flagged) == 1, f"помечено экспериментальными: {sorted(flagged)}"
+
+
+def test_a_prerelease_workflow_flags_all_its_versions(guard: ModuleType) -> None:
+    """Прогон с `allow-prereleases: true` предрелизен целиком (issue #1564)."""
+    text = 'with:\n  python-version: ["3.15"]\n  allow-prereleases: true\n'
+
+    assert guard.flagged_versions(text) == {"3.15"}
+    assert guard.flagged_versions(text.replace("allow-prereleases: true", "")) == set()
 
 
 # --- три исхода ---------------------------------------------------------------
@@ -157,11 +165,11 @@ def test_a_stale_flag_warns_but_does_not_fail(
     то есть не одним изменением. Находка при этом обязана быть названа вслух:
     без адресата она не доедет ни до кого (правило 142).
     """
-    ci = tmp_path / "ci.yml"
+    ci = tmp_path / "python-next.yml"
     ci.write_text(_cell("3.14", experimental=True), encoding="utf-8")
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps(_manifest(("3.14.7", True))), encoding="utf-8")
-    monkeypatch.setattr(guard, "_CI", ci)
+    monkeypatch.setattr(guard, "_NEXT", ci)
 
     assert guard.main(["--manifest", str(manifest)]) == guard.EXIT_OK
 

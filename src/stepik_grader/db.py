@@ -103,7 +103,7 @@ def busy_timeout_ms() -> int:
     raw = os.environ.get(ENV_BUSY_TIMEOUT, "")
     try:
         value = int(raw)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return BUSY_TIMEOUT_MS
     return value if value > 0 else BUSY_TIMEOUT_MS
 

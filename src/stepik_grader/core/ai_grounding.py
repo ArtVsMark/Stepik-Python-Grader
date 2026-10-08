@@ -91,7 +91,7 @@ def _bundled_index() -> dict[str, GlossaryCard]:
         return hit[1]
     try:
         cards = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
-    except (GlossaryError, OSError):
+    except GlossaryError, OSError:
         return {}
     index = _index_from_cards(cards)
     _INDEX_CACHE[key] = (sig, index)

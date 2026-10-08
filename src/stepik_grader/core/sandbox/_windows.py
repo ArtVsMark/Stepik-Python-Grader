@@ -219,10 +219,10 @@ def _poll_resources(
                     cpu_exceeded.set()
                     proc.kill()
                     break
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
                 break
             stop.wait(0.02)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
+    except psutil.NoSuchProcess, psutil.AccessDenied:
         pass
 
 
@@ -329,7 +329,7 @@ class WindowsSandboxRunner:
                 for chunk in iter(lambda: pipe.read1(65536), b""):
                     sink.append(chunk)
                     _on_chunk(len(chunk))
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 pass
 
         readers = [

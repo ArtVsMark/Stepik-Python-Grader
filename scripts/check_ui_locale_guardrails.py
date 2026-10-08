@@ -169,7 +169,7 @@ def load_ui_catalog() -> tuple[dict[str, str], dict[str, str]]:
     """(`ru`, `en`) словари каталога `ui.json` (пустые, если файл битый/не-объект)."""
     try:
         data = json.loads(_UI_JSON.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {}, {}
     if not isinstance(data, dict):
         return {}, {}

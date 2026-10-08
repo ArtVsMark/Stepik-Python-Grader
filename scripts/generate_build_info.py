@@ -68,7 +68,7 @@ def _git(*args: str) -> str | None:
             check=False,
             timeout=30,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     return out.stdout.strip() if out.returncode == 0 else None
 
@@ -84,7 +84,7 @@ def _scm_options() -> dict[str, Any]:
 
         with (_ROOT / "pyproject.toml").open("rb") as handle:
             config = tomllib.load(handle)
-    except (OSError, ValueError, ImportError):
+    except OSError, ValueError, ImportError:
         return {}
     section = config.get("tool", {}).get("setuptools_scm", {})
     return {k: v for k, v in section.items() if isinstance(v, str)}

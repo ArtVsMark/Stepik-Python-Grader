@@ -92,7 +92,7 @@ def _reread_secrets(secrets_path: pathlib.Path) -> dict[str, Any] | None:
     """
     try:
         return load_secrets_dict(secrets_path)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
 
 

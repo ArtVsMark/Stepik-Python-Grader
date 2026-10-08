@@ -257,7 +257,7 @@ def _queue_missing_concept(
         )
         if entry is not None:
             append_missing_entries(missing_queue_path, [entry])
-    except (GlossaryError, OSError):
+    except GlossaryError, OSError:
         pass
 
 
@@ -634,7 +634,7 @@ def _web_lint_records(solutions: list[pathlib.Path]) -> list[history.LintRecord]
         violations = [
             v for sol in solutions for v in lint.run_lint(sol, select=select, preview=True)
         ]
-    except (lint.LintUnavailable, OSError):
+    except lint.LintUnavailable, OSError:
         return []
     return history_recording.lint_records_from_violations(violations)
 
@@ -1102,7 +1102,7 @@ def grade_benchmark(
     if ref_path is not None:
         try:
             response["reference_source"] = ref_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             # issue #423: не-UTF8 reference-файл не должен ронять bench-ответ.
             response["reference_source"] = None
         response["reference_file"] = _rel(ref_path, base)
