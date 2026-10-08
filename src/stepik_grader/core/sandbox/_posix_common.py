@@ -16,8 +16,6 @@
 ``RunOutcome.sandbox_violation`` в ``core/runner.py``).
 """
 
-from __future__ import annotations
-
 import contextlib
 import signal
 import subprocess

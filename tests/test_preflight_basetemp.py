@@ -14,8 +14,6 @@
 создавать объекты, потому что путь не влезает в MAX_PATH.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

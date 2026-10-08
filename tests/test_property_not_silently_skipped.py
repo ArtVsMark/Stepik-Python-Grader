@@ -25,8 +25,6 @@ PR мержится, а инварианты нормализатора и ра�
 ``Skipped`` здесь перехватывается и переводится в отказ.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

@@ -21,8 +21,6 @@
 не исходник — иначе в git лежала бы версия, устаревшая на каждый следующий PR.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import pathlib

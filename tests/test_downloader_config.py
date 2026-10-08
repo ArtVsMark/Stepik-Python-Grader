@@ -5,8 +5,6 @@ create/load/normalize конфига (интерактивные ветки). П
 ``stepik_grader.downloader_config`` — модуль, где функции теперь живут.
 """
 
-from __future__ import annotations
-
 import pathlib
 from unittest.mock import patch
 

@@ -10,8 +10,6 @@ OAuth-приложения и без сети получает каталог, �
 проверяется ровно так, как его будет проверять человек, — строкой из подсказки.
 """
 
-from __future__ import annotations
-
 import pathlib
 import subprocess
 import sys

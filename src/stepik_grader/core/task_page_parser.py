@@ -8,8 +8,6 @@
 ``str -> данные``, поэтому модуль тестируется без моков сети/ФС.
 """
 
-from __future__ import annotations
-
 import ast
 import re
 from html.parser import HTMLParser

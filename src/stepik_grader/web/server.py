@@ -16,8 +16,6 @@ OS-sandbox (см. ``core/runner.py``, CLAUDE.md). Сервер слушает т
 127.0.0.1 — запускай для своих решений на своей машине.
 """
 
-from __future__ import annotations
-
 import html
 import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer

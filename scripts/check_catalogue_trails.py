@@ -36,8 +36,6 @@
     python scripts/check_catalogue_trails.py --catalogue <клон каталога>
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

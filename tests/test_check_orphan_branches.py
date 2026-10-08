@@ -12,8 +12,6 @@
 В сеть не ходит ни один тест: состояние подставляется.
 """
 
-from __future__ import annotations
-
 import datetime as _datetime
 import importlib.util
 import pathlib

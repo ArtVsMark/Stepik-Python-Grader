@@ -9,8 +9,6 @@ JSON-значения, создание директорий, отсутстви
 вызывающего (см. ``append_missing_entries``), а не самого примитива.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import pathlib

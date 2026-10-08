@@ -18,8 +18,6 @@
 статикой такое не воспроизводится в принципе.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

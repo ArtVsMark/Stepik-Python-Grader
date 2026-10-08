@@ -6,8 +6,6 @@
 pyproject. Плюс проверка проводки в main() для --mode 1/2 --watch.
 """
 
-from __future__ import annotations
-
 import argparse
 import types
 

@@ -3,8 +3,6 @@ Format 3 (issue #302: выделено из downloader.py). extract_external_tes
 (разбор ссылок) живёт в core/task_page_parser.py, но тестируется здесь рядом
 с использующим её скачиванием."""
 
-from __future__ import annotations
-
 import io
 import pathlib
 import zipfile

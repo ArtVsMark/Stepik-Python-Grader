@@ -15,8 +15,6 @@
 вопрос «кто это запускает?» до мержа, а не через месяц.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest
@@ -106,6 +104,10 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "предмет — состояние трекера: расписание, а не прогон на каждый PR (квота)",
     ),
     "check_locale_guardrails.py": (".github/workflows/ci.yml", "полнота локалей"),
+    "check_py_style.py": (
+        ".github/workflows/ci.yml",
+        "стиль планки: переезд на версию формальный, пока код написан на прежней",
+    ),
     "check_mcp_permissions.py": (
         ".github/workflows/ci.yml",
         "форма запрета MCP: именная запись отключается молча при переименовании",

@@ -4,8 +4,6 @@
 MagicMock() вместо requests.Session, patch(...) для изоляции сети/OAuth.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import threading

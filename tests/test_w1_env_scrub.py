@@ -8,8 +8,6 @@
 project-import (``PATH``/``PYTHONPATH``), нужный трассировщику.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

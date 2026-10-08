@@ -10,8 +10,6 @@
 а не падение грейдера.
 """
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable

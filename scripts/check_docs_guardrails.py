@@ -73,8 +73,6 @@
     python scripts/check_docs_guardrails.py     # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import ast
 import importlib.util
 import json

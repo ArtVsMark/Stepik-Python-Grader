@@ -8,8 +8,6 @@
 #64 и #1095).
 """
 
-from __future__ import annotations
-
 import ast
 import os
 import pathlib

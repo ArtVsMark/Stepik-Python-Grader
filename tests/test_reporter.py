@@ -5,8 +5,6 @@
 видно на экране.
 """
 
-from __future__ import annotations
-
 from stepik_grader.core import reporter
 
 # ---------------------------------------------------------------------------

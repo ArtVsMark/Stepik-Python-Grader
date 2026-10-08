@@ -12,8 +12,6 @@ _LOCALE_MESSAGES остаются в cli/__init__.py, issue #117).
 существующими monkeypatch-тестами.
 """
 
-from __future__ import annotations
-
 import argparse
 import pathlib
 import sys

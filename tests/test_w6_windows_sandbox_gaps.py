@@ -33,8 +33,6 @@ macOS (sandbox-exec) части #648 — отдельно, здесь не тр�
 дочерний процесс даже к loopback-сокету хоста, а Windows Job Object пускает.
 """
 
-from __future__ import annotations
-
 import pathlib
 import socket
 import sys

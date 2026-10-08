@@ -16,8 +16,6 @@ into oauth_flow.py, the imports here will change but the asserted behavior must
 not. Update the import lines, keep the assertions.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import socket

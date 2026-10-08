@@ -8,8 +8,6 @@ Guard-the-guard: тест, который пишет мимо `tmp_path`, обя
 каталоги разработчика остаются нетронутыми.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest

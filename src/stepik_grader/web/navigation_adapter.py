@@ -14,8 +14,6 @@
 подпись совпала (задачу заменили другой с тем же числом файлов и датой).
 """
 
-from __future__ import annotations
-
 import sqlite3
 import threading
 from pathlib import Path

@@ -21,8 +21,6 @@
   концепции — без дублей в очереди.
 """
 
-from __future__ import annotations
-
 import ast
 from datetime import date
 

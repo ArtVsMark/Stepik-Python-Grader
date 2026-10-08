@@ -8,8 +8,6 @@
 ради которого issue и заведён.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import pathlib

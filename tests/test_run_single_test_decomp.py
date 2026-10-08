@@ -8,8 +8,6 @@ cancelled / timed_out / RE / AC / WA) без реального subprocess-за�
 тестируются изолированно».
 """
 
-from __future__ import annotations
-
 import pathlib
 import shutil
 import stat

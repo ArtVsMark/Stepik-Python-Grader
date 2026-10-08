@@ -7,8 +7,6 @@
 сразу после правки, не дожидаясь переустановки пакета.
 """
 
-from __future__ import annotations
-
 import hashlib
 import importlib.metadata
 import pathlib

@@ -18,8 +18,6 @@ verify остаются зелёными, а на PyPI уезжает wheel бе
     python scripts/check_wheel_contents.py dist/stepik_python_grader-1.10.0-py3-none-any.whl
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import fnmatch

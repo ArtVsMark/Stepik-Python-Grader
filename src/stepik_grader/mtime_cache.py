@@ -22,8 +22,6 @@ issue #996 (``ARCH-3-01``): модуль живёт **вне** ``core/`` — к�
 ``core/*``, не создавая этого ребра.
 """
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from pathlib import Path
 

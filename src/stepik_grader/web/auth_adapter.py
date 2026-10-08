@@ -12,8 +12,6 @@ DAG: web → core (импортирует только ``core/*``), без об�
 HTTP-обработчика. Для удалённого сервера (#151, не в scope) не применимо.
 """
 
-from __future__ import annotations
-
 import pathlib
 import threading
 from typing import Any

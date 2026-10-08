@@ -17,8 +17,6 @@
 проверяется прогоном в браузере (описан в PR).
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 

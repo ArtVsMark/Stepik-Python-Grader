@@ -25,8 +25,6 @@
     python scripts/check_orphan_branches.py --hours 6
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import datetime as _datetime

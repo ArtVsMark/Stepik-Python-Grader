@@ -11,8 +11,6 @@
 помешала бы проверить настоящий русский дефолт.
 """
 
-from __future__ import annotations
-
 import csv
 import io
 import json

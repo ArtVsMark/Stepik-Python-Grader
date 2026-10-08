@@ -10,8 +10,6 @@
 проверяется то, что попадает в терминал, а не внутреннее состояние.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 import pytest

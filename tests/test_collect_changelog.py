@@ -5,8 +5,6 @@
 негодный фрагмент называется по имени, а не молча пропадает из релиза.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

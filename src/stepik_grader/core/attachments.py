@@ -13,8 +13,6 @@
 всего: `RE` без объяснения снова спишут на решение.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 from typing import Any

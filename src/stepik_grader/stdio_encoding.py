@@ -14,8 +14,6 @@ Leaf-модуль: только stdlib, ни одного проектного �
 Поколения 🏆» роняло обход курса на реальном курсе владельца.
 """
 
-from __future__ import annotations
-
 import sys
 from typing import Any
 

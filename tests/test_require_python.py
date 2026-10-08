@@ -13,8 +13,6 @@
 ``SyntaxError`` — ровно в то, от чего модуль и заведён.
 """
 
-from __future__ import annotations
-
 import ast
 import importlib.util
 import pathlib

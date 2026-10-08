@@ -23,8 +23,6 @@
     python scripts/check_truncation_marks.py
 """
 
-from __future__ import annotations
-
 import ast
 import contextlib
 import pathlib

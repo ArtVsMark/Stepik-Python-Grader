@@ -35,8 +35,6 @@ Baseline вычисляется из git (``git describe --tags --abbrev=0``). �
     python scripts/check_version_consistency.py     # exit 0 — ок, 1 — дрейф
 """
 
-from __future__ import annotations
-
 import contextlib
 import os
 import re

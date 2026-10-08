@@ -10,8 +10,6 @@ Format 3). НЕ импортирует ``downloader`` (issue #302 AC — нов�
 обратных импортов).
 """
 
-from __future__ import annotations
-
 import io
 import pathlib
 import re

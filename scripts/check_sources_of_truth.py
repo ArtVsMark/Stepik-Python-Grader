@@ -30,8 +30,6 @@
     python scripts/check_sources_of_truth.py
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

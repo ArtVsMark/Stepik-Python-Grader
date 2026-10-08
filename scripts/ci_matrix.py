@@ -19,8 +19,6 @@ true``) слияние не держит: в списке обязательны
 измерений в порядке объявления: ``test (ubuntu-latest, 3.15, true)``.
 """
 
-from __future__ import annotations
-
 import re
 
 __all__ = [

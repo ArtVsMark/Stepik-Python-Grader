@@ -9,8 +9,6 @@ Guard `_no_writes_outside_tmp` называет виновником того, �
 запущенного кода, где он лежит. Чтение исходника такого не докажет.
 """
 
-from __future__ import annotations
-
 import os
 import pathlib
 import subprocess

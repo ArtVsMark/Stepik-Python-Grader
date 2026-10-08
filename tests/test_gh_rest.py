@@ -14,8 +14,6 @@
 3. **Токена нет — это внятное сообщение,** а не ``KeyError`` изнутри.
 """
 
-from __future__ import annotations
-
 import ast
 import email.message
 import importlib.util

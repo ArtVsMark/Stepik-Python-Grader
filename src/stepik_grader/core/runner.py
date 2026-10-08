@@ -21,8 +21,6 @@ verdict/diff остаётся выше по стеку (``grader_core.py``); ``R
 инъекции и маппинг ``sandbox_violation`` в отдельный verdict).
 """
 
-from __future__ import annotations
-
 import contextlib
 import os
 import pathlib

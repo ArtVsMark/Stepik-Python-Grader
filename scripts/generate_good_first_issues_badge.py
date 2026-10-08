@@ -25,8 +25,6 @@ shields.io "endpoint badge". Цвет — сигнал владельцу: пу�
     python scripts/generate_good_first_issues_badge.py [--out PATH] [--repo OWNER/NAME]
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

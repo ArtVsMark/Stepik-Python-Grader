@@ -37,8 +37,6 @@
     python scripts/ci_aggregate.py --sha <sha> --repo owner/name --once
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import os

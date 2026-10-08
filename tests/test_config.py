@@ -1,7 +1,5 @@
 """Тесты для config.py — единая конфигурация грейдера (Sprint 6.3)."""
 
-from __future__ import annotations
-
 import dataclasses
 import json
 import pathlib

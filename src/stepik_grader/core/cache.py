@@ -27,8 +27,6 @@ CWD). Кэш opt-in: включается флагом ``--cache`` / ``--no-cach
 ``[tool.stepik-grader] use_cache = true`` в pyproject.toml.
 """
 
-from __future__ import annotations
-
 import hashlib
 import pathlib
 import warnings

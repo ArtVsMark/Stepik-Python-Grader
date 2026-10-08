@@ -36,8 +36,6 @@
     python scripts/check_issue_checklists.py [--repo OWNER/NAME]
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import os

@@ -16,8 +16,6 @@
     step    = fetch_step_data(session, lesson_id, step_position)
 """
 
-from __future__ import annotations
-
 import contextlib
 import hashlib
 import ipaddress

@@ -6,8 +6,6 @@ FK-каскад, наполнение lint_violations, фильтр по task_ke
 запись под WAL.
 """
 
-from __future__ import annotations
-
 import contextlib
 import hashlib
 import json

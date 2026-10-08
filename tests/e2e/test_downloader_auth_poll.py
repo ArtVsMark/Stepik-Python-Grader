@@ -13,8 +13,6 @@
 Не входит в обычный ``pytest tests/`` — см. ``tests/e2e/conftest.py``.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any
 

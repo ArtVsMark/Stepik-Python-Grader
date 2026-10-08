@@ -23,8 +23,6 @@
     python scripts/check_three_outcomes.py
 """
 
-from __future__ import annotations
-
 import contextlib
 import pathlib
 import re

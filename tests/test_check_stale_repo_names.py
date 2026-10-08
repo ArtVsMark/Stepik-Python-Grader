@@ -10,8 +10,6 @@
 перепись, краснеющую на выдуманном, отключают целиком.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

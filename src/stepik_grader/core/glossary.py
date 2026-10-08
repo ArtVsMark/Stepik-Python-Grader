@@ -19,8 +19,6 @@ RuntimeError'ом (вердикт RE), и CLI (`core/reporter.py`), и веб-о
 § Истина глоссария). Навигация — по ``anchor`` внутри своего глоссария.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 __all__ = [

@@ -14,8 +14,6 @@
 guard'ы (localhost-only, лимит тела #259) — забота ``server.py``.
 """
 
-from __future__ import annotations
-
 import pathlib
 import shutil
 import tempfile

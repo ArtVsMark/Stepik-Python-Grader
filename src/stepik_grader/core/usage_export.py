@@ -26,8 +26,6 @@ opt-in ``--stats``), но наружу он отдавался только че
 одинаково.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 from typing import Any

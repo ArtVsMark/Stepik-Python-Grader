@@ -24,8 +24,6 @@
 round-trip-точности читаемость как раз убивают.
 """
 
-from __future__ import annotations
-
 import re
 from html.parser import HTMLParser
 

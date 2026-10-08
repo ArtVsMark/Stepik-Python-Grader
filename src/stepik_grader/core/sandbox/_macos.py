@@ -40,8 +40,6 @@ SECURITY.md:
   пользователя могли бы случайно выбить лимит для решения.
 """
 
-from __future__ import annotations
-
 import os
 import shutil
 import sys

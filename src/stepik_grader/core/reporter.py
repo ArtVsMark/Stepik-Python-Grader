@@ -9,8 +9,6 @@
 Перенесён в core/ (Issue #26).
 """
 
-from __future__ import annotations
-
 import pathlib
 import shutil
 from collections.abc import Mapping, Sequence

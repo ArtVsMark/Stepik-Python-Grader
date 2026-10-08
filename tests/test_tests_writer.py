@@ -4,8 +4,6 @@
 write_testblock_tests (Format 3: input.txt/output.txt с # TEST_N:).
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

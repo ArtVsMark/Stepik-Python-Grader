@@ -6,8 +6,6 @@
 проверки здесь логика сверки, а не доступность GitHub.
 """
 
-from __future__ import annotations
-
 import copy
 import importlib.util
 import pathlib

@@ -7,8 +7,6 @@ T6: ``[tool.pytest.ini_options] timeout = 120`` действует только 
 предупреждение на этапе конфигурации pytest.
 """
 
-from __future__ import annotations
-
 import contextlib
 import os
 import sys

@@ -25,8 +25,6 @@
     python scripts/check_rules_digest.py
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib

@@ -5,8 +5,6 @@ backend'ы лениво (внутри функции), поэтому обрат
 на уровне модуля backend'а замкнул бы цикл.
 """
 
-from __future__ import annotations
-
 import math
 
 __all__ = [

@@ -8,8 +8,6 @@ test_generate_version_badge.py и соседи.
 пары «тег ↔ PyPI» появляется только в момент, когда публикация отстала.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

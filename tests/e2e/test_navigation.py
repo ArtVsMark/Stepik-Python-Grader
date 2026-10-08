@@ -9,8 +9,6 @@
 потоком, и смена главы не теряется, потому что видна в подписи контекста.
 """
 
-from __future__ import annotations
-
 import json
 from collections.abc import Iterator
 from pathlib import Path

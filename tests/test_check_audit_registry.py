@@ -8,8 +8,6 @@
 В сеть не ходит ни один тест: предмет здесь логика разбора, а не GitHub.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 import sys

@@ -4,8 +4,6 @@
 (requests.post); AI никогда не роняет грейдинг и не печатается без падений.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import pathlib
 

@@ -22,8 +22,6 @@ issue #948), но существующий папочный ``.grader_settings.j
 прежний статус «ноль проектных импортов» сменён на это одно ребро.
 """
 
-from __future__ import annotations
-
 import json
 import os
 from collections.abc import Callable

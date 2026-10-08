@@ -16,8 +16,6 @@
 с симметричными ``from_dict``/``to_dict`` для JSON-хранилища.
 """
 
-from __future__ import annotations
-
 import sys
 from dataclasses import dataclass, field
 from functools import cached_property

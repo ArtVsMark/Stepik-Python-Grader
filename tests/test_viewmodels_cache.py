@@ -7,8 +7,6 @@
 отсутствующем/битом store.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import json
 import os

@@ -5,8 +5,6 @@ Backend-часть web-разделов «Правила»/«Подучить» 
 (#345/#347). Паттерн server-fixture — как в `tests/test_web_journeys.py`.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import re

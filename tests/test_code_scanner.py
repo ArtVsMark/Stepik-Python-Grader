@@ -5,8 +5,6 @@
 разбор `os.path.join` (≠ метод `str.join`) и цепочек `x.strip().split()`.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.glossary.detector import scan_code_concepts

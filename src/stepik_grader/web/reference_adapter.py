@@ -11,8 +11,6 @@
 (``server.py`` через ``_confined_path``), сюда приходит уже безопасным.
 """
 
-from __future__ import annotations
-
 import pathlib
 from typing import Any
 

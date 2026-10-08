@@ -12,8 +12,6 @@
 (core/wrapper_builder.py). Извлечён из grader_core.py (Issue #45 A-01).
 """
 
-from __future__ import annotations
-
 import os
 import pathlib
 import re

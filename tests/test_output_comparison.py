@@ -24,8 +24,6 @@ AC/WA, то есть ровно то, что увидит студент.
 проверка: появившийся ``xfail`` обязан быть строгим и называть issue.
 """
 
-from __future__ import annotations
-
 import ast
 import pathlib
 from collections.abc import Iterator

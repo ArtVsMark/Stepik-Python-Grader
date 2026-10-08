@@ -37,8 +37,6 @@ Threat model: по умолчанию изоляция ВЫКЛЮЧЕНА (ка�
 CLI, никогда из самого веб-интерфейса.
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import functools

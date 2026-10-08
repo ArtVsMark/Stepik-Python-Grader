@@ -4,8 +4,6 @@
 и `python -m stepik_grader.grader`.
 """
 
-from __future__ import annotations
-
 import pathlib
 import sys
 

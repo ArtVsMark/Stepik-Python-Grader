@@ -27,8 +27,6 @@
     python scripts/check_workflow_guardrails.py
 """
 
-from __future__ import annotations
-
 import contextlib
 import pathlib
 import re

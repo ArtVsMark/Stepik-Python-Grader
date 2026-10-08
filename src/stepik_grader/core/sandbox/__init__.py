@@ -29,8 +29,6 @@ Windows) → ``SandboxUnavailableError`` с понятной причиной �
 тихий fallback на ``LocalRunner`` (issue #266, явное требование).
 """
 
-from __future__ import annotations
-
 import platform
 
 from stepik_grader.core.runner import Runner, RunOutcome, RunSpec

@@ -5,8 +5,6 @@ tests/test_web.py::TestRunsApi) — быстрее и изолированнее
 job-lifecycle логики.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import json
 import pathlib

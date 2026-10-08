@@ -20,8 +20,6 @@ MVP без новых зависимостей: реестр job'ов — module
 провалидированный/сконфайненный ``path``.
 """
 
-from __future__ import annotations
-
 import contextlib
 import pathlib
 import tempfile

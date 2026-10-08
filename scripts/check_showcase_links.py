@@ -18,8 +18,6 @@
     python scripts/check_showcase_links.py
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib

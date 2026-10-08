@@ -1,7 +1,5 @@
 """Тесты mtime_cache.py — generic mtime-инвалидируемый кеш (issue #345)."""
 
-from __future__ import annotations
-
 import os
 import pathlib
 import time

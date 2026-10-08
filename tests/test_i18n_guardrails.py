@@ -13,8 +13,6 @@ CLAUDE.md) — тест их не трогает, только строковы�
 читателя).
 """
 
-from __future__ import annotations
-
 import ast
 import pathlib
 

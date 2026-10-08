@@ -8,8 +8,6 @@ explicitly: ``pytest tests/e2e/`` (after ``pip install -e ".[e2e]"`` +
 ``playwright install chromium``).
 """
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 from typing import Any

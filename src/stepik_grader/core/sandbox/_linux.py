@@ -34,8 +34,6 @@ site-packages venv'а НЕ пробрасываются, поэтому реше
 в SECURITY.md).
 """
 
-from __future__ import annotations
-
 import os
 import shutil
 import sys

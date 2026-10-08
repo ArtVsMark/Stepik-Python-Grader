@@ -8,8 +8,6 @@
 ответы по очереди.
 """
 
-from __future__ import annotations
-
 import email.message
 import importlib.util
 import io

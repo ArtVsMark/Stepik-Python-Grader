@@ -11,8 +11,6 @@ job'у не заводит — а значит не попадал в учёт �
 называет три разных свойства, а не одно.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import json
 import pathlib

@@ -9,8 +9,6 @@
 * **089** — оригинал не ссылается на свою витрину (`check_showcase_links.py`).
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

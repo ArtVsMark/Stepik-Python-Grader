@@ -6,8 +6,6 @@
 ``tests/test_glossary_coverage.py`` — здесь только CLI-обвязка.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

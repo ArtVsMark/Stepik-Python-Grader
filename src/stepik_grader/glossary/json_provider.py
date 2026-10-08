@@ -20,8 +20,6 @@
 показать ошибку или продолжить с пустой базой.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib

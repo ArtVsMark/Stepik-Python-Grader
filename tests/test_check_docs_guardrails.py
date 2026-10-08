@@ -4,8 +4,6 @@
 приёмом, что и test_check_version_consistency.py.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import subprocess

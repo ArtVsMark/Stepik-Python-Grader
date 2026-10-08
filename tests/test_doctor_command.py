@@ -12,8 +12,6 @@
 отредактированы (``OPS-1-02``).
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 

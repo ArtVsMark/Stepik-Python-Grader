@@ -1,7 +1,5 @@
 """Tests for core/stats.py — opt-in локальная статистика запусков (issue #268)."""
 
-from __future__ import annotations
-
 import json
 import pathlib
 import threading

@@ -30,8 +30,6 @@
     python scripts/check_issue_state_after_merge.py --limit 50
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib

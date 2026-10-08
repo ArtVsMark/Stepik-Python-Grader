@@ -6,8 +6,6 @@
 ``opener``, и тесты пользуются им (тот же приём, что у двуязычного гейта).
 """
 
-from __future__ import annotations
-
 import io
 import json
 import pathlib

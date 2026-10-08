@@ -4,8 +4,6 @@
 close-on-fail) и примитивы ``user_version``/``set_user_version``/``apply_schema``.
 """
 
-from __future__ import annotations
-
 import contextlib
 import sqlite3
 import stat

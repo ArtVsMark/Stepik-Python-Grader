@@ -1,7 +1,5 @@
 """Unit-тесты для normalizers.py."""
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.core.normalizers import (

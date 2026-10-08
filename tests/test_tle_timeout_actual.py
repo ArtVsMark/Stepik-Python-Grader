@@ -6,8 +6,6 @@
 человек смотрит на карточку, чтобы понять, во сколько не уложился.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 import pytest

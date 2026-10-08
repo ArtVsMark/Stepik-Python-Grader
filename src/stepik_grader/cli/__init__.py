@@ -35,8 +35,6 @@ Roadmap (issue #54):
 Извлечён из grader.py (Issue #20, finding #4 / CLAUDE.md Sprint 7, шаг 3).
 """
 
-from __future__ import annotations
-
 import argparse
 import importlib.metadata
 import json

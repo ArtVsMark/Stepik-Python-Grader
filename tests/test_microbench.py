@@ -1,7 +1,5 @@
 """Unit tests for microbench_runner."""
 
-from __future__ import annotations
-
 from stepik_grader.core.microbench_runner import (
     SIMILAR_THRESHOLD_PERCENT,
     WARMUP_RUNS,

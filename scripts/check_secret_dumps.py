@@ -31,8 +31,6 @@
     python scripts/check_secret_dumps.py     # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import ast
 import contextlib
 import sys

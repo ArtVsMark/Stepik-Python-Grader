@@ -8,8 +8,6 @@
 реэкспортирует эти имена для обратной совместимости.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 import sys

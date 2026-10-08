@@ -8,8 +8,6 @@ submit (#429) и кламп числовых query/body-параметров (#2
 статику. HTTP-контракт — docs/dev/api.md (контракт-тест api.md↔роуты).
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib

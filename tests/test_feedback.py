@@ -5,8 +5,6 @@ YAML-формами, редакция секретов, сворачивание
 машины в окружении и укладывание URL в лимит длины без молчаливой потери данных.
 """
 
-from __future__ import annotations
-
 import os
 import pathlib
 import re

@@ -9,8 +9,6 @@
 поломка. Красный прогон здесь означал бы «почини окружение», а чинить нечего.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

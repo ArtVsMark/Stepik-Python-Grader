@@ -15,8 +15,6 @@
 измерял.
 """
 
-from __future__ import annotations
-
 import contextlib
 import sqlite3
 import threading

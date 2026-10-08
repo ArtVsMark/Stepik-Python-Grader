@@ -9,8 +9,6 @@ issue #397 — ранжирование живёт в core, не дублиру�
 ``web → core`` ациклично.
 """
 
-from __future__ import annotations
-
 import functools
 import pathlib
 import re

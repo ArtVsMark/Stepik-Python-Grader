@@ -34,8 +34,6 @@
     python scripts/capture_github_fixtures.py --check    # только сказать, что устарело
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import datetime as _datetime

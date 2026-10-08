@@ -4,8 +4,6 @@
 кода/имени функции из объектов шага/сабмишна. Чистые функции, без моков.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.core.step_content import (

@@ -35,8 +35,6 @@
 `pip install -e ".[e2e]"` и `playwright install chromium`.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Any
 

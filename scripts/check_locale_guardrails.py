@@ -39,8 +39,6 @@
     python scripts/check_locale_guardrails.py     # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import ast
 import contextlib
 import json

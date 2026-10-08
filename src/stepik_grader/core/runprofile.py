@@ -18,8 +18,6 @@
   тестов, поэтому смена условий инвалидирует вердикт.
 """
 
-from __future__ import annotations
-
 import hashlib
 import importlib.metadata
 import json

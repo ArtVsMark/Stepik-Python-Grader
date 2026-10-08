@@ -5,8 +5,6 @@ a real ThreadingHTTPServer on an ephemeral port, mirroring tests/test_web.py's
 established pattern.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import pathlib

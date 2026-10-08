@@ -21,8 +21,6 @@
 а не ``core/reporter._console`` — модуль остаётся leaf'ом и не тянет ``core/*``).
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib

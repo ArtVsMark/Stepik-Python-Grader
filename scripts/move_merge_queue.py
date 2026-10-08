@@ -37,8 +37,6 @@ GitHub отвечает ошибкой, шаг падал, а вместе с н
     python scripts/move_merge_queue.py --dry-run   # показать, ничего не меняя
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 import time

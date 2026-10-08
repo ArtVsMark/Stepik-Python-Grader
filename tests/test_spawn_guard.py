@@ -6,8 +6,6 @@
 поведение обёртки от причины зависания не зависит.
 """
 
-from __future__ import annotations
-
 import subprocess
 import sys
 import threading

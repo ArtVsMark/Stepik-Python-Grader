@@ -25,8 +25,6 @@
 противоположность тому, зачем флаг существует.
 """
 
-from __future__ import annotations
-
 import dataclasses
 from pathlib import Path
 from typing import Literal

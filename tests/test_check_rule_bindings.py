@@ -10,8 +10,6 @@
 считаться честно, а не «в приятную сторону».
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

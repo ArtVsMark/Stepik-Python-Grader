@@ -5,8 +5,6 @@
 одного реестра, поэтому две поверхности не могут назвать её по-разному.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 from typing import Any

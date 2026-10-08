@@ -48,8 +48,6 @@ ruleset отдаётся только правам администратора.
     python scripts/check_branch_protection.py [--repo OWNER/NAME] [--json]
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import pathlib

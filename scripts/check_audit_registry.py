@@ -47,8 +47,6 @@
     python scripts/check_audit_registry.py [--repo OWNER/NAME] [--limit N]
 """
 
-from __future__ import annotations
-
 import argparse
 import pathlib
 import re

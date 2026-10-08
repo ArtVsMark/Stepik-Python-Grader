@@ -17,8 +17,6 @@
 DAG остаётся ацикличным (``glossary/`` не импортирует ``core/``, ADR-0011).
 """
 
-from __future__ import annotations
-
 import re
 from typing import TYPE_CHECKING
 

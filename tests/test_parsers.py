@@ -4,8 +4,6 @@
 # INPUT DATA:, многострочные блоки, файл без маркеров, одиночный блок.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.core.parsers import parse_testblock_file

@@ -8,8 +8,6 @@ has its own mock-based tests in test_stepik_client.py; this file covers the
 new transport-level mechanism specifically.
 """
 
-from __future__ import annotations
-
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer

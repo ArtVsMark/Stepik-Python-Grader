@@ -9,8 +9,6 @@ Guard-the-guard: на подделанных записях проверка о�
 что ``test_check_docs_guardrails.py``.
 """
 
-from __future__ import annotations
-
 import importlib.util
 from pathlib import Path
 from types import ModuleType

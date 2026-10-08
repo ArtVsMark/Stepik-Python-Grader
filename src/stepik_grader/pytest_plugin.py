@@ -24,8 +24,6 @@ def-строки непокрытыми во всём пакете. Ленива
 когда грейдер-режим не используется.
 """
 
-from __future__ import annotations
-
 import warnings
 from typing import TYPE_CHECKING, Any
 

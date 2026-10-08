@@ -39,8 +39,6 @@
         --base origin/main --head <sha>                 # режим CI: чужие подписи законны
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import pathlib

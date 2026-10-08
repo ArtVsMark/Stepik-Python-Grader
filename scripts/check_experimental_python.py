@@ -35,8 +35,6 @@ ruleset (правило 142: у находки обязан быть адрес�
     python scripts/check_experimental_python.py --manifest <файл>   # без сети
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

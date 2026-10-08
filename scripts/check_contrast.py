@@ -11,8 +11,6 @@
 (функция :func:`check`) для кросс-OS-энфорса без отдельного CI-джоба.
 """
 
-from __future__ import annotations
-
 import contextlib
 import re
 import sys

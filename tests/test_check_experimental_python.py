@@ -15,8 +15,6 @@ stable=True` при `3.15.0-rc.2 stable=False`. Целый цикл релизо
 тоже нет (так и должно быть).
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import sys

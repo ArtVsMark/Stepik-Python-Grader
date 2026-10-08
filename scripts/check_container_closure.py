@@ -25,8 +25,6 @@
     python scripts/check_container_closure.py
 """
 
-from __future__ import annotations
-
 import argparse
 import pathlib
 import sys

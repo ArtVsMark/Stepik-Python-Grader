@@ -25,8 +25,6 @@ Advisory DB не ответила. Шаг в ``ci.yml`` печатал на об
 найдены; ``2`` — аудит не отработал (отчёта нет или он нечитаем).
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

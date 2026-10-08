@@ -1,7 +1,5 @@
 """Машинный вывод CLI: статус прогона в json/csv (issue #997, MTX-4-04)."""
 
-from __future__ import annotations
-
 import json
 import pathlib
 

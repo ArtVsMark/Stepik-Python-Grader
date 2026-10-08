@@ -12,8 +12,6 @@ CI — о нарушении контрибьютор узнавал после 
 проекта: PyYAML не входит ни в runtime-зависимости, ни в `[dev]`.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

@@ -31,8 +31,6 @@ cp1252/cp1251. Проект ведётся по-русски, git отдаёт �
     python scripts/check_hidden_defaults.py
 """
 
-from __future__ import annotations
-
 import argparse
 import ast
 import contextlib

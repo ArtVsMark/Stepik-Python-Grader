@@ -10,8 +10,6 @@
 окном не читается, а ради чтения он и заведён.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib

@@ -10,8 +10,6 @@ Python-состояния (статус job'ы, наличие процесса 
 (например, TLE-кейсы ``time.sleep(30)``).
 """
 
-from __future__ import annotations
-
 import time
 from collections.abc import Callable
 

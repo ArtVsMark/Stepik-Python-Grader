@@ -7,8 +7,6 @@
     второй берёт из кэша, изменение решения инвалидирует.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import json
 import pathlib

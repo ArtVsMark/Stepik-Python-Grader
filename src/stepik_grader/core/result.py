@@ -21,8 +21,6 @@ issue #996 (PAIR-2-04): прежний абзац утверждал, что ``r
 типа прямо в модуле, который этот тип и объявляет.
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, NotRequired, TypedDict

@@ -27,8 +27,6 @@
     python scripts/check_proposal_verdicts.py --catalogue <клон каталога>
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

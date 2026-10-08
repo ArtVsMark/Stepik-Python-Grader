@@ -28,8 +28,6 @@
     python scripts/check_contract_evolution.py
 """
 
-from __future__ import annotations
-
 import contextlib
 import pathlib
 import sys

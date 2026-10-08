@@ -18,8 +18,6 @@ zero-config fallback на ``core/glossary`` — ребро на ``core/*``, ко
 ``glossary/`` быть не должно (ADR-0011).
 """
 
-from __future__ import annotations
-
 import pathlib
 from typing import Any, NamedTuple
 

@@ -34,8 +34,6 @@ web-API (`core/locales/*.json`), но НЕ саму UI-оболочку (`web/st
     python scripts/check_ui_locale_guardrails.py   # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import re

@@ -16,8 +16,6 @@
 `downloader_config.normalize_config_paths` у конфигурации.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 

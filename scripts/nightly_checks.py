@@ -25,8 +25,6 @@
 **Пишет только с** ``--apply``. Без него печатает сводку и выходит.
 """
 
-from __future__ import annotations
-
 import argparse
 import datetime as _datetime
 import pathlib

@@ -6,8 +6,6 @@
 меняется тогда и только тогда, когда меняются условия исполнения.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import pathlib
 

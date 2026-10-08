@@ -35,8 +35,6 @@
     python scripts/check_adr_records.py --base origin/main   # с какой базой сверять
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import pathlib

@@ -22,8 +22,6 @@
 сама логика записи.
 """
 
-from __future__ import annotations
-
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING

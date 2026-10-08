@@ -5,8 +5,6 @@ stdlib (``stdlib_inventory``) с известными терминами лок�
 генерацию ``GlossaryMissingEntry(origin="stdlib_scan")`` для очереди пополнения.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader.glossary import (

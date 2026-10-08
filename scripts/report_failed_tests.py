@@ -37,8 +37,6 @@ junit-отчёты, собранные джобами матрицы, и кла�
 запускается только при падении.
 """
 
-from __future__ import annotations
-
 import argparse
 import os
 import pathlib

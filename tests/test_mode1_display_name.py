@@ -15,8 +15,6 @@
 Реальный путь исполнения при этом не подменяется — он нужен диагностике.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 

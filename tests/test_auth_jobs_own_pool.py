@@ -14,8 +14,6 @@
 вторую (переиспользуем идущую), прерываемое ожидание кода.
 """
 
-from __future__ import annotations
-
 import threading
 import time
 

@@ -14,8 +14,6 @@ issue #838. Срез «данные из сети» прежде разбира�
 из сети до него не доходит — это инвариант, который тест ниже и закрепляет.
 """
 
-from __future__ import annotations
-
 import pathlib
 import time
 

@@ -6,8 +6,6 @@ dev-зависимостей или ``timeout`` из ``pyproject.toml`` — те
 снимет дедлайн (именно эту тихую деградацию вскрыл аудит).
 """
 
-from __future__ import annotations
-
 import pytest
 
 _TIMEOUT_PLUGIN_NAMES = ("timeout", "pytest_timeout")

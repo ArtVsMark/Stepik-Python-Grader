@@ -28,8 +28,6 @@
     python scripts/check_declared_outcomes.py
 """
 
-from __future__ import annotations
-
 import ast
 import contextlib
 import pathlib

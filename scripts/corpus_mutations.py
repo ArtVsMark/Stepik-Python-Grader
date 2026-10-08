@@ -69,8 +69,6 @@
 `Mutation.transform` она невыразима, и её место в наборе тест-кейсов задачи.
 """
 
-from __future__ import annotations
-
 import ast
 import copy
 from collections.abc import Callable, Sequence

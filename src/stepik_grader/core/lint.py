@@ -17,8 +17,6 @@
   пустой список — принцип best-effort ``cache``/``stats``.
 """
 
-from __future__ import annotations
-
 import json
 import subprocess
 import sys

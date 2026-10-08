@@ -6,8 +6,6 @@
 внутри провайдера (общий top-level `mtime_cache`), адаптер его не дублирует.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Any
 

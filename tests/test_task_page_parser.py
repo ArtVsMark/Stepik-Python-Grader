@@ -5,8 +5,6 @@
 тестируется в test_test_source_fetcher.py рядом со скачиванием.
 """
 
-from __future__ import annotations
-
 from stepik_grader.core.task_page_parser import extract_tests_from_html, is_function_style
 
 

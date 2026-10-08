@@ -20,8 +20,6 @@ GitHub URL) — shields.io каждый раз запрашивает JSON за�
     python scripts/generate_coverage_badge.py [--coverage-xml coverage.xml] [--out PATH]
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json

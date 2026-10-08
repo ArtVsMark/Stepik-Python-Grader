@@ -10,8 +10,6 @@
 на рабочем коде, отключают целиком.
 """
 
-from __future__ import annotations
-
 import ast
 import importlib.util
 import pathlib

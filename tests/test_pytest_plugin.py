@@ -7,8 +7,6 @@
 point (``pip install -e .``), поэтому явно грузить его в тесте не нужно.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

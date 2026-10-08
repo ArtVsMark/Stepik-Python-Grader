@@ -11,8 +11,6 @@
 живёт дефект.
 """
 
-from __future__ import annotations
-
 import os
 import pathlib
 import subprocess
