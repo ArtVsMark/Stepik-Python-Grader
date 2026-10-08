@@ -99,6 +99,7 @@ import ci_matrix
 
 __all__ = [
     "API",
+    "CONFLICT_LABEL",
     "DEFAULT_QUOTA_FLOOR",
     "DEFAULT_REPO",
     "ENV_QUOTA_FLOOR",
@@ -961,6 +962,12 @@ PRIORITY_LABELS: tuple[str, ...] = (
 )
 _DEFAULT_PRIORITY = len(PRIORITY_LABELS)
 
+#: Метка PR, который очередь обошла из-за конфликта с базой (issue #1545).
+#: Ставит и снимает её мувер (``move_merge_queue.py``) — он и решает, есть ли
+#: конфликт. Очередь читает метку, а не считает ``mergeable_state`` сама:
+#: второй независимый расчёт того же признака развёл бы ответы снова.
+CONFLICT_LABEL = "needs-rebase"
+
 # `Closes #12`, `fixes #12`, `resolve #12` — формы, которые GitHub понимает как
 # закрытие задачи. Приоритет наследуется по этой же связи: дублировать метку на
 # PR не нужно, а рассинхрону тогда неоткуда взяться.
@@ -1027,6 +1034,19 @@ class QueueReport:
     waiting: tuple[QueueEntry, ...]
     main_busy: bool
     main_red: bool
+    #: Готовые по проверкам, но помеченные :data:`CONFLICT_LABEL` (issue
+    #: #1545). В ``ready`` их нет: головой очереди конфликтный PR не
+    #: называется, и ``update-branch`` на него не советуется.
+    conflicted: tuple[QueueEntry, ...] = ()
+
+    @property
+    def candidates(self) -> tuple[QueueEntry, ...]:
+        """Порядок обхода для мувера: готовые и помеченные конфликтом вместе.
+
+        Мувер обязан доходить и до помеченных: метку снимает только он, когда
+        конфликт исчез. Выкинь их из обхода — метка станет вечной.
+        """
+        return tuple(sorted((*self.ready, *self.conflicted), key=_queue_key))
 
     @property
     def head(self) -> QueueEntry | None:
@@ -1075,14 +1095,21 @@ def queue_order(entries: list[QueueEntry]) -> list[QueueEntry]:
         dataclasses.replace(entry, overlaps=tuple(sorted(linked[entry.number])))
         for entry in entries
     ]
-    # issue #1326: приоритет — первый ключ сортировки. До него порядок считался
-    # только по готовности, и срочный PR стоял в общей череде наравне с
-    # косметикой: владелец мог сколько угодно называть задачу приоритетной, на
-    # очередь это не влияло никак.
-    return sorted(
-        marked,
-        key=lambda entry: (entry.priority, 0 if entry.overlaps else 1, entry.number),
-    )
+    return sorted(marked, key=_queue_key)
+
+
+def _queue_key(entry: QueueEntry) -> tuple[int, int, int]:
+    """Ключ порядка очереди: приоритет, общий файл, номер.
+
+    issue #1326: приоритет — первый ключ. До него порядок считался только по
+    готовности, и срочный PR стоял в общей череде наравне с косметикой:
+    владелец мог сколько угодно называть задачу приоритетной, на очередь это
+    не влияло никак.
+    """
+    return (entry.priority, 0 if entry.overlaps else 1, entry.number)
+
+
+_CONFLICT_REASON = f"конфликт с main — слияние за владельцем (метка {CONFLICT_LABEL})"
 
 
 def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
@@ -1162,11 +1189,27 @@ def merge_queue(repo: str = DEFAULT_REPO, **kwargs: Any) -> QueueReport:
             )
             for entry in frozen
         )
+    # issue #1545: помеченный мувером конфликт головой не называется. Метка, а
+    # не свой расчёт `mergeable_state`: решение о конфликте за мувером.
+    conflicted = [
+        dataclasses.replace(entry, reason=_CONFLICT_REASON)
+        for entry in ordered
+        if CONFLICT_LABEL in _entry_labels(entry, pulls)
+    ]
+    marked = {entry.number for entry in conflicted}
+    ordered = [entry for entry in ordered if entry.number not in marked]
+    waiting = [
+        dataclasses.replace(entry, reason=f"{_CONFLICT_REASON}; {entry.reason}")
+        if CONFLICT_LABEL in _entry_labels(entry, pulls) and _CONFLICT_REASON not in entry.reason
+        else entry
+        for entry in waiting
+    ]
     return QueueReport(
         ready=tuple(ordered),
         waiting=tuple(sorted(waiting, key=lambda entry: entry.number)),
         main_busy=busy,
         main_red=red_main,
+        conflicted=tuple(conflicted),
     )
 
 
@@ -1984,6 +2027,7 @@ def _cmd_queue(args: argparse.Namespace) -> int:
             {
                 "ready": [dataclasses.asdict(entry) for entry in report.ready],
                 "waiting": [dataclasses.asdict(entry) for entry in report.waiting],
+                "conflicted": [dataclasses.asdict(entry) for entry in report.conflicted],
                 "head": report.head.number if report.head else None,
                 "main_busy": report.main_busy,
                 "main_red": report.main_red,
@@ -2002,6 +2046,12 @@ def _cmd_queue(args: argparse.Namespace) -> int:
     print(f"Очередь мержа: готовых {len(report.ready)}, ждут проверок {len(report.waiting)}")
     for position, entry in enumerate(report.ready, start=1):
         print("  " + entry.describe(position, position - 1))
+    if report.conflicted:
+        # issue #1545: отдельной строкой с причиной, а не молча: иначе PR,
+        # который мувер обходит, выглядит пропавшим из очереди.
+        print("\nОбойдены — конфликт с main, слияние за владельцем:")
+        for entry in report.conflicted:
+            print(f"  #{entry.number}  {entry.title}")
     if report.waiting:
         print("\nВ очередь не входят:")
         for entry in report.waiting:
