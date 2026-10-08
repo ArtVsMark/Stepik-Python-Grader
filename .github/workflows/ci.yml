@@ -184,6 +184,10 @@ jobs:
       # `per-file-target-version`, что у ruff. Чистый stdlib (tomllib, git).
       - name: Код написан на версии планки (issue #1570)
         run: python scripts/check_py_style.py
+      # issue #1570: работа без `setup-python` исполняет код системным python
+      # раннера — так жил `github-release` в release.yml. Чистый stdlib.
+      - name: Работы зовут python только после setup-python (issue #1570)
+        run: python scripts/check_python_setup.py
       # issue #1351: ответ проекта каталогу правил. Здесь только офлайн-часть —
       # схема, поля по статусу и существование путей в `where`: она не требует
       # ни сети, ни клона каталога. Полнота ответа (есть ли запись по каждому

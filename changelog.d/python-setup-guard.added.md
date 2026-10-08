@@ -1,0 +1,1 @@
+Гейт `scripts/check_python_setup.py`: работа workflow, которая зовёт `python`/`pip`/`pytest` раньше шага `setup-python`, — находка: так `github-release` исполнял код выпуска системным python раннера, а не версией планки; подключён в `static` и pre-commit (#1570)
