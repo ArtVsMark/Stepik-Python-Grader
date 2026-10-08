@@ -97,7 +97,7 @@ python scripts/import_glossary.py --file d.json --schema s.json --release v1.2.0
 Минор формы выше принятого законен — это новое необязательное поле, о котором
 импорт вправе не знать. Тогда `to_dict` его не вернёт, и импорт откажет по
 четвёртой проверке: поле надо завести в `GlossaryCard`. Контракт и журнал формы —
-[Glossary-Python `docs/contracts.md` § `delivery.json`](https://github.com/ArtVsMark/Glossary-Python/blob/main/docs/contracts.md).
+[Glossary-Python `docs/use/contracts.md` § `delivery.json`](https://github.com/ArtVsMark/Glossary-Python/blob/main/docs/use/contracts.md#deliveryjson--карточки-для-потребителей).
 
 **Перенаправления.** Карточки, слитые с дублем, перечислены в `_moved.json`
 («старый id → новый»). `JsonGlossaryProvider.get(old)` и `/api/glossary/<old>`
