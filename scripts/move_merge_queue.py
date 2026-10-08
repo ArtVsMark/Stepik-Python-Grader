@@ -60,8 +60,9 @@ __all__ = [
 
 # Метка, которой помечается PR, обойдённый из-за конфликта. Метка, а не
 # комментарий: мувер срабатывает после каждого прогона `main`, и комментарий
-# добавлялся бы снова и снова, а метка идемпотентна по природе.
-CONFLICT_LABEL = "needs-rebase"
+# добавлялся бы снова и снова, а метка идемпотентна по природе. Объявлена в
+# транспорте (issue #1545): очередь `gh_rest.py queue` читает ту же метку.
+CONFLICT_LABEL = gh_rest.CONFLICT_LABEL
 _LABEL_COLOR = "d93f0b"
 _LABEL_DESCRIPTION = "Конфликт с main — очередь мержа обошла PR, нужно слияние вручную"
 
@@ -161,7 +162,9 @@ def move_queue(
     """Обновить первого пригодного в очереди; конфликтных пометить и обойти."""
     outcome = Outcome()
     report = gh_rest.merge_queue(repo, **kwargs)
-    if not report.ready:
+    # issue #1545: обход идёт и по помеченным конфликтом — снять метку, когда
+    # конфликт исчез, кроме мувера некому.
+    if not report.candidates:
         # issue #1326: при красной базе очередь замирает, и «двигать нечего»
         # звучало бы как «всё спокойно». Причина называется: иначе следующий
         # разбор начнётся с вопроса, почему зелёные PR стоят.
@@ -174,7 +177,7 @@ def move_queue(
             outcome.say("готовых PR нет — двигать нечего")
         return outcome
 
-    for entry in report.ready:
+    for entry in report.candidates:
         number = entry.number
         if entry.fork:
             outcome.say(
