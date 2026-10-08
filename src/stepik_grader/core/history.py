@@ -188,15 +188,74 @@ def _db_problem_kind(exc: BaseException) -> str | None:
     return None
 
 
+#: Маркер, который sqlite законно отдаёт В СЕРЕДИНЕ чужого ``connect``: файл
+#: уже создан, заголовок ещё не дописан (issue #1539, тот же снимок, что #1533).
+#: Остальные маркеры повреждения так не возникают — обрезанная или
+#: зашифрованная база не «допишется» за паузу, поэтому переспрашивать их нечего.
+_SNAPSHOT_MARKER = "not a database"
+
+#: Сколько раз переспросить и пауза между попытками. Это не «ждать, пока
+#: починится», а «дать соседу дописать заголовок»: настоящий чужой формат не
+#: станет базой ни за какую паузу.
+_SETTLE_ATTEMPTS = 5
+_SETTLE_DELAY_S = 0.02
+
+
+def _sqlite_reads(db_path: Path) -> bool:
+    """Читается ли файл как база sqlite прямо сейчас — только на чтение.
+
+    ``mode=ro``: проверка не создаёт файл и не пишет в него. Занятость или
+    недоступность (``OperationalError``) — не приговор содержимому, поэтому
+    ``True``; приговор — только ``DatabaseError`` о самом файле.
+    """
+    try:
+        uri = f"{db_path.resolve().as_uri()}?mode=ro"
+        with contextlib.closing(sqlite3.connect(uri, uri=True)) as conn:
+            conn.execute("PRAGMA schema_version").fetchone()
+    except sqlite3.OperationalError:
+        return True
+    except sqlite3.DatabaseError:
+        return False
+    except sqlite3.Error, OSError, ValueError:
+        return True
+    return True
+
+
+def _corruption_confirmed(db_path: Path, exc: BaseException) -> bool:
+    """Подтвердить «файл не база», прежде чем советовать удалить его (#1539).
+
+    Одиночный ответ — снимок, и снят он бывает в середине чужого ``connect``:
+    CLI и web создают историю одновременно — ровно тот сценарий, ради которого
+    заводился межпроцессный доступ. Принять такой снимок за приговор значит
+    посоветовать человеку удалить базу, которую сосед в этот миг дописывает.
+    Пустой файл — то же «соседнее ``connect`` мгновение назад».
+    """
+    if _SNAPSHOT_MARKER not in str(exc).lower():
+        return True
+    for attempt in range(_SETTLE_ATTEMPTS):
+        if _sqlite_reads(db_path):
+            return False
+        with contextlib.suppress(OSError):
+            if db_path.stat().st_size == 0:
+                return False
+        if attempt + 1 < _SETTLE_ATTEMPTS:
+            time.sleep(_SETTLE_DELAY_S)
+    return True
+
+
 def _note_unusable_db(db_path: Path, exc: BaseException) -> None:
     """Один раз за процесс сообщить, что БД истории непригодна (issue #794).
 
     Транзиентная блокировка не печатает ничего: её лечит повтор, и шум только
     мешал бы. Молчать про НЕустранимое нельзя — повреждённая база выглядела
     ровно как «истории нет», и пользователь прогон за прогоном писал в никуда.
+    Но и «удалите файл» говорится только о подтверждённом повреждении: снимок
+    чужой записи приговором не считается (issue #1539).
     """
     kind = _db_problem_kind(exc)
     if kind is None:
+        return
+    if kind == "corrupt" and not _corruption_confirmed(db_path, exc):
         return
     key = (str(db_path), kind)
     with _WARN_LOCK:
