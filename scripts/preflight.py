@@ -95,6 +95,7 @@ __all__ = [
     "owner_name",
     "owner_trailer_misplaced",
     "package_origin",
+    "pid_alive",
     "read_stamp",
     "stamp_is_current",
     "stamp_path",
@@ -132,6 +133,12 @@ python scripts/preflight.py --gate-push || exit 1
 # машине идёт минуты, а не часы, поэтому более старый файл почти наверняка
 # остался от процесса, который убили, а не от живого прогона.
 _LOCK_TTL_SECONDS = 2 * 60 * 60
+
+# issue #1523: проверка живости владельца блокировки на Windows — только
+# запросом через дескриптор (`os.kill` там завершает процесс).
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_ERROR_INVALID_PARAMETER = 87
+_STILL_ACTIVE = 259
 
 GitRunner = Callable[..., str]
 
@@ -920,18 +927,85 @@ def basetemp_problem(path: pathlib.Path, *, name: str = os.name) -> str | None:
     return None
 
 
-def lock_is_active(path: pathlib.Path, *, now: float | None = None) -> bool:
-    """Активна ли чужая блокировка прогона (протухшая — не помеха)."""
+def _windows_pid_alive(pid: int) -> bool | None:
+    """Жив ли процесс на Windows — через дескриптор, без сигналов (issue #1523).
+
+    ``os.kill(pid, 0)`` на Windows не проверяет процесс, а ЗАВЕРШАЕТ его
+    (``TerminateProcess``), поэтому здесь только чтение: открыть дескриптор с
+    правом запроса и спросить код завершения.
+    """
+    if sys.platform != "win32":
+        return None
+    import ctypes
+
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        # ERROR_INVALID_PARAMETER — такого процесса нет; отказ в доступе
+        # означает, что процесс есть, просто чужой.
+        return kernel32.GetLastError() != _ERROR_INVALID_PARAMETER
+    try:
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return None
+        return code.value == _STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def pid_alive(pid: int) -> bool | None:
+    """Жив ли процесс с таким ``pid``; ``None`` — ответить нечем (issue #1523).
+
+    Процессу ничего не посылается: на POSIX сигнал ``0`` только проверяет
+    существование, на Windows идёт запрос через дескриптор. Убивать чужой
+    процесс гейт не должен ни при каких условиях.
+    """
+    if pid <= 0:
+        return None
+    if os.name == "nt":
+        return _windows_pid_alive(pid)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return None
+    return True
+
+
+def lock_is_active(
+    path: pathlib.Path,
+    *,
+    now: float | None = None,
+    alive: Callable[[int], bool | None] = pid_alive,
+) -> bool:
+    """Активна ли чужая блокировка прогона.
+
+    Активна — только если процесс-владелец жив И возраст в пределах TTL
+    (issue #1523). Прежде смотрелся один возраст, и прогон, умерший вместе с
+    перезапущенным контейнером, держал гейт два часа — а ложные срабатывания
+    учат перехватывать блокировку и тогда, когда она настоящая.
+
+    TTL остаётся: ``pid`` может достаться другому процессу, и тогда возраст —
+    единственная защита от вечной блокировки. Живость неизвестна (``None``,
+    нет ``pid``) — решает возраст, как раньше.
+    """
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError:
         return False
     try:
-        started = float(json.loads(raw).get("at", 0))
+        payload = json.loads(raw)
+        started = float(payload.get("at", 0))
+        pid = int(payload.get("pid", 0))
     except (ValueError, AttributeError, TypeError):
         return False
     moment = time.time() if now is None else now
-    return moment - started < _LOCK_TTL_SECONDS
+    if moment - started >= _LOCK_TTL_SECONDS:
+        return False
+    return alive(pid) is not False
 
 
 def _acquire_lock(path: pathlib.Path, *, force: bool = False) -> bool:
