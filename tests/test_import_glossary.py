@@ -25,6 +25,7 @@ from typing import Any
 
 import pytest
 
+from stepik_grader.glossary import taxonomy
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
     GlossaryError,
@@ -33,6 +34,15 @@ from stepik_grader.glossary.json_provider import (
 from stepik_grader.glossary.models import GlossaryCard
 
 _SCRIPT = pathlib.Path(__file__).parent.parent / "scripts" / "import_glossary.py"
+_UI_CATALOG = (
+    pathlib.Path(__file__).parent.parent
+    / "src"
+    / "stepik_grader"
+    / "web"
+    / "static"
+    / "locales"
+    / "ui.json"
+)
 
 
 @pytest.fixture(scope="module")
@@ -182,6 +192,21 @@ class TestRejection:
         with pytest.raises(importer.DeliveryRejected, match="незнакомые ключевые слова"):
             importer.verify_delivery(_delivery(), schema)
 
+    def test_all_of_runs_every_subschema(self, importer: ModuleType) -> None:
+        """``allOf`` исполняется, а не пропускается: нарушение любой подсхемы — отказ.
+
+        Выгрузка формы 6.1 описывает им раздел навигации; проверщик, знающий
+        слово, но не исполняющий его, пропустил бы битый раздел молча.
+        """
+        schema = copy.deepcopy(_SCHEMA)
+        schema["properties"]["form"] = {"allOf": [{"type": "string"}, {"pattern": r"^6\."}]}
+
+        importer.verify_delivery(_delivery(form="6.1"), schema)
+        with pytest.raises(importer.DeliveryRejected) as caught:
+            importer.verify_delivery(_delivery(form="6"), schema)
+
+        assert any("/form" in reason for reason in caught.value.reasons)
+
     def test_a_schema_violation_is_named_by_path(self, importer: ModuleType) -> None:
         delivery = _delivery()
         delivery["groups"]["builtin"][0]["kind"] = "banana"
@@ -275,6 +300,109 @@ class TestWriting:
         assert "builtin.json" in capsys.readouterr().out
 
 
+class TestNavigation:
+    """Навигация формы 6.1 едет в каталог данных как пришла — порядок групп значим."""
+
+    _NAV: dict[str, Any] = {
+        "groups": ["types", "builtins", "other"],
+        "labels": {"types": {"ru": "Типы данных", "en": "Data types"}},
+        "sections": {
+            "Встроенные функции": {
+                "group": "builtins",
+                "ru": "Встроенные функции",
+                "en": "Built-in functions",
+            }
+        },
+    }
+
+    def test_navigation_is_written_in_the_order_it_came(self, importer: ModuleType) -> None:
+        files = importer.render_files(_delivery(form="6.1", navigation=self._NAV), "v1.4.0")
+
+        written = json.loads(files[importer.NAVIGATION_FILE_NAME])
+        assert written == self._NAV
+        assert written["groups"] == ["types", "builtins", "other"]
+
+    def test_a_delivery_without_navigation_writes_none(self, importer: ModuleType) -> None:
+        assert importer.NAVIGATION_FILE_NAME not in importer.render_files(_delivery(), "v1.2.0")
+
+    def test_a_missing_or_broken_navigation_leaves_the_defaults(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Сторонняя база без навигации остаётся рабочей: правило «Модуль X» и «Прочее»."""
+        broken = tmp_path / "_navigation.json"
+        broken.write_text("{не json", encoding="utf-8")
+
+        assert taxonomy._load_navigation(tmp_path / "нет.json") == ({}, {}, ())
+        assert taxonomy._load_navigation(broken) == ({}, {}, ())
+
+
+class TestDrift:
+    """Сторож дрейфа: закрепление против последнего выпуска — исход каждого случая."""
+
+    def test_the_latest_pinned_is_clean(self, importer: ModuleType) -> None:
+        def never(tag: str) -> Any:
+            raise AssertionError("при совпадении выгрузка не нужна")
+
+        code, text = importer.drift_report("v1.4.0", "v1.4.0", never)
+
+        assert code == 0
+        assert "Закреплён последний выпуск" in text
+
+    def test_a_newer_release_the_import_accepts_names_the_command(
+        self, importer: ModuleType
+    ) -> None:
+        code, text = importer.drift_report(
+            "v1.4.0", "v1.5.0", lambda tag: (_delivery(form="6.1"), _SCHEMA)
+        )
+
+        assert code == importer.EXIT_CHECK_FAILED
+        assert "python scripts/import_glossary.py --release v1.5.0" in text
+
+    def test_a_newer_release_the_import_refuses_names_the_reasons(
+        self, importer: ModuleType
+    ) -> None:
+        """Отказ импорта — находка заранее, а не поломка сторожа."""
+        code, text = importer.drift_report(
+            "v1.4.0", "v2.0.0", lambda tag: (_delivery(form="7.0"), _SCHEMA)
+        )
+
+        assert code == importer.EXIT_CHECK_FAILED
+        assert "отвергает" in text and "v6 → v7.0" in text
+
+    def test_an_unreachable_source_is_not_a_clean_answer(
+        self, importer: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+    ) -> None:
+        """«Не узнали» — код поломки, а не «нового нет»."""
+        (tmp_path / importer.SOURCE_FILE_NAME).write_text(
+            json.dumps({"release": "v1.4.0"}), encoding="utf-8"
+        )
+
+        def offline() -> str:
+            raise OSError("сети нет")
+
+        monkeypatch.setattr(importer, "latest_release", offline)
+
+        assert importer.main(["--drift", "--data-dir", str(tmp_path)]) == importer.EXIT_FETCH_FAILED
+
+    def test_without_a_pin_there_is_nothing_to_compare(
+        self, importer: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        assert importer.main(["--drift", "--data-dir", str(tmp_path)]) == importer.EXIT_FETCH_FAILED
+
+    def test_the_nightly_walk_runs_the_drift_guard(self) -> None:
+        """Сторож без запуска — текст: ночной обход обязан его звать."""
+        spec = importlib.util.spec_from_file_location(
+            "_nightly_checks", _SCRIPT.parent / "nightly_checks.py"
+        )
+        assert spec is not None and spec.loader is not None
+        nightly = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(nightly)
+
+        assert any(
+            check.argv == ["scripts/import_glossary.py", "--drift"] for check in nightly.CHECKS
+        )
+
+
 class TestRedirectsInTheProvider:
     def test_a_redirect_to_a_missing_card_is_an_error(self, tmp_path: pathlib.Path) -> None:
         """Обещание издателя «новый id существует» проверяется и здесь."""
@@ -305,6 +433,30 @@ class TestTheBundledCatalogue:
         assert source["cards"] == len(
             JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
         )
+
+    def test_the_bundled_navigation_classifies_every_section(self) -> None:
+        """Каждый раздел комплектных карточек назван в навигации явно.
+
+        Правило «Модуль X» и «Прочее» — запасной путь для сторонней базы; на
+        своей выгрузке раздел без строки навигации значит, что издатель и
+        потребитель разошлись.
+        """
+        sections = {
+            card.section for card in JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+        }
+
+        assert sections - set(taxonomy.SECTION_GROUPS) == set()
+
+    def test_group_labels_in_the_ui_match_the_navigation(self) -> None:
+        """Подписи семейств в ui.json — те же, что отдаёт издатель, на обоих языках."""
+        navigation = json.loads(
+            (BUNDLED_GLOSSARY_DIR / "_navigation.json").read_text(encoding="utf-8")
+        )
+        catalog = json.loads(_UI_CATALOG.read_text(encoding="utf-8"))
+
+        for group, label in navigation["labels"].items():
+            for lang in ("ru", "en"):
+                assert catalog[lang][f"glossary.group_{group}"] == label[lang], (group, lang)
 
     def test_every_bundled_redirect_resolves(self) -> None:
         provider = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR)

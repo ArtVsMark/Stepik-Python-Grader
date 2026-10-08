@@ -145,13 +145,25 @@ def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_pa
     page.fill("#path", str(tmp_path))
     page.click("#run")
 
-    # Progress bar appears while the async bench job runs.
-    pb = page.locator('#bar [role="progressbar"]')
-    pb.wait_for(state="attached", timeout=_TIMEOUT_MS)
-    assert pb.get_attribute("aria-label")
-    assert pb.get_attribute("aria-valuemin") == "0"
+    # Полоса живёт, пока идёт прогон, и короткий прогон убирает её раньше, чем
+    # три отдельных `get_attribute` успевают дойти до узла (issue #1582: тест
+    # мигал и локально, и в CI). Атрибуты снимаются ОДНОЙ функцией в браузере в
+    # тот кадр, когда полоса появилась, — снимок не может разойтись с узлом.
+    attrs = page.wait_for_function(
+        """() => {
+            const el = document.querySelector('#bar [role="progressbar"]');
+            return el && {
+                label: el.getAttribute("aria-label"),
+                min: el.getAttribute("aria-valuemin"),
+                max: el.getAttribute("aria-valuemax"),
+            };
+        }""",
+        timeout=_TIMEOUT_MS,
+    ).json_value()
+    assert attrs["label"]
+    assert attrs["min"] == "0"
     # aria-valuemax reflects total planned run_single_test calls (>= 1).
-    assert int(pb.get_attribute("aria-valuemax")) >= 1
+    assert int(attrs["max"]) >= 1
 
     # And the run still completes and announces a summary.
     expect(page.locator("#result-announce")).to_contain_text("авершён", timeout=_TIMEOUT_MS)

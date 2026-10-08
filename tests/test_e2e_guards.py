@@ -363,3 +363,21 @@ class TestCodeIsInsertedNotTyped:
         assert any(
             "keyboard.insert_text(" in path.read_text(encoding="utf-8") for path in sources
         ), "ни одного ввода кода в e2e-файлах — проверка смотрит не туда"
+
+
+class TestUncoveredCallIsPickedFromTheBase:
+    """Сценарии «концепт без карточки» берут имя из базы, а не из памяти.
+
+    Глоссарий пополняется у издателя: зашитое `cmath.polar` получило карточку в
+    выгрузке v1.4.0 и уронило три e2e-сценария. Помощник проверяется и здесь —
+    в основном наборе, — чтобы опустевший список кандидатов был виден на каждом
+    PR, а не только в job'е с браузером.
+    """
+
+    def test_the_picked_call_really_has_no_card(self) -> None:
+        from stepik_grader.web.glossary_adapter import code_terms
+        from tests.e2e._helpers import uncovered_call
+
+        imp, call, concept = uncovered_call()
+
+        assert [(t["id"], t["has_card"]) for t in code_terms(imp + call)] == [(concept, False)]

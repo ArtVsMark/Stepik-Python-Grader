@@ -19,6 +19,7 @@ __all__ = [
     "REQUIRE_E2E_ENV",
     "executed_beyond_guards",
     "ui_text",
+    "uncovered_call",
     "write_task",
 ]
 
@@ -89,3 +90,38 @@ def ui_text(key: str, lang: str = "ru") -> str:
     """
     catalogue = json.loads(_UI_LOCALES.read_text(encoding="utf-8"))
     return str(catalogue[lang][key])
+
+
+#: Вызовы stdlib, которые детектор узнаёт. Какой из них сейчас без карточки,
+#: решает база, а не этот список: глоссарий пополняется у издателя, и зашитое
+#: имя однажды получает карточку — так `cmath.polar` уронил три сценария при
+#: переходе на выгрузку Glossary-Python v1.4.0.
+_UNCOVERED_CANDIDATES: tuple[tuple[str, str], ...] = (
+    ("turtle", "forward"),
+    ("curses", "wrapper"),
+    ("colorsys", "rgb_to_hsv"),
+    ("mailbox", "mbox"),
+    ("pydoc", "render_doc"),
+    ("webbrowser", "open_new_tab"),
+)
+
+
+def uncovered_call() -> tuple[str, str, str]:
+    """Импорт, вызов и имя концепта, у которого в комплектной базе НЕТ карточки.
+
+    Спрашивает тот же детектор, что отвечает панели «Функции в коде», поэтому
+    ответ совпадает с тем, что покажет страница. Кандидатов не осталось —
+    отказ словами: значит, база догнала список, и его пора пополнить.
+    """
+    from stepik_grader.web.glossary_adapter import code_terms
+
+    for module, name in _UNCOVERED_CANDIDATES:
+        concept = f"{module}.{name}"
+        imp, call = f"import {module}\n", f"{concept}(1)"
+        terms = [(t["id"], t["has_card"]) for t in code_terms(imp + call)]
+        if terms == [(concept, False)]:
+            return imp, call, concept
+    raise AssertionError(
+        "у всех кандидатов _UNCOVERED_CANDIDATES появились карточки — добавьте "
+        "в список вызов, которого глоссарий ещё не описывает"
+    )

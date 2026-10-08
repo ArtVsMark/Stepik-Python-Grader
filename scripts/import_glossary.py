@@ -50,7 +50,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 for _stream in (sys.stdout, sys.stderr):
@@ -62,8 +62,10 @@ __all__ = [
     "EXIT_CHECK_FAILED",
     "EXIT_FETCH_FAILED",
     "EXIT_REJECTED",
+    "NAVIGATION_FILE_NAME",
     "SOURCE_FILE_NAME",
     "DeliveryRejected",
+    "drift_report",
     "main",
     "render_files",
     "schema_errors",
@@ -85,6 +87,7 @@ ACCEPTED_FORM = 6
 #: Служебные файлы каталога данных: имя с ``_`` провайдер карточками не читает.
 SOURCE_FILE_NAME = "_source.json"
 MOVED_FILE_NAME = "_moved.json"
+NAVIGATION_FILE_NAME = "_navigation.json"
 
 EXIT_CHECK_FAILED = 1
 EXIT_FETCH_FAILED = 2
@@ -127,6 +130,7 @@ _ASSERTIONS = frozenset(
         "pattern",
         "propertyNames",
         "$ref",
+        "allOf",
     }
 )
 
@@ -174,6 +178,10 @@ def _check(value: Any, schema: dict[str, Any], root: dict[str, Any], path: str) 
         )
     if "$ref" in schema:
         yield from _check(value, _resolve_ref(schema["$ref"], root), root, path)
+    # ``allOf`` — значение обязано пройти КАЖДУЮ подсхему; выгрузка формы 6.1
+    # описывает им раздел навигации («метка» плюс группа).
+    for sub in schema.get("allOf", []):
+        yield from _check(value, sub, root, path)
     if "type" in schema:
         names = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
         if not any(_type_ok(value, name) for name in names):
@@ -308,6 +316,10 @@ def render_files(delivery: dict[str, Any], release: str) -> dict[str, str]:
     """Имя файла каталога данных → содержимое. Чистая функция: та же выгрузка — те же байты."""
     files = {f"{group}.json": _dump(cards) for group, cards in delivery["groups"].items()}
     files[MOVED_FILE_NAME] = _dump(dict(sorted((delivery.get("moved") or {}).items())))
+    # Навигация формы 6.1 — семейства разделов и подписи. Порядок групп значим
+    # (так их показывает UI), поэтому словарь пишется как пришёл, без сортировки.
+    if "navigation" in delivery:
+        files[NAVIGATION_FILE_NAME] = _dump(delivery["navigation"])
     snapshot = delivery.get("snapshot", {})
     files[SOURCE_FILE_NAME] = _dump(
         {
@@ -358,6 +370,58 @@ def _load(args: argparse.Namespace, release: str) -> tuple[dict[str, Any], dict[
     return delivery, schema
 
 
+# ---------------------------------------------------------------------------
+# Сторож дрейфа: закреплённый выпуск против последнего
+# ---------------------------------------------------------------------------
+
+
+def latest_release() -> str:
+    """Тег последнего выпуска Glossary-Python — через общий REST-транспорт.
+
+    Отказ источника (сеть, квота, ответ без тега) — исключение наружу: «не
+    узнали» и «нового нет» — разные исходы, и сливать их нельзя.
+    """
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import gh_rest  # scripts/ не пакет: транспорт ищется рядом
+
+    tag = gh_rest._get(f"/repos/{REPO}/releases/latest").get("tag_name")
+    if not tag:
+        raise ValueError(f"у последнего выпуска {REPO} нет тега")
+    return str(tag)
+
+
+def drift_report(
+    pinned: str,
+    latest: str,
+    load: Callable[[str], tuple[dict[str, Any], dict[str, Any] | None]],
+) -> tuple[int, str]:
+    """Отстаёт ли закрепление и пройдёт ли переход — код исхода и текст находки.
+
+    ``0`` — закреплён последний выпуск. ``EXIT_CHECK_FAILED`` — вышел новый:
+    текст называет команду перехода, а если импорт новый выпуск отвергает —
+    причины. Отказ импорта здесь — находка, а не поломка сторожа: механизм
+    отработал и узнал заранее то, на что иначе наткнулись бы при переходе.
+    Ошибку получения новой выгрузки ``load`` бросает наружу.
+    """
+    if latest == pinned:
+        return 0, f"Закреплён последний выпуск {REPO}: {pinned}."
+    delivery, schema = load(latest)
+    head = f"Вышел {REPO} {latest}, закреплён {pinned}."
+    try:
+        verify_delivery(delivery, schema)
+    except DeliveryRejected as exc:
+        reasons = "\n".join(f"  — {reason}" for reason in exc.reasons)
+        return EXIT_CHECK_FAILED, (
+            f"{head} Импорт его отвергает — сначала доработать импорт:\n{reasons}"
+        )
+    snapshot = delivery.get("snapshot", {})
+    return EXIT_CHECK_FAILED, (
+        f"{head} Импорт его принимает (форма {delivery.get('form')}, "
+        f"карточек {snapshot.get('cards')}).\n"
+        f"Переход: python scripts/import_glossary.py --release {latest}"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """Точка входа: получить, проверить, записать (или сверить) каталог данных."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
@@ -366,7 +430,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--schema", type=pathlib.Path, help="delivery.schema.json к --file")
     parser.add_argument("--data-dir", type=pathlib.Path, default=DATA_DIR, help=argparse.SUPPRESS)
     parser.add_argument("--check", action="store_true", help="сверить дерево, ничего не писать")
+    parser.add_argument(
+        "--drift",
+        action="store_true",
+        help="сравнить закреплённый выпуск с последним (ночной обход)",
+    )
     args = parser.parse_args(argv)
+
+    if args.drift:
+        pinned = pinned_release(args.data_dir)
+        if not pinned:
+            print("Нет закрепления в _source.json — сравнивать не с чем.", file=sys.stderr)
+            return EXIT_FETCH_FAILED
+        try:
+            code, text = drift_report(
+                pinned, latest_release(), lambda tag: _load(argparse.Namespace(file=None), tag)
+            )
+        except Exception as exc:  # любой отказ источника — «не узнали», а не «нового нет»
+            print(f"Последний выпуск {REPO} узнать не удалось: {exc}", file=sys.stderr)
+            return EXIT_FETCH_FAILED
+        print(text)
+        return code
 
     release = args.release or pinned_release(args.data_dir)
     if not release:

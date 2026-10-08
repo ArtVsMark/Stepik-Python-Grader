@@ -457,7 +457,8 @@ class TestGlossaryGroupsAndRelevance:
 
     def test_every_bundled_section_has_explicit_group(self) -> None:
         # Guard дрейфа (#684 активно правит разделы): «Прочее» в комплектной базе
-        # должно быть пустым — новый раздел классифицируется в taxonomy.SECTION_GROUPS.
+        # должно быть пустым — новый раздел обязан прийти в навигации выгрузки
+        # (taxonomy.SECTION_GROUPS).
         unclassified = glossary_adapter.glossary_search("", group="other", status="all")
         assert unclassified == [], "разделы без семейства: " + ", ".join(
             sorted({c["section"] for c in unclassified})

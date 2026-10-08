@@ -1,9 +1,9 @@
 {
   "_": "Откуда карточки этого каталога. Файл пишет scripts/import_glossary.py; руками не править — ни его, ни карточки (issue #1573).",
   "repo": "ArtVsMark/Glossary-Python",
-  "release": "v1.2.0",
-  "form": "6.0",
-  "cards": 1710,
-  "digest": "8e0cd3477bbd",
-  "generated_at": "2026-10-07T19:05:33+00:00"
+  "release": "v1.4.0",
+  "form": "6.1",
+  "cards": 2656,
+  "digest": "4ed125fe69ce",
+  "generated_at": "2026-10-08T07:51:29+00:00"
 }

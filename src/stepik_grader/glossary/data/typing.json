@@ -2934,8 +2934,8 @@
       "en": "A helper decorator that also applies no_type_check to its target."
     },
     "body": {
-      "ru": "Помечен как устаревший с Python 3.13 и подлежит удалению в 3.15: ни один статический анализатор так и не реализовал его поддержку, поэтому на практике он ничего не даёт. В новом коде не используй — для отключения проверки бери сам @no_type_check.",
-      "en": "Deprecated since Python 3.13 and slated for removal in 3.15: no type checker ever implemented support for it, so in practice it does nothing. Don't reach for it in new code — use @no_type_check itself when you need to disable checking."
+      "ru": "Помечен как устаревший с Python 3.13 и удалён в 3.15 — там импорт даёт ImportError: ни один статический анализатор так и не реализовал его поддержку, поэтому на практике он ничего не даёт. В новом коде не используй — для отключения проверки бери сам @no_type_check.",
+      "en": "Deprecated since Python 3.13 and removed in 3.15, where importing it raises ImportError: no type checker ever implemented support for it, so in practice it does nothing. Don't reach for it in new code — use @no_type_check itself when you need to disable checking."
     },
     "syntax": "@typing.no_type_check_decorator(some_decorator)",
     "status": "ready",
