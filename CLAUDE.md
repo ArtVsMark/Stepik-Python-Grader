@@ -1292,14 +1292,14 @@ Glossary-Python.
 | Версия | 1.12.0 (stable) |
 | Python | 3.14 (3.15 — предрелизная, отдельным прогоном `python-next.yml` на всех трёх ОС; слияние не держит) |
 | Тестов | бейдж/прогон CI — **числом здесь не фиксируется** |
-| Покрытие | бейджи README `Coverage (ubuntu)` / `Coverage (all OS)` |
+| Покрытие | зона `coverage` единого значка README: `ubuntu / all OS` |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 | Глоссарий | выгрузка Glossary-Python, выпуск — `glossary/data/_source.json` |
 
 > **Числа тестов/покрытия/глоссария в доках не хардкодятся — только бейджи.**
 > Любая вписанная руками цифра устаревает к следующему PR и начинает
 > противоречить соседнему файлу (именно так разошлись «1700+/2100+»). Живой
-> источник покрытия — два бейджа в README (single-OS `coverage.json` — на каждом
+> источник покрытия — два числа в зоне `coverage` единого значка README (single-OS `coverage.json` — на каждом
 > пуше в `main`; cross-OS `coverage-combined.json` — **ночным прогоном**, см.
 > ниже); число карточек глоссария — в `glossary/data/_source.json`
 > (его пишет импорт выгрузки), покрытие stdlib сверить локально —
@@ -1319,7 +1319,7 @@ Glossary-Python.
 > ОС будет ложно падать). **В `pyproject.toml` порога нет намеренно:** `--cov`
 > включён в `addopts` безусловно, поэтому `fail_under` в конфиге делал
 > ложно-красным любой частичный прогон — зелёные тесты с кодом возврата 1.
-> README держит **два** бейджа: single-OS
+> Зона `coverage` единого значка README несёт **два** числа: single-OS
 > (`.github/badges/coverage.json`, как раньше) и cross-OS combined
 > (`coverage-combined.json`, `coverage combine` по трём job'ам матрицы,
 > отдельный job `coverage-combine` в `ci.yml`, порог 90) — оба и есть живой
