@@ -218,9 +218,16 @@ def _modules(cards: dict[str, Any]) -> Iterable[dict[str, Any]]:
         )
 
 
+# Встроенные имена, которые есть не на всякой ОС. Файл обязан собираться
+# одинаково на любой машине, иначе --check краснеет на одной ОС матрицы.
+_PLATFORM_ONLY: frozenset[str] = frozenset({"WindowsError"})
+
+
 def _public_builtins() -> list[str]:
-    """Встроенные имена, которые пишут в коде решений: без ``_`` в начале."""
-    return sorted(name for name in dir(builtins) if not name.startswith("_"))
+    """Встроенные имена, которые пишут в коде решений: без ``_`` и без платформенных."""
+    return sorted(
+        name for name in dir(builtins) if not name.startswith("_") and name not in _PLATFORM_ONLY
+    )
 
 
 def _builtins(cards: dict[str, Any]) -> Iterable[dict[str, Any]]:

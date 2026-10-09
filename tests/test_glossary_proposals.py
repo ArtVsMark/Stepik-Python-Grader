@@ -120,3 +120,15 @@ def test_check_names_a_stale_file_and_rebuild_fixes_it(
     assert gp.main(["--check"]) == 1
     assert gp.main([]) == 0
     assert gp.main(["--check"]) == 0
+
+
+def test_build_does_not_depend_on_the_platform(
+    gp: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Встроенное имя одной ОС (``WindowsError``) не меняет сборку — иначе краснеет матрица."""
+    import builtins
+
+    monkeypatch.setattr(builtins, "WindowsError", OSError, raising=False)
+
+    assert "WindowsError" not in gp._public_builtins()
+    assert gp.main(["--check"]) == 0
