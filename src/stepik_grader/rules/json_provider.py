@@ -137,11 +137,6 @@ class JsonRulesProvider:
         """Поиск по id/title/tags (подстрока, без регистра)."""
         return [card for card in self._cards if card.matches(query)]
 
-    def list_by_tag(self, tag: str) -> list[RuleCard]:
-        """Карточки, помеченные заданным тегом (без регистра)."""
-        needle = tag.strip().lower()
-        return [card for card in self._cards if needle in {t.lower() for t in card.tags}]
-
 
 # Кеш bundled-провайдера по mtime каталога (общий механизм mtime_cache.py,
 # тот же, что у глоссария #339) — парсим ~30 карточек один раз.

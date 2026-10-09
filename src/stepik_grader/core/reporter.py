@@ -248,7 +248,7 @@ _VERDICT_COLORS: dict[str, str] = {
     "SIMILAR": "green",
     "SLOWER": "yellow",
     # issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) — двойной алиас
-    # с пробел-формой больше не нужен (apply_relative_micro унифицирован).
+    # с пробел-формой больше не нужен (вердикт считает microbench_runner.classify_relative).
     "MUCH_SLOWER": "red",
 }
 

@@ -101,26 +101,26 @@ def test_load_config_ignores_unknown_keys(
 
 
 def test_find_pyproject_searches_upward_from_nested_cwd(tmp_path: pathlib.Path) -> None:
-    """_find_pyproject() находит pyproject.toml в родительской директории cwd."""
-    from stepik_grader.config import _find_pyproject
+    """Поиск конфига находит pyproject.toml в родительской директории cwd."""
+    from stepik_grader.config import _find_config_source
 
     (tmp_path / "pyproject.toml").write_text("[tool.stepik-grader]\n", encoding="utf-8")
     nested = tmp_path / "a" / "b" / "c"
     nested.mkdir(parents=True)
 
-    found = _find_pyproject(nested)
+    found = _find_config_source(nested)
 
-    assert found == tmp_path / "pyproject.toml"
+    assert found is not None and found[0] == tmp_path / "pyproject.toml"
 
 
 def test_find_pyproject_returns_none_when_absent(tmp_path: pathlib.Path) -> None:
-    """_find_pyproject() возвращает None, если pyproject.toml нигде вверх по дереву нет."""
-    from stepik_grader.config import _find_pyproject
+    """Поиск конфига возвращает None, если pyproject.toml нигде вверх по дереву нет."""
+    from stepik_grader.config import _find_config_source
 
     empty_root = tmp_path / "empty_root"
     empty_root.mkdir()
 
-    assert _find_pyproject(empty_root) is None
+    assert _find_config_source(empty_root) is None
 
 
 def test_load_config_finds_pyproject_via_cwd_search(
@@ -604,7 +604,7 @@ class TestConfigDeterminism:
         monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
         monkeypatch.chdir(task)
 
-        assert config_module._find_pyproject(task) is None
+        assert config_module._find_config_source(task) is None
 
     def test_broken_pyproject_above_cwd_warns_instead_of_raising(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
