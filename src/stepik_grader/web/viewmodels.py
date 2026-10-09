@@ -33,6 +33,7 @@ from stepik_grader.web.grading import (
     apply_reference_ranking,
     apply_relative_ranking,
     collect_grouped_files,
+    compat_report,
     find_all_solution_files,
     fmt_time,
     hash_solution,
@@ -844,6 +845,15 @@ def _record_bench_history(
     )
 
 
+def _compat_view(solution: pathlib.Path) -> dict[str, Any] | None:
+    """Совместимость решения с версией Python шага Stepik для веба (issue #1621)."""
+    try:
+        code = solution.read_text(encoding="utf-8")
+    except OSError, UnicodeDecodeError:
+        return None
+    return compat_report(code, solution.parent).to_dict()
+
+
 def grade_path(
     path: pathlib.Path,
     *,
@@ -956,6 +966,9 @@ def grade_path(
                     )
                     for i, c in enumerate(res["cases"], 1)
                 ],
+                # issue #1621: что в коде не поддерживает версия Python шага
+                # Stepik. Предупреждение, а не вердикт: статус не меняет.
+                "compat": _compat_view(sol),
             }
         )
 
