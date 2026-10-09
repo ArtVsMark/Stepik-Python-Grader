@@ -37,7 +37,7 @@ _MODULE = _load_module()
 
 def _data(rules: dict[str, Any]) -> dict[str, Any]:
     return {
-        "schema": "1.2",
+        "schema": _MODULE.BINDINGS_SCHEMA,
         # Контракт 1.2 завёл второй номер — версию выгрузки, по которой
         # построены ответы. Без него подделка невалидна так же, как без
         # `schema`: перечитывать ответы заставляет именно он.
@@ -58,7 +58,7 @@ def test_repository_answer_is_valid() -> None:
 
 def test_answer_file_exists_and_parses() -> None:
     data = json.loads(_BINDINGS.read_text(encoding="utf-8"))
-    assert data["schema"] == "1.2"
+    assert data["schema"] == _MODULE.BINDINGS_SCHEMA
     assert data["project"] == "ArtVsMark/Stepik-Python-Grader"
     assert data["rules"], "пустой ответ — то же самое, что отсутствие ответа"
 
@@ -121,6 +121,8 @@ def test_a_root_document_by_name_is_an_address() -> None:
                     "status": "active",
                     "mechanism": "document",
                     "where": "CONTRIBUTING.md § ревью документации: читает мержащий",
+                    "holdable": "no",
+                    "why": "ревью текста — суждение, признака в дереве нет",
                 }
             }
         )
@@ -145,7 +147,18 @@ def test_prose_instead_of_an_address_is_a_violation() -> None:
 def test_none_may_answer_in_prose() -> None:
     """У `none` адрес не требуется: механизма нет, называть нечего."""
     problems = _MODULE.binding_violations(
-        _data({"001": {"status": "active", "mechanism": "none", "where": "механизма нет"}})
+        _data(
+            {
+                "001": {
+                    "status": "active",
+                    "mechanism": "none",
+                    "where": "механизма нет",
+                    "holdable": "not-yet",
+                    "why": "признак есть, проверка не построена",
+                    "machine_half": "сверка выводима из дерева, но не написана",
+                }
+            }
+        )
     )
     assert problems == [], problems
 
@@ -252,7 +265,16 @@ def test_a_gate_reached_through_another_script_counts(tmp_path: pathlib.Path) ->
     )
 
     problems = _MODULE.binding_violations(
-        _data({"001": {"status": "active", "mechanism": "gate", "where": "scripts/check_x.py"}}),
+        _data(
+            {
+                "001": {
+                    "status": "active",
+                    "mechanism": "gate",
+                    "where": "scripts/check_x.py",
+                    "origin_kind": "own",
+                }
+            }
+        ),
         root=tmp_path,
     )
 
@@ -274,6 +296,7 @@ def test_one_reachable_script_is_enough(tmp_path: pathlib.Path) -> None:
                     "status": "active",
                     "mechanism": "gate",
                     "where": "scripts/generate_thing.py, а scripts/check_guard.py их сверяет",
+                    "origin_kind": "own",
                 }
             }
         ),
@@ -464,7 +487,7 @@ class TestUnheldBudget:
 
 
 def _rules_dir(
-    root: pathlib.Path, *, bindings: str = "1.2", proposals: str = "1.0", named: bool = True
+    root: pathlib.Path, *, bindings: str = "1.9", proposals: str = "1.3", named: bool = True
 ) -> pathlib.Path:
     """Корень репозитория с обоими нашими файлами ответа каталогу."""
     rules = root / ".rules"
@@ -535,13 +558,13 @@ def test_proposal_contract_is_compared_with_the_publisher(tmp_path: pathlib.Path
     )
 
     assert problems, "разошедшаяся версия контракта предложения не замечена"
-    assert "1.1" in problems[0] and "1.0" in problems[0], problems
+    assert "1.1" in problems[0] and "1.3" in problems[0], problems
 
 
 def test_matching_proposal_versions_are_silent(tmp_path: pathlib.Path) -> None:
     """Версии сошлись — находки нет."""
     assert (
-        _MODULE.proposal_drift(_proposals_catalogue(tmp_path, "1.0"), root=_rules_dir(tmp_path))
+        _MODULE.proposal_drift(_proposals_catalogue(tmp_path, "1.3"), root=_rules_dir(tmp_path))
         == []
     )
 
@@ -731,3 +754,102 @@ def test_claim_is_accepted(tmp_path: pathlib.Path) -> None:
 def test_missing_file_is_not_a_finding(tmp_path: pathlib.Path) -> None:
     """Нет файла — канал не подключён, это не нарушение формы."""
     assert _MODULE.proposal_form(root=tmp_path) == []
+
+
+# --- контракт 1.9 (issue #1424) ----------------------------------------------
+
+
+def _one(record: dict[str, Any], root: pathlib.Path | None = None) -> list[str]:
+    """Нарушения одной записи действующего правила."""
+    return _MODULE.binding_violations(_data({"001": record}), root=root)
+
+
+def test_a_gate_without_origin_is_a_violation() -> None:
+    """С 1.9 краснеющий механизм называет происхождение: копию от вызова иначе не отличить."""
+    problems = _one(
+        {"status": "active", "mechanism": "gate", "where": "scripts/check_rule_bindings.py"}
+    )
+
+    assert any("origin_kind" in problem for problem in problems), problems
+
+
+def test_a_document_without_holdable_is_a_violation() -> None:
+    """Документ обязан ответить, держит ли его машина, — и почему нет."""
+    problems = _one({"status": "active", "mechanism": "document", "where": "CLAUDE.md § X"})
+
+    assert any("holdable" in problem for problem in problems), problems
+
+
+def test_holdable_without_why_is_a_violation() -> None:
+    """`holdable` без причины — ответ без ответа."""
+    problems = _one(
+        {"status": "active", "mechanism": "document", "where": "CLAUDE.md § X", "holdable": "no"}
+    )
+
+    assert any("без `why`" in problem for problem in problems), problems
+
+
+def test_conditional_names_its_event() -> None:
+    """`conditional` без `awaiting` — обещание без срока."""
+    problems = _one(
+        {
+            "status": "active",
+            "mechanism": "document",
+            "where": "CLAUDE.md § X",
+            "holdable": "conditional",
+            "why": "станет возможна позже",
+        }
+    )
+
+    assert any("awaiting" in problem for problem in problems), problems
+
+
+def test_decided_is_never_later_than_analysed() -> None:
+    """Решают, посмотрев: `decided` позже `analysed` — находка."""
+    problems = _one(
+        {
+            "status": "active",
+            "mechanism": "document",
+            "where": "CLAUDE.md § X",
+            "holdable": "no",
+            "why": "суждение",
+            "analysed": "2026-10-01",
+            "decided": "2026-10-09",
+        }
+    )
+
+    assert any("decided" in problem for problem in problems), problems
+
+
+def test_a_refuting_probe_runs_on_the_tree(tmp_path: pathlib.Path) -> None:
+    """Проба `refuted_by` нашла файл со строкой — «не применимо» устарело."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("<details>свернуто</details>", encoding="utf-8")
+    data = _data(
+        {
+            "008": {
+                "status": "not-applicable",
+                "why": "предмета нет",
+                "refuted_by": {"globs": ["docs/*.md"], "contains": ["<details>"]},
+            }
+        }
+    )
+
+    problems = _MODULE.absence_claims(data, root=tmp_path)
+
+    assert any("refuted_by" in problem for problem in problems), problems
+
+
+def test_a_quiet_probe_stays_silent(tmp_path: pathlib.Path) -> None:
+    """Проба ничего не нашла — ответ верен, находки нет."""
+    data = _data(
+        {
+            "008": {
+                "status": "not-applicable",
+                "why": "предмета нет",
+                "refuted_by": {"globs": ["docs/*.md"], "contains": ["<details>"]},
+            }
+        }
+    )
+
+    assert _MODULE.absence_claims(data, root=tmp_path) == []
