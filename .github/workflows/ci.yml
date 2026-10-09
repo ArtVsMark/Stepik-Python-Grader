@@ -95,7 +95,7 @@ jobs:
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # issue #1570: рядом с планкой ставятся младшие версии — для сторожа
@@ -284,7 +284,7 @@ jobs:
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -378,7 +378,7 @@ jobs:
         # следующий PR не мержится, пока не завершился прогон предыдущего
         # (`check_pr_ready.py` отвечает «ждать»). Плата — мерж примерно раз в
         # четверть часа.
-        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        os: ["ubuntu-26.04", "windows-latest", "macos-latest"]
         python-version: ["3.14"]
 
     steps:
@@ -502,7 +502,7 @@ jobs:
         # issue #1227: и ночной прогон тоже — он обновляет те же бейджи.
         if: |
           (github.event_name == 'push' || github.event_name == 'schedule') &&
-          matrix.os == 'ubuntu-latest'
+          matrix.os == 'ubuntu-26.04'
         # issue #1509: выгрузка не выносит вердикт — см. `Upload test results`.
         # Потребитель этого артефакта (`coverage-combine`) уже скачивает его с
         # `continue-on-error`, то есть готов к его отсутствию.
@@ -535,7 +535,7 @@ jobs:
     # строгий --fail-under=90 применяет только при полных данных.
     needs: [test, sandbox-linux]
     if: ${{ !cancelled() && needs.test.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:
@@ -591,7 +591,7 @@ jobs:
         # больше не «шум, который горит всегда», а настоящая проверка.
         env:
           REQUIRED: >-
-            --require ubuntu-latest --require windows-latest
+            --require ubuntu-26.04 --require windows-latest
             --require macos-latest --require sandbox-linux
         run: |
           python scripts/combine_coverage.py \
@@ -727,7 +727,7 @@ jobs:
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 20
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # issue #1231: journey выполняются и на `push`. Их пропуск был частью
     # короткого прогона: «уже прошли на PR по тому же коду» верно ровно до
     # первого мержа, который меняет соседний код, — а web-слой ломается именно
@@ -877,7 +877,7 @@ jobs:
       ${{ always()
       && (needs.test.result == 'failure' || needs.e2e.result == 'failure') }}
     timeout-minutes: 10
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       # `contents: write` — ради комментария к коммиту: он живёт в скоупе
       # содержимого, а не в `pull-requests`, и на чтении отвечает 403.
@@ -947,7 +947,7 @@ jobs:
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 20
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container:
       image: python:3.14-slim
       options: --privileged
@@ -1013,7 +1013,7 @@ jobs:
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     continue-on-error: true
     steps:
       # fetch-depth: 0 — setuptools-scm вычисляет версию из git-истории+тегов при

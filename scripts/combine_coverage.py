@@ -21,7 +21,7 @@ privileged-контейнера ТИХО скипало весь cross-OS gate 9
 
     python scripts/combine_coverage.py \
         --artifacts coverage-artifacts --fail-under 90 \
-        --require ubuntu-latest --require windows-latest \
+        --require ubuntu-26.04 --require windows-latest \
         --require macos-latest --require sandbox-linux
 """
 
@@ -49,7 +49,7 @@ __all__ = [
 ]
 
 # ``coverage combine`` ищет файлы вида ``.coverage.<suffix>``; артефакты матрицы —
-# ``.coverage.<os>`` (ubuntu-latest/windows-latest/macos-latest) и
+# ``.coverage.<os>`` (ubuntu-26.04/windows-latest/macos-latest) и
 # ``.coverage.sandbox-linux`` (issue #283/#420).
 _COVERAGE_PREFIX = ".coverage."
 
