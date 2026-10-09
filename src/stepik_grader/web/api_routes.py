@@ -36,7 +36,11 @@ from stepik_grader.web.glossary_adapter import (
 )
 from stepik_grader.web.http_guards import _GuardMixin, _json, _lang_from_query
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
-from stepik_grader.web.insights_adapter import insights_cards, progress_report
+from stepik_grader.web.insights_adapter import (
+    insights_cards,
+    progress_report,
+    revisited_topics,
+)
 from stepik_grader.web.navigation_adapter import read_task_tree
 from stepik_grader.web.reference_adapter import import_reference
 from stepik_grader.web.rules_adapter import rules_get, rules_search
@@ -157,6 +161,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/glossary/missing": "_get_glossary_missing",
         "/api/rules": "_get_rules",
         "/api/insights": "_get_insights",
+        "/api/insights/revisited": "_get_insights_revisited",
         "/api/progress": "_get_progress",
         "/api/commands": "_get_commands",
         "/api/solutions": "_get_solutions",
@@ -437,6 +442,11 @@ class _ApiRoutesMixin(_GuardMixin):
 
     def _get_insights(self, parsed: Any, lang: str) -> None:
         self._send(200, "application/json; charset=utf-8", _json(insights_cards()))
+
+    def _get_insights_revisited(self, parsed: Any, lang: str) -> None:
+        # issue #1608: темы, к которым возвращаются из ошибок (повторные переходы
+        # в глоссарий) — отдельным списком, чтобы форма `/api/insights` не менялась.
+        self._send(200, "application/json; charset=utf-8", _json(revisited_topics()))
 
     def _get_progress(self, parsed: Any, lang: str) -> None:
         # issue #538: агрегатный отчёт прогресса (KPI solved/total, вердикты,
