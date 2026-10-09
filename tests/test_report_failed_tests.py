@@ -445,14 +445,16 @@ class TestWorkflowWakesOnPush:
 
 
 def _ci_calls() -> list[str]:
-    """Шаги ``ci.yml``, зовущие сводку, — каждый склеен в одну строку.
+    """Шаги всех workflow, зовущие сводку, — каждый склеен в одну строку.
 
     Разбор текстом, а не YAML-парсером: PyYAML не зависимость проекта. Шаг
     начинается строкой ``- `` на отступе шагов, а аргументы вызова идут
-    сложенными строками ``>-`` — склейка делает их одной командой.
+    сложенными строками ``>-`` — склейка делает их одной командой. Все файлы, а
+    не один ``ci.yml``: сводку зовёт и ``python-next.yml`` (issue #1526).
     """
-    text = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    steps = re.split(r"(?m)^      - ", text)
+    steps: list[str] = []
+    for path in sorted((_ROOT / ".github" / "workflows").glob("*.yml")):
+        steps += re.split(r"(?m)^      - ", path.read_text(encoding="utf-8"))
     calls: list[str] = []
     for step in steps:
         code = " ".join(
@@ -541,3 +543,56 @@ def test_an_e2e_failure_reaches_the_pull_request(
 
     assert len(posted) == 1
     assert "`e2e` — `tests/test_web.py::test_grade`" in posted[0]
+
+
+# ---------------------------------------------------------------------------
+# issue #1526: у python-next своя сводка — и свой маркер
+# ---------------------------------------------------------------------------
+
+
+def test_the_default_channel_keeps_the_old_marker() -> None:
+    """Канал CI по умолчанию — прежний маркер: старые сводки находятся как раньше."""
+    assert reporter.marker_for() == reporter.MARKER
+
+
+def test_another_channel_has_a_marker_of_its_own() -> None:
+    """Маркеры каналов не вкладываются друг в друга — поиск по подстроке их не спутает."""
+    other = reporter.marker_for("python-next")
+
+    assert other != reporter.MARKER
+    assert reporter.MARKER not in other and other not in reporter.MARKER
+
+
+def test_python_next_does_not_overwrite_the_ci_summary(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CI и python-next отвечают на один коммит — сводка CI остаётся нетронутой."""
+    posted: list[str] = []
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "commit_comments",
+        lambda *a, **k: [{"id": 5, "body": f"{reporter.MARKER}\n\nсводка CI"}],
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest,
+        "update_commit_comment",
+        lambda *a, **k: pytest.fail("сводка python-next затёрла сводку CI"),
+    )
+    monkeypatch.setattr(
+        reporter.gh_rest, "comment_commit", lambda _repo, _sha, text, **k: posted.append(text)
+    )
+    _report(tmp_path, "test-results-ubuntu-26.04-3.15.xml", _FAILING_CASE)
+
+    argv = ["--dir", str(tmp_path), "--commit", "deadbeef", "--channel", "python-next", "--apply"]
+    assert reporter.main(argv) == 0
+
+    assert len(posted) == 1
+    assert posted[0].startswith(reporter.marker_for("python-next"))
+    assert "python-next" in posted[0]
+
+
+def test_python_next_workflow_reports_on_its_own_channel() -> None:
+    """Вызов сводки в python-next.yml несёт свой канал — иначе маркеры совпали бы."""
+    calls = [call for call in _ci_calls() if "--channel python-next" in call]
+
+    assert calls, "python-next.yml не зовёт сводку своим каналом"

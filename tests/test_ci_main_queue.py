@@ -78,7 +78,7 @@ class TestMergeQueueIsWiredIn:
             "нет триггера merge_group — очередь будет мержить непроверенное"
         )
 
-    @pytest.mark.parametrize("os_name", ["ubuntu-latest", "windows-latest", "macos-latest"])
+    @pytest.mark.parametrize("os_name", ["ubuntu-26.04", "windows-latest", "macos-latest"])
     def test_candidate_runs_the_full_matrix(self, ci_yml: str, os_name: str) -> None:
         """Кандидат — последняя проверка перед main, урезать её нечем.
 
@@ -140,7 +140,7 @@ class TestMatrixIsTheSameForEveryEvent:
             "матрица снова различает событие — main опять проверяется не как PR"
         )
 
-    @pytest.mark.parametrize("os_name", ["ubuntu-latest", "windows-latest", "macos-latest"])
+    @pytest.mark.parametrize("os_name", ["ubuntu-26.04", "windows-latest", "macos-latest"])
     def test_every_os_runs_on_push_too(self, ci_yml: str, os_name: str) -> None:
         """Три ОС на любом событии, включая пуш в `main`."""
         block = _job_block(ci_yml, "test")
@@ -164,7 +164,7 @@ class TestMatrixIsTheSameForEveryEvent:
         """
         text = (_CI_YML.parent / "python-next.yml").read_text(encoding="utf-8")
 
-        assert 'os: ["ubuntu-latest", "windows-latest", "macos-latest"]' in text
+        assert 'os: ["ubuntu-26.04", "windows-latest", "macos-latest"]' in text
         assert "allow-prereleases: true" in text
 
     def test_the_prerelease_does_not_hold_the_merge(self) -> None:
@@ -222,7 +222,7 @@ class TestNightlyCrossOsCoverage:
 class TestNoiseIsNotNormalised:
     """Предупреждение, которое горит всегда, перестают читать."""
 
-    @pytest.mark.parametrize("source", ["ubuntu-latest", "windows-latest", "macos-latest"])
+    @pytest.mark.parametrize("source", ["ubuntu-26.04", "windows-latest", "macos-latest"])
     def test_every_os_is_required_for_the_combined_report(self, ci_yml: str, source: str) -> None:
         """Матрица снова полная, значит артефакты всех трёх ОС обязаны быть.
 

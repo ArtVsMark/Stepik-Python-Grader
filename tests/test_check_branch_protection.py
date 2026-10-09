@@ -218,7 +218,7 @@ class TestReferenceComesFromTheTree:
 
         floor = re.search(r'requires-python = ">=([\d.]+)"', _PYPROJECT_TEXT)
         assert floor is not None
-        assert names[0] == f"test (ubuntu-latest, {floor.group(1)})"
+        assert names[0] == f"test (ubuntu-26.04, {floor.group(1)})"
         assert f"test (macos-latest, {floor.group(1)})" in names
 
     def test_experimental_combinations_are_not_required(self) -> None:

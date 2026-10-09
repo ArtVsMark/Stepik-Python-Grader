@@ -24,7 +24,7 @@ jobs:
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # setuptools-scm и check_version_consistency читают историю и теги.
@@ -110,7 +110,7 @@ jobs:
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 20
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # issue #162: setuptools-scm берёт версию из git-тегов — нужна полная
@@ -175,7 +175,7 @@ jobs:
     timeout-minutes: 15
     # issue #809: публикация только после зелёного `verify` на этом же коммите.
     needs: [build, verify]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:
@@ -256,7 +256,7 @@ jobs:
     # issue #809: тот же гейт. Версия в PyPI неперезаписываема — это
     # единственная ошибка релиза, которую нельзя откатить.
     needs: [build, verify]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: pypi
     permissions:
       id-token: write  # mint the OIDC token PyPI trusted publishing verifies

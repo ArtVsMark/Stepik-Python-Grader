@@ -51,7 +51,7 @@ jobs:
   rebuild:
     # issue #1271: без этого действует умолчание GitHub в 6 часов.
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     # Секрет кладётся в env, а не проверяется в `if` напрямую: контекст
     # `secrets` в условиях шага не гарантирован. Тот же приём, что в agent-pr.

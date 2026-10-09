@@ -41,7 +41,7 @@ concurrency:
 
 jobs:
   tracker-state:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # issue #1271: без этого действует умолчание GitHub в 6 часов — зависший
     # шаг держал бы исполнителя, которым пользуются прогоны PR.
     timeout-minutes: 10

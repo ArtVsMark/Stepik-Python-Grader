@@ -58,17 +58,30 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
+    "DEFAULT_CHANNEL",
     "MARKER",
     "Failure",
     "collect",
     "count_reports",
     "main",
+    "marker_for",
     "parse_report",
     "render",
 ]
 
 #: Скрытый маркер, по которому комментарий находится в следующий раз.
 MARKER = "<!-- ci-failures -->"
+
+#: Канал сводки по умолчанию — прогон ``CI``. Другой канал (issue #1526:
+#: ``python-next``) получает СВОЙ маркер: оба прогона отвечают на один и тот же
+#: коммит ``main``, и с общим маркером сводки затирали бы друг друга.
+DEFAULT_CHANNEL = "ci"
+
+
+def marker_for(channel: str = DEFAULT_CHANNEL) -> str:
+    """Скрытый маркер сводки канала; у канала по умолчанию — прежний :data:`MARKER`."""
+    return MARKER if channel == DEFAULT_CHANNEL else f"<!-- ci-failures:{channel} -->"
+
 
 #: Сколько упавших тестов называется поимённо. Остальные — числом.
 _DEFAULT_LIMIT = 25
@@ -234,14 +247,18 @@ def render(
     run_url: str | None = None,
     limit: int = _DEFAULT_LIMIT,
     reports: int | None = None,
+    channel: str = DEFAULT_CHANNEL,
 ) -> str:
     """Собрать текст комментария со скрытым маркером в первой строке.
 
     ``reports`` — сколько отчётов прочитано; ``None`` — не считали (вызов из
-    кода, которому число не нужно).
+    кода, которому число не нужно). ``channel`` — чей это прогон: не ``ci`` —
+    свой маркер и строка с именем прогона (issue #1526).
     """
     items = list(failures)
-    lines = [MARKER, ""]
+    lines = [marker_for(channel), ""]
+    if channel != DEFAULT_CHANNEL:
+        lines += [f"**Прогон `{channel}`** — слияние не держит, но падение названо.", ""]
     if not items and reports == 0:
         lines += [
             "**Прогон красный, а отчётов тестов не скачалось ни одного.**",
@@ -282,24 +299,26 @@ def render(
     return "\n".join(lines) + "\n"
 
 
-def _existing_comment(repo: str, number: int, **kwargs: object) -> int | None:
+def _existing_comment(repo: str, number: int, marker: str = MARKER, **kwargs: object) -> int | None:
     """Номер прежней сводки в этом PR — по маркеру, а не по автору."""
-    return _marked(gh_rest.issue_comments(repo, number, **kwargs))
+    return _marked(gh_rest.issue_comments(repo, number, **kwargs), marker)
 
 
-def _existing_commit_comment(repo: str, sha: str, **kwargs: object) -> int | None:
+def _existing_commit_comment(
+    repo: str, sha: str, marker: str = MARKER, **kwargs: object
+) -> int | None:
     """Номер прежней сводки у коммита — тем же маркером (issue #1519)."""
-    return _marked(gh_rest.commit_comments(repo, sha, **kwargs))
+    return _marked(gh_rest.commit_comments(repo, sha, **kwargs), marker)
 
 
-def _marked(comments: list[dict[str, object]]) -> int | None:
+def _marked(comments: list[dict[str, object]], marker: str = MARKER) -> int | None:
     """Первый комментарий со скрытым маркером — общий разбор для обоих адресатов.
 
     Ищем по маркеру, а не по автору: прогон бывает перезапущен, и вторая
     сводка читалась бы как второе падение.
     """
     for comment in comments:
-        if MARKER in str(comment.get("body") or ""):
+        if marker in str(comment.get("body") or ""):
             identifier = comment.get("id")
             if isinstance(identifier, int):
                 return identifier
@@ -331,11 +350,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--run-url", help="ссылка на прогон")
     parser.add_argument("--limit", type=int, default=_DEFAULT_LIMIT)
     parser.add_argument("--apply", action="store_true", help="писать в PR, а не печатать")
+    parser.add_argument(
+        "--channel",
+        default=DEFAULT_CHANNEL,
+        help="чей прогон: свой маркер сводки, чтобы два прогона одного коммита "
+        "не затирали друг друга (issue #1526)",
+    )
     args = parser.parse_args(argv)
+    marker = marker_for(args.channel)
 
     reports = count_reports(args.dir)
     failures = collect(args.dir)
-    body = render(failures, run_url=args.run_url, limit=args.limit, reports=reports)
+    body = render(
+        failures, run_url=args.run_url, limit=args.limit, reports=reports, channel=args.channel
+    )
     print(f"прочитано отчётов: {reports}, упавших тестов: {len(failures)}")
     _write_step_summary(body)
     if not args.apply or (args.pr is None and not args.commit):
@@ -352,7 +380,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # молчании канала не узнал бы никто — а канал здесь и есть весь смысл.
     try:
         if args.pr is not None:
-            existing = _existing_comment(args.repo, args.pr)
+            existing = _existing_comment(args.repo, args.pr, marker)
             if existing is None:
                 gh_rest.comment_issue(args.repo, args.pr, body)
                 print(f"сводка добавлена в PR #{args.pr}")
@@ -363,7 +391,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             # У `push` в main адресата-PR нет, а разбирать красноту всё равно
             # кому-то придётся: комментарий коммита — тот же канал, тот же
             # токен, тот же маркер (issue #1519).
-            existing = _existing_commit_comment(args.repo, args.commit)
+            existing = _existing_commit_comment(args.repo, args.commit, marker)
             if existing is None:
                 gh_rest.comment_commit(args.repo, args.commit, body)
                 print(f"сводка добавлена к коммиту {args.commit[:8]}")

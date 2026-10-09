@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+        os: ["ubuntu-26.04", "windows-latest", "macos-latest"]
         python-version: ["3.15"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,7 +65,61 @@ jobs:
         timeout-minutes: 10
         run: pip install -e ".[dev]"
 
+      # issue #1526: `--junitxml` тем же образцом `test-results-*`, что у CI, —
+      # разбор `scripts/report_failed_tests.py` идёт по маске и об источнике
+      # отчёта ничего не знает.
       - name: Run tests
         env:
           STEPIK_REQUIRE_SANDBOX_TESTS: ${{ (matrix.os == 'macos-latest' || matrix.os == 'windows-latest') && '1' || '' }}
-        run: pytest -q --no-cov
+        run: pytest -q --no-cov --junitxml=test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+
+      # `if: always()` — отчёт нужен ровно красному прогону.
+      - name: Upload test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          path: test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # issue #1526: красный python-next без сводки — тупик для облачной сессии:
+  # логи и артефакты закрыты ей (403), а локально предрелизной версии нет.
+  # Канал тот же, что у push в main (#1519), — комментарий к коммиту, но со
+  # СВОИМ маркером (`--channel python-next`): CI отвечает на тот же коммит, и
+  # с общим маркером сводки затирали бы друг друга.
+  report-failures:
+    needs: [test]
+    if: ${{ always() && needs.test.result == 'failure' }}
+    timeout-minutes: 10
+    runs-on: ubuntu-26.04
+    permissions:
+      # Комментарий к коммиту живёт в скоупе содержимого.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Download test reports
+        timeout-minutes: 5
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: test-results-*
+          path: test-reports
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Name the failed tests on the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/report_failed_tests.py --dir test-reports
+          --channel python-next
+          --commit ${{ github.sha }}
+          --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --apply
