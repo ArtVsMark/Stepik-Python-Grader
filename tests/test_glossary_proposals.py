@@ -8,6 +8,7 @@
 import importlib.util
 import json
 import pathlib
+import re
 import sys
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -132,3 +133,25 @@ def test_build_does_not_depend_on_the_platform(
 
     assert "WindowsError" not in gp._public_builtins()
     assert gp.main(["--check"]) == 0
+
+
+def test_check_on_another_python_names_itself_instead_of_failing(
+    gp: ModuleType, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Файл собран на другой версии — ``--check`` говорит об этом и не краснеет."""
+    other = gp.build()
+    other["python"] = "0.0"
+    other["proposals"] = []
+    stale = tmp_path / "proposals.json"
+    stale.write_text(json.dumps(other), encoding="utf-8")
+    monkeypatch.setattr(gp, "OUTPUT", stale)
+
+    assert gp.main(["--check"]) == 0
+    assert json.loads(stale.read_text(encoding="utf-8"))["proposals"] == []
+
+
+def test_published_file_names_its_python(gp: ModuleType) -> None:
+    """Опубликованный файл называет версию Python, на которой собран."""
+    payload = json.loads(gp.OUTPUT.read_text(encoding="utf-8"))
+
+    assert re.fullmatch(r"3\.\d+", payload["python"])
