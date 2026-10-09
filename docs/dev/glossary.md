@@ -210,8 +210,6 @@ from stepik_grader.glossary import (
 provider = JsonGlossaryProvider.load("docs/examples/glossary.sample.json")
 provider.get("recursionerror")          # GlossaryCard | None
 provider.search("рекурсия")             # list[GlossaryCard]
-provider.list_by_status("ready")        # list[GlossaryCard]
-provider.list_by_tag("function")        # list[GlossaryCard]
 
 # Детектор пробелов (без исполнения кода — только AST)
 detector = MissingConceptDetector()

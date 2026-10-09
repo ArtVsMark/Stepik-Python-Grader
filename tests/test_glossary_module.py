@@ -336,14 +336,6 @@ def test_provider_search_finds_body_only_word(tmp_path: pathlib.Path) -> None:
     assert [c.id for c in provider.search("обходциклов")] == ["gc"]
 
 
-def test_provider_list_by_status_and_tag() -> None:
-    provider = JsonGlossaryProvider.from_file(SAMPLE_FIXTURE)
-    ready = {c.id for c in provider.list_by_status("ready")}
-    assert ready == {"recursionerror", "match-case"}
-    assert [c.id for c in provider.list_by_status("draft")] == ["functools.reduce"]
-    assert {c.id for c in provider.list_by_tag("function")} == {"functools.reduce"}
-
-
 def test_provider_known_terms_includes_aliases() -> None:
     """Псевдонимы готовой карточки попадают в покрытие вместе с её id."""
     provider = JsonGlossaryProvider.from_file(SAMPLE_FIXTURE)
