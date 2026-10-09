@@ -552,6 +552,26 @@ class TestWorktreeLayout:
         assert preflight._acquire_lock(lock)
         assert lock.exists()
 
+    def test_paths_survive_a_git_that_does_not_answer(
+        self,
+        preflight: ModuleType,
+        repo: pathlib.Path,
+        worktree: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """`git` не уложился в дедлайн (macOS + 3.14, #1149) — пути всё равно верны.
+
+        Прежний откат на `root/.git` возвращал в worktree ФАЙЛ, и захват
+        блокировки падал `FileExistsError` — так краснела ячейка macOS.
+        """
+        monkeypatch.setattr(preflight, "_git", lambda *_args: "")
+
+        lock = preflight.lock_path(worktree)
+
+        assert preflight._acquire_lock(lock)
+        assert lock.resolve() == (repo / ".git" / lock.name).resolve()
+        assert preflight.stamp_path(worktree).parent.is_dir()
+
     def test_logs_dir_is_creatable_in_worktree(
         self, preflight: ModuleType, worktree: pathlib.Path
     ) -> None:
