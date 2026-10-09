@@ -51,6 +51,8 @@ PokolenieTestes/
 
 .coverage
 coverage.xml
+# трейсы Playwright упавших e2e-тестов (E2E_TRACE_DIR, issue #1582)
+test-traces-e2e/
 .coveragerc.ci
 .pytest_cache/
 .hypothesis/

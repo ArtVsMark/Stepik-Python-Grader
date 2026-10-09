@@ -147,10 +147,14 @@ def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_pa
     # три отдельных `get_attribute` успевают дойти до узла (issue #1582: тест
     # мигал и локально, и в CI). Атрибуты снимаются ОДНОЙ функцией в браузере в
     # тот кадр, когда полоса появилась, — снимок не может разойтись с узлом.
+    # И ждётся узел, у которого атрибуты УЖЕ проставлены: появление узла и
+    # запись aria-value* — разные кадры, и под трейсингом CI (issue #1582)
+    # снимок попадал между ними — `aria-valuemin` приходил `None`.
     attrs = page.wait_for_function(
         """() => {
             const el = document.querySelector('#bar [role="progressbar"]');
-            return el && {
+            return el && el.hasAttribute("aria-valuemin")
+                && el.hasAttribute("aria-valuemax") && {
                 label: el.getAttribute("aria-label"),
                 min: el.getAttribute("aria-valuemin"),
                 max: el.getAttribute("aria-valuemax"),
