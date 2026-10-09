@@ -27,13 +27,13 @@
 
 ## Чем держатся правила
 
-Всего правил, действующих здесь: **101**.
+Всего правил, действующих здесь: **111**.
 
 | Уровень | Что это | Сколько |
 |---|---|---|
-| **гейт** | нарушение отвергается до слияния | 43 |
-| **конвейер** | нарушение замечает прогон, но слияние не держит | 19 |
-| **документ** | нарушение заметит человек, если читал | 39 |
+| **гейт** | нарушение отвергается до слияния | 45 |
+| **конвейер** | нарушение замечает прогон, но слияние не держит | 21 |
+| **документ** | нарушение заметит человек, если читал | 45 |
 | **не объявлено** | не замечается ничем — очередь на автоматизацию | 0 |
 
 **Не объявлено: 0.** Это метрика, и она обязана уменьшаться.
@@ -54,7 +54,7 @@
 | [Конфликт — штатная ситуация конвейера, а не авария](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/004-conflict-is-normal-not-outage.md) | #1313 | гейт |
 | [Агентское окно живёт три–пять дней](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/006-window-lifetime.md) | #1283 | документ |
 | [Окно, зависшее на разрешении, снаружи неотличимо от работающего](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/007-blocked-window-looks-alive.md) | #1321, #1323 | документ |
-| [Пустой список проверок означает «не стартовало», а не «всё хорошо»](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/010-empty-checklist-is-not-green.md) | #1232 | документ |
+| [Пустой список проверок означает «не стартовало», а не «всё хорошо»](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/010-empty-checklist-is-not-green.md) | #1232 | гейт |
 | [Наблюдение: событие вместо опроса, а если опрос — то условный](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/011-events-not-polling.md) | `docs/agent/preflight.md` | документ |
 | [В чужую ветку не пушить](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/012-do-not-push-to-someone-elses-branch.md) | `docs/agent/preflight.md` | гейт |
 | [Код с экранированием писать файлом, а не heredoc'ом](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/013-write-escapes-to-file-not-heredoc.md) | `docs/agent/preflight.md` | гейт |
@@ -77,6 +77,8 @@
 | [Пропуск без причины неотличим от забытого теста](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/040-skip-without-reason-is-a-forgotten-test.md) | `scripts/skip_inventory.py`, `tests/test_skip_inventory.py` | гейт |
 | [Решение записывается вместе с отвергнутыми вариантами](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/042-decision-records-its-alternatives.md) | `docs/dev/adr/README.md` | гейт |
 | [Решение не правится задним числом — его отменяет новое](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/043-decisions-are-superseded-not-edited.md) | `docs/dev/adr/README.md` | гейт |
+| [Премиса находки проверяется прежде, чем по ней работают](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/044-check-the-premise-before-fixing.md) | `docs/dev/adr/README.md` | документ |
+| [Тихого запасного пути нет — отказ громкий](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/045-no-silent-fallback.md) | `docs/dev/adr/README.md` | гейт |
 | [Смена правил работы — повод перезапустить окна, а не рассылка](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/047-rule-change-restarts-the-windows.md) | #1283 | документ |
 | [Предупреждают о вероятном, запрещают достоверное](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/051-warn-on-likely-block-on-certain.md) | `scripts/check_work_overlap.py` | конвейер |
 | [Порядок очереди задаётся правилом, а не готовностью](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/053-queue-order-is-a-rule-not-arrival.md) | #1325, #1326, #1329 | конвейер |
@@ -105,6 +107,7 @@
 | [Отмена — отдельный исход, а не разновидность ошибки](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/078-cancelled-is-not-an-error.md) | #262, #296, `src/stepik_grader/web/runs.py` | гейт |
 | [Чужой код запускают из приватного каталога, а не из общего временного](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/081-untrusted-code-runs-in-a-private-directory.md) | #799, `src/stepik_grader/web/playground.py` | гейт |
 | [Состав ролей покрывает все пласты продукта, а не только разработку](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/082-roles-must-cover-every-layer.md) | #1005, #1007, `docs/agent/roles.md` | документ |
+| [Сгенерированное проверяют свойствами и выборкой, а не эталонным ответом](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/083-generated-output-is-checked-by-properties.md) | `docs/dev/adr/README.md` | документ |
 | [Текст, пришедший от проверяемого, — недоверенный вход в промпт](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/085-content-from-the-subject-is-untrusted-input-to-the-prompt.md) | #931 | гейт |
 | [Тяжесть находки ставит не тот, кто её нашёл — но опровергателю нужна шкала](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/086-the-finder-does-not-grade-the-finding.md) | `docs/agent/multiagent.md` | документ |
 | [Повторный проход получает на вход прошлые находки и запрет их переоткрывать](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/087-a-second-pass-needs-a-novelty-rule.md) | `docs/agent/multiagent.md` | документ |
@@ -112,6 +115,10 @@
 | [Из оригинала в его копию не ссылаются](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/089-never-link-from-the-original-to-its-copy.md) | `docs/dev/glossary.md` | гейт |
 | [Источники работы упорядочены: первый непустой и есть план](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/091-work-sources-are-ordered-first-non-empty-wins.md) | #97, #151 | документ |
 | [Находки и порядок разбора — разные документы](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/092-findings-and-ordering-live-in-different-documents.md) | `docs/agent/claude-handoff.md` | документ |
+| [Шов вводят рано, обобщение — по третьему случаю](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/093-seam-early-generalisation-late.md) | `docs/dev/adr/README.md` | документ |
+| [Переходная заглушка делает миграцию вечной](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/094-a-compatibility-shim-makes-migration-permanent.md) | `docs/dev/adr/README.md` | документ |
+| [Умолчание выбирается в пользу пользователя, а не продукта](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/095-the-default-is-chosen-for-the-user.md) | `docs/dev/adr/README.md` | документ |
+| [Хранилище выбирается по жизненному циклу данных, а не по удобству](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/096-storage-follows-lifecycle-not-convenience.md) | `docs/dev/adr/README.md` | документ |
 | [У проверяющего инструмента две ошибки, и каждая держится своим тестом](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/097-a-checker-has-two-error-types.md) | `docs/dev/corpus.md` | гейт |
 | [Единица дробления определяется употреблением, а не формальным признаком](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/098-the-unit-of-splitting-follows-usage.md) | `docs/dev/glossary.md` | документ |
 | [Конфликт классификации разрешается по последствию, а не по правильности](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/099-classification-conflicts-resolve-by-consequence.md) | `docs/dev/glossary.md` | документ |
@@ -148,4 +155,7 @@
 | [Диагностический след кладут туда, куда достаёт тот, кто чинит](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/151-the-trail-goes-where-the-fixer-can-reach.md) | `scripts/report_failed_tests.py`, `.github/workflows/ci.yml` | конвейер |
 | [Смена версии чужого контракта — повод перечитать ответы, а не только формат](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/157-a-contract-version-bump-is-a-re-read.md) | #1400 | конвейер |
 | [Факты о проекте публикует сам проект, а не считает сосед](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/174-facts-about-a-project-are-published-by-it.md) | #1411 | конвейер |
-| [Приёмка автоматической починки обязана быть строже чинимого дефекта](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/193-repair-acceptance-stronger-than-defect.md) | #1454, `scripts/check_glossary_examples.py` | гейт |
+| [Приёмка автоматической починки обязана быть строже чинимого дефекта](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/193-repair-acceptance-stronger-than-defect.md) | #1454 | документ |
+| [Пометка «предрелизная» — утверждение о чужом календаре: она устаревает сама](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/203-experimental-is-a-claim-about-someone-elses-calendar.md) | #1529, `scripts/check_experimental_python.py` | конвейер |
+| [Механизм жив, пока до него доходит рабочий путь, а зелёный прогон этого не доказывает](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/211-a-mechanism-is-alive-only-if-a-working-path-reaches-it.md) | #1553, #1555 | гейт |
+| [Прогон называет, чей код он проверяет, а не только чем он запущен](https://github.com/ArtVsMark/Engineering-Incidents-Playbook/blob/main/rules/ru/216-gate-names-the-tree-it-checks.md) | #1521 | конвейер |

@@ -346,6 +346,23 @@ class TestOwnershipIsHandedOverInsideAParagraph:
         assert "tests/test_check_sources_of_truth.py" in paths
         assert "scripts/check_exclusive.py" not in paths
 
+    def test_a_line_naming_another_repository_is_a_handover(self, generator: ModuleType) -> None:
+        """След 181 в каталоге переписан построчно — без «У каталога» (issue #1424).
+
+        Строка «Другой/репозиторий — путь» внутри того же абзаца передаёт
+        владение так же, как фраза: путь после неё принадлежит соседу.
+        """
+        trace = (
+            "ArtVsMark/Stepik-Python-Grader — `scripts/check_sources_of_truth.py`;\n"
+            "сверено по HEAD `dbbbd47`.\n"
+            "ArtVsMark/Engineering-Incidents-Playbook — `scripts/check_exclusive.py`."
+        )
+
+        paths = generator._our_paths(trace)
+
+        assert "scripts/check_sources_of_truth.py" in paths
+        assert "scripts/check_exclusive.py" not in paths
+
     def test_a_paragraph_without_a_handover_is_unchanged(self, generator: ModuleType) -> None:
         """Нет передачи — поведение прежнее, все пути наши."""
         trace = (
