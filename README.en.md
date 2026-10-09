@@ -1,10 +1,7 @@
 # Stepik Python Grader — English quick start
 
-[![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Release / PyPI](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/release.json&cacheSeconds=300)](https://pypi.org/project/stepik-python-grader/)
-[![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/version.json&cacheSeconds=300)](CHANGELOG.md)
-[![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+[![CI: Python, versions, OS, suites, coverage, release, version](https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/python.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+<!-- Unified badge: every part is coloured by its own run on main. -->
 
 > A local grader for the «Поколение Python» Stepik courses — **and for any
 > directory of test cases**. Русская версия: [README.md](README.md).
