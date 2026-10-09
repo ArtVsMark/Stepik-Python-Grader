@@ -1,0 +1,110 @@
+name: badges
+
+# issue #1565: единый значок проекта `CI │ Python │ 3.14 3.15 │ linux windows
+# mac │ наборы │ coverage │ release / PyPI │ version` — одна картинка вместо
+# пяти. Рисует его составное действие каталога (код исполняется из тега, а не
+# копией в проекте — правило 095), а публикуется он туда же, где живут прочие
+# значки: в ветку `badges`.
+#
+# ПОЧЕМУ ОТДЕЛЬНЫЙ ПРОГОН, А НЕ ШАГ В ci.yml. Значок красится ИСХОДОМ прогонов
+# CI и python-next на `main`, а на толчке они ещё идут: шаг внутри CI видел бы
+# прошлый исход и отставал бы на целое слияние. Поэтому сборка просыпается по
+# ЗАВЕРШЕНИИ этих прогонов (`workflow_run`).
+#
+# Числа покрытия и версии значок берёт из json, которые пишет ci.yml (шаг
+# «Update badges») в ту же ветку `badges`: их генераторы остаются, действие
+# читает их файлы.
+on:
+  workflow_run:
+    workflows: [CI, python-next]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  # Исходы прогонов для частей значка читаются у площадки.
+  actions: read
+
+# Предмет — состояние ветки `badges`, а не коммит: группа одна и не отменяет,
+# а ставит в очередь, иначе прогон, убитый между коммитом и толчком, оставил бы
+# значок устаревшим молча.
+concurrency:
+  group: badges-python
+  cancel-in-progress: false
+
+jobs:
+  python-badge:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      # На workflow_run файл прогона берётся с общей ветки — и исполняемый код
+      # закреплён за ней же (правило 152).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
+
+      # Входные json значка — из ветки `badges`. Нет ветки или файла — действие
+      # отвечает кодом 2, и прежний значок остаётся (см. ниже).
+      - name: Fetch badge inputs from the badges branch
+        timeout-minutes: 5
+        run: |
+          mkdir -p .badge-inputs
+          if git fetch --depth=1 origin badges; then
+            for name in coverage.json coverage-combined.json version.json; do
+              git show "FETCH_HEAD:.github/badges/$name" > ".badge-inputs/$name" || rm -f ".badge-inputs/$name"
+            done
+          else
+            echo "::warning::ветки badges нет — входов значка нет, значок не перерисовывается"
+          fi
+
+      # Код 2 у действия — «не собран» (площадка не ответила, файла нет): серым
+      # это не рисуется, и шаг публикации ниже оставляет прежний значок.
+      - name: Draw the unified badge
+        id: draw
+        timeout-minutes: 5
+        continue-on-error: true
+        uses: ArtVsMark/Engineering-Incidents-Playbook/.github/actions/python-badge@29657e09d5e6c2bf7d67211e89ebaf1aa2ba6a0e # v1.10.0
+        with:
+          ci-workflow: ci.yml
+          out: .badge-out/python.svg
+          coverage-json: .badge-inputs/coverage.json
+          coverage-all-json: .badge-inputs/coverage-combined.json
+          version-json: .badge-inputs/version.json
+          suites: e2e, sandbox-linux:sandbox
+          pypi: stepik-python-grader
+
+      - name: Publish to the badges branch
+        if: steps.draw.outcome == 'success'
+        timeout-minutes: 5
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            publish="${RUNNER_TEMP:-/tmp}/badges-python"
+            rm -rf "$publish"
+            git fetch --depth=1 origin badges
+            git worktree add -B badges "$publish" FETCH_HEAD >/dev/null
+            mkdir -p "$publish/.github/badges"
+            cp .badge-out/python.svg "$publish/.github/badges/python.svg"
+            git -C "$publish" add .github/badges/python.svg
+            if git -C "$publish" diff --cached --quiet; then
+              echo "Значок не изменился."
+              git worktree remove --force "$publish"
+              break
+            fi
+            git -C "$publish" commit -q -m "chore(ci): update python badge [skip ci]"
+            if git -C "$publish" push origin badges; then
+              git worktree remove --force "$publish"
+              break
+            fi
+            # Гонка с шагом «Update badges» в ci.yml — тот же писатель ветки:
+            # следующая попытка начнётся со свежего fetch.
+            git worktree remove --force "$publish"
+            if [ "$attempt" = 3 ]; then
+              echo "::warning::значок не опубликован после 3 попыток — следующий прогон догонит"
+            else
+              sleep $((attempt * 5))
+            fi
+          done
