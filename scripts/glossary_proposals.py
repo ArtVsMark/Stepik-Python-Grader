@@ -25,6 +25,12 @@ Glossary-Python может вынести вердикт, не сверяя те
 ЧЕГО ЗДЕСЬ НЕТ. Вердиктов: где и как их публикует глоссарий, решает он. Правок
 ``glossary/data/``: эти файлы по-прежнему приезжают импортом.
 
+ВЕРСИЯ PYTHON — ЧАСТЬ ФАЙЛА. Встроенные имена и состав stdlib у каждой версии
+свои: в 3.15 появились ``frozendict`` и ``sentinel``. Поэтому файл несёт поле
+``python`` — версию, на которой собран, — и ``--check`` сверяет содержимое только
+на ней. На другой версии сверка не применима, и это называется словами, а не
+выдаётся за расхождение: прогон предрелизной версии краснел бы на верном файле.
+
 Запуск::
 
     python scripts/glossary_proposals.py           # пересобрать файл
@@ -300,9 +306,15 @@ def build(directory: Path = BUNDLED_GLOSSARY_DIR) -> dict[str, Any]:
         "producer": PRODUCER,
         "source": SOURCE,
         "examined": {"release": source.get("release"), "digest": source.get("digest")},
+        "python": _python(),
         "generated_at": "",
         "proposals": proposals,
     }
+
+
+def _python() -> str:
+    """Версия интерпретатора ``X.Y``: от неё зависят встроенные имена и stdlib."""
+    return f"{sys.version_info.major}.{sys.version_info.minor}"
 
 
 def _comparable(payload: dict[str, Any]) -> dict[str, Any]:
@@ -318,6 +330,13 @@ def main(argv: list[str] | None = None) -> int:
 
     fresh = build()
     current = json.loads(OUTPUT.read_text(encoding="utf-8")) if OUTPUT.exists() else None
+    built_on = current.get("python") if current is not None else None
+    if args.check and built_on not in (None, fresh["python"]):
+        print(
+            f"{OUTPUT.name}: собран на Python {built_on}, здесь {fresh['python']} — "
+            "встроенные имена и stdlib другие, сверка не применима."
+        )
+        return 0
     if current is not None and _comparable(current) == _comparable(fresh):
         print(f"{OUTPUT.name}: совпадает со сборкой, предложений {len(fresh['proposals'])}.")
         return 0

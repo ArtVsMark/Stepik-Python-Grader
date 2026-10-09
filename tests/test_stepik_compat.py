@@ -163,9 +163,13 @@ def test_bundled_index_reads_the_real_glossary() -> None:
 
 
 def test_imported_or_non_builtin_name_is_not_a_builtin() -> None:
-    """Термин глоссария без точки (``sentinel``) у вызова — не встроенная функция."""
-    index = _index(("sentinel", "3.15", ""), ("anext", "3.10", ""))
-    code = "from mylib import anext\nsentinel()\nanext(1)\n"
+    """Термин глоссария без точки у вызова — не встроенная функция, если его нет в builtins.
+
+    Имя вымышленное намеренно: реальный термин (``sentinel``) в 3.15 стал
+    встроенным, и на ней находка была бы верной — тест зависел бы от версии.
+    """
+    index = _index(("glossary_only_term", "3.15", ""), ("anext", "3.10", ""))
+    code = "from mylib import anext\nglossary_only_term()\nanext(1)\n"
 
     assert sc.check_code(code, (3, 12), index) == []
 
