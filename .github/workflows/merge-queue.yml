@@ -58,7 +58,7 @@ jobs:
       github.event_name != 'workflow_run'
       || github.event.workflow_run.conclusion == 'success'
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # issue #1271: без этого действует умолчание GitHub в 6 часов —
     # зависший шаг держит не только свой job, но и всю очередь мержа.
     timeout-minutes: 15

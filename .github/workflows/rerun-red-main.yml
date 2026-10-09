@@ -45,7 +45,7 @@ concurrency:
 
 jobs:
   rerun:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # `workflow_run` приходит и от прогонов PR — у них `head_branch` это
     # head-ветка. Про чужую ветку механизму сказать нечего: замораживает
     # очередь только база.
