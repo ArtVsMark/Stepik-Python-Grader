@@ -25,7 +25,7 @@ import contextlib
 import json
 import pathlib
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, cast
 
 from stepik_grader import config, rules
@@ -39,6 +39,7 @@ from stepik_grader.core import (
     history_recording,
     lint,
     stats,
+    stepik_compat,
     user_settings,
 )
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
@@ -225,6 +226,47 @@ def _collect_lint(
     # нечем объяснить. Строится в rules/ (Domain карточек), а не в core/lint.
     select = rules.lint_select()
     return {sol: lint.run_lint(sol, select=select, preview=True) for sol in solutions}
+
+
+def compat_lines(report: stepik_compat.CompatReport, t: Callable[..., str]) -> list[str]:
+    """Строки блока «Совместимость со Stepik» по отчёту; нечего сказать — пусто (#1621)."""
+    if not report.issues:
+        return []
+    target = stepik_compat.format_version(report.target)
+    lines = [t("compat_heading", target=target)]
+    if not report.known:
+        lines.append(t("compat_unknown", target=target))
+    for issue in report.issues:
+        what = t(f"compat_syntax_{issue.what}") if issue.kind == "syntax" else issue.what
+        if issue.removed is not None:
+            version = stepik_compat.format_version(issue.removed)
+            lines.append(t("compat_removed", line=issue.line, what=what, version=version))
+        else:
+            version = stepik_compat.format_version(issue.since or (0, 0))
+            lines.append(t("compat_since", line=issue.line, what=what, version=version))
+    return lines
+
+
+def _print_compat(solutions: list[pathlib.Path]) -> None:
+    """Предупреждение о коде, которого нет в версии Python шага Stepik (issue #1621).
+
+    Только сообщение: вердикт не меняется и проверка не останавливается.
+    Код решения, который не читается, предупреждения не даёт — его судьбу
+    решает сама проверка.
+    """
+    from stepik_grader.cli import _t
+
+    for solution in solutions:
+        try:
+            code = solution.read_text(encoding="utf-8")
+        except OSError, UnicodeDecodeError:
+            continue
+        lines = compat_lines(stepik_compat.compat_report(code, solution.parent), _t)
+        if lines:
+            print()
+            if len(solutions) > 1:
+                print(solution.name)
+            print("\n".join(lines))
 
 
 def _print_lint_blocks(
@@ -801,6 +843,7 @@ def _run_mode_1(
         _print_lint_blocks([solution], None, output, lint_by_sol)
     if ai_hints:
         _print_ai_hints([(solution, result)])
+    _print_compat([solution])
     return outcome
 
 
@@ -929,6 +972,7 @@ def _run_mode_2(
         _print_lint_blocks([p for p, _ in rows], directory, output, lint_by_sol)
     if ai_hints:
         _print_ai_hints(rows)
+    _print_compat([p for p, _ in rows])
     return outcome
 
 
