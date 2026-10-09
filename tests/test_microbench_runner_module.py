@@ -11,9 +11,9 @@ timings. Its signature is
 (source_code, *, stdin_data: str, number) and it returns a dict with keys
 'times' (list[float]) and 'error' (str).
 
-The module also exposes the MicrobenchResult dataclass and apply_relative_micro
-helper for aggregating/ranking per-file timings; those are covered below and in
-tests/test_microbench.py.
+Ranking of per-file timings (apply_relative_ranking, apply_reference_ranking)
+goes through one verdict function, classify_relative (issue #1587); it is
+covered in tests/test_microbench.py.
 """
 
 import pathlib
@@ -25,9 +25,7 @@ import pytest
 
 from stepik_grader.core import microbench_runner
 from stepik_grader.core.microbench_runner import (
-    MicrobenchResult,
     apply_reference_ranking,
-    apply_relative_micro,
     apply_relative_ranking,
     run_microbench,
 )
@@ -238,43 +236,9 @@ def test_bench_dir_removed_after_run(monkeypatch) -> None:
     assert not bench_path.parent.exists(), bench_path.parent
 
 
-def test_microbench_runner_apply_relative_orders_by_median() -> None:
-    """apply_relative_micro labels the fastest SIMILAR and slower ones SLOWER/MUCH_SLOWER.
-
-    REFACTORING INVARIANT: any merged verdict logic must keep the fastest at
-    relative_percent == 100.0 and verdict SIMILAR.
-    issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) во всех путях.
-    """
-    fast = MicrobenchResult(file="fast.py", repeats=10, timings=[0.001])
-    slow = MicrobenchResult(file="slow.py", repeats=10, timings=[0.010])
-    out = apply_relative_micro([fast, slow])
-    assert out[0].verdict == "SIMILAR"
-    assert out[0].relative_percent == 100.0
-    assert out[1].verdict == "MUCH_SLOWER"
-    assert out[1].relative_percent > 100.0
-
-
-def test_microbench_runner_apply_relative_marks_errors() -> None:
-    """Results carrying an error are labeled ERROR by apply_relative_micro."""
-    good = MicrobenchResult(file="good.py", repeats=10, timings=[0.001])
-    bad = MicrobenchResult(file="bad.py", repeats=10, error="SyntaxError: x")
-    out = apply_relative_micro([good, bad])
-    verdicts = {r.file: r.verdict for r in out}
-    assert verdicts["bad.py"] == "ERROR"
-    assert verdicts["good.py"] == "SIMILAR"
-
-
-def test_microbench_runner_apply_relative_best_is_zero() -> None:
-    """best == 0 покрывает строку 181: relative_percent = 100.0 вместо деления."""
-    r1 = MicrobenchResult(file="a.py", repeats=5, timings=[0.0])
-    r2 = MicrobenchResult(file="b.py", repeats=5, timings=[0.0])
-    out = apply_relative_micro([r1, r2])
-    assert all(r.relative_percent == 100.0 for r in out)
-
-
 def test_microbench_runner_module_constants() -> None:
-    """Module exposes the threshold constant and applies WARMUP_RUNS in the bench script."""
-    assert microbench_runner.SIMILAR_THRESHOLD_PERCENT == 5.0
+    """WARMUP_RUNS is applied in the bench script; no hardcoded verdict threshold remains."""
+    assert not hasattr(microbench_runner, "SIMILAR_THRESHOLD_PERCENT")
     # issue #412: WARMUP_RUNS — не мёртвая константа, а число прогревочных
     # прогонов, реально вшитых в bench-скрипт перед замером.
     script = microbench_runner._build_bench_script("x = 1\n", stdin_data="", number=1000)

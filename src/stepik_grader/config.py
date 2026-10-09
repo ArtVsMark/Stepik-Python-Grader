@@ -527,24 +527,19 @@ def workspace_root(start: pathlib.Path | None = None) -> pathlib.Path:
     return base
 
 
-def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:
-    """Ищет pyproject.toml с секцией грейдера от ``start`` вверх до границы проекта.
-
-    От «первого попавшегося файла» (паттерн pip/ruff/mypy) поиск отличается
-    двумя ограничителями (issue #993): подъём останавливается на границе
-    проекта (``.git``, файл настроек, домашний каталог), а файл без секции
-    ``[tool.stepik-grader]`` пропускается как чужой. Прежде обоих не было —
-    ``pyproject.toml`` соседнего проекта этажом выше молча переворачивал
-    вердикт (``AC 2/2`` → ``FAIL 0/2``).
-    """
-    found = _find_config_source(start)
-    return None if found is None else found[0]
-
-
 def _find_config_source(
     start: pathlib.Path | None = None,
 ) -> tuple[pathlib.Path, Mapping[str, Any]] | None:
-    """Пара «путь конфига, секция грейдера» из поиска по дереву; иначе ``None``."""
+    """Пара «путь конфига, секция грейдера» из поиска по дереву; иначе ``None``.
+
+    Ищет ``pyproject.toml`` с секцией грейдера от ``start`` вверх до границы
+    проекта. От «первого попавшегося файла» (паттерн pip/ruff/mypy) поиск
+    отличается двумя ограничителями (issue #993): подъём останавливается на
+    границе проекта (``.git``, файл настроек, домашний каталог), а файл без
+    секции ``[tool.stepik-grader]`` пропускается как чужой. Прежде обоих не
+    было — ``pyproject.toml`` соседнего проекта этажом выше молча переворачивал
+    вердикт (``AC 2/2`` → ``FAIL 0/2``).
+    """
     base = (start or pathlib.Path.cwd()).resolve()
     for directory in _dirs_up_to_boundary(base):
         candidate = directory / "pyproject.toml"
