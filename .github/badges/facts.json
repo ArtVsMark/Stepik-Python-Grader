@@ -3,9 +3,9 @@
   "schema_of": "формат ЭТОГО файла — факты проекта для соседних (generate_facts.py). Не версия проекта, не его выпуск и не чужая схема: в этой экосистеме их уже четыре (выгрузка правил, ответ потребителя, сводка, факты), ключ у всех один, предметы разные — правило 164",
   "_": "Факты этого проекта для соседних. schema — версия ФОРМАТА файла, не версия проекта и не его выпуск. Ключа нет — значит не измеряли: нулём отсутствие не обозначается.",
   "repo": "ArtVsMark/Stepik-Python-Grader",
-  "generated_at": "2026-10-09T06:37:07+00:00",
+  "generated_at": "2026-10-09T07:20:16+00:00",
   "tests": {
-    "functions": 5477,
+    "functions": 5481,
     "modules": 274
   },
   "python": {
@@ -14,17 +14,17 @@
     ],
     "experimental": [],
     "os": [
-      "ubuntu-latest",
+      "ubuntu-26.04",
       "windows-latest",
       "macos-latest"
     ]
   },
-  "commit": "62d1ea04a98a75ce2d2f3881efab919261402abc",
+  "commit": "9661dd4ec60bc6c2accc814335b8ef2f8b79e89b",
   "ci": {
     "workflow": "ci.yml"
   },
   "release": "1.12",
-  "version": "1.12.13",
+  "version": "1.12.14",
   "checks_per_pr": {
     "count": 10,
     "names": [
@@ -36,7 +36,7 @@
       "static",
       "supply-chain",
       "test (macos-latest, 3.14)",
-      "test (ubuntu-latest, 3.14)",
+      "test (ubuntu-26.04, 3.14)",
       "test (windows-latest, 3.14)"
     ]
   },
@@ -47,5 +47,5 @@
     "document": 68,
     "not_applicable": 3
   },
-  "coverage_percent": 91.3
+  "coverage_percent": 91.2
 }
