@@ -353,7 +353,7 @@ class TestOwnershipIsHandedOverInsideAParagraph:
         владение так же, как фраза: путь после неё принадлежит соседу.
         """
         trace = (
-            "ArtVsMark/Stepik-Python-Grader — `scripts/check_sources_of_truth.py`, строки 845–846;\n"
+            "ArtVsMark/Stepik-Python-Grader — `scripts/check_sources_of_truth.py`;\n"
             "сверено по HEAD `dbbbd47`.\n"
             "ArtVsMark/Engineering-Incidents-Playbook — `scripts/check_exclusive.py`."
         )
