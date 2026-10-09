@@ -853,9 +853,39 @@ def _git_dir(root: pathlib.Path, *, shared: bool = False) -> pathlib.Path:
     flag = "--git-common-dir" if shared else "--git-dir"
     resolved = _git("-C", str(root), "rev-parse", flag)
     if not resolved:
-        return root / ".git"
+        return _git_dir_from_file(root, shared=shared)
     found = pathlib.Path(resolved)
     return found if found.is_absolute() else root / found
+
+
+def _git_dir_from_file(root: pathlib.Path, *, shared: bool) -> pathlib.Path:
+    """Служебный каталог без ``git``: по файлу ``.git`` рабочего дерева.
+
+    Запасной путь, когда ``git`` не ответил — например, запуск не уложился в
+    дедлайн :func:`_run_guarded` (macOS + 3.14, issue #1149). Прежний откат на
+    ``root / ".git"`` в ``git worktree`` возвращал ФАЙЛ, и гейт падал
+    ``FileExistsError`` ровно там, откуда его вытаскивал PR #1251. В файле
+    ``.git`` лежит строка ``gitdir: <путь>``; общий каталог указан файлом
+    ``commondir`` внутри него — так git и устроен, спрашивать его не нужно.
+    """
+    dot = root / ".git"
+    if not dot.is_file():
+        return dot
+    try:
+        line = dot.read_text(encoding="utf-8").strip()
+    except OSError:
+        return dot
+    if not line.startswith("gitdir:"):
+        return dot
+    own = pathlib.Path(line.split(":", 1)[1].strip())
+    own = own if own.is_absolute() else (root / own).resolve()
+    if not shared:
+        return own
+    try:
+        common = pathlib.Path((own / "commondir").read_text(encoding="utf-8").strip())
+    except OSError:
+        return own
+    return common if common.is_absolute() else (own / common).resolve()
 
 
 def stamp_path(root: pathlib.Path) -> pathlib.Path:
