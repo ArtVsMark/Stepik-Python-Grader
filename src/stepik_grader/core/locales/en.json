@@ -491,6 +491,8 @@
   "stats_cache_queue_stale": "{tasks} (stale: {stale})",
   "stats_html_needs_command": "--output html is only available for the stats command: the report is built from run history, not from a single run's verdicts. Try: stepik-grader stats --output html",
   "stats_no_data": "No data — stats recording is off (--stats/[tool.stepik-grader] record_stats) or hasn't accumulated yet.",
+  "stats_submissions": "Check against Stepik: {total} submissions, {compared} compared with our run, {diverged} disagreements",
+  "stats_submission_diverged": "   ≠ {task}: Stepik — {platform}, grader — {ours}",
   "stats_report_written": "Report written: {path}",
   "stepik_auth_required": "Not authorized with Stepik: set up OAuth (secrets.json) in the “Task downloader” section. Submitting is impossible without a token.",
   "stepik_network_error": "Could not reach Stepik: {error}. Check your connection and retry — no need to re-issue the token.",

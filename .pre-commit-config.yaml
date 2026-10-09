@@ -113,6 +113,20 @@ repos:
         pass_filenames: false
         files: '^src/stepik_grader/.*\.py$'
 
+      - id: check-repo-root
+        name: корень репозитория по белому списку
+        entry: python scripts/check_repo_root.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: check-history-readers
+        name: у таблицы истории есть читатель
+        entry: python scripts/check_history_readers.py
+        language: system
+        pass_filenames: false
+        files: '^src/stepik_grader/.*\.py$'
+
       - id: check-py-style
         name: код написан на версии планки
         entry: python scripts/check_py_style.py

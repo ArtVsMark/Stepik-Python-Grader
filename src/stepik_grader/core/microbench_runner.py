@@ -32,11 +32,12 @@
     память, выделенную C-расширениями (numpy и т.п.) — но для чистого
     Python-кода даёт содержательное сравнение.
 
-Дополнительный публичный API (вспомогательные структуры для агрегации):
-    MicrobenchResult          — dataclass с таймингами одного решения
-    apply_relative_micro      — расстановка относительных процентов и вердиктов
-    apply_relative_ranking    — то же для dict-результатов run_benchmark/
-                                run_microbench_mode (grader_core.py)
+Дополнительный публичный API (ранжирование результатов):
+    classify_relative         — ЕДИНСТВЕННАЯ точка вердикта по относительному
+                                времени (SIMILAR/SLOWER/MUCH_SLOWER), issue #1587
+    apply_relative_ranking    — вердикты dict-результатов run_benchmark/
+                                run_microbench_mode относительно самого быстрого
+    apply_reference_ranking   — то же относительно эталонного решения
 
     Печать таблицы результатов в этом модуле НЕ реализована — это
     ответственность вызывающей стороны (grader.py делает это сам).
@@ -45,10 +46,8 @@
 import pathlib
 import re
 import shutil
-import statistics
 import tempfile
 from collections.abc import MutableMapping
-from dataclasses import dataclass, field
 from typing import Any
 
 from stepik_grader.config import CONFIG
@@ -57,18 +56,15 @@ from stepik_grader.core.runner import RunSpec, run_spec
 
 __all__ = [
     "ENCODING",
-    "SIMILAR_THRESHOLD_PERCENT",
     "WARMUP_RUNS",
-    "MicrobenchResult",
     "apply_reference_ranking",
-    "apply_relative_micro",
     "apply_relative_ranking",
+    "classify_relative",
     "run_microbench",
     "strip_harness_frames",
 ]
 
 ENCODING: str = "utf-8"
-SIMILAR_THRESHOLD_PERCENT = 5.0
 # issue #412: число холостых прогонов stmt ПЕРЕД замером — праймит импорты/кэши,
 # чтобы cold-start не завышал min/median. Вшивается в bench-скрипт
 # (_build_bench_script) как `_warmup`; вне tracemalloc/timeit.repeat.
@@ -124,43 +120,6 @@ def strip_harness_frames(text: str, *, harness_path: str | None = None) -> str:
     if not kept_frames and kept and kept[0].startswith("Traceback"):
         kept = kept[1:]
     return "\n".join(kept).strip()
-
-
-@dataclass
-class MicrobenchResult:
-    """Timing result for a single solution file."""
-
-    file: str
-    repeats: int
-    timings: list[float] = field(default_factory=list)
-    error: str = ""
-    relative_percent: float = 100.0
-    verdict: str = "OK"
-
-    @property
-    def min_time(self) -> float:
-        """Минимальный per-call тайминг; 0.0 при отсутствии замеров."""
-        return min(self.timings) if self.timings else 0.0
-
-    @property
-    def median_time(self) -> float:
-        """Медианный per-call тайминг; 0.0 при отсутствии замеров."""
-        return statistics.median(self.timings) if self.timings else 0.0
-
-    @property
-    def mean_time(self) -> float:
-        """Средний per-call тайминг; 0.0 при отсутствии замеров."""
-        return statistics.mean(self.timings) if self.timings else 0.0
-
-    @property
-    def max_time(self) -> float:
-        """Максимальный per-call тайминг; 0.0 при отсутствии замеров."""
-        return max(self.timings) if self.timings else 0.0
-
-    @property
-    def std_dev_time(self) -> float:
-        """Standard deviation of per-call timings. Returns 0.0 if fewer than 2 samples."""
-        return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
 def _build_bench_script(source_code: str, stdin_data: str, number: int) -> str:
@@ -336,37 +295,20 @@ def run_microbench(
     return {"times": times, "error": "", "peak_memory_mb": peak_mb}
 
 
-def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResult]:
-    """Set relative_percent and verdict on each result relative to the fastest."""
-    valid = [r for r in results if r.timings and not r.error]
-    if not valid:
-        return results
+def classify_relative(
+    relative: float, *, similar_threshold: float, much_slower_threshold: float
+) -> str:
+    """Вердикт по относительному времени (``1.0`` — эталон или самое быстрое).
 
-    best = min(r.median_time for r in valid)
-
-    for r in valid:
-        if best > 0:
-            r.relative_percent = (r.median_time / best) * 100
-        else:
-            # Все решения имеют нулевое медианное время — считаем равноценными.
-            r.relative_percent = 100.0
-        delta = r.relative_percent - 100
-        if delta <= SIMILAR_THRESHOLD_PERCENT:
-            r.verdict = "SIMILAR"
-        elif delta <= 15:
-            r.verdict = "SLOWER"
-        else:
-            # issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) во всех
-            # путях. Раньше здесь была форма с пробелом ("MUCH SLOWER"), из-за
-            # чего insights._BENCH_SLOW (знает только "MUCH_SLOWER") молча не
-            # относил такие прогоны к «медленным», а reporter держал двойной алиас.
-            r.verdict = "MUCH_SLOWER"
-
-    for r in results:
-        if r.error:
-            r.verdict = "ERROR"
-
-    return results
+    Единственная точка расчёта (issue #1587): прежде те же пороги сравнивались
+    в трёх местах, и третье — со своими вшитыми 5 %/15 % вместо порогов
+    конфига — расходилось с остальными молча.
+    """
+    if relative <= similar_threshold:
+        return "SIMILAR"
+    if relative <= much_slower_threshold:
+        return "SLOWER"
+    return "MUCH_SLOWER"
 
 
 def apply_relative_ranking(
@@ -387,12 +329,11 @@ def apply_relative_ranking(
     min_median = min(v["median"] for v in ok.values())
     for v in ok.values():
         v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
-        if v["relative"] <= similar_threshold:
-            v["verdict"] = "SIMILAR"
-        elif v["relative"] <= much_slower_threshold:
-            v["verdict"] = "SLOWER"
-        else:
-            v["verdict"] = "MUCH_SLOWER"
+        v["verdict"] = classify_relative(
+            v["relative"],
+            similar_threshold=similar_threshold,
+            much_slower_threshold=much_slower_threshold,
+        )
 
 
 def apply_reference_ranking(
@@ -422,9 +363,9 @@ def apply_reference_ranking(
             v["verdict"] = "REFERENCE"
         elif v["relative"] < faster_bound:
             v["verdict"] = "FASTER"
-        elif v["relative"] <= similar_threshold:
-            v["verdict"] = "SIMILAR"
-        elif v["relative"] <= much_slower_threshold:
-            v["verdict"] = "SLOWER"
         else:
-            v["verdict"] = "MUCH_SLOWER"
+            v["verdict"] = classify_relative(
+                v["relative"],
+                similar_threshold=similar_threshold,
+                much_slower_threshold=much_slower_threshold,
+            )

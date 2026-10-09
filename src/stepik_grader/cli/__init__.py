@@ -174,7 +174,9 @@ INSIGHTS_SCHEMA = "stepik-grader/insights/1"
 STATS_SCHEMA = 1
 
 
-def _stats_payload(summary: dict[str, Any], queue: dict[str, int]) -> dict[str, Any]:
+def _stats_payload(
+    summary: dict[str, Any], queue: dict[str, int], submissions: dict[str, Any]
+) -> dict[str, Any]:
     """Сводка `stats` в машинном виде (issue #1192).
 
     Пустая история — не ошибка, а объект с нулями: скрипту так проще, чем
@@ -191,6 +193,9 @@ def _stats_payload(summary: dict[str, Any], queue: dict[str, int]) -> dict[str, 
         "verdict_totals": summary["verdict_totals"],
         "skipped": summary["skipped"],
         "cache_queue": queue,
+        # issue #1607: сверка вердиктов с платформой — поле добавлено, прежние
+        # не менялись, поэтому STATS_SCHEMA остаётся прежней.
+        "submissions": submissions,
     }
 
 
@@ -306,9 +311,11 @@ def _run_stats_command(args: argparse.Namespace) -> ExitCode:
     fmt = args.output
     summary = stats.read_summary()
     queue = _cache_queue_summary()
+    submissions = progress_export.submissions_summary(default_history_db_path())
 
     if fmt == "json":
-        print(json.dumps(_stats_payload(summary, queue), ensure_ascii=False, indent=2))
+        payload = _stats_payload(summary, queue, submissions)
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
         return ExitCode.OK
 
     if fmt in ("markdown", "html"):
@@ -344,7 +351,38 @@ def _run_stats_command(args: argparse.Namespace) -> ExitCode:
         else str(queue["tasks"])
     )
     print(f"{_t('stats_cache_queue')}: {cache_line}")
+    _print_submissions(submissions)
     return ExitCode.OK
+
+
+#: Сколько последних расхождений печатает `stats`: остальное — в вебе и JSON.
+_STATS_DIVERGED_SHOWN = 5
+
+
+def _print_submissions(submissions: dict[str, Any]) -> None:
+    """Сверка вердиктов с платформой в выводе `stats` (issue #1607).
+
+    Отправок нет — строки нет вовсе: «0 из 0» ничего не сообщает.
+    """
+    if not submissions["total"]:
+        return
+    print(
+        _t(
+            "stats_submissions",
+            total=submissions["total"],
+            compared=submissions["compared"],
+            diverged=submissions["diverged"],
+        )
+    )
+    for row in submissions["recent_diverged"][:_STATS_DIVERGED_SHOWN]:
+        print(
+            _t(
+                "stats_submission_diverged",
+                task=row["task_key"] or f"step:{row['step_id']}",
+                platform=row["verdict"],
+                ours=row["our_verdict"] or "—",
+            )
+        )
 
 
 def _insights_payload(
