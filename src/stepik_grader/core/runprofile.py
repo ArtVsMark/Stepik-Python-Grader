@@ -87,11 +87,6 @@ class RunProfile:
         blob = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
         return hashlib.sha256(blob).hexdigest()
 
-    @property
-    def isolated(self) -> bool:
-        """Исполнение идёт в ОС-песочнице (``--sandbox``)."""
-        return self.sandbox_backend is not None
-
     def describe(self) -> str:
         """Исполнитель для шапки отчёта: ``LocalRunner`` или ``SandboxRunner (X)``.
 

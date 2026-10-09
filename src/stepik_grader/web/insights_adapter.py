@@ -89,6 +89,11 @@ def insights_cards(
     return [asdict(card) for card in cards]
 
 
+def revisited_topics(*, db_path: Path | None = None) -> list[dict[str, Any]]:
+    """Темы, к которым возвращаются из ошибок, — для `/api/insights/revisited` (#1608)."""
+    return [asdict(topic) for topic in insights.revisited_topics(_db_path(db_path))]
+
+
 def active_count(*, db_path: Path | None = None) -> int:
     """Число активных карточек «Подучить» — для бейджа sidebar (issue #348)."""
     return sum(1 for card in insights_cards(db_path=db_path) if card["status"] == "active")

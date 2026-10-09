@@ -74,7 +74,11 @@ __all__ = [
 # остались доступны как grader_core.X независимо от физического места
 # определения. microbench_runner.py / normalizers.py — первоисточники
 # timeit-бенчмарка и нормализации float-вывода, не затронуты этим разбиением.
-from stepik_grader.core.microbench_runner import apply_relative_ranking, run_microbench
+from stepik_grader.core.microbench_runner import (
+    apply_relative_ranking,
+    classify_relative,
+    run_microbench,
+)
 from stepik_grader.core.mode_detector import (
     _ast_class_names,
     _ast_function_name,
@@ -1056,12 +1060,16 @@ def _micro_stats(times: list[float]) -> dict[str, float]:
 
 
 def _verdict(relative: float) -> str:
-    """Вернуть текстовый вердикт по относительному времени."""
-    if relative <= SIMILAR_THRESHOLD:
-        return "SIMILAR"
-    if relative <= MUCH_SLOWER_THRESHOLD:
-        return "SLOWER"
-    return "MUCH_SLOWER"
+    """Вердикт по относительному времени с порогами конфига.
+
+    Считает ``microbench_runner.classify_relative`` — единственная точка
+    (issue #1587); имя остаётся в фасаде ``grader.py`` ради совместимости.
+    """
+    return classify_relative(
+        relative,
+        similar_threshold=SIMILAR_THRESHOLD,
+        much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+    )
 
 
 def run_microbench_mode(

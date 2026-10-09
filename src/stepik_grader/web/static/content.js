@@ -677,6 +677,39 @@ async function loadInsights() {
   }
   renderInsights();
   updateInsightsBadge();
+  loadRevisited();
+}
+
+// issue #1608: темы, к которым возвращаются из своих ошибок. Повторный переход
+// в одну карточку — сигнал «тема не понята», и это прямой ответ на вопрос
+// «что подтянуть». Сбой загрузки блока не ломает раздел: карточки ошибок
+// остаются, а блок просто не показывается.
+async function loadRevisited() {
+  const el = $("#insights-revisited");
+  if (!el) return;
+  let topics = [];
+  try {
+    topics = await fetchJsonOrThrow("/api/insights/revisited");
+  } catch (e) {
+    topics = [];
+  }
+  el.innerHTML = topics.length
+    ? '<h2 class="section-heading">' + esc(t("insights.revisited_heading")) + "</h2>" +
+      '<p class="hint">' + esc(t("insights.revisited_hint")) + "</p>" +
+      '<ul class="insight-list">' +
+      topics
+        .map(
+          topic =>
+            '<li class="insight-card"><div class="insight-head">' +
+            '<a href="#/glossary/' + esc(topic.card_id) + '">' + esc(topic.card_id) + "</a>" +
+            "</div><div class=\"hint\">" +
+            esc(t("insights.revisited_hits", { hits: topic.hits })) +
+            (topic.error_class ? " · " + esc(topic.error_class) : "") +
+            "</div></li>",
+        )
+        .join("") +
+      "</ul>"
+    : "";
 }
 
 function renderInsights() {
@@ -848,6 +881,38 @@ function renderProgress() {
         .join("") +
       "</tbody></table>"
     : "";
+
+  $("#progress-submissions").innerHTML = submissionsBlock(rep.submissions);
+}
+
+// issue #1607: сверка «наш вердикт ↔ вердикт Stepik». Расхождение — кандидат в
+// дефект самого грейдера, поэтому показывается рядом с KPI, а не в диагностике.
+// Без отправок блока нет вовсе: пустая таблица ничего не говорит.
+function submissionsBlock(sub) {
+  if (!sub || !sub.total) return "";
+  const head =
+    '<h2 class="section-heading">' + esc(t("progress.submissions_heading")) + "</h2>" +
+    "<p>" + esc(t("progress.submissions_summary", {
+      total: sub.total, compared: sub.compared, diverged: sub.diverged,
+    })) + "</p>";
+  const rows = sub.recent_diverged || [];
+  if (!rows.length) return head + "<p>" + esc(t("progress.submissions_agree")) + "</p>";
+  return (
+    head + '<table class="data-table"><thead><tr>' +
+    "<th>" + esc(t("progress.col_task")) + "</th><th>" + esc(t("progress.col_platform")) +
+    "</th><th>" + esc(t("progress.col_ours")) + "</th><th>" + esc(t("progress.col_when")) +
+    "</th></tr></thead><tbody>" +
+    rows
+      .map(
+        r =>
+          "<tr>" + taskCell({ task_key: r.task_key || "step:" + r.step_id }) +
+          "<td" + (r.hint ? ' title="' + esc(r.hint) + '"' : "") + ">" + esc(r.verdict) +
+          "</td><td>" + esc(r.our_verdict || "—") + "</td><td>" + esc(r.ts_utc || "") +
+          "</td></tr>",
+      )
+      .join("") +
+    "</tbody></table>"
+  );
 }
 
 // -- Загрузчик задач: скачивание со Stepik (issue #186) -----------------------
