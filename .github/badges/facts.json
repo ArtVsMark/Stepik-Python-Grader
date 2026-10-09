@@ -3,10 +3,10 @@
   "schema_of": "формат ЭТОГО файла — факты проекта для соседних (generate_facts.py). Не версия проекта, не его выпуск и не чужая схема: в этой экосистеме их уже четыре (выгрузка правил, ответ потребителя, сводка, факты), ключ у всех один, предметы разные — правило 164",
   "_": "Факты этого проекта для соседних. schema — версия ФОРМАТА файла, не версия проекта и не его выпуск. Ключа нет — значит не измеряли: нулём отсутствие не обозначается.",
   "repo": "ArtVsMark/Stepik-Python-Grader",
-  "generated_at": "2026-10-09T16:12:04+00:00",
+  "generated_at": "2026-10-09T16:54:49+00:00",
   "tests": {
-    "functions": 5547,
-    "modules": 281
+    "functions": 5522,
+    "modules": 279
   },
   "python": {
     "supported": [
@@ -19,12 +19,12 @@
       "macos-latest"
     ]
   },
-  "commit": "fc4bcfb310ba2d83d6fc1af2f03029b6c8507c5c",
+  "commit": "4c3a7ec25832928f5c0b8a48396a0d682c558267",
   "ci": {
     "workflow": "ci.yml"
   },
   "release": "1.12",
-  "version": "1.12.26",
+  "version": "1.12.27",
   "checks_per_pr": {
     "count": 10,
     "names": [
@@ -47,5 +47,5 @@
     "document": 74,
     "not_applicable": 5
   },
-  "coverage_percent": 91.2
+  "coverage_percent": 91.3
 }
