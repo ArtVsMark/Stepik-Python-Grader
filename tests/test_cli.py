@@ -955,25 +955,9 @@ class TestEntrypointSideEffectFlags:
                 "confine": True,
                 "sandbox": False,
                 "record_history": True,
-                "expose_usage": False,
                 "lang": "ru",
             }
         ]
-
-    def test_expose_usage_reaches_the_server(self, monkeypatch) -> None:
-        """issue #1365: флаг обязан доезжать до сервера, а не только разбираться.
-
-        Разбор флага и его передача — разные вещи: `--expose-usage`, застрявший
-        в argparse, оставил бы эндпоинт выключенным при явной просьбе включить.
-        """
-        from stepik_grader import web
-
-        called: list[dict[str, object]] = []
-        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
-
-        cli.main(["--serve", "--expose-usage"])
-
-        assert called and called[0]["expose_usage"] is True
 
     def test_serve_uses_default_port(self, monkeypatch) -> None:
         from stepik_grader import web
@@ -988,7 +972,6 @@ class TestEntrypointSideEffectFlags:
                 "confine": True,
                 "sandbox": False,
                 "record_history": True,
-                "expose_usage": False,
                 "lang": "ru",
             }
         ]
@@ -1011,7 +994,6 @@ class TestEntrypointSideEffectFlags:
                 "confine": True,
                 "sandbox": False,
                 "record_history": True,
-                "expose_usage": False,
                 "lang": "ru",
             }
         ]
@@ -1029,7 +1011,6 @@ class TestEntrypointSideEffectFlags:
                 "confine": False,
                 "sandbox": False,
                 "record_history": True,
-                "expose_usage": False,
                 "lang": "ru",
             }
         ]
@@ -1050,7 +1031,6 @@ class TestEntrypointSideEffectFlags:
                 "confine": True,
                 "sandbox": True,
                 "record_history": True,
-                "expose_usage": False,
                 "lang": "ru",
             }
         ]
@@ -1070,7 +1050,6 @@ class TestEntrypointSideEffectFlags:
                 "confine": True,
                 "sandbox": False,
                 "record_history": False,
-                "expose_usage": False,
                 "lang": "ru",
             }
         ]
@@ -1095,7 +1074,6 @@ class TestEntrypointSideEffectFlags:
                 "confine": True,
                 "sandbox": False,
                 "record_history": True,
-                "expose_usage": False,
                 "lang": "en",
             }
         ]
