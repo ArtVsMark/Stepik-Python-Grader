@@ -1,0 +1,1765 @@
+{
+  "_": "Предложения к содержанию глоссария от потребителя. Файл собирает scripts/glossary_proposals.py из копии глоссария этого репозитория; руками не правится. Glossary-Python читает его сам, обычным HTTPS.",
+  "_пусто": "Пустой список — законное состояние: предлагать нечего. Отсутствие файла означает, что канал не подключён.",
+  "schema": "1.0",
+  "schema_of": "формат ЭТОГО файла — предложения потребителя к содержанию глоссария",
+  "producer": "ArtVsMark/Stepik-Python-Grader",
+  "source": "ArtVsMark/Glossary-Python",
+  "examined": {
+    "release": "v1.4.0",
+    "digest": "4ed125fe69ce"
+  },
+  "generated_at": "2026-10-09T12:12:23+00:00",
+  "proposals": [
+    {
+      "slug": "syntax-card:var_annotation",
+      "kind": "syntax-card",
+      "subject": "var_annotation",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "Аннотация переменной (x: int = 1)",
+        "title_en": "Variable annotation (x: int = 1)",
+        "added": "3.6",
+        "pep": "PEP 526",
+        "docs_url": "https://docs.python.org/3/reference/simple_stmts.html#annotated-assignment-statements"
+      }
+    },
+    {
+      "slug": "syntax-card:async_generator",
+      "kind": "syntax-card",
+      "subject": "async_generator",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "Асинхронный генератор",
+        "title_en": "Asynchronous generator",
+        "added": "3.6",
+        "pep": "PEP 525",
+        "docs_url": "https://docs.python.org/3/reference/expressions.html#asynchronous-generator-functions"
+      }
+    },
+    {
+      "slug": "syntax-card:posonly",
+      "kind": "syntax-card",
+      "subject": "posonly",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "Только позиционные параметры (/)",
+        "title_en": "Positional-only parameters (/)",
+        "added": "3.8",
+        "pep": "PEP 570",
+        "docs_url": "https://docs.python.org/3/whatsnew/3.8.html#positional-only-parameters"
+      }
+    },
+    {
+      "slug": "syntax-card:except_star",
+      "kind": "syntax-card",
+      "subject": "except_star",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "except*",
+        "title_en": "except*",
+        "added": "3.11",
+        "pep": "PEP 654",
+        "docs_url": "https://docs.python.org/3/reference/compound_stmts.html#except-star"
+      }
+    },
+    {
+      "slug": "syntax-card:star_index",
+      "kind": "syntax-card",
+      "subject": "star_index",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "Распаковка * в индексе (a[*b])",
+        "title_en": "Star unpacking in an index (a[*b])",
+        "added": "3.11",
+        "pep": "PEP 646",
+        "docs_url": "https://docs.python.org/3/whatsnew/3.11.html#pep-646-variadic-generics"
+      }
+    },
+    {
+      "slug": "syntax-card:type_statement",
+      "kind": "syntax-card",
+      "subject": "type_statement",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "Оператор type",
+        "title_en": "The type statement",
+        "added": "3.12",
+        "pep": "PEP 695",
+        "docs_url": "https://docs.python.org/3/reference/simple_stmts.html#the-type-statement"
+      }
+    },
+    {
+      "slug": "syntax-card:type_params",
+      "kind": "syntax-card",
+      "subject": "type_params",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "Параметры типа (class C[T])",
+        "title_en": "Type parameters (class C[T])",
+        "added": "3.12",
+        "pep": "PEP 695",
+        "docs_url": "https://docs.python.org/3/reference/compound_stmts.html#type-params"
+      }
+    },
+    {
+      "slug": "syntax-card:tstring",
+      "kind": "syntax-card",
+      "subject": "tstring",
+      "why": "Признака синтаксиса нет в глоссарии. Проверка совместимости со Stepik его находит, а сослаться ей не на что.",
+      "suggested": {
+        "title": "t-строки",
+        "title_en": "t-strings",
+        "added": "3.14",
+        "pep": "PEP 750",
+        "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#t-strings"
+      }
+    },
+    {
+      "slug": "module-card:abc",
+      "kind": "module-card",
+      "subject": "abc",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 8,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "abc",
+        "docs_url": "https://docs.python.org/3/library/abc.html"
+      }
+    },
+    {
+      "slug": "module-card:argparse",
+      "kind": "module-card",
+      "subject": "argparse",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 12,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "argparse",
+        "docs_url": "https://docs.python.org/3/library/argparse.html"
+      }
+    },
+    {
+      "slug": "module-card:array",
+      "kind": "module-card",
+      "subject": "array",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 4,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "array",
+        "docs_url": "https://docs.python.org/3/library/array.html"
+      }
+    },
+    {
+      "slug": "module-card:ast",
+      "kind": "module-card",
+      "subject": "ast",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 149,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "ast",
+        "docs_url": "https://docs.python.org/3/library/ast.html"
+      }
+    },
+    {
+      "slug": "module-card:asyncio",
+      "kind": "module-card",
+      "subject": "asyncio",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 73,
+        "earliest_member_added": "3.4"
+      },
+      "suggested": {
+        "title": "asyncio",
+        "docs_url": "https://docs.python.org/3/library/asyncio.html"
+      }
+    },
+    {
+      "slug": "module-card:atexit",
+      "kind": "module-card",
+      "subject": "atexit",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 2,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "atexit",
+        "docs_url": "https://docs.python.org/3/library/atexit.html"
+      }
+    },
+    {
+      "slug": "module-card:base64",
+      "kind": "module-card",
+      "subject": "base64",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 24,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "base64",
+        "docs_url": "https://docs.python.org/3/library/base64.html"
+      }
+    },
+    {
+      "slug": "module-card:binascii",
+      "kind": "module-card",
+      "subject": "binascii",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 14,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "binascii",
+        "docs_url": "https://docs.python.org/3/library/binascii.html"
+      }
+    },
+    {
+      "slug": "module-card:bisect",
+      "kind": "module-card",
+      "subject": "bisect",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 5,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "bisect",
+        "docs_url": "https://docs.python.org/3/library/bisect.html"
+      }
+    },
+    {
+      "slug": "module-card:calendar",
+      "kind": "module-card",
+      "subject": "calendar",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 22,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "calendar",
+        "docs_url": "https://docs.python.org/3/library/calendar.html"
+      }
+    },
+    {
+      "slug": "module-card:codecs",
+      "kind": "module-card",
+      "subject": "codecs",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 37,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "codecs",
+        "docs_url": "https://docs.python.org/3/library/codecs.html"
+      }
+    },
+    {
+      "slug": "module-card:collections",
+      "kind": "module-card",
+      "subject": "collections",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 35,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "collections",
+        "docs_url": "https://docs.python.org/3/library/collections.html"
+      }
+    },
+    {
+      "slug": "module-card:concurrent",
+      "kind": "module-card",
+      "subject": "concurrent",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 6,
+        "earliest_member_added": "3.2"
+      },
+      "suggested": {
+        "title": "concurrent",
+        "docs_url": "https://docs.python.org/3/library/concurrent.html"
+      }
+    },
+    {
+      "slug": "module-card:configparser",
+      "kind": "module-card",
+      "subject": "configparser",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 23,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "configparser",
+        "docs_url": "https://docs.python.org/3/library/configparser.html"
+      }
+    },
+    {
+      "slug": "module-card:contextlib",
+      "kind": "module-card",
+      "subject": "contextlib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 14,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "contextlib",
+        "docs_url": "https://docs.python.org/3/library/contextlib.html"
+      }
+    },
+    {
+      "slug": "module-card:contextvars",
+      "kind": "module-card",
+      "subject": "contextvars",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 4,
+        "earliest_member_added": "3.7"
+      },
+      "suggested": {
+        "title": "contextvars",
+        "docs_url": "https://docs.python.org/3/library/contextvars.html"
+      }
+    },
+    {
+      "slug": "module-card:copy",
+      "kind": "module-card",
+      "subject": "copy",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 4,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "copy",
+        "docs_url": "https://docs.python.org/3/library/copy.html"
+      }
+    },
+    {
+      "slug": "module-card:ctypes",
+      "kind": "module-card",
+      "subject": "ctypes",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 5,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "ctypes",
+        "docs_url": "https://docs.python.org/3/library/ctypes.html"
+      }
+    },
+    {
+      "slug": "module-card:dataclasses",
+      "kind": "module-card",
+      "subject": "dataclasses",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 8,
+        "earliest_member_added": "3.7"
+      },
+      "suggested": {
+        "title": "dataclasses",
+        "docs_url": "https://docs.python.org/3/library/dataclasses.html"
+      }
+    },
+    {
+      "slug": "module-card:datetime",
+      "kind": "module-card",
+      "subject": "datetime",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 9,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "datetime",
+        "docs_url": "https://docs.python.org/3/library/datetime.html"
+      }
+    },
+    {
+      "slug": "module-card:decimal",
+      "kind": "module-card",
+      "subject": "decimal",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 21,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "decimal",
+        "docs_url": "https://docs.python.org/3/library/decimal.html"
+      }
+    },
+    {
+      "slug": "module-card:difflib",
+      "kind": "module-card",
+      "subject": "difflib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 12,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "difflib",
+        "docs_url": "https://docs.python.org/3/library/difflib.html"
+      }
+    },
+    {
+      "slug": "module-card:doctest",
+      "kind": "module-card",
+      "subject": "doctest",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 20,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "doctest",
+        "docs_url": "https://docs.python.org/3/library/doctest.html"
+      }
+    },
+    {
+      "slug": "module-card:encodings",
+      "kind": "module-card",
+      "subject": "encodings",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 1,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "encodings",
+        "docs_url": "https://docs.python.org/3/library/encodings.html"
+      }
+    },
+    {
+      "slug": "module-card:fnmatch",
+      "kind": "module-card",
+      "subject": "fnmatch",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 5,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "fnmatch",
+        "docs_url": "https://docs.python.org/3/library/fnmatch.html"
+      }
+    },
+    {
+      "slug": "module-card:fractions",
+      "kind": "module-card",
+      "subject": "fractions",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 2,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "fractions",
+        "docs_url": "https://docs.python.org/3/library/fractions.html"
+      }
+    },
+    {
+      "slug": "module-card:functools",
+      "kind": "module-card",
+      "subject": "functools",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 12,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "functools",
+        "docs_url": "https://docs.python.org/3/library/functools.html"
+      }
+    },
+    {
+      "slug": "module-card:gc",
+      "kind": "module-card",
+      "subject": "gc",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 18,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "gc",
+        "docs_url": "https://docs.python.org/3/library/gc.html"
+      }
+    },
+    {
+      "slug": "module-card:getpass",
+      "kind": "module-card",
+      "subject": "getpass",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 3,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "getpass",
+        "docs_url": "https://docs.python.org/3/library/getpass.html"
+      }
+    },
+    {
+      "slug": "module-card:glob",
+      "kind": "module-card",
+      "subject": "glob",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 4,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "glob",
+        "docs_url": "https://docs.python.org/3/library/glob.html"
+      }
+    },
+    {
+      "slug": "module-card:graphlib",
+      "kind": "module-card",
+      "subject": "graphlib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 2,
+        "earliest_member_added": "3.9"
+      },
+      "suggested": {
+        "title": "graphlib",
+        "docs_url": "https://docs.python.org/3/library/graphlib.html"
+      }
+    },
+    {
+      "slug": "module-card:gzip",
+      "kind": "module-card",
+      "subject": "gzip",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 5,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "gzip",
+        "docs_url": "https://docs.python.org/3/library/gzip.html"
+      }
+    },
+    {
+      "slug": "module-card:hashlib",
+      "kind": "module-card",
+      "subject": "hashlib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 16,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "hashlib",
+        "docs_url": "https://docs.python.org/3/library/hashlib.html"
+      }
+    },
+    {
+      "slug": "module-card:heapq",
+      "kind": "module-card",
+      "subject": "heapq",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 13,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "heapq",
+        "docs_url": "https://docs.python.org/3/library/heapq.html"
+      }
+    },
+    {
+      "slug": "module-card:hmac",
+      "kind": "module-card",
+      "subject": "hmac",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 3,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "hmac",
+        "docs_url": "https://docs.python.org/3/library/hmac.html"
+      }
+    },
+    {
+      "slug": "module-card:http",
+      "kind": "module-card",
+      "subject": "http",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 18,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "http",
+        "docs_url": "https://docs.python.org/3/library/http.html"
+      }
+    },
+    {
+      "slug": "module-card:inspect",
+      "kind": "module-card",
+      "subject": "inspect",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 66,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "inspect",
+        "docs_url": "https://docs.python.org/3/library/inspect.html"
+      }
+    },
+    {
+      "slug": "module-card:io",
+      "kind": "module-card",
+      "subject": "io",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 18,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "io",
+        "docs_url": "https://docs.python.org/3/library/io.html"
+      }
+    },
+    {
+      "slug": "module-card:ipaddress",
+      "kind": "module-card",
+      "subject": "ipaddress",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 16,
+        "earliest_member_added": "3.3"
+      },
+      "suggested": {
+        "title": "ipaddress",
+        "docs_url": "https://docs.python.org/3/library/ipaddress.html"
+      }
+    },
+    {
+      "slug": "module-card:itertools",
+      "kind": "module-card",
+      "subject": "itertools",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 20,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "itertools",
+        "docs_url": "https://docs.python.org/3/library/itertools.html"
+      }
+    },
+    {
+      "slug": "module-card:locale",
+      "kind": "module-card",
+      "subject": "locale",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 17,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "locale",
+        "docs_url": "https://docs.python.org/3/library/locale.html"
+      }
+    },
+    {
+      "slug": "module-card:logging",
+      "kind": "module-card",
+      "subject": "logging",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 24,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "logging",
+        "docs_url": "https://docs.python.org/3/library/logging.html"
+      }
+    },
+    {
+      "slug": "module-card:math",
+      "kind": "module-card",
+      "subject": "math",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 67,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "math",
+        "docs_url": "https://docs.python.org/3/library/math.html"
+      }
+    },
+    {
+      "slug": "module-card:multiprocessing",
+      "kind": "module-card",
+      "subject": "multiprocessing",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 31,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "multiprocessing",
+        "docs_url": "https://docs.python.org/3/library/multiprocessing.html"
+      }
+    },
+    {
+      "slug": "module-card:numbers",
+      "kind": "module-card",
+      "subject": "numbers",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 5,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "numbers",
+        "docs_url": "https://docs.python.org/3/library/numbers.html"
+      }
+    },
+    {
+      "slug": "module-card:operator",
+      "kind": "module-card",
+      "subject": "operator",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 57,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "operator",
+        "docs_url": "https://docs.python.org/3/library/operator.html"
+      }
+    },
+    {
+      "slug": "module-card:pathlib",
+      "kind": "module-card",
+      "subject": "pathlib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 14,
+        "earliest_member_added": "3.4"
+      },
+      "suggested": {
+        "title": "pathlib",
+        "docs_url": "https://docs.python.org/3/library/pathlib.html"
+      }
+    },
+    {
+      "slug": "module-card:pdb",
+      "kind": "module-card",
+      "subject": "pdb",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 11,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "pdb",
+        "docs_url": "https://docs.python.org/3/library/pdb.html"
+      }
+    },
+    {
+      "slug": "module-card:pkgutil",
+      "kind": "module-card",
+      "subject": "pkgutil",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 2,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "pkgutil",
+        "docs_url": "https://docs.python.org/3/library/pkgutil.html"
+      }
+    },
+    {
+      "slug": "module-card:platform",
+      "kind": "module-card",
+      "subject": "platform",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 30,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "platform",
+        "docs_url": "https://docs.python.org/3/library/platform.html"
+      }
+    },
+    {
+      "slug": "module-card:pprint",
+      "kind": "module-card",
+      "subject": "pprint",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 7,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "pprint",
+        "docs_url": "https://docs.python.org/3/library/pprint.html"
+      }
+    },
+    {
+      "slug": "module-card:queue",
+      "kind": "module-card",
+      "subject": "queue",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 6,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "queue",
+        "docs_url": "https://docs.python.org/3/library/queue.html"
+      }
+    },
+    {
+      "slug": "module-card:random",
+      "kind": "module-card",
+      "subject": "random",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 25,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "random",
+        "docs_url": "https://docs.python.org/3/library/random.html"
+      }
+    },
+    {
+      "slug": "module-card:re",
+      "kind": "module-card",
+      "subject": "re",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 18,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "re",
+        "docs_url": "https://docs.python.org/3/library/re.html"
+      }
+    },
+    {
+      "slug": "module-card:secrets",
+      "kind": "module-card",
+      "subject": "secrets",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 7,
+        "earliest_member_added": "3.6"
+      },
+      "suggested": {
+        "title": "secrets",
+        "docs_url": "https://docs.python.org/3/library/secrets.html"
+      }
+    },
+    {
+      "slug": "module-card:shlex",
+      "kind": "module-card",
+      "subject": "shlex",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 4,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "shlex",
+        "docs_url": "https://docs.python.org/3/library/shlex.html"
+      }
+    },
+    {
+      "slug": "module-card:shutil",
+      "kind": "module-card",
+      "subject": "shutil",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 28,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "shutil",
+        "docs_url": "https://docs.python.org/3/library/shutil.html"
+      }
+    },
+    {
+      "slug": "module-card:signal",
+      "kind": "module-card",
+      "subject": "signal",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 24,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "signal",
+        "docs_url": "https://docs.python.org/3/library/signal.html"
+      }
+    },
+    {
+      "slug": "module-card:socket",
+      "kind": "module-card",
+      "subject": "socket",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 40,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "socket",
+        "docs_url": "https://docs.python.org/3/library/socket.html"
+      }
+    },
+    {
+      "slug": "module-card:sqlite3",
+      "kind": "module-card",
+      "subject": "sqlite3",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 26,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "sqlite3",
+        "docs_url": "https://docs.python.org/3/library/sqlite3.html"
+      }
+    },
+    {
+      "slug": "module-card:ssl",
+      "kind": "module-card",
+      "subject": "ssl",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 1,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "ssl",
+        "docs_url": "https://docs.python.org/3/library/ssl.html"
+      }
+    },
+    {
+      "slug": "module-card:stat",
+      "kind": "module-card",
+      "subject": "stat",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 13,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "stat",
+        "docs_url": "https://docs.python.org/3/library/stat.html"
+      }
+    },
+    {
+      "slug": "module-card:statistics",
+      "kind": "module-card",
+      "subject": "statistics",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 22,
+        "earliest_member_added": "3.4"
+      },
+      "suggested": {
+        "title": "statistics",
+        "docs_url": "https://docs.python.org/3/library/statistics.html"
+      }
+    },
+    {
+      "slug": "module-card:string",
+      "kind": "module-card",
+      "subject": "string",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 10,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "string",
+        "docs_url": "https://docs.python.org/3/library/string.html"
+      }
+    },
+    {
+      "slug": "module-card:struct",
+      "kind": "module-card",
+      "subject": "struct",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 8,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "struct",
+        "docs_url": "https://docs.python.org/3/library/struct.html"
+      }
+    },
+    {
+      "slug": "module-card:subprocess",
+      "kind": "module-card",
+      "subject": "subprocess",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 8,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "subprocess",
+        "docs_url": "https://docs.python.org/3/library/subprocess.html"
+      }
+    },
+    {
+      "slug": "module-card:sys",
+      "kind": "module-card",
+      "subject": "sys",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 53,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "sys",
+        "docs_url": "https://docs.python.org/3/library/sys.html"
+      }
+    },
+    {
+      "slug": "module-card:tarfile",
+      "kind": "module-card",
+      "subject": "tarfile",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 20,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "tarfile",
+        "docs_url": "https://docs.python.org/3/library/tarfile.html"
+      }
+    },
+    {
+      "slug": "module-card:tempfile",
+      "kind": "module-card",
+      "subject": "tempfile",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 11,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "tempfile",
+        "docs_url": "https://docs.python.org/3/library/tempfile.html"
+      }
+    },
+    {
+      "slug": "module-card:textwrap",
+      "kind": "module-card",
+      "subject": "textwrap",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 6,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "textwrap",
+        "docs_url": "https://docs.python.org/3/library/textwrap.html"
+      }
+    },
+    {
+      "slug": "module-card:threading",
+      "kind": "module-card",
+      "subject": "threading",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 25,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "threading",
+        "docs_url": "https://docs.python.org/3/library/threading.html"
+      }
+    },
+    {
+      "slug": "module-card:time",
+      "kind": "module-card",
+      "subject": "time",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 27,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "time",
+        "docs_url": "https://docs.python.org/3/library/time.html"
+      }
+    },
+    {
+      "slug": "module-card:timeit",
+      "kind": "module-card",
+      "subject": "timeit",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 4,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "timeit",
+        "docs_url": "https://docs.python.org/3/library/timeit.html"
+      }
+    },
+    {
+      "slug": "module-card:tkinter",
+      "kind": "module-card",
+      "subject": "tkinter",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 1,
+        "earliest_member_added": "3.0"
+      },
+      "suggested": {
+        "title": "tkinter",
+        "docs_url": "https://docs.python.org/3/library/tkinter.html"
+      }
+    },
+    {
+      "slug": "module-card:tokenize",
+      "kind": "module-card",
+      "subject": "tokenize",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 1,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "tokenize",
+        "docs_url": "https://docs.python.org/3/library/tokenize.html"
+      }
+    },
+    {
+      "slug": "module-card:tomllib",
+      "kind": "module-card",
+      "subject": "tomllib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 3,
+        "earliest_member_added": "3.11"
+      },
+      "suggested": {
+        "title": "tomllib",
+        "docs_url": "https://docs.python.org/3/library/tomllib.html"
+      }
+    },
+    {
+      "slug": "module-card:traceback",
+      "kind": "module-card",
+      "subject": "traceback",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 20,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "traceback",
+        "docs_url": "https://docs.python.org/3/library/traceback.html"
+      }
+    },
+    {
+      "slug": "module-card:types",
+      "kind": "module-card",
+      "subject": "types",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 28,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "types",
+        "docs_url": "https://docs.python.org/3/library/types.html"
+      }
+    },
+    {
+      "slug": "module-card:typing",
+      "kind": "module-card",
+      "subject": "typing",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 41,
+        "earliest_member_added": "3.5"
+      },
+      "suggested": {
+        "title": "typing",
+        "docs_url": "https://docs.python.org/3/library/typing.html"
+      }
+    },
+    {
+      "slug": "module-card:unicodedata",
+      "kind": "module-card",
+      "subject": "unicodedata",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 14,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "unicodedata",
+        "docs_url": "https://docs.python.org/3/library/unicodedata.html"
+      }
+    },
+    {
+      "slug": "module-card:unittest",
+      "kind": "module-card",
+      "subject": "unittest",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 26,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "unittest",
+        "docs_url": "https://docs.python.org/3/library/unittest.html"
+      }
+    },
+    {
+      "slug": "module-card:urllib",
+      "kind": "module-card",
+      "subject": "urllib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 55,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "urllib",
+        "docs_url": "https://docs.python.org/3/library/urllib.html"
+      }
+    },
+    {
+      "slug": "module-card:uuid",
+      "kind": "module-card",
+      "subject": "uuid",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 10,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "uuid",
+        "docs_url": "https://docs.python.org/3/library/uuid.html"
+      }
+    },
+    {
+      "slug": "module-card:warnings",
+      "kind": "module-card",
+      "subject": "warnings",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 9,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "warnings",
+        "docs_url": "https://docs.python.org/3/library/warnings.html"
+      }
+    },
+    {
+      "slug": "module-card:weakref",
+      "kind": "module-card",
+      "subject": "weakref",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 11,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "weakref",
+        "docs_url": "https://docs.python.org/3/library/weakref.html"
+      }
+    },
+    {
+      "slug": "module-card:xml",
+      "kind": "module-card",
+      "subject": "xml",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 25,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "xml",
+        "docs_url": "https://docs.python.org/3/library/xml.html"
+      }
+    },
+    {
+      "slug": "module-card:zipfile",
+      "kind": "module-card",
+      "subject": "zipfile",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 7,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "zipfile",
+        "docs_url": "https://docs.python.org/3/library/zipfile.html"
+      }
+    },
+    {
+      "slug": "module-card:zipimport",
+      "kind": "module-card",
+      "subject": "zipimport",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 1,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "zipimport",
+        "docs_url": "https://docs.python.org/3/library/zipimport.html"
+      }
+    },
+    {
+      "slug": "module-card:zlib",
+      "kind": "module-card",
+      "subject": "zlib",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 7,
+        "earliest_member_added": "0.0"
+      },
+      "suggested": {
+        "title": "zlib",
+        "docs_url": "https://docs.python.org/3/library/zlib.html"
+      }
+    },
+    {
+      "slug": "module-card:zoneinfo",
+      "kind": "module-card",
+      "subject": "zoneinfo",
+      "why": "У модуля нет своей карточки. Версию модуля проверка совместимости выводит из самой ранней карточки его членов, а это нижняя граница, а не факт.",
+      "evidence": {
+        "member_cards": 3,
+        "earliest_member_added": "3.9"
+      },
+      "suggested": {
+        "title": "zoneinfo",
+        "docs_url": "https://docs.python.org/3/library/zoneinfo.html"
+      }
+    },
+    {
+      "slug": "builtin-card:EnvironmentError",
+      "kind": "builtin-card",
+      "subject": "EnvironmentError",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "EnvironmentError",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:False",
+      "kind": "builtin-card",
+      "subject": "False",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "False",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:IOError",
+      "kind": "builtin-card",
+      "subject": "IOError",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "IOError",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:None",
+      "kind": "builtin-card",
+      "subject": "None",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "None",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:True",
+      "kind": "builtin-card",
+      "subject": "True",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "True",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:copyright",
+      "kind": "builtin-card",
+      "subject": "copyright",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "copyright",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:credits",
+      "kind": "builtin-card",
+      "subject": "credits",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "credits",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:exit",
+      "kind": "builtin-card",
+      "subject": "exit",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "exit",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:license",
+      "kind": "builtin-card",
+      "subject": "license",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "license",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "builtin-card:quit",
+      "kind": "builtin-card",
+      "subject": "quit",
+      "why": "Встроенного имени нет в глоссарии.",
+      "suggested": {
+        "title": "quit",
+        "docs_url": "https://docs.python.org/3/library/functions.html"
+      }
+    },
+    {
+      "slug": "id-convention:builtin-names",
+      "kind": "id-convention",
+      "subject": "builtin-names",
+      "why": "id карточки встроенного имени отличается от имени, которое пишут в коде. Поиск по имени из кода находит такую карточку, только если сверяет без учёта регистра, а якорь #/glossary/<id> не совпадает с именем. Решение за глоссарием: id = имя (старый id — в _moved) либо явное правило.",
+      "evidence": {
+        "cards": [
+          {
+            "id": "arithmeticerror",
+            "name": "ArithmeticError"
+          },
+          {
+            "id": "assertionerror",
+            "name": "AssertionError"
+          },
+          {
+            "id": "attributeerror",
+            "name": "AttributeError"
+          },
+          {
+            "id": "baseexception",
+            "name": "BaseException"
+          },
+          {
+            "id": "baseexceptiongroup",
+            "name": "BaseExceptionGroup"
+          },
+          {
+            "id": "blockingioerror",
+            "name": "BlockingIOError"
+          },
+          {
+            "id": "brokenpipeerror",
+            "name": "BrokenPipeError"
+          },
+          {
+            "id": "buffererror",
+            "name": "BufferError"
+          },
+          {
+            "id": "byteswarning",
+            "name": "BytesWarning"
+          },
+          {
+            "id": "childprocesserror",
+            "name": "ChildProcessError"
+          },
+          {
+            "id": "connectionabortederror",
+            "name": "ConnectionAbortedError"
+          },
+          {
+            "id": "connectionerror",
+            "name": "ConnectionError"
+          },
+          {
+            "id": "connectionrefusederror",
+            "name": "ConnectionRefusedError"
+          },
+          {
+            "id": "connectionreseterror",
+            "name": "ConnectionResetError"
+          },
+          {
+            "id": "deprecationwarning",
+            "name": "DeprecationWarning"
+          },
+          {
+            "id": "encodingwarning",
+            "name": "EncodingWarning"
+          },
+          {
+            "id": "eoferror",
+            "name": "EOFError"
+          },
+          {
+            "id": "exception",
+            "name": "Exception"
+          },
+          {
+            "id": "exceptiongroup",
+            "name": "ExceptionGroup"
+          },
+          {
+            "id": "fileexistserror",
+            "name": "FileExistsError"
+          },
+          {
+            "id": "filenotfounderror",
+            "name": "FileNotFoundError"
+          },
+          {
+            "id": "floatingpointerror",
+            "name": "FloatingPointError"
+          },
+          {
+            "id": "futurewarning",
+            "name": "FutureWarning"
+          },
+          {
+            "id": "generatorexit",
+            "name": "GeneratorExit"
+          },
+          {
+            "id": "importerror",
+            "name": "ImportError"
+          },
+          {
+            "id": "importwarning",
+            "name": "ImportWarning"
+          },
+          {
+            "id": "indentationerror",
+            "name": "IndentationError"
+          },
+          {
+            "id": "indexerror",
+            "name": "IndexError"
+          },
+          {
+            "id": "interruptederror",
+            "name": "InterruptedError"
+          },
+          {
+            "id": "isadirectoryerror",
+            "name": "IsADirectoryError"
+          },
+          {
+            "id": "keyboardinterrupt",
+            "name": "KeyboardInterrupt"
+          },
+          {
+            "id": "keyerror",
+            "name": "KeyError"
+          },
+          {
+            "id": "lookuperror",
+            "name": "LookupError"
+          },
+          {
+            "id": "memoryerror",
+            "name": "MemoryError"
+          },
+          {
+            "id": "modulenotfounderror",
+            "name": "ModuleNotFoundError"
+          },
+          {
+            "id": "nameerror",
+            "name": "NameError"
+          },
+          {
+            "id": "notadirectoryerror",
+            "name": "NotADirectoryError"
+          },
+          {
+            "id": "notimplemented",
+            "name": "NotImplemented"
+          },
+          {
+            "id": "notimplementederror",
+            "name": "NotImplementedError"
+          },
+          {
+            "id": "oserror",
+            "name": "OSError"
+          },
+          {
+            "id": "overflowerror",
+            "name": "OverflowError"
+          },
+          {
+            "id": "pendingdeprecationwarning",
+            "name": "PendingDeprecationWarning"
+          },
+          {
+            "id": "permissionerror",
+            "name": "PermissionError"
+          },
+          {
+            "id": "processlookuperror",
+            "name": "ProcessLookupError"
+          },
+          {
+            "id": "pythonfinalizationerror",
+            "name": "PythonFinalizationError"
+          },
+          {
+            "id": "recursionerror",
+            "name": "RecursionError"
+          },
+          {
+            "id": "referenceerror",
+            "name": "ReferenceError"
+          },
+          {
+            "id": "resourcewarning",
+            "name": "ResourceWarning"
+          },
+          {
+            "id": "runtimeerror",
+            "name": "RuntimeError"
+          },
+          {
+            "id": "runtimewarning",
+            "name": "RuntimeWarning"
+          },
+          {
+            "id": "stopasynciteration",
+            "name": "StopAsyncIteration"
+          },
+          {
+            "id": "stopiteration",
+            "name": "StopIteration"
+          },
+          {
+            "id": "syntaxerror",
+            "name": "SyntaxError"
+          },
+          {
+            "id": "syntaxwarning",
+            "name": "SyntaxWarning"
+          },
+          {
+            "id": "systemerror",
+            "name": "SystemError"
+          },
+          {
+            "id": "systemexit",
+            "name": "SystemExit"
+          },
+          {
+            "id": "taberror",
+            "name": "TabError"
+          },
+          {
+            "id": "timeouterror",
+            "name": "TimeoutError"
+          },
+          {
+            "id": "typeerror",
+            "name": "TypeError"
+          },
+          {
+            "id": "unboundlocalerror",
+            "name": "UnboundLocalError"
+          },
+          {
+            "id": "unicodedecodeerror",
+            "name": "UnicodeDecodeError"
+          },
+          {
+            "id": "unicodeencodeerror",
+            "name": "UnicodeEncodeError"
+          },
+          {
+            "id": "unicodeerror",
+            "name": "UnicodeError"
+          },
+          {
+            "id": "unicodetranslateerror",
+            "name": "UnicodeTranslateError"
+          },
+          {
+            "id": "unicodewarning",
+            "name": "UnicodeWarning"
+          },
+          {
+            "id": "userwarning",
+            "name": "UserWarning"
+          },
+          {
+            "id": "valueerror",
+            "name": "ValueError"
+          },
+          {
+            "id": "warning",
+            "name": "Warning"
+          },
+          {
+            "id": "zerodivisionerror",
+            "name": "ZeroDivisionError"
+          }
+        ]
+      }
+    }
+  ]
+}

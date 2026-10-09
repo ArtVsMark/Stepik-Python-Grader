@@ -1099,7 +1099,7 @@ function compatBlock(rows) {
     .map(row => {
       const c = row.compat;
       return (
-        '<div class="hint compat-warn" role="note"><strong>' +
+        '<div class="errcard compat-warn" role="note"><strong>' +
         esc((rows.length > 1 ? row.file + ": " : "") + t("grade.compat_heading", { target: c.target })) +
         "</strong>" +
         (c.known ? "" : "<div>" + esc(t("grade.compat_unknown", { target: c.target })) + "</div>") +
