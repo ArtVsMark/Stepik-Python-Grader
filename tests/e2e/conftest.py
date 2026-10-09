@@ -95,16 +95,24 @@ def browser(playwright_instance: Any) -> Iterator[Any]:
     browser.close()
 
 
-@pytest.fixture
-def page(browser: Any) -> Iterator[Any]:
-    """A fresh browser context + page per test -- isolated ``localStorage``.
+#: Флаг «уведомление об истории уже видели» — тот же ключ, что ставит кнопка
+#: «Понятно» (`maybeShowHistoryNotice` в `app.js`).
+_HISTORY_NOTICE_SEEN = "localStorage.setItem('grader_history_notice_seen', '1');"
 
-    Плюс (issue #804): непойманное исключение в странице роняет тест. Раньше
-    оно было невидимым — падал только косвенный симптом (раздел не открылся), а
-    первопричину (``TypeError`` в обработчике) приходилось искать вручную.
-    Тест, которому ошибка нужна по замыслу, глушит её ``page_errors.clear()``.
+
+def _open_page(browser: Any, *, history_notice_seen: bool) -> Iterator[Any]:
+    """Свежий контекст и страница; непойманная ошибка JS роняет тест (issue #804).
+
+    ``history_notice_seen`` (issue #1582): уведомление об истории — карточка с
+    ``position: fixed`` в правом нижнем углу, и пока её не закрыли, она
+    перехватывает клики по всему, что под ней. В чистом ``localStorage`` она
+    всплывает в КАЖДОМ тесте, и попадёт ли под неё строка таблицы, решает
+    раскладка: в CI это мигание «через раз», локально — стабильное падение.
+    Флаг ставится до загрузки страницы, на каждой навигации.
     """
     context = browser.new_context()
+    if history_notice_seen:
+        context.add_init_script(_HISTORY_NOTICE_SEEN)
     pg = context.new_page()
     errors: list[str] = []
     # `stack` есть у Error из страницы — без него в отчёте остаётся один текст
@@ -114,6 +122,27 @@ def page(browser: Any) -> Iterator[Any]:
     yield pg
     context.close()
     assert not errors, "непойманные ошибки JS на странице:\n" + "\n".join(errors)
+
+
+@pytest.fixture
+def page(browser: Any) -> Iterator[Any]:
+    """A fresh browser context + page per test -- isolated ``localStorage``.
+
+    Плюс (issue #804): непойманное исключение в странице роняет тест. Раньше
+    оно было невидимым — падал только косвенный симптом (раздел не открылся), а
+    первопричину (``TypeError`` в обработчике) приходилось искать вручную.
+    Тест, которому ошибка нужна по замыслу, глушит её ``page_errors.clear()``.
+
+    Уведомление об истории здесь уже «видели» (issue #1582) — иначе оно
+    перекрывает клики; тесту самого уведомления — :func:`fresh_page`.
+    """
+    yield from _open_page(browser, history_notice_seen=True)
+
+
+@pytest.fixture
+def fresh_page(browser: Any) -> Iterator[Any]:
+    """То же, что :func:`page`, но с нетронутым ``localStorage``: первый визит."""
+    yield from _open_page(browser, history_notice_seen=False)
 
 
 @pytest.fixture

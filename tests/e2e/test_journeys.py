@@ -624,9 +624,13 @@ def test_exec_mode_badge_visible_without_sandbox(
     expect(badge).to_contain_text("Без OS-изоляции")
 
 
-def test_history_notice_shown_once(page: Any, e2e_server: str, tmp_path: Path) -> None:
+def test_history_notice_shown_once(fresh_page: Any, e2e_server: str, tmp_path: Path) -> None:
     """issue #565: уведомление о локальном сборе истории показывается один раз —
-    после «Понятно» флаг ложится в localStorage, повторный визит его не показывает."""
+    после «Понятно» флаг ложится в localStorage, повторный визит его не показывает.
+
+    `fresh_page`, а не `page`: остальным тестам флаг «уже видели» ставится
+    заранее (issue #1582), а здесь проверяется именно первый показ."""
+    page = fresh_page
     page.goto(e2e_server + "/")
     notice = page.locator("#history-notice")
     expect(notice).to_be_visible(timeout=_TIMEOUT_MS)
