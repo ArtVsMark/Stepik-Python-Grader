@@ -13,6 +13,7 @@ heredoc» (правило 013) и «не пушь в чужую ветку» (п
 
 import importlib.util
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -108,6 +109,42 @@ class TestForeignBranchPush:
 
     def test_unrelated_git_command_is_allowed(self) -> None:
         assert hook.foreign_branch_push("git log --oneline -3", current="своя") is None
+
+    def test_shell_operators_are_not_branch_names(self) -> None:
+        """`2>&1`, `|`, `&&` после пуша — оболочка, а не имя ветки (прецедент 09.10)."""
+        for command in (
+            "git push origin 2>&1 | tail -2",
+            "git push --no-verify origin && git ls-tree origin/badges",
+            "git push origin; echo done",
+        ):
+            assert hook.foreign_branch_push(command, current="своя") is None, command
+
+    def test_foreign_branch_before_an_operator_is_still_refused(self) -> None:
+        """Оператор обрывает хвост, но не прячет имя, стоящее до него."""
+        reason = hook.foreign_branch_push("git push origin чужая 2>&1 | tail -1", current="своя")
+
+        assert reason is not None
+
+    def test_branch_is_asked_where_the_push_runs(self) -> None:
+        """`cd <dir> && git push` и `git -C <dir>` пушат из <dir>, а не из окна."""
+        assert hook.push_target("cd /w && git push -u origin feat") == ("feat", "/w")
+        assert hook.push_target("git -C /w push origin feat") == ("feat", "/w")
+        assert hook.push_target("git push origin feat") == ("feat", None)
+
+    def test_worktree_on_its_own_branch_is_allowed(self, tmp_path: pathlib.Path) -> None:
+        """Пуш своей ветки из её worktree не чужой, на какой ветке ни стояло окно."""
+        env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+        identity = ["-c", "user.name=t", "-c", "user.email=t@t"]
+        for args in (
+            ["init", "-q", "-b", "feat"],
+            [*identity, "commit", "-q", "--allow-empty", "-m", "x"],
+        ):
+            subprocess.run(["git", *args], cwd=tmp_path, check=True, env=env, encoding="utf-8")
+
+        # Прямые слеши: обратные в posix-разборе команды съедаются (Windows).
+        place = tmp_path.as_posix()
+        assert hook.foreign_branch_push(f"cd {place} && git push -u origin feat") is None
+        assert hook.foreign_branch_push(f"cd {place} && git push origin чужая") is not None
 
 
 def test_refusal_reaches_the_window_in_a_narrow_console() -> None:
