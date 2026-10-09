@@ -26,6 +26,7 @@ __all__ = [
     "build_progress_report",
     "render_html",
     "render_markdown",
+    "submissions_summary",
 ]
 
 # Версия формата агрегата — для будущего импорта «класса» (AC #432).
@@ -45,6 +46,39 @@ def _messages(lang: str) -> dict[str, str]:
     return messages or load_locale_messages(_FALLBACK_LANG)
 
 
+#: Поля записи о расхождении, которые уходят наружу: без пути к решению и кода.
+_SUBMISSION_FIELDS = ("ts_utc", "step_id", "task_key", "verdict", "our_verdict", "hint")
+
+
+def submissions_summary(db_path: Path, *, recent: int = 10, limit: int = 10000) -> dict[str, Any]:
+    """Сверка «наш вердикт ↔ вердикт Stepik» по отправкам из истории (issue #1607).
+
+    Расхождение «у нас AC, у платформы нет» (и обратное) — самый ценный сигнал
+    о качестве самого грейдера: каждое — кандидат в дефект сравнения. Флаг
+    ``diverged`` посчитан при записи отправки, а не здесь: он отвечает про
+    момент отправки, а не про сегодняшнее состояние базы.
+
+    - ``total`` — отправок в истории;
+    - ``compared`` — из них с обеими сторонами (наш прогон был, ответ платформы
+      известен): только по ним расхождение вообще определено;
+    - ``diverged`` — разошедшихся;
+    - ``recent_diverged`` — последние ``recent`` расхождений, новые первыми.
+    """
+    rows = history.read_stepik_submissions(db_path, limit=limit)
+    compared = [
+        r for r in rows if r.get("our_verdict") and r.get("verdict") in history.PLATFORM_VERDICTS
+    ]
+    diverged = [r for r in rows if r.get("diverged")]
+    return {
+        "total": len(rows),
+        "compared": len(compared),
+        "diverged": len(diverged),
+        "recent_diverged": [
+            {name: r.get(name) for name in _SUBMISSION_FIELDS} for r in diverged[:recent]
+        ],
+    }
+
+
 def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any]:
     """Собрать агрегатный отчёт прогресса из истории (issue #432).
 
@@ -58,7 +92,9 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
     - ``verdicts`` — тали вердиктов кейсов (``{"AC": n, "WA": n, ...}``);
     - ``failure_kinds`` — тали ключей падений (``{"timeout": n, ...}``);
     - ``streak`` — текущая серия зачётов подряд (issue #823);
-    - ``badges`` — бейджи достижений (``{"id", "earned"}``, issue #823).
+    - ``badges`` — бейджи достижений (``{"id", "earned"}``, issue #823);
+    - ``submissions`` — сверка вердиктов с платформой
+      (:func:`submissions_summary`, issue #1607).
 
     ``streak``/``badges`` прежде дописывал только web-адаптер, поэтому
     экспортируемый файл — единственный артефакт «поделиться» — оставался сухой
@@ -107,6 +143,7 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
         "badges": insights.achievement_badges(
             ac_cases=verdicts.get("AC", 0), solved_tasks=solved_tasks, streak=streak
         ),
+        "submissions": submissions_summary(db_path),
     }
 
 

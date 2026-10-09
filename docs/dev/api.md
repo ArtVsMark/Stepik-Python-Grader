@@ -32,6 +32,7 @@
 - [`GET /api/rules`](#get-apirules)
 - [`GET /api/rules/<code>`](#get-apirulescode)
 - [`GET /api/insights`](#get-apiinsights)
+- [`GET /api/insights/revisited`](#get-apiinsightsrevisited)
 - [`GET /api/progress`](#get-apiprogress)
 - [`GET /api/v1/usage`](#get-apiv1usage)
 - [`POST /api/code-terms`](#post-apicode-terms)
@@ -375,6 +376,20 @@ runs_considered, glossary_id}`; `status` ∈ `active|fading|watch` (архивн
 curl http://127.0.0.1:8000/api/insights
 ```
 
+## `GET /api/insights/revisited`
+
+Темы «Подучить» по повторным переходам из ошибки в карточку глоссария.
+Переходы пишет UI (`POST /api/glossary/hit`); одиночный переход
+темы не даёт — нужен повтор (`insights.MIN_REVISITS`). **200** — список
+`{card_id, hits, last_ts, error_class}`, чаще — выше, при равенстве — свежее
+выше; `error_class` — самый частый класс ошибки, из которой приходили
+(`null`, если не передавался). Пустая/отсутствующая история → `[]`. Отдельный
+эндпоинт, а не поле `/api/insights`: форма того списка — контракт.
+
+```
+curl http://127.0.0.1:8000/api/insights/revisited
+```
+
 ## `GET /api/v1/usage`
 
 Журнал прогонов для соседнего инструмента — то же, что отдаёт CLI
@@ -422,7 +437,13 @@ curl http://127.0.0.1:8000/api/v1/usage
   не зависел от каталога запуска. Человеку показывается `display_name` —
   имя папки, обновляемое на каждом прогоне;
 - `verdicts` — тали вердиктов кейсов (`{"AC": n, "WA": n, ...}`);
-- `failure_kinds` — тали ключей падений (`{"timeout": n, ...}`).
+- `failure_kinds` — тали ключей падений (`{"timeout": n, ...}`);
+- `submissions` — сверка «наш вердикт ↔ вердикт Stepik» по отправкам:
+  `{total, compared, diverged, recent_diverged}`. `compared` — отправки, у
+  которых известны обе стороны; `recent_diverged` — последние расхождения,
+  новые первыми: `{ts_utc, step_id, task_key, verdict, our_verdict, hint}`
+  (`verdict` — ответ платформы `correct`/`wrong`, `our_verdict` — наш
+  `AC`/`WA`/…). Флаг расхождения посчитан при отправке, а не при чтении.
 
 Пустая/отсутствующая история → отчёт с нулевыми счётчиками (не ошибка, не 500).
 Тали вердиктов считаются на лету из `.grader_history.db`, а `tasks` — из

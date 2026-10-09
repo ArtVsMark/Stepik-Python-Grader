@@ -491,6 +491,8 @@
   "stats_cache_queue_stale": "{tasks} (из них устарело: {stale})",
   "stats_html_needs_command": "--output html доступен только у команды stats: отчёт строится из истории прогонов, а не из вердиктов одного запуска. Запустите: stepik-grader stats --output html",
   "stats_no_data": "Нет данных — статистика выключена (--stats/[tool.stepik-grader] record_stats) или ещё не накопилась.",
+  "stats_submissions": "Сверка со Stepik: отправок {total}, сверено с нашим прогоном {compared}, расхождений {diverged}",
+  "stats_submission_diverged": "   ≠ {task}: Stepik — {platform}, грейдер — {ours}",
   "stats_report_written": "Отчёт сохранён: {path}",
   "stepik_auth_required": "Нет авторизации Stepik: настройте OAuth (secrets.json) в разделе «Загрузчик задач». Без токена отправка невозможна.",
   "stepik_network_error": "Не удалось связаться со Stepik: {error}. Проверьте соединение и повторите — перевыпускать токен не нужно.",
