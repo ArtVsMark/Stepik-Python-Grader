@@ -32,6 +32,7 @@
 - [`GET /api/rules`](#get-apirules)
 - [`GET /api/rules/<code>`](#get-apirulescode)
 - [`GET /api/insights`](#get-apiinsights)
+- [`GET /api/insights/revisited`](#get-apiinsightsrevisited)
 - [`GET /api/progress`](#get-apiprogress)
 - [`GET /api/v1/usage`](#get-apiv1usage)
 - [`POST /api/code-terms`](#post-apicode-terms)
@@ -373,6 +374,20 @@ runs_considered, glossary_id}`; `status` ∈ `active|fading|watch` (архивн
 
 ```
 curl http://127.0.0.1:8000/api/insights
+```
+
+## `GET /api/insights/revisited`
+
+Темы «Подучить» по повторным переходам из ошибки в карточку глоссария
+(issue #1608). Переходы пишет UI (`POST /api/glossary/hit`); одиночный переход
+темы не даёт — нужен повтор (`insights.MIN_REVISITS`). **200** — список
+`{card_id, hits, last_ts, error_class}`, чаще — выше, при равенстве — свежее
+выше; `error_class` — самый частый класс ошибки, из которой приходили
+(`null`, если не передавался). Пустая/отсутствующая история → `[]`. Отдельный
+эндпоинт, а не поле `/api/insights`: форма того списка — контракт.
+
+```
+curl http://127.0.0.1:8000/api/insights/revisited
 ```
 
 ## `GET /api/v1/usage`

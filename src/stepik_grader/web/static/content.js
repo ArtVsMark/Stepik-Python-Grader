@@ -677,6 +677,39 @@ async function loadInsights() {
   }
   renderInsights();
   updateInsightsBadge();
+  loadRevisited();
+}
+
+// issue #1608: темы, к которым возвращаются из своих ошибок. Повторный переход
+// в одну карточку — сигнал «тема не понята», и это прямой ответ на вопрос
+// «что подтянуть». Сбой загрузки блока не ломает раздел: карточки ошибок
+// остаются, а блок просто не показывается.
+async function loadRevisited() {
+  const el = $("#insights-revisited");
+  if (!el) return;
+  let topics = [];
+  try {
+    topics = await fetchJsonOrThrow("/api/insights/revisited");
+  } catch (e) {
+    topics = [];
+  }
+  el.innerHTML = topics.length
+    ? '<h2 class="section-heading">' + esc(t("insights.revisited_heading")) + "</h2>" +
+      '<p class="hint">' + esc(t("insights.revisited_hint")) + "</p>" +
+      '<ul class="insight-list">' +
+      topics
+        .map(
+          topic =>
+            '<li class="insight-card"><div class="insight-head">' +
+            '<a href="#/glossary/' + esc(topic.card_id) + '">' + esc(topic.card_id) + "</a>" +
+            "</div><div class=\"hint\">" +
+            esc(t("insights.revisited_hits", { hits: topic.hits })) +
+            (topic.error_class ? " · " + esc(topic.error_class) : "") +
+            "</div></li>",
+        )
+        .join("") +
+      "</ul>"
+    : "";
 }
 
 function renderInsights() {

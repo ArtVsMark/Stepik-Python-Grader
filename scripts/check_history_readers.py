@@ -73,9 +73,7 @@ TABLE_READERS: dict[str, tuple[str, ...]] = {
 
 #: Таблица → номер задачи, которая подключит читателя. Объявленный задел —
 #: не находка; задел, у которого читатель уже есть, — находка.
-RESERVED: dict[str, int] = {
-    "glossary_hits": 1608,
-}
+RESERVED: dict[str, int] = {}
 
 _CREATE_TABLE = re.compile(r"CREATE TABLE IF NOT EXISTS\s+(\w+)", re.IGNORECASE)
 
