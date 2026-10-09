@@ -401,22 +401,23 @@ def test_sandbox_runs_code_with_stdin(page: Any, e2e_server: str, tmp_path: Path
 
 
 def _type_sandbox_code(page: Any, code: str) -> None:
-    """Ввести многострочный код в редактор песочницы, снимая автоотступ CodeMirror.
+    """Ввести многострочный код в редактор песочницы ровно как ``code``.
 
-    После двоеточия CodeMirror сам добавляет отступ на новой строке; чистим
-    строку (Home → Shift+End → Delete) и печатаем её с нуля, чтобы трейс получил
-    ровно ``code``.
+    Одним ``insert_text`` — то есть одним событием ввода, как вставка из
+    буфера, — а не построчно клавишами (issue #1582). Построчный набор шёл
+    через ``Enter``/``Home``/``Shift+End``/``Delete`` поверх автоотступа
+    CodeMirror, и исход зависел от тайминга: на CI набранный код
+    периодически приходил искажённым («unexpected indent (solution.py,
+    line 2)»). Вставка автоотступ не вызывает вовсе — его делает команда
+    ``Enter``, а не ввод текста с переводами строк.
     """
     page.click("#sandbox-editor .cm-content")
     page.keyboard.press("ControlOrMeta+a")
     page.keyboard.press("Delete")
-    for i, line in enumerate(code.split("\n")):
-        if i:
-            page.keyboard.press("Enter")
-            page.keyboard.press("Home")
-            page.keyboard.press("Shift+End")
-            page.keyboard.press("Delete")
-        page.keyboard.insert_text(line)
+    page.keyboard.insert_text(code)
+    expect(page.locator("#sandbox-editor .cm-content")).to_have_text(
+        code.replace("\n", ""), timeout=_TIMEOUT_MS
+    )
 
 
 def _sandbox_var_value(page: Any, name: str) -> str | None:
