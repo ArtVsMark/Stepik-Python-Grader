@@ -35,6 +35,7 @@ Glossary-Python может вынести вердикт, не сверяя те
 
 import argparse
 import builtins
+import contextlib
 import json
 import sys
 from collections.abc import Iterable
@@ -48,6 +49,11 @@ from stepik_grader.glossary import BUNDLED_GLOSSARY_DIR
 from stepik_grader.glossary.json_provider import JsonGlossaryProvider
 
 __all__ = ["OUTPUT", "build", "main"]
+
+# Печатает по-русски: в консоли cp1251/cp866 без этого упадёт на первом же print.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 OUTPUT = Path(__file__).resolve().parent.parent / ".glossary" / "proposals.json"
 

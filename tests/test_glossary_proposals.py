@@ -107,3 +107,16 @@ def test_published_file_matches_the_build(gp: ModuleType) -> None:
     assert gp.main(["--check"]) == 0
     assert len(slugs) == len(set(slugs))
     assert payload["schema"] and payload["producer"] and payload["source"]
+
+
+def test_check_names_a_stale_file_and_rebuild_fixes_it(
+    gp: ModuleType, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Файл разошёлся со сборкой — ``--check`` отвечает 1, пересборка возвращает 0."""
+    stale = tmp_path / "proposals.json"
+    stale.write_text(json.dumps({"proposals": []}), encoding="utf-8")
+    monkeypatch.setattr(gp, "OUTPUT", stale)
+
+    assert gp.main(["--check"]) == 1
+    assert gp.main([]) == 0
+    assert gp.main(["--check"]) == 0
