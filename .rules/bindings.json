@@ -1117,6 +1117,208 @@
       "status": "active",
       "mechanism": "document",
       "where": "CLAUDE.md § Метрики — бейджи публикуются в ветку badges отдельным прогоном, README ссылается на raw. Порядок «сначала артефакт, потом ссылка» держится текстом: гейта, сверяющего очерёдность, нет"
+    },
+    "197": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/generate_facts.py — числа, которые мы публикуем соседям (facts.json в ветке badges), считаются тем же кодом, что и наши гейты и значки: check_pr_ready._expected_names, generate_coverage_badge, generate_release_badge; tests/test_generate_facts.py гоняет pytest в .github/workflows/ci.yml",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "198": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": ".github/workflows/rules-digest.yml (ночью пересобирает docs/agent/rules/README.md через scripts/generate_rules_index.py из клона каталога, адрес берётся из имени файла правила); scripts/nightly_checks.py → scripts/check_rule_bindings.py --catalogue сверяет номера с export/rules.json",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "199": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/rerun_red_main.py — заход, разбуженный workflow_run в группе cancel-in-progress: false (.github/workflows/rerun-red-main.yml), сам опрашивает состояние main через gh_rest.main_run; scripts/move_merge_queue.py вычисляет очередь из API, а не из события",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "200": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждение правила в разделе «Держится документом», окно читает его на старте; предмет: README.md — значки: CI/release (состояние), version (счётчик), coverage и good-first-issues (двигаются); собираются scripts/generate_*_badge.py. Предмет движения рядом со сборкой нигде не назван",
+      "holdable": "not-yet",
+      "why": "Все наши значки сегодня либо двигаются, либо являются значками состояния/растущим счётчиком, но держится это составом, а не проверкой: названного «при каком событии число станет другим» у генераторов нет, и новый неподвижный значок пройдёт молча. Машинная половина: Подпись и вычисление значка лежат в одном generate_*_badge.py, поэтому сверка «знаменатель равен числителю по построению» выводима машинно; не построена, так как неподвижного значка у нас не было. Доля правил в facts.json считается по mechanism.",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "201": {
+      "status": "not-applicable",
+      "why": "Мы не публикуем каталог требований для чужого исполнения: наружу уходят факты-числа (facts.json), ответы (.rules/bindings.json) и предложения-инциденты (.rules/proposals.json), а не правила/политики, по которым кто-то отвечает. Мы — потребитель выгрузки, стороны издателя у нас нет.",
+      "refuted_by": {
+        "globs": [
+          "export/rules.json",
+          "export/**",
+          "**/requirements-catalogue*.json"
+        ],
+        "contains": []
+      },
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "202": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "CLAUDE.md § Рабочая ветка: каждая задача — своя ветка от свежего main. scripts/preflight.py check_branch_not_taken смотрит только локальную origin/<ветка> и не блокирует — воскрешение слитой ветки не ловит",
+      "holdable": "not-yet",
+      "why": "Предмет есть: agent-pr.yml открывает PR на пуш в agent/**, ветки удаляются при слиянии. Проверка до пуша «ветки нет на площадке, а её PR слит» (git ls-remote + REST о PR по head) выполнима, но не построена: check_branch_not_taken при «нет на origin» отвечает «свободно» — ровно в случае воскрешения",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "203": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/check_experimental_python.py сверяет предрелизную версию python-next.yml с манифестом actions/python-versions; запускается ночным обходом scripts/nightly_checks.py из .github/workflows/tracker-guardrails.yml, предупреждением, а не отказом",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "204": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждения правил, читаемые окном на старте (генерирует scripts/generate_rules_digest.py из ответа); CLAUDE.md § Новое правило — в общий каталог",
+      "holdable": "no",
+      "why": "Предмет есть: docstring и ответы ссылаются на правила каталога как на основание (scripts/check_orphan_branches.py: «Правило 147 каталога»). Соответствие случая разделу «Применимость» — чтение; само правило говорит, что машинной половины нет, проверяемо лишь существование номера",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "205": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_rule_bindings.py: why обязателен у not-applicable/rejected, проба refuted_by прогоняется по дереву (_refuted). Шаг «Rule bindings answer the catalogue» в .github/workflows/ci.yml и хук pre-commit. Остаток: наличие предиката или события в why не проверяется",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "206": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/preflight.md § Что гейты не ловят: зелёный гейт подтверждает себя, утверждение проверяется замером на живом предмете, замер пишется рядом с механизмом (общая форма, правило 146)",
+      "holdable": "not-yet",
+      "why": "Предмет есть: гейты ищут свободный текст по форме (check_sources_of_truth.py, check_attribution.py, check_mcp_permissions.py), но замера форм по дереву числом рядом нет ни у одного. Машинная половина возможна (замер в тесте рядом с гейтом, откат при расширении), не построена",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "207": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждение правила в разделе «Держится документом», окно читает его на старте; предмет: scripts/check_rule_bindings.py — только ПОВОД перечитать (подъём answers_to/schema), порядка и остановки по замеру нет",
+      "holdable": "not-yet",
+      "why": "Корпус есть: 195 ответов в .rules/bindings.json, перечитываются целиком при подъёме выгрузки каталога. Но очередь перечитывания не упорядочена никакой метрикой, отдача по полосам не мерится, непрочитанные не объявляются непрочитанными — механизм только называет повод. Машинная половина: Метрика вычислима из данных: пересечение основ слов между требованием правила (rules/ru/*.md каталога) и нашими where+why, плюс доля правок на полосе из git log .rules/bindings.json. Не построено: нет ни упорядочивания, ни журнала отдачи, ни отметки «не прочитано» в ответе.",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "208": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": ".github/workflows/ci-complete.yml + scripts/ci_aggregate.py: мерж делает auto-merge самой площадки, и он ждёт обязательную ci-complete (проверка и действие одним заходом). Для пуша — pre-push хук scripts/preflight.py --gate-push, обход назван: PREFLIGHT_SKIP=1",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "209": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждение правила в разделе «Держится документом», окно читает его на старте; предмет: src/stepik_grader/core/runner.py — константа TRUNCATION_MARKER; соблюдение ничем не проверяется",
+      "holdable": "not-yet",
+      "why": "Предмет есть: константы-маркеры, которые печатают и узнают (MARKER в report_failed_tests.py, TRUNCATION_MARKER в runner.py). scripts/check_marker_matching.py держит другое правило (141 — целое совпадение, а не startswith), рукописные копии букв не ищет. Текстовой опоры в CLAUDE.md/CONTRIBUTING нет. Машинная половина: Нарушение уже есть: core/tracer.py:367 вручную повторяет текст TRUNCATION_MARKER (runner.py:607) вместо импорта. AST-проверка «литерал содержит значение константы-маркера из другого модуля» реализуема (замер: 9 маркер-констант, 1 живая копия), но не построена.",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "210": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждение правила в разделе «Держится документом», окно читает его на старте; предмет: CONTRIBUTING.md § Когда дефект считается исправленным — близкий п.2 (все вызовы класса), но перечня форм при второй находке не требует",
+      "holdable": "not-yet",
+      "why": "Предмет есть: автоматический ревьюер claude-review и аудиты дают находки по одному месту несколько раз. В дереве нет ни текста, ни механизма, требующего перечня форм после второй находки; п.2 CONTRIBUTING про охват мест (grep), а не форм одного места. Машинная половина: Данные есть: комментарии ревьюера привязаны к path/line, и повтор находки по тому же месту в одном PR или по одной функции через PR вычислим по REST. Не построено: ничего не считает повторы и не требует перечня форм перед правкой.",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "211": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_rule_bindings.py — reachable_gates()/_unreachable(): скрипт, заявленный гейтом, обязан достигаться рабочим путём (workflow, pre-commit, preflight, с пересадками), иначе отказ; долг — только в GATE_DEBT с причиной. Шаг .github/workflows/ci.yml на каждый PR. Держит часть предиката про гейты, не про любые функции",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "212": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждение правила в разделе «Держится документом», окно читает его на старте; предмет: scripts/gh_rest.py — предмет: списки REST читаются одной страницей per_page=100 без обхода (pull_files, pull_checks, workflow_runs, комментарии, sub_issues, jobs); обход страниц есть только в scripts/check_audit_registry.py::_merged_pulls",
+      "holdable": "not-yet",
+      "why": "Предмет есть и правило нарушается: файлы PR, check-runs, комментарии и jobs берутся первой страницей без названного предела, хвост за 100 пропадёт молча. Машинная половина строима: тест-сторож по образцу соседа (запрос к списку без цикла страниц/Link и без названного предела рядом). Машинная половина: Признак перечислим: вызов _get/request с путём списка (/files, /check-runs, /comments, /jobs, /runs) без page/Link-обхода. Не построено: правило из каталога, сторож и починка gh_rest.py не заведены. UNHELD_BUDGET=0 отвергнет none — нужен сторож.",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "213": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_rule_bindings.py — HOLDABLE включает refused, _contract_1_9() отвергает refused без machine_half (замера) и holdable без why; шаг .github/workflows/ci.yml на каждый PR и хук check-rule-bindings в .pre-commit-config.yaml",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "214": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждение правила в разделе «Держится документом», окно читает его на старте; предмет: scripts/preflight.py — предмет: _trailer_block() и _TRAILER_LINE_RE повторяют scripts/check_attribution.py::trailer_block; копия подписана по 071 в docstring, но совпадение ничем не проверяется",
+      "holdable": "not-yet",
+      "why": "Предмет есть: несколько гейтов над одним деревом разбирают одни записи (трейлеры коммитов). Намеренная копия подписана, но вторая половина правила — совпадение держит проверка — отсутствует; правка одной из копий разойдётся молча. Машинная половина: Строимо: тест, сверяющий preflight._trailer_block с check_attribution.trailer_block на общем корпусе, и сторож одинаковых литералов re.compile в scripts/. Не построено: задачи нет. UNHELD_BUDGET=0 отвергнет none — нужен тест.",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "215": {
+      "status": "active",
+      "mechanism": "document",
+      "where": "docs/agent/rules/DIGEST.md — утверждение правила в разделе «Держится документом», окно читает его на старте",
+      "holdable": "not-yet",
+      "why": "Правило у нас нигде не записано: ни CLAUDE.md, ни CONTRIBUTING.md не требуют снимать числа и перечни в теле PR, фрагменте и поле why командой. Есть только узкий срез: check_pr_ready.py сверяет номера задач во фрагментах changelog.d с телом PR и выдаёт предупреждение, но запускается вручную, ни в одном прогоне его нет. Машинная половина: Из данных снимается часть: номера задач во фрагментах против Closes/Часть в теле (уже есть в scripts/check_pr_ready.py), «что тронуто» против git diff --stat origin/main. Шаг CI не построен; довод в why командой не сверить вообще.",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "216": {
+      "status": "active",
+      "mechanism": "pipeline",
+      "where": "scripts/preflight.py::check_package_is_this_tree: неблокирующая ЗАМЕТКА «пакет из этого дерева». Сравнивает, откуда реально импортируется stepik_grader (package_origin, через import в подпроцессе), с <дерево>/src. Закреплено tests/test_preflight.py; запрет правок src/ в worktree записан в CLAUDE.md § Критические запреты",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "217": {
+      "status": "active",
+      "mechanism": "gate",
+      "where": "scripts/check_py_style.py выводит требования стиля из requires-python, исключения берёт из per-file-target-version. scripts/check_python_setup.py: работы зовут python только после setup-python. Оба запускаются шагами .github/workflows/ci.yml и хуками .pre-commit-config.yaml",
+      "origin_kind": "own",
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
+    },
+    "218": {
+      "status": "not-applicable",
+      "why": "У нас нет механизма, который собирает результат вычитанием: ни генератора заготовки, сужающего чужой прогон, ни свёртки конфигурации, ни очистки манифеста. Единственное удаление — collect_changelog.py --collect: он переносит фрагмент в [Unreleased] целиком и стирает файл-лист, на который никто не ссылается. Это исключение из правила, а check_pr_ready.py сам игнорирует удалённые фрагменты.",
+      "refuted_by": {
+        "globs": [
+          "scripts/onboard*.py",
+          "scripts/*calling*.py",
+          "scripts/*strip*.py"
+        ],
+        "contains": [
+          "pop(\"needs\"",
+          "del job[\"needs\"]",
+          "[\"jobs\"].pop("
+        ]
+      },
+      "analysed": "2026-10-09",
+      "decided": "2026-10-09"
     }
   }
 }
