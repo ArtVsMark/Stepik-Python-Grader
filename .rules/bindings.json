@@ -80,11 +80,11 @@
     },
     "010": {
       "status": "active",
-      "mechanism": "document",
-      "where": "CLAUDE.md § Гейты: пустой список проверок — «CI не стартовал», а не «зелено»; проверяет scripts/check_pr_ready.py, который запускает окно перед мержем",
-      "holdable": "not-yet",
-      "why": "Признак машинный и уже частично проверяется: ci_aggregate.py (ci-complete) отвечает «ещё не появились» на отсутствующие ожидаемые check-run'ы, а ruleset требует ci-complete. Не построено: проверка пустого набора на стороне окна (check_pr_ready.py) ни одним прогоном не вызывается. Запись стоит пересмотреть в сторону gate.",
-      "analysed": "2026-10-09"
+      "mechanism": "gate",
+      "where": "scripts/ci_aggregate.py (.github/workflows/ci-complete.yml) — обязательная проверка ci-complete отвечает «ещё не появились» на отсутствующие ожидаемые check-run'ы, пустой набор зелёным не читается; ruleset ждёт именно её",
+      "analysed": "2026-10-09",
+      "origin_kind": "own",
+      "decided": "2026-10-09"
     },
     "011": {
       "status": "active",
@@ -780,11 +780,11 @@
     },
     "123": {
       "status": "active",
-      "mechanism": "document",
-      "where": "CLAUDE.md § Формат коммитов: идентичность окна согласована до слияния, после squash подпись не переписать; смотрит scripts/check_attribution.py --check-branch, который не зовёт ни прогон, ни preflight",
-      "holdable": "not-yet",
-      "why": "Машинная половина есть, и она уже построена: в ci.yml:221 на каждом pull_request запускается check_attribution.py --check-branch --agents-only, preflight.py:583-623 тоже его вызывает. Значит, where («не зовёт ни прогон, ни preflight») устарел, а запись стоит пересмотреть как gate или pipeline. Неустранимый остаток: GitHub сам дописывает Co-authored-by при squash, это известный пробел.",
-      "analysed": "2026-10-09"
+      "mechanism": "gate",
+      "where": ".github/workflows/ci.yml — шаг scripts/check_attribution.py --check-branch --agents-only на каждом pull_request: несогласованная подпись агента отвергается до слияния; правило записано в CLAUDE.md § Формат коммитов. Неустранимый остаток — трейлер, который GitHub дописывает сам при squash",
+      "analysed": "2026-10-09",
+      "origin_kind": "own",
+      "decided": "2026-10-09"
     },
     "124": {
       "status": "active",
@@ -1073,11 +1073,11 @@
     },
     "171": {
       "status": "active",
-      "mechanism": "document",
-      "where": "docs/agent/preflight.md § Что гейты НЕ ловят — эталон обязательных проверок в scripts/check_branch_protection.py (EXPECTED_CHECKS) является КОПИЕЙ имён из .github/workflows/ci.yml, а не производным от него: переименование ячейки матрицы оставит ruleset и константу согласными друг с другом, а работы — с другими именами. Самоблокировка и починка — issue #1420",
-      "holdable": "not-yet",
-      "why": "Признак есть, и в главном месте проверка уже построена, так что where устарел: EXPECTED_CHECKS=('ci-complete',), состав матрицы выводится из ci.yml дерева (ci_matrix.matrix_names, ci_aggregate.expected_checks), check_matrix_names ловит возврат матричного имени. Не построена общая проверка: что другие сверки состава не берут эталон с main.",
-      "analysed": "2026-10-09"
+      "mechanism": "gate",
+      "where": "scripts/ci_aggregate.py — expected_checks выводит состав матричных проверок из .github/workflows/ci.yml того же изменения, а не из копии; запускается обязательной ci-complete (.github/workflows/ci-complete.yml) на каждом pull_request",
+      "analysed": "2026-10-09",
+      "origin_kind": "own",
+      "decided": "2026-10-09"
     },
     "172": {
       "status": "active",
