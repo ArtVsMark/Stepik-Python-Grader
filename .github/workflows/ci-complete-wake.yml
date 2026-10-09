@@ -1,0 +1,75 @@
+name: CI complete wake
+
+# issue #1554: `ci-complete` ждёт соседей не дольше своего срока, и под
+# очередью раннеров краснеет «не дождались» при зелёной голове. Перезапускается
+# он только событиями pull request, поэтому красное оставалось навсегда и
+# держало мерж — а перезапуск из облака закрыт (403 на `actions:write`).
+#
+# Приём перенят у Engineering-Pipeline-Mechanisms (`ci-complete-wake.yml`):
+# по завершении `CI` красная сводка на той же голове, вынесенная раньше конца
+# `CI`, перезапускается. Перезапуск, а не новая запись: прогон по
+# `workflow_run` вешал бы проверки на голову `main`, и защита ветки их не
+# увидела бы. Подробности и границы — в докстринге `scripts/ci_complete_wake.py`.
+#
+# РЕКУРСИИ НЕТ. Перезапуск сводки не перезапускает `CI`, то есть этот прогон
+# сам себя не будит; а `run_attempt` сводки ограничен `MAX_ATTEMPTS`.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  # Ручной заход на конкретную голову — способ проверить механизм.
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Голова изменения (полный SHA)"
+        required: true
+
+permissions:
+  contents: read
+  # Ради чего всё и затевалось: перезапуск прогона сводки — это запись.
+  actions: write
+
+concurrency:
+  group: ci-complete-wake-${{ github.event.workflow_run.head_sha || inputs.sha }}
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    runs-on: ubuntu-26.04
+    # Только прогоны PR (у `main` сводки нет) и только ЗЕЛЁНЫЙ `CI`: красный
+    # перекрасит сводку в тот же красный, и перезапуск был бы холостым.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.workflow_run.event == 'pull_request'
+          && github.event.workflow_run.conclusion == 'success')
+    # issue #1271: без этого действует умолчание GitHub в 6 часов.
+    timeout-minutes: 10
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+      # У ручного захода конца CI нет: подставляется последний миг календаря,
+      # то есть любая завершённая красная сводка считается вынесенной до него.
+      CI_DONE_AT: ${{ github.event.workflow_run.updated_at || '9999-12-31T23:59:59Z' }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      # Скрипт — чистый stdlib поверх `scripts/gh_rest.py`, ставить нечего.
+      # След — в summary прогона: перезапущенная сводка без объяснения выглядит
+      # как исчезнувшая улика.
+      - name: Сводка, вынесенная раньше конца CI, перезапускается
+        run: |
+          {
+            echo "## Будильник ci-complete"
+            echo '```'
+            python scripts/ci_complete_wake.py 2>&1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

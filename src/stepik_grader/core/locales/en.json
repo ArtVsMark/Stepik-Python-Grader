@@ -512,5 +512,20 @@
   "vscode_written": "✅ VS Code tasks created: {path}\n   Run: Terminal → Run Task → “Stepik: …”,\n   or Ctrl+Shift+B for “check current file”.",
   "wa_whitespace_suggestion": "Output matches after trimming trailing whitespace/line endings — check formatting.",
   "watch_dependency_missing": "--watch requires the watchfiles package: pip install \"stepik-python-grader[watch]\"",
-  "watch_waiting": "👀 Watching for changes: {path} (Ctrl+C to stop)"
+  "watch_waiting": "👀 Watching for changes: {path} (Ctrl+C to stop)",
+  "compat_heading": "Stepik compatibility — the code uses what Python {target} does not have:",
+  "compat_unknown": "  the step's Python versions are unknown — checked against {target}; download the task again to know for sure",
+  "compat_since": "  line {line}: {what} — available since Python {version}",
+  "compat_removed": "  line {line}: {what} — removed in Python {version}",
+  "compat_syntax_fstring": "f-string",
+  "compat_syntax_var_annotation": "variable annotation (x: int = …)",
+  "compat_syntax_async_generator": "asynchronous generator",
+  "compat_syntax_walrus": "the := (walrus) operator",
+  "compat_syntax_posonly": "positional-only parameters (/)",
+  "compat_syntax_match": "match/case",
+  "compat_syntax_except_star": "except*",
+  "compat_syntax_star_index": "* unpacking in an index (a[*b])",
+  "compat_syntax_type_statement": "the type statement",
+  "compat_syntax_type_params": "type parameters (class C[T])",
+  "compat_syntax_tstring": "t-string"
 }
