@@ -52,7 +52,7 @@ def test_git_failure_is_a_broken_run(gate: ModuleType, monkeypatch: pytest.Monke
     """git не ответил — проверка не отработала, код 2."""
 
     def broken() -> set[str]:
-        raise subprocess.CalledProcessError(128, ["git", "ls-files"])
+        raise subprocess.CalledProcessError(128, ["git"])
 
     monkeypatch.setattr(gate, "tracked_root_entries", broken)
     assert gate.main([]) == 2
