@@ -83,11 +83,6 @@ def test_describe_names_sandbox_backend() -> None:
     )
 
 
-def test_isolated_reflects_sandbox() -> None:
-    assert _profile().isolated is False
-    assert _profile(sandbox_backend="LinuxSandboxRunner").isolated is True
-
-
 def test_current_profile_reads_active_runner(monkeypatch: pytest.MonkeyPatch) -> None:
     """Паспорт снимается в момент вызова: ``--sandbox`` подменяет runner позже."""
     from stepik_grader.core import runner as runner_mod
@@ -104,7 +99,6 @@ def test_current_profile_reads_active_runner(monkeypatch: pytest.MonkeyPatch) ->
 
     assert profile.runner == "FakeSandboxRunner"
     assert profile.sandbox_backend == "FakeBackend"
-    assert profile.isolated is True
 
 
 def test_current_profile_reads_current_config(monkeypatch: pytest.MonkeyPatch) -> None:

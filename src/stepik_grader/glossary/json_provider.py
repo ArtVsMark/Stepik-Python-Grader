@@ -80,14 +80,6 @@ class GlossaryProvider(Protocol):
         """Поиск по id/title/aliases/keywords/tags (подстрока, без регистра)."""
         ...
 
-    def list_by_status(self, status: str) -> list[GlossaryCard]:
-        """Карточки с заданным статусом жизненного цикла."""
-        ...
-
-    def list_by_tag(self, tag: str) -> list[GlossaryCard]:
-        """Карточки, помеченные заданным тегом."""
-        ...
-
 
 def _iter_card_dicts(payload: Any, source: pathlib.Path) -> list[dict[str, Any]]:
     """Извлечь список card-dict'ов из JSON-корня (list или {"cards": [...]})."""
@@ -222,15 +214,6 @@ class JsonGlossaryProvider:
     def search(self, query: str) -> list[GlossaryCard]:
         """Поиск по id/title/aliases/keywords/tags (подстрока, без регистра)."""
         return [card for card in self._cards if card.matches(query)]
-
-    def list_by_status(self, status: str) -> list[GlossaryCard]:
-        """Карточки с заданным статусом жизненного цикла."""
-        return [card for card in self._cards if card.status == status]
-
-    def list_by_tag(self, tag: str) -> list[GlossaryCard]:
-        """Карточки, помеченные заданным тегом (без регистра)."""
-        needle = tag.strip().lower()
-        return [card for card in self._cards if needle in {t.lower() for t in card.tags}]
 
     #: Статусы, при которых карточка считается ЗАКОНЧЕННОЙ (issue #919,
     #: находка ``DATA-1-04``). `new` и `draft` — заготовки: у них может не быть

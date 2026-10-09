@@ -301,7 +301,7 @@ def version_line(messages: dict[str, str], version: str | None = None) -> str | 
 def _find_stepik_config(start: Path) -> Path | None:
     """Найти ``stepik_config.json``: от ``start`` вверх, затем в домашней папке.
 
-    Поиск вверх — тот же паттерн, что у ``config._find_pyproject``: лаунчер
+    Поиск вверх — тот же паттерн, что у ``config._find_config_source``: лаунчер
     запускают ярлыком, и cwd тогда — папка ярлыка или домашняя, а не то место,
     где пользователь работает с задачами.
     """
