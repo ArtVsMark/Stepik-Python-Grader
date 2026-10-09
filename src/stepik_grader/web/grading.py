@@ -29,6 +29,7 @@ from stepik_grader.core.microbench_runner import (
 )
 from stepik_grader.core.reporter import fmt_time, safe_rel
 from stepik_grader.core.runner import RunSpec
+from stepik_grader.core.stepik_compat import compat_report
 from stepik_grader.core.test_loader import (
     collect_grouped_files,
     find_all_solution_files,
@@ -43,6 +44,7 @@ __all__ = [
     "apply_reference_ranking",
     "apply_relative_ranking",
     "collect_grouped_files",
+    "compat_report",
     "find_all_solution_files",
     "fmt_time",
     "hash_solution",

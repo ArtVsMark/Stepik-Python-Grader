@@ -39,6 +39,8 @@ ALLOWED: frozenset[str] = frozenset(
         ".gitattributes",
         ".github",
         ".gitignore",
+        # Обратный канал в Glossary-Python: его читают по адресу, как .rules/.
+        ".glossary",
         ".pre-commit-config.yaml",
         ".rules",
         "CHANGELOG.md",

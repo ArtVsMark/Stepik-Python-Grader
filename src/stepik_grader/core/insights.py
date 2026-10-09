@@ -18,6 +18,7 @@
   прогоны и считать эту метрику по остатку значит занижать её (issue #819).
 """
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -29,14 +30,17 @@ __all__ = [
     "DEFAULT_ACTIVE_T",
     "DEFAULT_CLEAN_K",
     "DEFAULT_WINDOW_N",
+    "MIN_REVISITS",
     "CardStatus",
     "InsightCard",
+    "RevisitedTopic",
     "TaskProgress",
     "achievement_badges",
     "classify_status",
     "current_streak",
     "failure_kind",
     "learning_cards",
+    "revisited_topics",
     "time_to_first_green",
     "violated_rule_codes",
 ]
@@ -325,6 +329,60 @@ def _scaled_window(db_path: Path, per_task: int) -> int:
     except Exception:  # pragma: no cover - best-effort, как весь модуль истории
         tasks = 1
     return per_task * max(1, min(tasks, _WINDOW_TASKS_CAP))
+
+
+#: С какого числа переходов тема считается «возвращаются»: один переход — это
+#: любопытство или случайный клик, повтор — признак, что тема не далась
+#: (issue #1608).
+MIN_REVISITS = 2
+
+
+@dataclass(frozen=True)
+class RevisitedTopic:
+    """Карточка глоссария, в которую раз за разом приходят из своих ошибок (issue #1608).
+
+    ``error_class`` — самый частый класс ошибки, из которой приходили: он
+    объясняет, ПОЧЕМУ тема всплывает. ``last_ts`` — последний переход.
+    """
+
+    card_id: str
+    hits: int
+    last_ts: str
+    error_class: str | None = None
+
+
+def revisited_topics(
+    db_path: Path, *, min_hits: int = MIN_REVISITS, limit: int = 1000
+) -> list[RevisitedTopic]:
+    """Темы «Подучить» по повторным переходам из ошибки в глоссарий (issue #1608).
+
+    Переходы пишет UI (``POST /api/glossary/hit``) в таблицу ``glossary_hits``.
+    Одиночный переход рекомендации не даёт — нужен повтор (``min_hits``).
+    Порядок: чаще — выше, при равенстве — свежее выше. Пустая история → ``[]``.
+    """
+    hits = history.read_glossary_hits(db_path, limit=limit)
+    by_card: dict[str, list[dict[str, Any]]] = {}
+    for hit in hits:
+        card_id = str(hit.get("card_id") or "")
+        if card_id:
+            by_card.setdefault(card_id, []).append(hit)
+    topics: list[RevisitedTopic] = []
+    for card_id, rows in by_card.items():
+        if len(rows) < min_hits:
+            continue
+        classes = Counter(str(r["error_class"]) for r in rows if r.get("error_class"))
+        topics.append(
+            RevisitedTopic(
+                card_id=card_id,
+                hits=len(rows),
+                # read_glossary_hits отдаёт новые первыми.
+                last_ts=str(rows[0].get("ts_utc") or ""),
+                error_class=classes.most_common(1)[0][0] if classes else None,
+            )
+        )
+    topics.sort(key=lambda topic: topic.last_ts, reverse=True)
+    topics.sort(key=lambda topic: topic.hits, reverse=True)
+    return topics
 
 
 def learning_cards(

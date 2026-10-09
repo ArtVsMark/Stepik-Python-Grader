@@ -119,6 +119,7 @@ __all__ = [
     "Quota",
     "RateLimited",
     "Response",
+    "RunInProgress",
     "StaleBody",
     "TlsVerificationError",
     "add_labels",
@@ -215,6 +216,16 @@ Opener = Callable[[urllib.request.Request], Any]
 
 class GitHubError(RuntimeError):
     """GitHub ответил не так, как ожидалось (кроме исчерпанной квоты)."""
+
+
+class RunInProgress(GitHubError):
+    """Прогон ещё идёт: перезапуск упавших доступен только после его окончания (#1600).
+
+    Отдельный тип, а не «нечего перезапускать»: GitHub отвечает ``409`` и на
+    незавершённый прогон, где джоб уже упал, и прежняя редакция печатала
+    «упавших джобов нет» — команда врала о состоянии, а журнал нестабильности
+    не получал строки.
+    """
 
 
 class TlsVerificationError(GitHubError):
@@ -1793,6 +1804,15 @@ def rerun_failed_jobs(repo: str, run_id: int, **kwargs: Any) -> bool:
                 "запустите повтор кнопкой в интерфейсе или из локального окна"
             ) from exc
         if "409" in message or _NOTHING_TO_RERUN_RE.search(message):
+            # 409 бывает и на незавершённом прогоне: один GET только на отказе,
+            # а не перед каждым перезапуском — на удачном пути он не нужен.
+            run = _get(f"repos/{repo}/actions/runs/{run_id}", **{**kwargs, "use_cache": False})
+            status = run.get("status") if isinstance(run, dict) else None
+            if status and status != "completed":
+                raise RunInProgress(
+                    f"прогон {run_id} ещё идёт ({status}): перезапуск упавших "
+                    "доступен после его окончания — повторите, когда он завершится"
+                ) from exc
             return False
         raise
     return True
@@ -2389,7 +2409,12 @@ def _cmd_rerun_failed(args: argparse.Namespace) -> int:
         )
         return EXIT_FAIL
 
-    if not rerun_failed_jobs(args.repo, args.run):
+    try:
+        restarted = rerun_failed_jobs(args.repo, args.run)
+    except RunInProgress as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_WAIT
+    if not restarted:
         print(f"прогон {args.run}: упавших джобов нет — перезапускать нечего.")
         return EXIT_OK
 
