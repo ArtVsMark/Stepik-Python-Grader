@@ -228,6 +228,13 @@ def _our_paths(trace: str) -> list[str]:
             continue
         handover = _HANDOVER_RE.search(paragraph)
         ours = paragraph[: handover.start()] if handover is not None else paragraph
+        # Передача владения ещё и строкой «Другой/репозиторий — путь» внутри
+        # того же абзаца (issue #1424): след правила 181 в каталоге переписан
+        # построчно, и путь каталога читался нашим — указатель отказывался
+        # пересобираться из-за чужого механизма.
+        foreign = next((m for m in _ANY_REPO_RE.finditer(ours) if m.group(0) != PROJECT), None)
+        if foreign is not None:
+            ours = ours[: foreign.start()]
         found.extend(match.group("path") for match in _PATH_RE.finditer(ours))
     return found
 
