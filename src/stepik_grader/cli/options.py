@@ -119,19 +119,10 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=["stats", "usage"],
+        choices=["stats"],
         help=t["cli_help_command_stats"],
     )
     parser.add_argument("--version", action="store_true", help=t["cli_help_version"])
-    # issue #1365: единственный новый флаг команды `usage`. Без него экспорт
-    # идёт в стандартный вывод — перенаправить его умеет любая оболочка, а файл
-    # нужен там, где команду зовут из планировщика.
-    parser.add_argument(
-        "--usage-out",
-        type=pathlib.Path,
-        metavar="FILE",
-        help=t["cli_help_usage_out"],
-    )
     # issue #1185: ярлык создаётся ТОЛЬКО явным действием — этим флагом или
     # кнопкой в лаунчере. Непрошеный ярлык на рабочем столе воспринимается как
     # навязчивость, поэтому при установке он не появляется никогда.
@@ -306,14 +297,6 @@ def _build_arg_parser(lang: str = DEFAULT_LANG) -> argparse.ArgumentParser:
         type=int,
         default=8000,
         help=t["cli_help_port"],
-    )
-    # issue #1365: журнал прогонов наружу отдаётся только по явной просьбе.
-    # Флаг отдельный, а не часть `--serve`: включать сервер и делиться
-    # накопленным — разные решения, и второе принимает человек.
-    parser.add_argument(
-        "--expose-usage",
-        action="store_true",
-        help=t["cli_help_expose_usage"],
     )
     parser.add_argument(
         "--root",

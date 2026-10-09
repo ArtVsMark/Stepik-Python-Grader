@@ -48,7 +48,6 @@ CONTRACTS: tuple[str, ...] = (
     "docs/dev/result-contract.md",
     "docs/dev/api.md",
     "docs/dev/web-contracts.md",
-    "docs/dev/usage-export.md",
 )
 
 #: Заголовки, под которыми у нас живут правила эволюции. Первый — тот, что
