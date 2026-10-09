@@ -95,12 +95,20 @@ def browser(playwright_instance: Any) -> Iterator[Any]:
     browser.close()
 
 
+#: Каталог трейсов Playwright (issue #1582). Задан — у каждого теста пишется
+#: трейс, а сохраняется только у упавшего: на CI e2e падает «каждый раз другим
+#: тестом», и без трейса причина остаётся догадкой. Не задан (локально) —
+#: трейсинг не включается вовсе и прогон не дорожает.
+TRACE_DIR_ENV = "E2E_TRACE_DIR"
+
 #: Флаг «уведомление об истории уже видели» — тот же ключ, что ставит кнопка
 #: «Понятно» (`maybeShowHistoryNotice` в `app.js`).
 _HISTORY_NOTICE_SEEN = "localStorage.setItem('grader_history_notice_seen', '1');"
 
 
-def _open_page(browser: Any, *, history_notice_seen: bool) -> Iterator[Any]:
+def _open_page(
+    browser: Any, *, history_notice_seen: bool, node: pytest.Item | None = None
+) -> Iterator[Any]:
     """Свежий контекст и страница; непойманная ошибка JS роняет тест (issue #804).
 
     ``history_notice_seen`` (issue #1582): уведомление об истории — карточка с
@@ -111,6 +119,9 @@ def _open_page(browser: Any, *, history_notice_seen: bool) -> Iterator[Any]:
     Флаг ставится до загрузки страницы, на каждой навигации.
     """
     context = browser.new_context()
+    trace_dir = os.environ.get(TRACE_DIR_ENV)
+    if trace_dir:
+        context.tracing.start(screenshots=True, snapshots=True)
     if history_notice_seen:
         context.add_init_script(_HISTORY_NOTICE_SEEN)
     pg = context.new_page()
@@ -120,12 +131,33 @@ def _open_page(browser: Any, *, history_notice_seen: bool) -> Iterator[Any]:
     pg.on("pageerror", lambda exc: errors.append(getattr(exc, "stack", None) or str(exc)))
     pg.page_errors = errors  # доступ из теста: разрешить ожидаемую ошибку
     yield pg
+    if trace_dir:
+        _finish_trace(context, Path(trace_dir), node)
     context.close()
     assert not errors, "непойманные ошибки JS на странице:\n" + "\n".join(errors)
 
 
+def _finish_trace(context: Any, trace_dir: Path, node: pytest.Item | None) -> None:
+    """Сохранить трейс упавшего теста, у прошедшего — выбросить (issue #1582)."""
+    report = getattr(node, "rep_call", None)
+    if node is None or report is None or not report.failed:
+        context.tracing.stop()
+        return
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    name = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in node.nodeid)
+    context.tracing.stop(path=str(trace_dir / f"{name}.zip"))
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> Iterator[None]:
+    """Положить отчёт фазы на элемент: фикстура в teardown узнаёт, упал ли тест."""
+    outcome = yield
+    report = outcome.get_result()  # type: ignore[attr-defined]
+    setattr(item, f"rep_{report.when}", report)
+
+
 @pytest.fixture
-def page(browser: Any) -> Iterator[Any]:
+def page(browser: Any, request: pytest.FixtureRequest) -> Iterator[Any]:
     """A fresh browser context + page per test -- isolated ``localStorage``.
 
     Плюс (issue #804): непойманное исключение в странице роняет тест. Раньше
@@ -136,13 +168,13 @@ def page(browser: Any) -> Iterator[Any]:
     Уведомление об истории здесь уже «видели» (issue #1582) — иначе оно
     перекрывает клики; тесту самого уведомления — :func:`fresh_page`.
     """
-    yield from _open_page(browser, history_notice_seen=True)
+    yield from _open_page(browser, history_notice_seen=True, node=request.node)
 
 
 @pytest.fixture
-def fresh_page(browser: Any) -> Iterator[Any]:
+def fresh_page(browser: Any, request: pytest.FixtureRequest) -> Iterator[Any]:
     """То же, что :func:`page`, но с нетронутым ``localStorage``: первый визит."""
-    yield from _open_page(browser, history_notice_seen=False)
+    yield from _open_page(browser, history_notice_seen=False, node=request.node)
 
 
 @pytest.fixture

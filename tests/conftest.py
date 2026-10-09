@@ -43,7 +43,18 @@ def pytest_configure(config: pytest.Config) -> None:
 # пишут их в корень репозитория и делают это законно. Префиксом — потому что
 # `coverage` в параллельном режиме кладёт `.coverage.<host>.<pid>.<rand>`.
 _RUN_ARTEFACT_NAMES = frozenset(
-    {".pytest_cache", ".hypothesis", ".mypy_cache", ".ruff_cache", "htmlcov", "coverage.xml"}
+    {
+        ".pytest_cache",
+        ".hypothesis",
+        ".mypy_cache",
+        ".ruff_cache",
+        "htmlcov",
+        "coverage.xml",
+        # issue #1582: каталог трейсов Playwright (E2E_TRACE_DIR в шаге e2e) —
+        # артефакт прогона, как отчёт покрытия: его пишет фикстура страницы
+        # в teardown упавшего теста, а не сам тест.
+        "test-traces-e2e",
+    }
 )
 _RUN_ARTEFACT_PREFIXES = (".coverage",)
 

@@ -831,9 +831,13 @@ jobs:
       # Без отчёта красный `e2e` сообщал ровно `Process completed with exit
       # code 1` — на единственной поверхности, где падение не воспроизводится
       # чтением кода.
+      # issue #1582: E2E_TRACE_DIR — трейс Playwright у каждого упавшего
+      # теста (у прошедших выбрасывается, см. tests/e2e/conftest.py). e2e
+      # падает «каждый раз другим тестом», и без трейса причина — догадка.
       - name: Run e2e tests
         env:
           STEPIK_REQUIRE_E2E_TESTS: "1"
+          E2E_TRACE_DIR: test-traces-e2e
         run: pytest tests/e2e/ -v --no-cov --junitxml=test-results-e2e.xml
 
       # `if: always()` — ради красного случая отчёт и нужен: выгрузка «только
@@ -848,6 +852,20 @@ jobs:
           path: test-results-e2e.xml
           if-no-files-found: ignore
           retention-days: 14
+
+      # issue #1582: трейсы упавших — артефактом; открываются
+      # `playwright show-trace <файл>` или на trace.playwright.dev. Только при
+      # падении: у зелёного прогона их нет вовсе.
+      - name: Upload e2e Playwright traces (#1582)
+        if: failure()
+        timeout-minutes: 5
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-traces-e2e
+          path: test-traces-e2e
+          if-no-files-found: ignore
+          retention-days: 7
   # issue #1382: облачная сессия не читает ни логи джоба, ни артефакты прогона —
   # оба живут в скоупе `actions`, на который прокси отвечает 403. То есть
   # junit-отчёт (#1378) отвечает «какой тест упал» только владельцу, у которого
