@@ -9,7 +9,8 @@
     "release": "v1.4.0",
     "digest": "4ed125fe69ce"
   },
-  "generated_at": "2026-10-09T12:12:23+00:00",
+  "python": "3.14",
+  "generated_at": "2026-10-09T15:26:39+00:00",
   "proposals": [
     {
       "slug": "syntax-card:var_annotation",
