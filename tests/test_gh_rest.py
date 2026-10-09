@@ -1568,6 +1568,51 @@ class TestRerunFailedJobs:
         assert "прав" in text, text
         assert "кнопкой" in text, "сообщение обязано называть выход, а не только отказ"
 
+    def test_running_run_is_not_nothing_to_rerun(self, module: ModuleType) -> None:
+        """409 на прогоне, который ещё идёт, — «ждать», а не «нечего» (#1600).
+
+        Замер 08.10, PR #1599: `e2e` упал, соседние джобы ещё шли, и команда
+        напечатала «упавших джобов нет»; через минуты тот же запрос прошёл.
+        """
+        opener = _opener(
+            _http_error(409, message="conflict"), _FakeResponse({"status": "in_progress"})
+        )
+
+        with pytest.raises(module.RunInProgress) as exc:
+            module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False)
+
+        assert "ещё идёт" in str(exc.value)
+        assert opener.captured[1].full_url.endswith("/actions/runs/42")
+
+    def test_conflict_on_finished_run_is_nothing_to_rerun(self, module: ModuleType) -> None:
+        """409 на завершённом прогоне — по-прежнему «нечего»."""
+        opener = _opener(
+            _http_error(409, message="conflict"), _FakeResponse({"status": "completed"})
+        )
+
+        assert module.rerun_failed_jobs("x/y", 42, opener=opener, use_cache=False) is False
+
+    def test_cli_waits_on_running_run(
+        self,
+        module: ModuleType,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """CLI: прогон идёт — код «ждать», без строки в журнале нестабильности."""
+
+        def running(*_a: object, **_k: object) -> bool:
+            raise module.RunInProgress("прогон 42 ещё идёт (in_progress)")
+
+        noted: list[object] = []
+        monkeypatch.setattr(module, "rerun_failed_jobs", running)
+        monkeypatch.setattr(module, "append_flake_note", lambda *a, **_k: noted.append(a))
+
+        code = module.main(["rerun-failed", "42", "--why", "e2e мигнул"])
+
+        assert code == module.EXIT_WAIT
+        assert noted == []
+        assert "ещё идёт" in capsys.readouterr().err
+
     def test_other_errors_still_raise(self, module: ModuleType) -> None:
         """Молчать о настоящем отказе нельзя — иначе «перезапустил» будет ложью."""
         opener = _opener(*[_http_error(500, message="boom")] * 6)
