@@ -39,6 +39,6 @@ jobs:
       # Закреплено по SHA, а не по тегу и тем более не по ветке: тег переставим
       # кто угодно на той стороне, и «закрепиться» перестало бы что-либо значить.
       # Комментарий рядом называет версию, чтобы обновление читалось глазами.
-      - uses: ArtVsMark/Engineering-Incidents-Playbook@4b81f08c5e7f782a27e93736995b470f66a272ca # 1.6.0
+      - uses: ArtVsMark/Engineering-Incidents-Playbook@29657e09d5e6c2bf7d67211e89ebaf1aa2ba6a0e # v1.10.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

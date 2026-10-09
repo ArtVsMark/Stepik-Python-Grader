@@ -252,48 +252,6 @@ def _run_doctor(args: argparse.Namespace) -> ExitCode:
     return ExitCode.FAILURES if code else ExitCode.OK
 
 
-def _run_usage_command(args: argparse.Namespace) -> ExitCode:
-    """`stepik-grader usage` — журнал прогонов записями для соседних инструментов (issue #1365).
-
-    Отдаёт **уже накопленное** в объявленном формате: ни одного нового
-    измерения, ни одной сетевой отправки. Без ``--usage-out`` пишет в
-    стандартный вывод — перенаправить его умеет любая оболочка; файл нужен
-    там, где команду зовут из планировщика.
-
-    Пустой журнал — не ошибка, а сообщение о том, что статистика выключена:
-    она opt-in, и «данных нет» здесь законное состояние, отличимое от «журнал
-    побился» (для второго печатается число пропущенных записей и путь).
-    """
-    from stepik_grader.core import usage_export
-
-    destination = getattr(args, "usage_out", None)
-    if destination is None:
-        result = usage_export.collect_events()
-        rendered = usage_export.render_jsonl(result.events)
-        if rendered:
-            print(rendered, end="")
-    else:
-        try:
-            result = usage_export.write_export(destination)
-        except OSError as exc:
-            # Команду позвали ради файла: молчаливый успех без файла — худший
-            # исход, поэтому здесь ошибка доходит до пользователя целиком.
-            print(_t("usage_write_failed", path=destination, error=exc))
-            return ExitCode.FAILURES
-
-    if not result.events and not result.skipped:
-        print(_t("usage_journal_empty"))
-        return ExitCode.OK
-
-    if destination is None:
-        print(_t("usage_exported", count=len(result.events)), file=sys.stderr)
-    else:
-        print(_t("usage_exported_to_file", count=len(result.events), path=destination))
-    if result.skipped:
-        print(_t("usage_broken_entries", skipped=result.skipped, path=stats.stats_path()))
-    return ExitCode.OK
-
-
 def _run_stats_command(args: argparse.Namespace) -> ExitCode:
     """`stepik-grader stats` — статистика обучения одной командой (issue #1192).
 
@@ -927,9 +885,6 @@ def _run(argv: list[str] | None = None) -> ExitCode:
     if args.command == "stats":
         return _run_stats_command(args)
 
-    if args.command == "usage":
-        return _run_usage_command(args)
-
     if args.doctor:
         return _run_doctor(args)
 
@@ -1065,9 +1020,6 @@ def _run(argv: list[str] | None = None) -> ExitCode:
                 root=args.root,
                 confine=not args.no_root_confinement,
                 sandbox=args.sandbox,
-                # issue #1365: `GET /api/v1/usage` появляется только с этим
-                # флагом; без него отвечает 404, как несуществующий.
-                expose_usage=args.expose_usage,
                 # issue #395: для --serve история включена по умолчанию
                 # (локальная приватная БД наполняет «Подучить»); --no-history
                 # выключает. Отличие от режимов 1-4, где дефолт — opt-in.
