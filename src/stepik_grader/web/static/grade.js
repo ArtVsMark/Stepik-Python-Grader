@@ -719,7 +719,13 @@ async function submitToStepik() {
   const path = $("#path").value.trim();
   const code = getEditorCode();
   if (!path || !code.trim()) return;
-  if (!window.confirm(t("stepik.confirm"))) return;
+  let question = t("stepik.confirm");
+  if (lastCompat && lastCompat.issues && lastCompat.issues.length) {
+    question =
+      t("stepik.compat_confirm", { target: lastCompat.target }) + "\n" +
+      lastCompat.issues.map(compatLine).join("\n") + "\n\n" + question;
+  }
+  if (!window.confirm(question)) return;
 
   btn.disabled = true;
   const prevText = btn.textContent;
@@ -1055,6 +1061,54 @@ function tallyStatuses(rows) {
   return { ok, failed: rows.length - ok - notChecked, notChecked, checked: rows.length - notChecked };
 }
 
+// issue #1621: что в коде не поддерживает версия Python шага Stepik.
+// Предупреждение, а не вердикт: таблица и статусы не меняются. Последний
+// отчёт по единственному решению запоминается — по нему же предупреждает
+// подтверждение отправки на Stepik (код могли поправить после проверки, и тогда
+// предупреждение устарело, — граница названа: сверка идёт на прогоне).
+let lastCompat = null;
+
+// Подписи признаков синтаксиса — явными ключами: собранный ключ гард локалей
+// проверить не может, а пропущенная подпись тогда была бы видна только в браузере.
+const COMPAT_SYNTAX = {
+  fstring: () => t("compat.syntax_fstring"),
+  var_annotation: () => t("compat.syntax_var_annotation"),
+  async_generator: () => t("compat.syntax_async_generator"),
+  walrus: () => t("compat.syntax_walrus"),
+  posonly: () => t("compat.syntax_posonly"),
+  match: () => t("compat.syntax_match"),
+  except_star: () => t("compat.syntax_except_star"),
+  star_index: () => t("compat.syntax_star_index"),
+  type_statement: () => t("compat.syntax_type_statement"),
+  type_params: () => t("compat.syntax_type_params"),
+  tstring: () => t("compat.syntax_tstring"),
+};
+
+function compatLine(issue) {
+  const label = issue.kind === "syntax" && COMPAT_SYNTAX[issue.what];
+  const what = label ? label() : issue.what;
+  return issue.removed
+    ? t("grade.compat_removed", { line: issue.line, what, version: issue.removed })
+    : t("grade.compat_since", { line: issue.line, what, version: issue.since });
+}
+
+function compatBlock(rows) {
+  lastCompat = rows.length === 1 ? rows[0].compat || null : null;
+  const parts = rows
+    .filter(row => row.compat && row.compat.issues && row.compat.issues.length)
+    .map(row => {
+      const c = row.compat;
+      return (
+        '<div class="errcard compat-warn" role="note"><strong>' +
+        esc((rows.length > 1 ? row.file + ": " : "") + t("grade.compat_heading", { target: c.target })) +
+        "</strong>" +
+        (c.known ? "" : "<div>" + esc(t("grade.compat_unknown", { target: c.target })) + "</div>") +
+        "<ul>" + c.issues.map(issue => "<li>" + esc(compatLine(issue)) + "</li>").join("") + "</ul></div>"
+      );
+    });
+  return parts.join("");
+}
+
 function renderTests(rows) {
   const { ok, failed, notChecked, checked } = tallyStatuses(rows);
   $("#bar").textContent = "";
@@ -1065,7 +1119,7 @@ function renderTests(rows) {
     { label: "FAIL", value: failed, variant: failed ? "down" : "neutral" },
   ];
   if (notChecked) kpis.push({ label: t("grade.kpi_not_checked"), value: notChecked, variant: "neutral" });
-  let h = kpiGrid(kpis);
+  let h = compatBlock(rows) + kpiGrid(kpis);
   h += '<div class="data-table-wrap">' +
     '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">' + esc(t("grade.col_passed")) + '</th>' +
     '<th scope="col">' + esc(t("grade.col_status")) + '</th><th scope="col">' + esc(t("grade.col_total_time")) + '</th>' +

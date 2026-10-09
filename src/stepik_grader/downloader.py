@@ -235,6 +235,18 @@ def _warn_if_stale_tests(task_dir: pathlib.Path) -> None:
     )
 
 
+def _step_languages(step: dict[str, Any]) -> list[str]:
+    """Языки шага Stepik (``python3.10``, …) из ``block.options.code_templates`` (#1621).
+
+    Тот же разбор, что у ``stepik_client.fetch_step_languages``, но по уже
+    полученному JSON шага. Не тот вид блока — пусто, а не исключение.
+    """
+    block = step.get("block")
+    options = block.get("options") if isinstance(block, dict) else None
+    templates = options.get("code_templates") if isinstance(options, dict) else None
+    return sorted(templates) if isinstance(templates, dict) else []
+
+
 def save_task_files(
     task_dir: pathlib.Path,
     step: dict[str, Any],
@@ -333,6 +345,10 @@ def save_task_files(
         # Имя функции для function-mode runner в grader.py.
         # None если задача не является функциональной (stdin-режим).
         "function_name": function_name,
+        # issue #1621: языки шага (`python3.10`, `python3.12`, …) — по ним
+        # проверка предупреждает о коде, которого нет в версии Stepik. Берутся
+        # из уже полученного JSON шага, отдельного запроса не нужно.
+        "languages": _step_languages(step),
     }
     atomic_write_json(task_dir / "meta.json", meta)
 

@@ -520,5 +520,20 @@
   "vscode_written": "✅ VS Code задачи созданы: {path}\n   Запуск: Terminal → Run Task → «Stepik: …»,\n   либо Ctrl+Shift+B — «проверить текущий файл».",
   "wa_whitespace_suggestion": "Вывод совпадает после удаления хвостовых пробелов/переводов строк — проверьте форматирование.",
   "watch_dependency_missing": "--watch требует пакет watchfiles: pip install \"stepik-python-grader[watch]\"",
-  "watch_waiting": "👀 Слежу за изменениями: {path} (Ctrl+C — остановить)"
+  "watch_waiting": "👀 Слежу за изменениями: {path} (Ctrl+C — остановить)",
+  "compat_heading": "Совместимость со Stepik — в коде есть то, чего нет в Python {target}:",
+  "compat_unknown": "  версии Python шага не известны — сверено с {target}; скачайте задачу заново, чтобы знать точно",
+  "compat_since": "  стр. {line}: {what} — есть с Python {version}",
+  "compat_removed": "  стр. {line}: {what} — удалено в Python {version}",
+  "compat_syntax_fstring": "f-строка",
+  "compat_syntax_var_annotation": "аннотация переменной (x: int = …)",
+  "compat_syntax_async_generator": "асинхронный генератор",
+  "compat_syntax_walrus": "оператор := (морж)",
+  "compat_syntax_posonly": "позиционные параметры (/)",
+  "compat_syntax_match": "match/case",
+  "compat_syntax_except_star": "except*",
+  "compat_syntax_star_index": "распаковка * в индексе (a[*b])",
+  "compat_syntax_type_statement": "оператор type",
+  "compat_syntax_type_params": "параметры типа (class C[T])",
+  "compat_syntax_tstring": "t-строка"
 }
