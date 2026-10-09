@@ -27,7 +27,7 @@ import threading
 import time
 import uuid
 from collections.abc import Iterator
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from stepik_grader.config import CONFIG
@@ -103,7 +103,6 @@ class Job:
         self.message_fields: dict[str, Any] | None = None
         self.cancel_event = threading.Event()
         self.lock = threading.Lock()
-        self.future: Future[None] | None = None
 
     @property
     def status(self) -> str:
@@ -387,7 +386,7 @@ def submit_job(
     # issue #971: авторизация уходит в свой пул — блокирующий OAuth не должен
     # занимать воркеры, которыми считаются решения.
     pool = _get_auth_executor() if kind == "auth" else _get_executor()
-    job.future = pool.submit(_run_job, job, kind, path, params, code, stdin, workspace)
+    pool.submit(_run_job, job, kind, path, params, code, stdin, workspace)
     return job
 
 

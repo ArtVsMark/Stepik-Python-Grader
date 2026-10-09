@@ -190,11 +190,6 @@ def _prefix(code: str) -> Callable[[str], str]:
     return _apply
 
 
-def _suffix(code: str) -> Callable[[str], str]:
-    """Вернуть трансформацию «дописать ``code`` после исходника решения»."""
-    return lambda source: f"{source}\n{code}\n"
-
-
 def _always(expected_lines: Sequence[str]) -> bool:
     """Предикат применимости: мутация годится для любой задачи."""
     return True
@@ -577,7 +572,7 @@ MUTATIONS: tuple[Mutation, ...] = (
         title="лишняя пустая строка в конце",
         expected="AC",
         checks="режим stepik не различает хвостовые пустые строки (в т.ч. «нет вывода» vs пустая)",
-        # Через stdout-фильтр, а не `_suffix("print()")`: у задач с функцией
+        # Через stdout-фильтр, а не `print()` в конце файла: у задач с функцией
         # дописанный в конец файла `print()` исполняется при ИМПОРТЕ решения
         # wrapper'ом, то есть кладёт пустую строку в НАЧАЛО вывода. Мутация
         # тогда проверяла ведущую строку вместо хвостовой и давала WA на всех
