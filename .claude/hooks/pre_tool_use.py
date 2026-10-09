@@ -28,7 +28,7 @@ import shlex
 import subprocess
 import sys
 
-__all__ = ["escaped_heredoc", "foreign_branch_push", "main"]
+__all__ = ["escaped_heredoc", "foreign_branch_push", "main", "push_target"]
 
 #: Любой heredoc — и с кавычками, и без. Кавычки в делимитере разбираются
 #: отдельно: с ними оболочка тело не трогает, и правило 013 к нему не относится,
@@ -65,8 +65,8 @@ def escaped_heredoc(command: str) -> str | None:
     return None
 
 
-def _current_branch() -> str | None:
-    """Имя текущей ветки; None — если спросить не удалось."""
+def _current_branch(cwd: str | None = None) -> str | None:
+    """Имя текущей ветки в каталоге ``cwd``; None — если спросить не удалось."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -75,35 +75,84 @@ def _current_branch() -> str | None:
             encoding="utf-8",
             errors="replace",
             timeout=10,
+            cwd=cwd,
         )
     except (OSError, subprocess.SubprocessError):
         return None
     return result.stdout.strip() or None if result.returncode == 0 else None
 
 
+#: Символы операторов оболочки: на них кончается аргументный хвост ``git push``.
+_SHELL_PUNCTUATION = frozenset(";&|<>()")
+
+
+def _tokens(command: str) -> list[str] | None:
+    """Слова команды с операторами оболочки отдельными словами; None — не разобрать.
+
+    ``punctuation_chars`` отделяет ``&&``, ``|``, ``;`` и перенаправления от
+    соседних слов: без этого ``2>&1`` и ``&&`` попадали в хвост пуша и
+    читались как имя ветки (issue #1587, разбор хука).
+    """
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        return list(lexer)
+    except ValueError:
+        return None
+
+
+def _is_operator(token: str) -> bool:
+    return bool(token) and set(token) <= _SHELL_PUNCTUATION
+
+
+def push_target(command: str) -> tuple[str, str | None] | None:
+    """Ветка, которой адресован пуш, и каталог, где он выполнится.
+
+    ``None`` — пуша нет либо он адресован текущей ветке (``git push``,
+    ``git push origin``). Каталог берётся из ``git -C <dir>`` либо из
+    последнего ``cd <dir>`` перед пушем; не назван — ``None`` (каталог окна).
+    """
+    parts = _tokens(command)
+    if parts is None:
+        return None
+    for index, token in enumerate(parts):
+        if token != "push" or not index:
+            continue
+        git_at = index - 1
+        directory: str | None = None
+        if index >= 3 and parts[index - 2] == "-C" and parts[index - 3].endswith("git"):
+            git_at, directory = index - 3, parts[index - 1]
+        if not parts[git_at].endswith("git"):
+            continue
+        if directory is None:
+            for position in range(git_at - 1, 0, -1):
+                if parts[position - 1] == "cd" and not _is_operator(parts[position]):
+                    directory = parts[position]
+                    break
+        tail: list[str] = []
+        for word in parts[index + 1 :]:
+            if _is_operator(word):
+                # `2>&1`: номер потока стоит перед оператором отдельным словом.
+                if tail and tail[-1].isdigit() and word[0] in "<>":
+                    tail.pop()
+                break
+            if not word.startswith("-"):
+                tail.append(word)
+        if len(tail) < 2:
+            return None
+        return tail[1].split(":")[-1].removeprefix("refs/heads/"), directory
+    return None
+
+
 def foreign_branch_push(command: str, current: str | None = None) -> str | None:
     """Причина отказа, если пуш адресован чужой ветке (правило 012)."""
-    if "git push" not in command:
+    if "git" not in command or "push" not in command:
         return None
-    try:
-        parts = shlex.split(command)
-    except ValueError:
-        return None  # неразбираемая команда — пропускаем: ложный отказ дороже
-
-    try:
-        index = next(
-            position
-            for position, token in enumerate(parts)
-            if token == "push" and position and parts[position - 1].endswith("git")
-        )
-    except StopIteration:
+    found = push_target(command)
+    if found is None:
         return None
-
-    tail = [token for token in parts[index + 1 :] if not token.startswith("-")]
-    if len(tail) < 2:
-        return None  # `git push` или `git push origin` — адресована текущей ветке
-    target = tail[1].split(":")[-1].removeprefix("refs/heads/")
-    branch = current if current is not None else _current_branch()
+    target, directory = found
+    branch = current if current is not None else _current_branch(directory)
     if branch is None or target == branch:
         return None
     return (
