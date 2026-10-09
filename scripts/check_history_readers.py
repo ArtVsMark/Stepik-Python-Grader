@@ -74,7 +74,6 @@ TABLE_READERS: dict[str, tuple[str, ...]] = {
 #: Таблица → номер задачи, которая подключит читателя. Объявленный задел —
 #: не находка; задел, у которого читатель уже есть, — находка.
 RESERVED: dict[str, int] = {
-    "stepik_submissions": 1607,
     "glossary_hits": 1608,
 }
 

@@ -848,6 +848,38 @@ function renderProgress() {
         .join("") +
       "</tbody></table>"
     : "";
+
+  $("#progress-submissions").innerHTML = submissionsBlock(rep.submissions);
+}
+
+// issue #1607: сверка «наш вердикт ↔ вердикт Stepik». Расхождение — кандидат в
+// дефект самого грейдера, поэтому показывается рядом с KPI, а не в диагностике.
+// Без отправок блока нет вовсе: пустая таблица ничего не говорит.
+function submissionsBlock(sub) {
+  if (!sub || !sub.total) return "";
+  const head =
+    '<h2 class="section-heading">' + esc(t("progress.submissions_heading")) + "</h2>" +
+    "<p>" + esc(t("progress.submissions_summary", {
+      total: sub.total, compared: sub.compared, diverged: sub.diverged,
+    })) + "</p>";
+  const rows = sub.recent_diverged || [];
+  if (!rows.length) return head + "<p>" + esc(t("progress.submissions_agree")) + "</p>";
+  return (
+    head + '<table class="data-table"><thead><tr>' +
+    "<th>" + esc(t("progress.col_task")) + "</th><th>" + esc(t("progress.col_platform")) +
+    "</th><th>" + esc(t("progress.col_ours")) + "</th><th>" + esc(t("progress.col_when")) +
+    "</th></tr></thead><tbody>" +
+    rows
+      .map(
+        r =>
+          "<tr>" + taskCell({ task_key: r.task_key || "step:" + r.step_id }) +
+          "<td" + (r.hint ? ' title="' + esc(r.hint) + '"' : "") + ">" + esc(r.verdict) +
+          "</td><td>" + esc(r.our_verdict || "—") + "</td><td>" + esc(r.ts_utc || "") +
+          "</td></tr>",
+      )
+      .join("") +
+    "</tbody></table>"
+  );
 }
 
 // -- Загрузчик задач: скачивание со Stepik (issue #186) -----------------------
