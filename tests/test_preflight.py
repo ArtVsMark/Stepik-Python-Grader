@@ -353,9 +353,13 @@ class TestRunLockAndStamp:
     def test_fresh_lock_blocks_second_run(
         self, preflight: ModuleType, tmp_path: pathlib.Path
     ) -> None:
-        """Свежая блокировка = прогон идёт: второй pytest роняет тесты с subprocess."""
+        """Свежая блокировка живого процесса = прогон идёт.
+
+        Владелец — этот самый процесс, а не `pid 1`: на Windows процесса с таким
+        номером нет, и с проверкой живости (#1523) блокировка честно свободна.
+        """
         lock = tmp_path / "preflight.lock"
-        lock.write_text(json.dumps({"pid": 1, "at": time.time()}), encoding="utf-8")
+        lock.write_text(json.dumps({"pid": os.getpid(), "at": time.time()}), encoding="utf-8")
 
         assert preflight.lock_is_active(lock)
 
@@ -369,6 +373,57 @@ class TestRunLockAndStamp:
     def test_missing_lock_is_free(self, preflight: ModuleType, tmp_path: pathlib.Path) -> None:
         """Нет файла — нет блокировки."""
         assert not preflight.lock_is_active(tmp_path / "nothing.lock")
+
+    def test_lock_of_a_dead_process_is_free(
+        self, preflight: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Живой случай 09.09: контейнер перезапущен, процесс мёртв, файл остался (#1523).
+
+        Свежая по возрасту блокировка мёртвого процесса гейт не держит: иначе
+        ложное срабатывание учит перехватывать и настоящие.
+        """
+        lock = tmp_path / "preflight.lock"
+        lock.write_text(json.dumps({"pid": 9591, "at": time.time()}), encoding="utf-8")
+
+        assert not preflight.lock_is_active(lock, alive=lambda _pid: False)
+
+    def test_lock_of_a_live_process_blocks(
+        self, preflight: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Живой владелец и свежий возраст — прогон действительно идёт."""
+        lock = tmp_path / "preflight.lock"
+        lock.write_text(json.dumps({"pid": 9591, "at": time.time()}), encoding="utf-8")
+
+        assert preflight.lock_is_active(lock, alive=lambda _pid: True)
+
+    def test_ttl_still_bounds_a_reused_pid(
+        self, preflight: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """`pid` достался другому процессу — возраст остаётся защитой от вечной блокировки."""
+        lock = tmp_path / "preflight.lock"
+        lock.write_text(
+            json.dumps({"pid": 9591, "at": time.time() - 10 * 60 * 60}), encoding="utf-8"
+        )
+
+        assert not preflight.lock_is_active(lock, alive=lambda _pid: True)
+
+    def test_unknown_liveness_falls_back_to_age(
+        self, preflight: ModuleType, tmp_path: pathlib.Path
+    ) -> None:
+        """Живость не узнать (или `pid` нет) — решает возраст, как раньше."""
+        lock = tmp_path / "preflight.lock"
+        lock.write_text(json.dumps({"at": time.time()}), encoding="utf-8")
+
+        assert preflight.lock_is_active(lock, alive=lambda _pid: None)
+
+    def test_own_process_is_alive_and_a_vanished_one_is_not(self, preflight: ModuleType) -> None:
+        """Настоящая проверка живости: свой процесс жив, завершённый — нет."""
+        child = subprocess.Popen([sys.executable, "-c", "pass"])
+        child.wait()
+
+        assert preflight.pid_alive(os.getpid()) is True
+        assert preflight.pid_alive(child.pid) is False
+        assert preflight.pid_alive(0) is None
 
     def test_stamp_covers_worktree_content(self, preflight: ModuleType, repo: pathlib.Path) -> None:
         """Штамп действителен, пока содержимое рабочего дерева не менялось."""
