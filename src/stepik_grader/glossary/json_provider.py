@@ -207,10 +207,6 @@ class JsonGlossaryProvider:
             card = self._by_id.get(self._moved[card_id])
         return card
 
-    def resolve_id(self, card_id: str) -> str:
-        """Действующий id карточки: перенаправленный для слитой, иначе тот же."""
-        return self._moved.get(card_id, card_id)
-
     @property
     def moved(self) -> dict[str, str]:
         """Перенаправления «старый id → новый» (копия)."""
