@@ -1,7 +1,7 @@
 {
-  "schema": "1.2",
+  "schema": "1.9",
   "schema_of": "формат ЭТОГО файла — ответа потребителя каталогу (templates/bindings.json). Не путать с номерами рядом: они версионируют РАЗНЫЕ форматы и двигаются порознь (правило 164). Живые значения читаются из блока `contracts` самой выгрузки, а не переписываются сюда прозой: копия номера расходится молча — именно так здесь три подъёма выгрузки простояли незамеченными.",
-  "answers_to": "1.5",
+  "answers_to": "1.7",
   "_answers_to": "версия ВЫГРУЗКИ каталога (export/rules.json → contracts.export), по которой построены ответы ниже. Подъём ЭТОГО номера и есть повод перечитать ответы (правило 157) — подъём номера самого ответа касается только формы.",
   "project": "ArtVsMark/Stepik-Python-Grader",
   "catalogue": "https://github.com/ArtVsMark/Engineering-Incidents-Playbook",
@@ -9,27 +9,32 @@
     "001": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".claude/settings.json запрещает GitHub-сервер MCP целиком, форму запрета стережёт scripts/check_mcp_permissions.py (шаг CI и pre-commit); весь транспорт идёт подкомандами scripts/gh_rest.py по REST"
+      "where": ".claude/settings.json запрещает GitHub-сервер MCP целиком, форму запрета стережёт scripts/check_mcp_permissions.py (шаг CI и pre-commit); весь транспорт идёт подкомандами scripts/gh_rest.py по REST",
+      "origin_kind": "own"
     },
     "002": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_rule_bindings.py — формат ответа на каждый PR, полнота против каталога и метрика «не обеспечено ничем» ночным прогоном; сам этот файл и есть ответ"
+      "where": "scripts/check_rule_bindings.py — формат ответа на каждый PR, полнота против каталога и метрика «не обеспечено ничем» ночным прогоном; сам этот файл и есть ответ",
+      "origin_kind": "own"
     },
     "003": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "CLAUDE.md § Рабочая ветка: префикс agent/ — переключатель, а не стиль (его подхватывает .github/workflows/agent-pr.yml и открывает PR от имени владельца); проверяется при создании ветки, гейта на имя нет"
+      "where": "CLAUDE.md § Рабочая ветка: префикс agent/ — переключатель, а не стиль (его подхватывает .github/workflows/agent-pr.yml и открывает PR от имени владельца); проверяется при создании ветки, гейта на имя нет",
+      "origin_kind": "own"
     },
     "004": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/move_merge_queue.py помечает конфликтный PR меткой needs-rebase и идёт дальше, оставляя прогон зелёным; закреплено tests/test_move_merge_queue.py"
+      "where": "scripts/move_merge_queue.py помечает конфликтный PR меткой needs-rebase и идёт дальше, оставляя прогон зелёным; закреплено tests/test_move_merge_queue.py",
+      "origin_kind": "own"
     },
     "005": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_docs_guardrails.py — числа тестов, покрытия и глоссария живут бейджами, а не текстом; CLAUDE.md § Метрики: «числом здесь не фиксируется»"
+      "where": "scripts/check_docs_guardrails.py — числа тестов, покрытия и глоссария живут бейджами, а не текстом; CLAUDE.md § Метрики: «числом здесь не фиксируется»",
+      "origin_kind": "own"
     },
     "006": {
       "status": "active",
@@ -44,25 +49,28 @@
     "008": {
       "status": "not-applicable",
       "why": "предмета нет по факту, а не по следу: <details> не встречается ни в одном действующем документе (единственное вхождение — docs/archive/changelog-archive.md, который читают глазами)",
-      "absent": {
-        "substring": "<details>",
+      "refuted_by": {
         "globs": [
-          "*.md",
-          "docs/**/*.md",
+          "README.md",
+          "README.en.md",
+          "CONTRIBUTING.md",
+          "SECURITY.md",
+          "CLAUDE.md",
+          "docs/use/**/*.md",
+          "docs/dev/**/*.md",
+          "docs/agent/**/*.md",
           ".github/**/*.md"
         ],
-        "except": [
-          "docs/archive/",
-          "CHANGELOG.md",
-          "HISTORY.md",
-          "changelog.d/"
+        "contains": [
+          "<details>"
         ]
       }
     },
     "009": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/version.py считает PATCH по номерам PR и уникализирует их множеством (issue #1042), сверяет scripts/check_version_consistency.py"
+      "where": "scripts/version.py считает PATCH по номерам PR и уникализирует их множеством (issue #1042), сверяет scripts/check_version_consistency.py",
+      "origin_kind": "own"
     },
     "010": {
       "status": "active",
@@ -77,12 +85,14 @@
     "012": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".claude/hooks/pre_tool_use.py — пуш в ветку, отличную от текущей, отвергается до вызова git; CI такое поймать не может, он видит артефакт, а не действие"
+      "where": ".claude/hooks/pre_tool_use.py — пуш в ветку, отличную от текущей, отвергается до вызова git; CI такое поймать не может, он видит артефакт, а не действие",
+      "origin_kind": "own"
     },
     "013": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".claude/hooks/pre_tool_use.py — heredoc без кавычек в делимитере с экранированием в теле отвергается до записи файла"
+      "where": ".claude/hooks/pre_tool_use.py — heredoc без кавычек в делимитере с экранированием в теле отвергается до записи файла",
+      "origin_kind": "own"
     },
     "014": {
       "status": "active",
@@ -97,12 +107,14 @@
     "016": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_truncation_marks.py — функция, режущая по пределу-константе, обязана оставить признак обрыва (флаг, многоточие, полную длину рядом); предел, заданный параметром, объявлен в контракте и молчанием не является"
+      "where": "scripts/check_truncation_marks.py — функция, режущая по пределу-константе, обязана оставить признак обрыва (флаг, многоточие, полную длину рядом); предел, заданный параметром, объявлен в контракте и молчанием не является",
+      "origin_kind": "own"
     },
     "017": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/gh_rest.py — остаток квоты читается из заголовков каждого ответа (бесплатно) и печатается подкомандой rate, которая сама квоту не тратит; разбор начинается с факта, а не с гипотезы"
+      "where": "scripts/gh_rest.py — остаток квоты читается из заголовков каждого ответа (бесплатно) и печатается подкомандой rate, которая сама квоту не тратит; разбор начинается с факта, а не с гипотезы",
+      "origin_kind": "own"
     },
     "018": {
       "status": "active",
@@ -122,7 +134,8 @@
     "021": {
       "status": "active",
       "mechanism": "gate",
-      "where": "docs/ разложена по направлениям use/dev/agent/archive, полноту индексов и разбиение проверяет scripts/check_docs_guardrails.py; две документные роли разделены по аудитории — docs/agent/roles.md"
+      "where": "docs/ разложена по направлениям use/dev/agent/archive, полноту индексов и разбиение проверяет scripts/check_docs_guardrails.py; две документные роли разделены по аудитории — docs/agent/roles.md",
+      "origin_kind": "own"
     },
     "022": {
       "status": "active",
@@ -132,7 +145,8 @@
     "023": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_docs_guardrails.py — README держится в бюджете строк, остальное по ссылке"
+      "where": "scripts/check_docs_guardrails.py — README держится в бюджете строк, остальное по ссылке",
+      "origin_kind": "own"
     },
     "024": {
       "status": "active",
@@ -142,22 +156,26 @@
     "025": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_docs_guardrails.py — issue-tail policy: номер задачи допустим в журнале и запрещён в объясняющих документах"
+      "where": "scripts/check_docs_guardrails.py — issue-tail policy: номер задачи допустим в журнале и запрещён в объясняющих документах",
+      "origin_kind": "own"
     },
     "026": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "CLAUDE.md § Открытая работа: отклонённая находка фиксируется с причиной — молча удалённая вернётся следующим аудитом; реестр сверяет scripts/check_audit_registry.py"
+      "where": "CLAUDE.md § Открытая работа: отклонённая находка фиксируется с причиной — молча удалённая вернётся следующим аудитом; реестр сверяет scripts/check_audit_registry.py",
+      "origin_kind": "own"
     },
     "027": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/nightly_checks.py — чистый обход пишет в задачу «Находок нет» с датой и числом проверок, а не оставляет пустое тело; docs/audit/README.md и docs/agent/claude-handoff.md объявляют пустоту словами"
+      "where": "scripts/nightly_checks.py — чистый обход пишет в задачу «Находок нет» с датой и числом проверок, а не оставляет пустое тело; docs/audit/README.md и docs/agent/claude-handoff.md объявляют пустоту словами",
+      "origin_kind": "own"
     },
     "028": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_issue_checklists.py — комплексный issue от трёх находок ведёт чек-лист с исходом каждой"
+      "where": "scripts/check_issue_checklists.py — комплексный issue от трёх находок ведёт чек-лист с исходом каждой",
+      "origin_kind": "own"
     },
     "029": {
       "status": "active",
@@ -167,7 +185,8 @@
     "030": {
       "status": "active",
       "mechanism": "gate",
-      "where": "changelog.d/ — запись приезжает файлом вместе с изменением, сборка при релизе (scripts/collect_changelog.py); наличие записи требует scripts/preflight.py"
+      "where": "changelog.d/ — запись приезжает файлом вместе с изменением, сборка при релизе (scripts/collect_changelog.py); наличие записи требует scripts/preflight.py",
+      "origin_kind": "own"
     },
     "031": {
       "status": "active",
@@ -192,7 +211,8 @@
     "035": {
       "status": "active",
       "mechanism": "gate",
-      "where": "версия динамическая из git-тегов (setuptools-scm), дрейф ловит scripts/check_version_consistency.py"
+      "where": "версия динамическая из git-тегов (setuptools-scm), дрейф ловит scripts/check_version_consistency.py",
+      "origin_kind": "own"
     },
     "036": {
       "status": "active",
@@ -212,12 +232,14 @@
     "039": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_three_outcomes.py — скрипт, ходящий в GitHub, обязан отличать отказ источника от результата (RateLimited → EXIT_WAIT, GitHubError → код 2); объявленный долг перечислен в KNOWN_DEBT с причиной"
+      "where": "scripts/check_three_outcomes.py — скрипт, ходящий в GitHub, обязан отличать отказ источника от результата (RateLimited → EXIT_WAIT, GitHubError → код 2); объявленный долг перечислен в KNOWN_DEBT с причиной",
+      "origin_kind": "own"
     },
     "040": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".github/workflows/ci.yml (job docs-guardrails) и .pre-commit-config.yaml зовут scripts/skip_inventory.py --summary: пропуск без названной причины даёт ненулевой выход. Скрипт был написан гейтом и полтора месяца не запускался ничем (#1400)"
+      "where": ".github/workflows/ci.yml (job docs-guardrails) и .pre-commit-config.yaml зовут scripts/skip_inventory.py --summary: пропуск без названной причины даёт ненулевой выход. Скрипт был написан гейтом и полтора месяца не запускался ничем (#1400)",
+      "origin_kind": "own"
     },
     "041": {
       "status": "active",
@@ -227,12 +249,14 @@
     "042": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_adr_records.py"
+      "where": "scripts/check_adr_records.py",
+      "origin_kind": "own"
     },
     "043": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_adr_records.py"
+      "where": "scripts/check_adr_records.py",
+      "origin_kind": "own"
     },
     "044": {
       "status": "active",
@@ -242,7 +266,8 @@
     "045": {
       "status": "active",
       "mechanism": "gate",
-      "where": "недоступный backend песочницы — parser.error, а не молчаливый откат на LocalRunner (CLAUDE.md § Архитектурные инварианты, п. 4); проверяют tests/test_sandbox_runner.py"
+      "where": "недоступный backend песочницы — parser.error, а не молчаливый откат на LocalRunner (CLAUDE.md § Архитектурные инварианты, п. 4); проверяют tests/test_sandbox_runner.py",
+      "origin_kind": "own"
     },
     "046": {
       "status": "active",
@@ -261,27 +286,32 @@
     "049": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/gh_rest.py queue вычисляет очередь из состояния API и печатает обоснование; реестра нет намеренно — хранимое состояние разъезжается между окнами"
+      "where": "scripts/gh_rest.py queue вычисляет очередь из состояния API и печатает обоснование; реестра нет намеренно — хранимое состояние разъезжается между окнами",
+      "origin_kind": "own"
     },
     "050": {
       "status": "active",
       "mechanism": "gate",
-      "where": "храповики BUDGET в scripts/check_declared_outcomes.py и UNHELD_BUDGET в scripts/check_rule_bindings.py: число опускается починкой, тест сверяет его с реальностью"
+      "where": "храповики BUDGET в scripts/check_declared_outcomes.py и UNHELD_BUDGET в scripts/check_rule_bindings.py: число опускается починкой, тест сверяет его с реальностью",
+      "origin_kind": "own"
     },
     "051": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/preflight.py — неблокирующий шаг «кто ещё трогает те же файлы» зовёт scripts/check_work_overlap.py: пересечение считается по git diff --name-only и показывается само. Блокировать нельзя — пересечение штатно, а не нарушение (docs/agent/preflight.md)"
+      "where": "scripts/preflight.py — неблокирующий шаг «кто ещё трогает те же файлы» зовёт scripts/check_work_overlap.py: пересечение считается по git diff --name-only и показывается само. Блокировать нельзя — пересечение штатно, а не нарушение (docs/agent/preflight.md)",
+      "origin_kind": "own"
     },
     "052": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/move_merge_queue.py обновляет только голову очереди — из main остальные не двигаются (CLAUDE.md § Гейты: N против N(N−1)/2)"
+      "where": "scripts/move_merge_queue.py обновляет только голову очереди — из main остальные не двигаются (CLAUDE.md § Гейты: N против N(N−1)/2)",
+      "origin_kind": "own"
     },
     "053": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/gh_rest.py queue вычисляет очередь из состояния API и печатает обоснование (приоритет метки, общий файл, готовность), а не берёт из хранимого реестра"
+      "where": "scripts/gh_rest.py queue вычисляет очередь из состояния API и печатает обоснование (приоритет метки, общий файл, готовность), а не берёт из хранимого реестра",
+      "origin_kind": "own"
     },
     "054": {
       "status": "active",
@@ -301,12 +331,14 @@
     "057": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".rules/bindings.json — правило без механизма записано со статусом active и mechanism none, а не выброшено и не объявлено очевидным; поле where объясняет, почему гейта нет, а scripts/check_rule_bindings.py считает такие правила метрикой, которая обязана уменьшаться"
+      "where": ".rules/bindings.json — правило без механизма записано со статусом active и mechanism none, а не выброшено и не объявлено очевидным; поле where объясняет, почему гейта нет, а scripts/check_rule_bindings.py считает такие правила метрикой, которая обязана уменьшаться",
+      "origin_kind": "own"
     },
     "058": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/gh_rest.py — стоп-кран по остатку: ниже DEFAULT_QUOTA_FLOOR (600, порог меняется GH_REST_QUOTA_FLOOR) операция не начинается, код возврата EXIT_WAIT «ждать», а не повтор; исчерпанный лимит поднимает RateLimited со временем сброса"
+      "where": "scripts/gh_rest.py — стоп-кран по остатку: ниже DEFAULT_QUOTA_FLOOR (600, порог меняется GH_REST_QUOTA_FLOOR) операция не начинается, код возврата EXIT_WAIT «ждать», а не повтор; исчерпанный лимит поднимает RateLimited со временем сброса",
+      "origin_kind": "own"
     },
     "059": {
       "status": "active",
@@ -331,7 +363,8 @@
     "063": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/rerun_flaky_checks.py"
+      "where": "scripts/rerun_flaky_checks.py",
+      "origin_kind": "own"
     },
     "064": {
       "status": "active",
@@ -341,32 +374,38 @@
     "065": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_good_first_issues_bilingual.py — good first issue и help wanted ведутся на двух языках, и меток именно две: путь участника не кончается первым вкладом"
+      "where": "scripts/check_good_first_issues_bilingual.py — good first issue и help wanted ведутся на двух языках, и меток именно две: путь участника не кончается первым вкладом",
+      "origin_kind": "own"
     },
     "066": {
       "status": "active",
       "mechanism": "gate",
-      "where": "tests/test_atomic_io.py — блокировка берётся на спутника, а не на файл, заменяемый целиком; предмет — src/stepik_grader/atomic_io.py"
+      "where": "tests/test_atomic_io.py — блокировка берётся на спутника, а не на файл, заменяемый целиком; предмет — src/stepik_grader/atomic_io.py",
+      "origin_kind": "own"
     },
     "067": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/core/runner.py и src/stepik_grader/web/playground.py убирают приватный каталог в finally, но исход прогона возвращают неизменным; tests/test_runner.py проверяет и уборку, и то, что вердикт не подменён"
+      "where": "src/stepik_grader/core/runner.py и src/stepik_grader/web/playground.py убирают приватный каталог в finally, но исход прогона возвращают неизменным; tests/test_runner.py проверяет и уборку, и то, что вердикт не подменён",
+      "origin_kind": "own"
     },
     "068": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "закрытые списки разрешённого: _FIELDS в src/stepik_grader/core/usage_export.py (что покидает журнал) и AUTO_RERUN в scripts/rerun_flaky_checks.py (что вообще можно перезапускать); оба закреплены тестами"
+      "where": "закрытые списки разрешённого: _FIELDS в src/stepik_grader/core/usage_export.py (что покидает журнал) и AUTO_RERUN в scripts/rerun_flaky_checks.py (что вообще можно перезапускать); оба закреплены тестами",
+      "origin_kind": "own"
     },
     "069": {
       "status": "active",
       "mechanism": "gate",
-      "where": "tests/test_user_settings.py — пишется поле, а не снимок; предмет — src/stepik_grader/core/user_settings.py"
+      "where": "tests/test_user_settings.py — пишется поле, а не снимок; предмет — src/stepik_grader/core/user_settings.py",
+      "origin_kind": "own"
     },
     "070": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_declared_outcomes.py — храповик с числом (BUDGET непрогнанных исходов), опускается починкой, а не правкой числа; tests/test_check_declared_outcomes.py не даёт бюджету молча вырасти. Прежний носитель — храповик примеров карточек — уехал в Glossary-Python вместе с содержанием (#1573)"
+      "where": "scripts/check_declared_outcomes.py — храповик с числом (BUDGET непрогнанных исходов), опускается починкой, а не правкой числа; tests/test_check_declared_outcomes.py не даёт бюджету молча вырасти. Прежний носитель — храповик примеров карточек — уехал в Glossary-Python вместе с содержанием (#1573)",
+      "origin_kind": "own"
     },
     "071": {
       "status": "active",
@@ -376,37 +415,44 @@
     "072": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_test_isolation.py"
+      "where": "scripts/check_test_isolation.py",
+      "origin_kind": "own"
     },
     "073": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_ruff_pin.py"
+      "where": "scripts/check_ruff_pin.py",
+      "origin_kind": "own"
     },
     "074": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_workflow_guardrails.py"
+      "where": "scripts/check_workflow_guardrails.py",
+      "origin_kind": "own"
     },
     "075": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_workflow_guardrails.py"
+      "where": "scripts/check_workflow_guardrails.py",
+      "origin_kind": "own"
     },
     "076": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_locale_guardrails.py"
+      "where": "scripts/check_locale_guardrails.py",
+      "origin_kind": "own"
     },
     "077": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_locale_guardrails.py"
+      "where": "scripts/check_locale_guardrails.py",
+      "origin_kind": "own"
     },
     "078": {
       "status": "active",
       "mechanism": "gate",
-      "where": "отмена — отдельный статус во всех слоях: CANCELLED в src/stepik_grader/web/playground.py и src/stepik_grader/web/runs.py, cancelled в реестре job'ов; закреплено tests/test_web_playground.py и tests/test_runs.py"
+      "where": "отмена — отдельный статус во всех слоях: CANCELLED в src/stepik_grader/web/playground.py и src/stepik_grader/web/runs.py, cancelled в реестре job'ов; закреплено tests/test_web_playground.py и tests/test_runs.py",
+      "origin_kind": "own"
     },
     "079": {
       "status": "not-applicable",
@@ -415,12 +461,14 @@
     "080": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_proposal_verdicts.py сверяет .rules/proposals.json с вердиктами каталога ночным обходом (.github/workflows/tracker-guardrails.yml): принятое предложение перестаёт быть предложением и требует ответа по номеру. Что правило вообще предложено — не проверяется ничем, это строка чек-листа CLAUDE.md § Новое правило — в общий каталог"
+      "where": "scripts/check_proposal_verdicts.py сверяет .rules/proposals.json с вердиктами каталога ночным обходом (.github/workflows/tracker-guardrails.yml): принятое предложение перестаёт быть предложением и требует ответа по номеру. Что правило вообще предложено — не проверяется ничем, это строка чек-листа CLAUDE.md § Новое правило — в общий каталог",
+      "origin_kind": "own"
     },
     "081": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/core/runner.py и src/stepik_grader/web/playground.py материализуют чужой код в приватном каталоге 0700 (issue #799), а не в общем temp; tests/test_runner.py проверяет это прогоном — решение печатает свой sys.path[0]"
+      "where": "src/stepik_grader/core/runner.py и src/stepik_grader/web/playground.py материализуют чужой код в приватном каталоге 0700 (issue #799), а не в общем temp; tests/test_runner.py проверяет это прогоном — решение печатает свой sys.path[0]",
+      "origin_kind": "own"
     },
     "082": {
       "status": "active",
@@ -440,7 +488,8 @@
     "085": {
       "status": "active",
       "mechanism": "gate",
-      "where": "tests/test_ai_grounding.py — вывод проверяемого решения уходит в промпт как недоверенный вход"
+      "where": "tests/test_ai_grounding.py — вывод проверяемого решения уходит в промпт как недоверенный вход",
+      "origin_kind": "own"
     },
     "086": {
       "status": "active",
@@ -460,12 +509,14 @@
     "089": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_showcase_links.py — данные карточек, локали и разметка веб-слоя не содержат ссылки на внешнюю витрину; объяснения в комментариях и docstring разрешены"
+      "where": "scripts/check_showcase_links.py — данные карточек, локали и разметка веб-слоя не содержат ссылки на внешнюю витрину; объяснения в комментариях и docstring разрешены",
+      "origin_kind": "own"
     },
     "090": {
       "status": "active",
       "mechanism": "gate",
-      "where": "ADR-0011: atomic_io.py и db.py подняты в top-level leaf вместо ребра glossary → core; отсутствие такого ребра держит tests/test_import_dag.py"
+      "where": "ADR-0011: atomic_io.py и db.py подняты в top-level leaf вместо ребра glossary → core; отсутствие такого ребра держит tests/test_import_dag.py",
+      "origin_kind": "own"
     },
     "091": {
       "status": "active",
@@ -500,7 +551,8 @@
     "097": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_gate_tests.py — у каждого гейта в тестах есть обе стороны: отвергающий случай (ложное «прошло») и пропускающий (ложное «не прошло»); набор из одних отказов зеленеет у гейта, который краснеет на всём подряд"
+      "where": "scripts/check_gate_tests.py — у каждого гейта в тестах есть обе стороны: отвергающий случай (ложное «прошло») и пропускающий (ложное «не прошло»); набор из одних отказов зеленеет у гейта, который краснеет на всём подряд",
+      "origin_kind": "own"
     },
     "098": {
       "status": "active",
@@ -515,32 +567,38 @@
     "100": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_step_deadlines.py — у шага, который ходит в сеть (установка, скачивание артефакта, клон), свой timeout-minutes: общий предел job'а старт не покрывает, и зависшая установка съедала бы его целиком"
+      "where": "scripts/check_step_deadlines.py — у шага, который ходит в сеть (установка, скачивание артефакта, клон), свой timeout-minutes: общий предел job'а старт не покрывает, и зависшая установка съедала бы его целиком",
+      "origin_kind": "own"
     },
     "101": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/gh_rest.py — временный отказ отличается от постоянного по ответу сервера: 403/429 с исчерпанным остатком или Retry-After поднимают RateLimited («ждать»), а 401/403 без них — GitHubError («повтор не поможет»); названная сервером пауза важнее расчётной"
+      "where": "scripts/gh_rest.py — временный отказ отличается от постоянного по ответу сервера: 403/429 с исчерпанным остатком или Retry-After поднимают RateLimited («ждать»), а 401/403 без них — GitHubError («повтор не поможет»); названная сервером пауза важнее расчётной",
+      "origin_kind": "own"
     },
     "102": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/core/normalizers.py — каждое послабление сравнения названо и объяснено (хвостовые пробелы, пустые строки в конце), а режим strict сверяет побайтово; закреплено tests/test_output_comparison.py"
+      "where": "src/stepik_grader/core/normalizers.py — каждое послабление сравнения названо и объяснено (хвостовые пробелы, пустые строки в конце), а режим strict сверяет побайтово; закреплено tests/test_output_comparison.py",
+      "origin_kind": "own"
     },
     "103": {
       "status": "active",
       "mechanism": "gate",
-      "where": "tests/conftest.py — сторож _no_writes_outside_tmp с исключениями по ПРЕФИКСУ (_RUN_ARTEFACT_PREFIXES, _FOREIGN_TOOL_PREFIXES); закреплено tests/test_write_guard.py вложенной pytest-сессией"
+      "where": "tests/conftest.py — сторож _no_writes_outside_tmp с исключениями по ПРЕФИКСУ (_RUN_ARTEFACT_PREFIXES, _FOREIGN_TOOL_PREFIXES); закреплено tests/test_write_guard.py вложенной pytest-сессией",
+      "origin_kind": "own"
     },
     "104": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": ".github/workflows/ci.yml"
+      "where": ".github/workflows/ci.yml",
+      "origin_kind": "own"
     },
     "105": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": ".github/workflows/claude-code-review.yml — ревью ведёт отдельный прогон, не то окно, что писало код; claude-review в списке обязательных проверок защиты main"
+      "where": ".github/workflows/claude-code-review.yml — ревью ведёт отдельный прогон, не то окно, что писало код; claude-review в списке обязательных проверок защиты main",
+      "origin_kind": "own"
     },
     "106": {
       "status": "active",
@@ -555,17 +613,20 @@
     "108": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_docs_guardrails.py не даёт CHANGELOG.md держать больше трёх версионных заголовков: старое переезжает дословно в docs/archive/changelog-archive.md"
+      "where": "scripts/check_docs_guardrails.py не даёт CHANGELOG.md держать больше трёх версионных заголовков: старое переезжает дословно в docs/archive/changelog-archive.md",
+      "origin_kind": "own"
     },
     "109": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/web/runs.py — _STATUSES перечисляет два переходных состояния (queued, running) и три терминальных (done, error, cancelled); выход из переходного всегда в терминальное, закреплено tests/test_runs.py"
+      "where": "src/stepik_grader/web/runs.py — _STATUSES перечисляет два переходных состояния (queued, running) и три терминальных (done, error, cancelled); выход из переходного всегда в терминальное, закреплено tests/test_runs.py",
+      "origin_kind": "own"
     },
     "110": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/core/tracer.py компилирует код до подмены stdout и settrace; регрессию держит tests/test_tracer.py — SyntaxError оставлял stdout подменённым"
+      "where": "src/stepik_grader/core/tracer.py компилирует код до подмены stdout и settrace; регрессию держит tests/test_tracer.py — SyntaxError оставлял stdout подменённым",
+      "origin_kind": "own"
     },
     "111": {
       "status": "active",
@@ -575,27 +636,32 @@
     "112": {
       "status": "active",
       "mechanism": "gate",
-      "where": "флаг --clear-cache чистит оба кэша, заведённых продуктом (issue #816); tests/test_cli.py держит охват"
+      "where": "флаг --clear-cache чистит оба кэша, заведённых продуктом (issue #816); tests/test_cli.py держит охват",
+      "origin_kind": "own"
     },
     "113": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_contract_evolution.py"
+      "where": "scripts/check_contract_evolution.py",
+      "origin_kind": "own"
     },
     "114": {
       "status": "active",
       "mechanism": "gate",
-      "where": "tests/test_db.py — общий коннектор SQLite (connect/user_version/apply_schema); предмет — src/stepik_grader/db.py"
+      "where": "tests/test_db.py — общий коннектор SQLite (connect/user_version/apply_schema); предмет — src/stepik_grader/db.py",
+      "origin_kind": "own"
     },
     "115": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/config.py — _dirs_up_to_boundary поднимается только до границы проекта или домашнего каталога (issue #993), якорь один на все поверхности; закреплено tests/test_config.py"
+      "where": "src/stepik_grader/config.py — _dirs_up_to_boundary поднимается только до границы проекта или домашнего каталога (issue #993), якорь один на все поверхности; закреплено tests/test_config.py",
+      "origin_kind": "own"
     },
     "116": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/combine_coverage.py — сборщик сверяет пришедшие источники с названными (--require) и при недостаче включает degraded вместо молчаливого недосчёта; закреплено tests/test_combine_coverage.py"
+      "where": "scripts/combine_coverage.py — сборщик сверяет пришедшие источники с названными (--require) и при недостаче включает degraded вместо молчаливого недосчёта; закреплено tests/test_combine_coverage.py",
+      "origin_kind": "own"
     },
     "117": {
       "status": "active",
@@ -605,27 +671,32 @@
     "118": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_generated_sources.py — файл с шапкой «СГЕНЕРИРОВАНО» называет генератор, и тот существует"
+      "where": "scripts/check_generated_sources.py — файл с шапкой «СГЕНЕРИРОВАНО» называет генератор, и тот существует",
+      "origin_kind": "own"
     },
     "119": {
       "status": "active",
       "mechanism": "gate",
-      "where": "src/stepik_grader/core/test_loader.py — обход берёт только .py и не заходит в скрытые каталоги (_is_hidden_or_service_dir), поэтому .grader_cache/ и .grader_stats.jsonl под него не попадают; шаблон task*.py — приоритет с откатом (_solution_files_in возвращает by_pattern or files), а не жёсткий фильтр; закреплено tests/test_loader.py"
+      "where": "src/stepik_grader/core/test_loader.py — обход берёт только .py и не заходит в скрытые каталоги (_is_hidden_or_service_dir), поэтому .grader_cache/ и .grader_stats.jsonl под него не попадают; шаблон task*.py — приоритет с откатом (_solution_files_in возвращает by_pattern or files), а не жёсткий фильтр; закреплено tests/test_loader.py",
+      "origin_kind": "own"
     },
     "120": {
       "status": "active",
       "mechanism": "gate",
-      "where": "указатель правил и дайджест генерируются (scripts/generate_rules_index.py, scripts/generate_rules_digest.py), а scripts/check_rules_digest.py не даёт им разойтись с ответом проекта"
+      "where": "указатель правил и дайджест генерируются (scripts/generate_rules_index.py, scripts/generate_rules_digest.py), а scripts/check_rules_digest.py не даёт им разойтись с ответом проекта",
+      "origin_kind": "own"
     },
     "121": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_container_closure.py — ночной обход сверяет состояние эпика со счётчиком незакрытых дочерних задач: закрытый контейнер с открытой работой становится находкой с адресатом"
+      "where": "scripts/check_container_closure.py — ночной обход сверяет состояние эпика со счётчиком незакрытых дочерних задач: закрытый контейнер с открытой работой становится находкой с адресатом",
+      "origin_kind": "own"
     },
     "122": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_raw_values.py — поле ответа веб-слоя не отдаёт отформатированное число (`f\"{x:.1f} с\"`); человеческие поля (message, hint, title) под запрет не подпадают, там строка и есть содержимое"
+      "where": "scripts/check_raw_values.py — поле ответа веб-слоя не отдаёт отформатированное число (`f\"{x:.1f} с\"`); человеческие поля (message, hint, title) под запрет не подпадают, там строка и есть содержимое",
+      "origin_kind": "own"
     },
     "123": {
       "status": "active",
@@ -635,22 +706,26 @@
     "124": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/rerun_flaky_checks.py: список разрешённых к автоперезапуску закрыт, попытка ровно одна, а зелёное со второго раза записывается находкой в docs/agent/flaky-runs.md"
+      "where": "scripts/rerun_flaky_checks.py: список разрешённых к автоперезапуску закрыт, попытка ровно одна, а зелёное со второго раза записывается находкой в docs/agent/flaky-runs.md",
+      "origin_kind": "own"
     },
     "125": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_generated_sources.py — у производного файла назван живой исходник; DIGEST.md и указатель правил пересобираются генератором, а не правятся"
+      "where": "scripts/check_generated_sources.py — у производного файла назван живой исходник; DIGEST.md и указатель правил пересобираются генератором, а не правятся",
+      "origin_kind": "own"
     },
     "126": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "красная main замораживает очередь мержа, и выход из заморозки — метка blocker на чинящем PR, то есть путь мимо замороженного действия; вычисляет scripts/gh_rest.py queue"
+      "where": "красная main замораживает очередь мержа, и выход из заморозки — метка blocker на чинящем PR, то есть путь мимо замороженного действия; вычисляет scripts/gh_rest.py queue",
+      "origin_kind": "own"
     },
     "127": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_docs_guardrails.py — число в прозе живёт только внутри генерируемого блока с маркером; вписанное руками отклоняется"
+      "where": "scripts/check_docs_guardrails.py — число в прозе живёт только внутри генерируемого блока с маркером; вписанное руками отклоняется",
+      "origin_kind": "own"
     },
     "128": {
       "status": "active",
@@ -660,12 +735,14 @@
     "129": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".rules/bindings.json и .rules/proposals.json — обе стороны контракта потребления; держат scripts/check_rule_bindings.py и scripts/check_rules_digest.py, канал подключён .github/workflows/rules-inbox.yml"
+      "where": ".rules/bindings.json и .rules/proposals.json — обе стороны контракта потребления; держат scripts/check_rule_bindings.py и scripts/check_rules_digest.py, канал подключён .github/workflows/rules-inbox.yml",
+      "origin_kind": "own"
     },
     "130": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/link_rules_to_issues.py — новое правило приходит вместе со списком кандидатов из нашего трекера"
+      "where": "scripts/link_rules_to_issues.py — новое правило приходит вместе со списком кандидатов из нашего трекера",
+      "origin_kind": "own"
     },
     "131": {
       "status": "active",
@@ -675,17 +752,20 @@
     "132": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_work_overlap.py показывает пересечение неблокирующим шагом scripts/preflight.py, а CLAUDE.md § Метки при заведении issue требует объявить все задачи сборного изменения (Closes #N либо «Часть #N»)"
+      "where": "scripts/check_work_overlap.py показывает пересечение неблокирующим шагом scripts/preflight.py, а CLAUDE.md § Метки при заведении issue требует объявить все задачи сборного изменения (Closes #N либо «Часть #N»)",
+      "origin_kind": "own"
     },
     "133": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "граница PR считается пересечением файлов, а не числом задач: scripts/check_work_overlap.py зовётся неблокирующим шагом scripts/preflight.py"
+      "where": "граница PR считается пересечением файлов, а не числом задач: scripts/check_work_overlap.py зовётся неблокирующим шагом scripts/preflight.py",
+      "origin_kind": "own"
     },
     "134": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".claude/hooks/session_start.py печатает дайджест правил при старте окна, а docs/agent/environments.md задаёт эстафету ссылками, а не пересказом"
+      "where": ".claude/hooks/session_start.py печатает дайджест правил при старте окна, а docs/agent/environments.md задаёт эстафету ссылками, а не пересказом",
+      "origin_kind": "own"
     },
     "135": {
       "status": "active",
@@ -695,12 +775,14 @@
     "136": {
       "status": "active",
       "mechanism": "gate",
-      "where": "ответ по внешнему правилу пишется в .rules/bindings.json одним заходом: сначала перечисляются все свои предметы правила, потом вердикт; сверяется на ревью PR — гейта на полноту перечисления нет"
+      "where": "ответ по внешнему правилу пишется в .rules/bindings.json одним заходом: сначала перечисляются все свои предметы правила, потом вердикт; сверяется на ревью PR — гейта на полноту перечисления нет",
+      "origin_kind": "own"
     },
     "137": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_raw_values.py"
+      "where": "scripts/check_raw_values.py",
+      "origin_kind": "own"
     },
     "138": {
       "status": "active",
@@ -715,27 +797,32 @@
     "140": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_gate_tests.py — у каждого scripts/check_*.py есть тест с прогоном отвергаемого предмета; объявленный долг перечислен в KNOWN_DEBT с причиной"
+      "where": "scripts/check_gate_tests.py — у каждого scripts/check_*.py есть тест с прогоном отвергаемого предмета; объявленный долг перечислен в KNOWN_DEBT с причиной",
+      "origin_kind": "own"
     },
     "141": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_marker_matching.py — константа-маркер не подставляется в startswith/removeprefix; префикс от маркера отличается именем, и это названо в самих константах"
+      "where": "scripts/check_marker_matching.py — константа-маркер не подставляется в startswith/removeprefix; префикс от маркера отличается именем, и это названо в самих константах",
+      "origin_kind": "own"
     },
     "142": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/nightly_checks.py — ночной обход ведёт одну задачу с меткой «ночной обход»: пока находки есть, она открыта и обновляется, стало чисто — закрывается; красным прогон при этом не становится, потому что красное на вкладке прогонов адресатом не является"
+      "where": "scripts/nightly_checks.py — ночной обход ведёт одну задачу с меткой «ночной обход»: пока находки есть, она открыта и обновляется, стало чисто — закрывается; красным прогон при этом не становится, потому что красное на вкладке прогонов адресатом не является",
+      "origin_kind": "own"
     },
     "144": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_audit_registry.py — mention_verdict берёт окно контекста абзацем, а заголовок раздела перевешивает форму строки; закреплено тестами test_check_audit_registry.py"
+      "where": "scripts/check_audit_registry.py — mention_verdict берёт окно контекста абзацем, а заголовок раздела перевешивает форму строки; закреплено тестами test_check_audit_registry.py",
+      "origin_kind": "own"
     },
     "145": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_declared_outcomes.py — у каждого НЕуспешного кода возврата есть тест, ожидающий именно его; непрогнанные ветки видны числом (BUDGET), и оно опускается починкой"
+      "where": "scripts/check_declared_outcomes.py — у каждого НЕуспешного кода возврата есть тест, ожидающий именно его; непрогнанные ветки видны числом (BUDGET), и оно опускается починкой",
+      "origin_kind": "own"
     },
     "146": {
       "status": "active",
@@ -745,7 +832,8 @@
     "147": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_orphan_branches.py"
+      "where": "scripts/check_orphan_branches.py",
+      "origin_kind": "own"
     },
     "148": {
       "status": "active",
@@ -755,7 +843,8 @@
     "149": {
       "status": "active",
       "mechanism": "gate",
-      "where": "tests/conftest.py — фикстура _system_temp_inside_basetemp уводит системный temp внутрь pytest-basetemp на время прогона; правило родилось здесь, из ложного обвинения стороннего теста"
+      "where": "tests/conftest.py — фикстура _system_temp_inside_basetemp уводит системный temp внутрь pytest-basetemp на время прогона; правило родилось здесь, из ложного обвинения стороннего теста",
+      "origin_kind": "own"
     },
     "150": {
       "status": "active",
@@ -765,37 +854,44 @@
     "151": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/report_failed_tests.py и job report-failures в .github/workflows/ci.yml — сводка упавших тестов ложится комментарием в PR, потому что логи и артефакты Actions облачной сессии недоступны (403); правило родилось здесь"
+      "where": "scripts/report_failed_tests.py и job report-failures в .github/workflows/ci.yml — сводка упавших тестов ложится комментарием в PR, потому что логи и артефакты Actions облачной сессии недоступны (403); правило родилось здесь",
+      "origin_kind": "own"
     },
     "152": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_workflow_guardrails.py"
+      "where": "scripts/check_workflow_guardrails.py",
+      "origin_kind": "own"
     },
     "153": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "docs/agent/rules/DIGEST.md собирается из каталога генератором (scripts/generate_rules_digest.py), а не переписывается руками: чужой текст здесь производное с живым исходником, и расхождение ловит check_rules_digest.py"
+      "where": "docs/agent/rules/DIGEST.md собирается из каталога генератором (scripts/generate_rules_digest.py), а не переписывается руками: чужой текст здесь производное с живым исходником, и расхождение ловит check_rules_digest.py",
+      "origin_kind": "own"
     },
     "154": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_rule_bindings.py — храповик UNHELD_BUDGET = 0: запись active + mechanism: none сюда не мержится вовсе, поэтому состояние, у которого 154 требует причину, здесь недостижимо, а не молчаливо; у отрицательных статусов (rejected, not-applicable) тот же гейт отказывает при пустом why"
+      "where": "scripts/check_rule_bindings.py — храповик UNHELD_BUDGET = 0: запись active + mechanism: none сюда не мержится вовсе, поэтому состояние, у которого 154 требует причину, здесь недостижимо, а не молчаливо; у отрицательных статусов (rejected, not-applicable) тот же гейт отказывает при пустом why",
+      "origin_kind": "own"
     },
     "155": {
       "status": "active",
       "mechanism": "gate",
-      "where": "tests/test_shipped_examples.py — secrets.json.example и stepik_config.json.example проверяются НАБОРОМ ключей, который читает реальный код (core/stepik_client.py, downloader_config.normalize_config_paths), а не фактом своего существования"
+      "where": "tests/test_shipped_examples.py — secrets.json.example и stepik_config.json.example проверяются НАБОРОМ ключей, который читает реальный код (core/stepik_client.py, downloader_config.normalize_config_paths), а не фактом своего существования",
+      "origin_kind": "own"
     },
     "156": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_attribution.py::trailer_block и scripts/preflight.py::_trailer_block читают трейлер только из хвостового блока — последнего абзаца целиком из строк «Ключ: значение»; закреплено tests/test_check_attribution.py"
+      "where": "scripts/check_attribution.py::trailer_block и scripts/preflight.py::_trailer_block читают трейлер только из хвостового блока — последнего абзаца целиком из строк «Ключ: значение»; закреплено tests/test_check_attribution.py",
+      "origin_kind": "own"
     },
     "157": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_rule_bindings.py::contract_drift сверяет нашу schema с той, что публикует каталог (templates/bindings.json); ходит ночным обходом .github/workflows/tracker-guardrails.yml — прогон замечает, слияние не держит"
+      "where": "scripts/check_rule_bindings.py::contract_drift сверяет нашу schema с той, что публикует каталог (templates/bindings.json); ходит ночным обходом .github/workflows/tracker-guardrails.yml — прогон замечает, слияние не держит",
+      "origin_kind": "own"
     },
     "158": {
       "status": "active",
@@ -810,7 +906,8 @@
     "160": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": ".github/workflows/ci.yml — бейджи собираются в .github/badges/ и публикуются ОТДЕЛЬНОЙ веткой badges, а не в main (issue #1235): производное обновляется чаще изменений и в общей ветке давало бы конфликт на каждое слияние"
+      "where": ".github/workflows/ci.yml — бейджи собираются в .github/badges/ и публикуются ОТДЕЛЬНОЙ веткой badges, а не в main (issue #1235): производное обновляется чаще изменений и в общей ветке давало бы конфликт на каждое слияние",
+      "origin_kind": "own"
     },
     "161": {
       "status": "active",
@@ -820,7 +917,8 @@
     "162": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_rule_bindings.py::neighbour_holds печатает, чем правило без механизма держится у соседей по своду — собирает из export/where.json каталога, а не походом по чужим репозиториям; ходит ночным обходом"
+      "where": "scripts/check_rule_bindings.py::neighbour_holds печатает, чем правило без механизма держится у соседей по своду — собирает из export/where.json каталога, а не походом по чужим репозиториям; ходит ночным обходом",
+      "origin_kind": "own"
     },
     "163": {
       "status": "active",
@@ -830,37 +928,44 @@
     "164": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".rules/bindings.json и .rules/proposals.json — рядом с каждым `schema` стоит ключ `schema_of`, называющий предмет в точке чтения (сам `schema` переименованию не подлежит: имя задаёт контракт каталога). Наличие обоих ключей и значение каждого номера проверяет scripts/check_rule_bindings.py::version_subjects — шагом «Rule bindings answer the catalogue» обязательного docs-guardrails в .github/workflows/ci.yml и хуком pre-commit, то есть на каждый PR; дрейф от templates/bindings.json и templates/proposals.json каталога — contract_drift и proposal_drift ночным обходом .github/workflows/tracker-guardrails.yml"
+      "where": ".rules/bindings.json и .rules/proposals.json — рядом с каждым `schema` стоит ключ `schema_of`, называющий предмет в точке чтения (сам `schema` переименованию не подлежит: имя задаёт контракт каталога). Наличие обоих ключей и значение каждого номера проверяет scripts/check_rule_bindings.py::version_subjects — шагом «Rule bindings answer the catalogue» обязательного docs-guardrails в .github/workflows/ci.yml и хуком pre-commit, то есть на каждый PR; дрейф от templates/bindings.json и templates/proposals.json каталога — contract_drift и proposal_drift ночным обходом .github/workflows/tracker-guardrails.yml",
+      "origin_kind": "own"
     },
     "165": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_hidden_defaults.py — разбор исходника отвергает список путей от git без -z; шаг «Умолчания заданы явно» обязательного docs-guardrails в .github/workflows/ci.yml и хук pre-commit. Сами списки читаются по NUL: scripts/preflight.py (git_paths), scripts/check_work_overlap.py, scripts/check_adr_records.py; охват называет числом scripts/preflight.py (fingerprint_coverage). Подтверждено живой пробой: отпечаток не замечал правок в файле с кириллическим именем, то есть pre-push хук принимал состояние, которого гейт не проверял (issue #1417)"
+      "where": "scripts/check_hidden_defaults.py — разбор исходника отвергает список путей от git без -z; шаг «Умолчания заданы явно» обязательного docs-guardrails в .github/workflows/ci.yml и хук pre-commit. Сами списки читаются по NUL: scripts/preflight.py (git_paths), scripts/check_work_overlap.py, scripts/check_adr_records.py; охват называет числом scripts/preflight.py (fingerprint_coverage). Подтверждено живой пробой: отпечаток не замечал правок в файле с кириллическим именем, то есть pre-push хук принимал состояние, которого гейт не проверял (issue #1417)",
+      "origin_kind": "own"
     },
     "166": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_docs_guardrails.py ищет разметку ссылки `](адрес`, а не подстроку адреса, — шаг обязательного docs-guardrails в .github/workflows/ci.yml; регрессии в tests/test_check_docs_guardrails.py. Подстрока зеленела бы на подписи ссылки при подменённой цели"
+      "where": "scripts/check_docs_guardrails.py ищет разметку ссылки `](адрес`, а не подстроку адреса, — шаг обязательного docs-guardrails в .github/workflows/ci.yml; регрессии в tests/test_check_docs_guardrails.py. Подстрока зеленела бы на подписи ссылки при подменённой цели",
+      "origin_kind": "own"
     },
     "167": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_workflow_guardrails.py (non_ascii_shell_names) — имена переменных оболочки и ключей env: в .github/workflows/*.yml; шаг обязательного docs-guardrails в .github/workflows/ci.yml. Тихая форма опаснее громкой: переменная с не-ASCII именем создаётся, но $ИМЯ не раскрывается, и шаг зеленеет, не проверив ничего (issue #1421)"
+      "where": "scripts/check_workflow_guardrails.py (non_ascii_shell_names) — имена переменных оболочки и ключей env: в .github/workflows/*.yml; шаг обязательного docs-guardrails в .github/workflows/ci.yml. Тихая форма опаснее громкой: переменная с не-ASCII именем создаётся, но $ИМЯ не раскрывается, и шаг зеленеет, не проверив ничего (issue #1421)",
+      "origin_kind": "own"
     },
     "168": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_branch_protection.py сверяет список обязательных проверок с ruleset дословно — ночным обходом .github/workflows/tracker-guardrails.yml. Обязательных проверок у нас одиннадцать, шесть из них — имена ячеек матрицы, то есть ровно названная правилом ловушка; агрегирующей проверки с постоянным именем нет, это issue #1420, а до неё риск назван в CLAUDE.md § Гейты"
+      "where": "scripts/check_branch_protection.py сверяет список обязательных проверок с ruleset дословно — ночным обходом .github/workflows/tracker-guardrails.yml. Обязательных проверок у нас одиннадцать, шесть из них — имена ячеек матрицы, то есть ровно названная правилом ловушка; агрегирующей проверки с постоянным именем нет, это issue #1420, а до неё риск назван в CLAUDE.md § Гейты",
+      "origin_kind": "own"
     },
     "169": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/measure_queue_wakeups.py — замер источников пробуждения очереди выводится из живых прогонов, ночным обходом .github/workflows/tracker-guardrails.yml; отказ односторонний: страховка объявлена и по расписанию не пришло ни одного прогона. Шапка .github/workflows/merge-queue.yml называет наблюдаемое (42 срабатывания вместо ~201 за 201 час), а не заказанное"
+      "where": "scripts/measure_queue_wakeups.py — замер источников пробуждения очереди выводится из живых прогонов, ночным обходом .github/workflows/tracker-guardrails.yml; отказ односторонний: страховка объявлена и по расписанию не пришло ни одного прогона. Шапка .github/workflows/merge-queue.yml называет наблюдаемое (42 срабатывания вместо ~201 за 201 час), а не заказанное",
+      "origin_kind": "own"
     },
     "170": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/capture_github_fixtures.py --check — у каждой подделки чужого интерфейса есть снятый источник с блоком происхождения (tests/fixtures/github/), сверка ночным обходом .github/workflows/tracker-guardrails.yml; разбор гоняется на снятых ответах в tests/test_fixture_sources.py. Ответы Stepik API из облака снять нечем — эти подделки названы несверенными, и это остаток задачи #1422"
+      "where": "scripts/capture_github_fixtures.py --check — у каждой подделки чужого интерфейса есть снятый источник с блоком происхождения (tests/fixtures/github/), сверка ночным обходом .github/workflows/tracker-guardrails.yml; разбор гоняется на снятых ответах в tests/test_fixture_sources.py. Ответы Stepik API из облака снять нечем — эти подделки названы несверенными, и это остаток задачи #1422",
+      "origin_kind": "own"
     },
     "171": {
       "status": "active",
@@ -870,32 +975,38 @@
     "172": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_stale_repo_names.py — перепись имён репозиториев в действующих файлах против канона от площадки, ночным обходом .github/workflows/tracker-guardrails.yml; scripts/check_catalogue_name.py сверяет объявленное имя каталога с каноном. История отделена от адреса явно: журналы и архив в перепись не входят (issue #1421)"
+      "where": "scripts/check_stale_repo_names.py — перепись имён репозиториев в действующих файлах против канона от площадки, ночным обходом .github/workflows/tracker-guardrails.yml; scripts/check_catalogue_name.py сверяет объявленное имя каталога с каноном. История отделена от адреса явно: журналы и архив в перепись не входят (issue #1421)",
+      "origin_kind": "own"
     },
     "173": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_issue_state_after_merge.py спрашивает у трекера судьбу задачи ПОСЛЕ слияния — закрыта ли закрытая, открыта ли частичная, назван ли остаток галочками; ночным обходом .github/workflows/tracker-guardrails.yml. Первая половина — три ответа (Closes #N · «Часть #N — что именно» · «Без issue:») — в scripts/check_pr_ready.py, но он числится в GATE_DEBT: запускает его окно руками, поэтому уровень взят по слабейшему звену (issue #1419)"
+      "where": "scripts/check_issue_state_after_merge.py спрашивает у трекера судьбу задачи ПОСЛЕ слияния — закрыта ли закрытая, открыта ли частичная, назван ли остаток галочками; ночным обходом .github/workflows/tracker-guardrails.yml. Первая половина — три ответа (Closes #N · «Часть #N — что именно» · «Без issue:») — в scripts/check_pr_ready.py, но он числится в GATE_DEBT: запускает его окно руками, поэтому уровень взят по слабейшему звену (issue #1419)",
+      "origin_kind": "own"
     },
     "174": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/generate_facts.py публикует факты о проекте машиночитаемо — шаг в .github/workflows/ci.yml (под `|| true`, слияние не держит). Правило родилось здесь: след ведёт на #1411, соседи перестали считать наши числа сами"
+      "where": "scripts/generate_facts.py публикует факты о проекте машиночитаемо — шаг в .github/workflows/ci.yml (под `|| true`, слияние не держит). Правило родилось здесь: след ведёт на #1411, соседи перестали считать наши числа сами",
+      "origin_kind": "own"
     },
     "175": {
       "status": "active",
       "mechanism": "gate",
-      "where": ".rules/bindings.json — ответ «предмета нет» несёт СВОЙ рецепт опровержения полем `absent`; проверяет scripts/check_rule_bindings.py (absence_claims) шагом «Rule bindings answer the catalogue» обязательного docs-guardrails в .github/workflows/ci.yml и хуком pre-commit. Отказ односторонний: нашли опровержение — красное, не нашли — молчим (issue #1421)"
+      "where": ".rules/bindings.json — ответ «предмета нет» несёт СВОЙ рецепт опровержения полем `absent`; проверяет scripts/check_rule_bindings.py (absence_claims) шагом «Rule bindings answer the catalogue» обязательного docs-guardrails в .github/workflows/ci.yml и хуком pre-commit. Отказ односторонний: нашли опровержение — красное, не нашли — молчим (issue #1421)",
+      "origin_kind": "own"
     },
     "176": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_hidden_defaults.py (encoding_findings) — текстовый subprocess без encoding= отвергается разбором исходника, а не прогоном; шаг обязательного docs-guardrails в .github/workflows/ci.yml и хук pre-commit. Прогон отвечает «сегодня не совпало», разбор — «умолчание не задано» (issue #1417)"
+      "where": "scripts/check_hidden_defaults.py (encoding_findings) — текстовый subprocess без encoding= отвергается разбором исходника, а не прогоном; шаг обязательного docs-guardrails в .github/workflows/ci.yml и хук pre-commit. Прогон отвечает «сегодня не совпало», разбор — «умолчание не задано» (issue #1417)",
+      "origin_kind": "own"
     },
     "177": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_rule_bindings.py (unfinished_rule_work) — три числа «без ответа · не рассмотрено · держится ничем» печатаются ПЕРВЫМ, до находок и до списка новых правил, и печатаются всегда: «0 · 0 · 0» это состояние, а не пустота. Шаг обязательного docs-guardrails в .github/workflows/ci.yml; полное число «без ответа» требует клона каталога и потому даётся ночным обходом, а без него честно печатается «не спрошено», а не ноль"
+      "where": "scripts/check_rule_bindings.py (unfinished_rule_work) — три числа «без ответа · не рассмотрено · держится ничем» печатаются ПЕРВЫМ, до находок и до списка новых правил, и печатаются всегда: «0 · 0 · 0» это состояние, а не пустота. Шаг обязательного docs-guardrails в .github/workflows/ci.yml; полное число «без ответа» требует клона каталога и потому даётся ночным обходом, а без него честно печатается «не спрошено», а не ноль",
+      "origin_kind": "own"
     },
     "178": {
       "status": "active",
@@ -905,72 +1016,86 @@
     "179": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_workflow_guardrails.py (check_cancelling_groups_name_the_head) — отменяющая группа обязана называть голову; исключения объявлены поимённо с причиной и краснеют, когда отмена из них ушла. Сам дефект исправлен в .github/workflows/ci.yml: группа PR стояла на github.ref, то есть на refs/pull/N/merge — одном ref для всех коммитов"
+      "where": "scripts/check_workflow_guardrails.py (check_cancelling_groups_name_the_head) — отменяющая группа обязана называть голову; исключения объявлены поимённо с причиной и краснеют, когда отмена из них ушла. Сам дефект исправлен в .github/workflows/ci.yml: группа PR стояла на github.ref, то есть на refs/pull/N/merge — одном ref для всех коммитов",
+      "origin_kind": "own"
     },
     "180": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_hidden_defaults.py (subprocess_names) — вызов разрешается по импортам разбираемого файла, включая псевдонимы модуля и функции. Обе половины подтверждены пробой и закреплены в tests/test_check_hidden_defaults.py: псевдоним прятал вызов от проверки, чужой метод run с теми же ключами объявлялся нарушением"
+      "where": "scripts/check_hidden_defaults.py (subprocess_names) — вызов разрешается по импортам разбираемого файла, включая псевдонимы модуля и функции. Обе половины подтверждены пробой и закреплены в tests/test_check_hidden_defaults.py: псевдоним прятал вызов от проверки, чужой метод run с теми же ключами объявлялся нарушением",
+      "origin_kind": "own"
     },
     "181": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_sources_of_truth.py — заявления об исключительности объявляются в .rules/sources_of_truth.json парой «предмет → адрес»; незаявленное краснеет, объявление, пережившее текст, краснеет тоже, два адреса на один предмет отвергаются. Правило родилось здесь: контракт называл источник состояния трижды и в двух местах (issue #1438)"
+      "where": "scripts/check_sources_of_truth.py — заявления об исключительности объявляются в .rules/sources_of_truth.json парой «предмет → адрес»; незаявленное краснеет, объявление, пережившее текст, краснеет тоже, два адреса на один предмет отвергаются. Правило родилось здесь: контракт называл источник состояния трижды и в двух местах (issue #1438)",
+      "origin_kind": "own"
     },
     "182": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_rule_bindings.py (UNHELD_BUDGET = 0) — ответ «действует, но ничем» отвергается: правило либо держится механизмом, либо записывается документом с разрешимым адресом. Бюджет опускают починкой, а не правкой числа, поэтому отказ целиком невозможен по построению — половина, которую держит машина, обязана быть названа"
+      "where": "scripts/check_rule_bindings.py (UNHELD_BUDGET = 0) — ответ «действует, но ничем» отвергается: правило либо держится механизмом, либо записывается документом с разрешимым адресом. Бюджет опускают починкой, а не правкой числа, поэтому отказ целиком невозможен по построению — половина, которую держит машина, обязана быть названа",
+      "origin_kind": "own"
     },
     "183": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_rule_bindings.py — адрес в каждом ответе этого файла обязан разрешаться, проверка на каждый PR; scripts/check_sources_of_truth.py — заявления об исключительности объявлены в .rules/sources_of_truth.json и сверяются с текстом (PR и pre-commit). Не покрыта проза о механизме в docstring и комментариях кода: её не перечитывает никто, и это остаток"
+      "where": "scripts/check_rule_bindings.py — адрес в каждом ответе этого файла обязан разрешаться, проверка на каждый PR; scripts/check_sources_of_truth.py — заявления об исключительности объявлены в .rules/sources_of_truth.json и сверяются с текстом (PR и pre-commit). Не покрыта проза о механизме в docstring и комментариях кода: её не перечитывает никто, и это остаток",
+      "origin_kind": "own"
     },
     "184": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_rule_bindings.py требует причину у статусов not-applicable и rejected — ответ без неё отвергается до слияния. Разбор надвое (буква против обобщения) остаётся дисциплиной: CLAUDE.md § Новое правило — в общий каталог"
+      "where": "scripts/check_rule_bindings.py требует причину у статусов not-applicable и rejected — ответ без неё отвергается до слияния. Разбор надвое (буква против обобщения) остаётся дисциплиной: CLAUDE.md § Новое правило — в общий каталог",
+      "origin_kind": "own"
     },
     "185": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/check_catalogue_trails.py — ночным обходом сверяет следы каталога в наше дерево: документ существует, названный раздел в нём есть. Предупреждение, а не отказ: предмет живёт в чужом репозитории, чинится предложением туда. Замер на выгрузке 1.5 — следов 105, оборванных 15"
+      "where": "scripts/check_catalogue_trails.py — ночным обходом сверяет следы каталога в наше дерево: документ существует, названный раздел в нём есть. Предупреждение, а не отказ: предмет живёт в чужом репозитории, чинится предложением туда. Замер на выгрузке 1.5 — следов 105, оборванных 15",
+      "origin_kind": "own"
     },
     "186": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_declared_outcomes.py — у каждого объявленного НЕуспешного кода возврата обязан быть тест, ожидающий именно его; коды разведены по смыслу в scripts/gh_rest.py (EXIT_OK · EXIT_FAIL · EXIT_WAIT) и означают одно и то же в сухом и записывающем режимах — scripts/link_rules_to_issues.py возвращает EXIT_FAIL по числу НЕобновлённых задач, а не по числу найденных"
+      "where": "scripts/check_declared_outcomes.py — у каждого объявленного НЕуспешного кода возврата обязан быть тест, ожидающий именно его; коды разведены по смыслу в scripts/gh_rest.py (EXIT_OK · EXIT_FAIL · EXIT_WAIT) и означают одно и то же в сухом и записывающем режимах — scripts/link_rules_to_issues.py возвращает EXIT_FAIL по числу НЕобновлённых задач, а не по числу найденных",
+      "origin_kind": "own"
     },
     "187": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/ci_aggregate.py и .github/workflows/ci-complete.yml — один вердикт с постоянным именем, собранный ЧЕРЕЗ API, а не через needs: джоб на зависимостях при падении соседа пропускается, а пропущенное защита ветки засчитывает как пройденное; закреплено в CLAUDE.md § Гейты"
+      "where": "scripts/ci_aggregate.py и .github/workflows/ci-complete.yml — один вердикт с постоянным именем, собранный ЧЕРЕЗ API, а не через needs: джоб на зависимостях при падении соседа пропускается, а пропущенное защита ветки засчитывает как пройденное; закреплено в CLAUDE.md § Гейты",
+      "origin_kind": "own"
     },
     "188": {
       "status": "active",
       "mechanism": "pipeline",
-      "where": "scripts/gh_rest.py edit-issue считает галочки по телу, ВЕРНУВШЕМУСЯ от платформы, а не по отправленному, и печатает число — «поставил галочку» и «стёр чек-лист» иначе выглядят одинаково; ночной обход .github/workflows/tracker-guardrails.yml печатает исход по каждой записи. Полной сверки отправленного с сохранённым нет ни у одной публикации — это остаток"
+      "where": "scripts/gh_rest.py edit-issue считает галочки по телу, ВЕРНУВШЕМУСЯ от платформы, а не по отправленному, и печатает число — «поставил галочку» и «стёр чек-лист» иначе выглядят одинаково; ночной обход .github/workflows/tracker-guardrails.yml печатает исход по каждой записи. Полной сверки отправленного с сохранённым нет ни у одной публикации — это остаток",
+      "origin_kind": "own"
     },
     "189": {
       "status": "active",
       "mechanism": "gate",
-      "where": "приставка agent/ — переключатель конвейера, её отсутствие ловит scripts/check_orphan_branches.py (ветка без прикреплённого изменения); занятость имени — scripts/preflight.py --branch-only. Что слаг называет задачу, а не окно, разбором не отличить — эта половина в CLAUDE.md § Рабочая ветка"
+      "where": "приставка agent/ — переключатель конвейера, её отсутствие ловит scripts/check_orphan_branches.py (ветка без прикреплённого изменения); занятость имени — scripts/preflight.py --branch-only. Что слаг называет задачу, а не окно, разбором не отличить — эта половина в CLAUDE.md § Рабочая ветка",
+      "origin_kind": "own"
     },
     "190": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_rule_bindings.py спрашивает форму ответа у клона каталога (templates/bindings.json, функция catalogue_schema) вместо хранения копии — поэтому подъём чужого контракта виден как расхождение номеров, а не как молчаливое расхождение полей"
+      "where": "scripts/check_rule_bindings.py спрашивает форму ответа у клона каталога (templates/bindings.json, функция catalogue_schema) вместо хранения копии — поэтому подъём чужого контракта виден как расхождение номеров, а не как молчаливое расхождение полей",
+      "origin_kind": "own"
     },
     "191": {
       "status": "active",
       "mechanism": "gate",
-      "where": "заготовку тела PR создаёт .github/workflows/agent-pr.yml из сообщения коммита, стоп-кран держит scripts/check_pr_ready.py — без Closes #N и меток PR не мержится; правка тела задачи машинно перечитывает записанное (gh_rest.py edit-issue --expect-file)"
+      "where": "заготовку тела PR создаёт .github/workflows/agent-pr.yml из сообщения коммита, стоп-кран держит scripts/check_pr_ready.py — без Closes #N и меток PR не мержится; правка тела задачи машинно перечитывает записанное (gh_rest.py edit-issue --expect-file)",
+      "origin_kind": "own"
     },
     "192": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_workflow_guardrails.py — подмена токена в очереди мержа не проходит: замер «пуш запускает прогон на PR» снят на PAT владельца, и пуш штатным GITHUB_TOKEN его не воспроизводит (CLAUDE.md § Гейты, «отдельным токеном»)"
+      "where": "scripts/check_workflow_guardrails.py — подмена токена в очереди мержа не проходит: замер «пуш запускает прогон на PR» снят на PAT владельца, и пуш штатным GITHUB_TOKEN его не воспроизводит (CLAUDE.md § Гейты, «отдельным токеном»)",
+      "origin_kind": "own"
     },
     "193": {
       "status": "active",
@@ -980,7 +1105,8 @@
     "194": {
       "status": "active",
       "mechanism": "gate",
-      "where": "scripts/check_stale_repo_names.py спрашивает каноническое full_name у API по каждому адресу из своего дерева, вместо того чтобы верить имени в ссылке: переименованный репозиторий отвечает редиректом, пока старое имя свободно"
+      "where": "scripts/check_stale_repo_names.py спрашивает каноническое full_name у API по каждому адресу из своего дерева, вместо того чтобы верить имени в ссылке: переименованный репозиторий отвечает редиректом, пока старое имя свободно",
+      "origin_kind": "own"
     },
     "195": {
       "status": "active",

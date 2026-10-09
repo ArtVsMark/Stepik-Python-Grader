@@ -108,8 +108,8 @@ ANSWERS_KEY = "answers_to"
 #: каталога там нет. Расхождение с живым издателем ловит `contract_drift`
 #: ночным обходом — на то он и второй уровень.
 CONTRACT_FILES: tuple[tuple[str, str, str], ...] = (
-    (".rules/bindings.json", "bindings.json", "1.2"),
-    (".rules/proposals.json", "proposals.json", "1.0"),
+    (".rules/bindings.json", "bindings.json", "1.9"),
+    (".rules/proposals.json", "proposals.json", "1.3"),
 )
 
 STATUSES = ("active", "rejected", "not-applicable", "unreviewed")
@@ -123,7 +123,25 @@ STATUSES = ("active", "rejected", "not-applicable", "unreviewed")
 #: подмена была бы догадкой за потребителя. Цена склейки измерена на нашем же
 #: ответе: 52 записи `process-step` разошлись на 24 конвейера, 26 документов и
 #: 2 «ничем» (issue #1400).
-MECHANISMS = ("gate", "pipeline", "document", "none")
+MECHANISMS = ("gate", "pipeline", "skill", "document", "none")
+
+#: Версия контракта ответа, под которую построены записи (issue #1424).
+BINDINGS_SCHEMA = "1.9"
+
+#: Механизмы, которые краснеют сами: у них спрашивают происхождение, а не
+#: «можно ли держать машиной» (контракт 1.9).
+REDDENING = ("gate", "pipeline")
+
+#: Откуда механизм (контракт 1.8–1.9): построен здесь, вызван по тегу,
+#: скопирован без правки, переделан из соседского приёма.
+ORIGIN_KINDS = ("own", "called", "copied", "adapted")
+
+#: Можно ли держать правило машиной — у того, что не краснеет (контракт 1.5):
+#: половины нет вовсе · есть, не построена · станет возможна при событии ·
+#: замерена, и строить отказались.
+HOLDABLE = ("no", "not-yet", "conditional", "refused")
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 #: Сколько правил ещё не закреплено ничем. Не «столько допустимо», а «столько
 #: осталось»: каждое такое правило действует ровно до тех пор, пока о нём помнит
@@ -265,9 +283,9 @@ def binding_violations(data: dict[str, Any], *, root: Path | None = None) -> lis
     base = root if root is not None else _ROOT
     problems: list[str] = []
 
-    if data.get("schema") != "1.2":
+    if data.get("schema") != BINDINGS_SCHEMA:
         problems.append(
-            f"schema={data.get('schema')!r} — контракт потребителя сегодня 1.2; "
+            f"schema={data.get('schema')!r} — контракт потребителя сегодня {BINDINGS_SCHEMA}; "
             "читатель обязан игнорировать незнакомые поля, но не версию"
         )
 
@@ -323,12 +341,67 @@ def binding_violations(data: dict[str, Any], *, root: Path | None = None) -> lis
                         )
                 if mechanism == "gate":
                     problems.extend(_unreachable(rule_id, where, base=base))
+            problems.extend(_contract_1_9(rule_id, raw, mechanism, base=base))
         elif status in {"rejected", "not-applicable"} and not str(raw.get("why") or "").strip():
             problems.append(
                 f"правило {rule_id}: {status} без причины — через полгода это "
                 "неотличимо от «не дошли руки»"
             )
 
+    return problems
+
+
+def _contract_1_9(rule_id: str, raw: dict[str, Any], mechanism: object, *, base: Path) -> list[str]:
+    """Поля, которые контракт 1.9 требует у действующей записи (issue #1424).
+
+    Краснеющему механизму (`gate`, `pipeline`) — происхождение; тому, что не
+    краснеет (`document`, `skill`, `none`), — ответ «можно ли держать машиной»
+    с причиной. `awaiting` — событие, без которого `conditional` есть обещание
+    без срока; `machine_half` — замер, без которого `none` и `refused` не
+    отличить от «не дошли руки».
+    """
+    problems: list[str] = []
+    origin = raw.get("origin_kind")
+    holdable = raw.get("holdable")
+    if mechanism in REDDENING:
+        if origin not in ORIGIN_KINDS:
+            problems.append(
+                f"правило {rule_id}: {mechanism} без `origin_kind` из {', '.join(ORIGIN_KINDS)} — "
+                "копию от вызова иначе не отличить"
+            )
+        if raw.get("awaiting"):
+            problems.append(f"правило {rule_id}: `awaiting` при {mechanism} — механизм уже есть")
+    else:
+        if mechanism == "none" and origin is not None:
+            problems.append(f"правило {rule_id}: `origin_kind` при none — происходить нечему")
+        if holdable not in HOLDABLE:
+            problems.append(
+                f"правило {rule_id}: {mechanism} без `holdable` из {', '.join(HOLDABLE)} — "
+                "не сказано, держит ли его машина и почему нет"
+            )
+        elif not str(raw.get("why") or "").strip():
+            problems.append(f"правило {rule_id}: `holdable` без `why` — причина и есть ответ")
+        if holdable == "conditional" and not str(raw.get("awaiting") or "").strip():
+            problems.append(f"правило {rule_id}: conditional без `awaiting` — событие не названо")
+    if (mechanism == "none" or holdable == "refused") and not str(
+        raw.get("machine_half") or ""
+    ).strip():
+        problems.append(
+            f"правило {rule_id}: без `machine_half` — что следует из данных и почему не построено"
+        )
+    if mechanism == "skill":
+        skill = str(raw.get("skill") or "")
+        local = skill.startswith(".claude/skills/")
+        if not skill or (local and not (base / skill / "SKILL.md").exists()):
+            problems.append(f"правило {rule_id}: skill без существующего `skill` — навык не найден")
+    analysed, decided = raw.get("analysed"), raw.get("decided")
+    for name, value in (("analysed", analysed), ("decided", decided)):
+        if value is not None and not _DATE_RE.match(str(value)):
+            problems.append(f"правило {rule_id}: `{name}`={value!r} — не ГГГГ-ММ-ДД")
+    if decided is not None and (analysed is None or str(decided) > str(analysed)):
+        problems.append(
+            f"правило {rule_id}: `decided` без `analysed` или позже него — решают, посмотрев"
+        )
     return problems
 
 
@@ -672,6 +745,37 @@ def proposal_form(*, root: Path | None = None) -> list[str]:
 #: который нечем удовлетворить.
 ABSENCE_KEY = "absent"
 
+#: Проба контракта 1.9: `{"globs": [...], "contains": [...]}` — файл по маске (а
+#: при непустом `contains` — файл, где есть одна из строк) делает ответ «не
+#: применимо» ложным. Преемник `absent`: тот же смысл, форма каталога.
+REFUTED_KEY = "refuted_by"
+
+
+def _refuted(rule_id: str, probe: object, *, base: Path) -> list[str]:
+    """Прогнать пробу `refuted_by` по дереву; находка — ответ устарел (issue #1424)."""
+    if not isinstance(probe, dict):
+        return []
+    needles = [str(item) for item in probe.get("contains") or [] if str(item)]
+    hits: list[str] = []
+    for pattern in probe.get("globs") or []:
+        for path in sorted(base.glob(str(pattern))):
+            if not path.is_file():
+                continue
+            if needles:
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except OSError, UnicodeDecodeError:
+                    continue
+                if not any(needle in text for needle in needles):
+                    continue
+            hits.append(path.relative_to(base).as_posix())
+    if not hits:
+        return []
+    return [
+        f"правило {rule_id}: проба `{REFUTED_KEY}` нашла {', '.join(sorted(set(hits))[:5])} — "
+        "ответ «не применимо» устарел молча"
+    ]
+
 
 def absence_claims(data: dict[str, Any], *, root: Path | None = None) -> list[str]:
     """Утверждения «предмета нет», опровергаемые одной командой (правило 175).
@@ -702,6 +806,7 @@ def absence_claims(data: dict[str, Any], *, root: Path | None = None) -> list[st
     for rule_id, raw in sorted((data.get("rules") or {}).items()):
         if not isinstance(raw, dict):
             continue
+        problems.extend(_refuted(rule_id, raw.get(REFUTED_KEY), base=base))
         recipe = raw.get(ABSENCE_KEY)
         if not isinstance(recipe, dict):
             continue
