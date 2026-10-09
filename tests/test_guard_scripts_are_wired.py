@@ -180,6 +180,14 @@ _RUNNERS: dict[str, tuple[str, str]] = {
         "поэтому на каждый PR (и в pre-commit по правкам CLAUDE.md)",
     ),
     "check_secret_dumps.py": (".github/workflows/ci.yml", "реестр точек дампа секретов"),
+    "check_repo_root.py": (
+        ".github/workflows/ci.yml",
+        "корень репозитория по белому списку: случайный файл в корне уезжает с правкой",
+    ),
+    "check_history_readers.py": (
+        ".github/workflows/ci.yml",
+        "таблица истории без читателя вне history.py — предупреждение, задел объявлен",
+    ),
     "check_test_isolation.py": (".github/workflows/ci.yml", "изоляция тестов"),
     "check_marker_matching.py": (
         ".github/workflows/ci.yml",
