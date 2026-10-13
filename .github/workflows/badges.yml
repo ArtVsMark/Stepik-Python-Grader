@@ -65,7 +65,7 @@ jobs:
         id: draw
         timeout-minutes: 5
         continue-on-error: true
-        uses: ArtVsMark/Engineering-Incidents-Playbook/.github/actions/python-badge@29657e09d5e6c2bf7d67211e89ebaf1aa2ba6a0e # v1.10.0
+        uses: ArtVsMark/Engineering-Incidents-Playbook/.github/actions/python-badge@5d10def7c6c86224c4e162422aa2f933c2808f68 # v1.11.0
         with:
           ci-workflow: ci.yml
           out: .badge-out/python.svg
