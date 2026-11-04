@@ -20,6 +20,8 @@
 
 ## Requirements
 
+- **Python 3.12 or 3.13.** Version 3.14 is experimental (and may break);
+  install it only if you know what you're doing. Check your version: `python --version`.
 - **Python 3.14.** Check your version: `python --version`. On Python
   3.12–3.13, release **1.12** keeps working — the last one that supports them:
   `pip`/`pipx` pick it automatically from the version requirement. Your
