@@ -13,6 +13,13 @@ lint-нарушениями (``lint_violations``). На ней строятся 
 межпроцессную гонку CLI+web, которую ``_WRITE_LOCK`` в ``stats.py`` закрыть не
 может (см. комментарий про #344 в ``stats.py``).
 
+Схема v4 добавила три вещи: вердикт платформы по отправке решения
+(``stepik_submissions``, issue #1175), признак изоляции прогона
+(``runs.isolation``, issue #1220) и переходы в глоссарий из ошибки
+(``glossary_hits``, issue #1220). Полный состав того, что пишется, перечислен
+в ``docs/dev/rules-insights.md`` § «История прогонов»: «появилось молча» про
+пользовательские данные недопустимо.
+
 Best-effort по всему модулю (принцип ``GraderCache``/``stats``): битая БД,
 нет прав, полный диск — пропустить запись/вернуть пусто, никогда не ронять
 грейдинг. «Best-effort» ≠ «молча» (issue #794): неустранимое — повреждённый
@@ -29,9 +36,8 @@ Opt-in: путь передаётся явно (``db_path=``); по умолча
 у истории (в отличие от ``cache.py``/``stats.py``) раньше не было.
 """
 
-from __future__ import annotations
-
 import contextlib
+import json
 import sqlite3
 import sys
 import threading
@@ -40,33 +46,56 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TypedDict, runtime_checkable
 
 from stepik_grader import db
 
 __all__ = [
     "CORRECTNESS_MODES",
     "HISTORY_DB_NAME",
+    "ISOLATION_NONE",
+    "PLATFORM_VERDICTS",
     "SCHEMA_VERSION",
     "CaseRecord",
+    "GlossaryHitRecord",
     "HistoryRepository",
     "LintRecord",
+    "PurgePreview",
     "RunRecord",
     "SqliteHistoryRepository",
+    "StepikSubmissionRecord",
+    "preview_purge",
     "purge_history",
+    "read_glossary_hits",
     "read_recent_runs",
+    "read_stepik_submissions",
     "read_task_progress",
+    "record_glossary_hit",
     "record_run",
+    "record_stepik_submission",
 ]
 
 HISTORY_DB_NAME = ".grader_history.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
+
+# issue #1220: значение колонки ``runs.isolation`` для прогона БЕЗ ОС-изоляции.
+# ``NULL`` в этой колонке означает другое — «неизвестно»: так читаются записи,
+# сделанные до появления колонки. Разница существенна: «точно без песочницы» —
+# это факт о прогоне, а «неизвестно» — отсутствие факта, и смешивать их значило
+# бы задним числом приписать старым записям условия, которых никто не измерял.
+ISOLATION_NONE = "none"
 
 # Режимы проверки корректности. Режимы 3/4 — бенчмарк: их вердикты
 # (``ERR``/``SIMILAR``/``SLOWER``) отвечают на вопрос «быстрее ли», а не «верно
 # ли», поэтому в метриках обучения (серия, попытки до первого зачёта) они не
 # участвуют — ни как успех, ни как провал (issue #819).
 CORRECTNESS_MODES = frozenset({1, 2})
+
+# Терминальные вердикты платформы (issue #1175). ``evaluation`` (проверка ещё
+# идёт) и ``error`` (сбой отправки) сюда не входят: это не ответ платформы о
+# решении, и сравнивать их с нашим вердиктом нечем — расхождение считалось бы
+# по отсутствию данных.
+PLATFORM_VERDICTS = frozenset({"correct", "wrong"})
 
 # Процесс-локальная сериализация записи (как ``_WRITE_LOCK`` в ``stats.py``,
 # issue #605/#393). ``WAL`` снимает МЕЖпроцессную гонку CLI+web, но на Windows
@@ -159,15 +188,74 @@ def _db_problem_kind(exc: BaseException) -> str | None:
     return None
 
 
+#: Маркер, который sqlite законно отдаёт В СЕРЕДИНЕ чужого ``connect``: файл
+#: уже создан, заголовок ещё не дописан (issue #1539, тот же снимок, что #1533).
+#: Остальные маркеры повреждения так не возникают — обрезанная или
+#: зашифрованная база не «допишется» за паузу, поэтому переспрашивать их нечего.
+_SNAPSHOT_MARKER = "not a database"
+
+#: Сколько раз переспросить и пауза между попытками. Это не «ждать, пока
+#: починится», а «дать соседу дописать заголовок»: настоящий чужой формат не
+#: станет базой ни за какую паузу.
+_SETTLE_ATTEMPTS = 5
+_SETTLE_DELAY_S = 0.02
+
+
+def _sqlite_reads(db_path: Path) -> bool:
+    """Читается ли файл как база sqlite прямо сейчас — только на чтение.
+
+    ``mode=ro``: проверка не создаёт файл и не пишет в него. Занятость или
+    недоступность (``OperationalError``) — не приговор содержимому, поэтому
+    ``True``; приговор — только ``DatabaseError`` о самом файле.
+    """
+    try:
+        uri = f"{db_path.resolve().as_uri()}?mode=ro"
+        with contextlib.closing(sqlite3.connect(uri, uri=True)) as conn:
+            conn.execute("PRAGMA schema_version").fetchone()
+    except sqlite3.OperationalError:
+        return True
+    except sqlite3.DatabaseError:
+        return False
+    except sqlite3.Error, OSError, ValueError:
+        return True
+    return True
+
+
+def _corruption_confirmed(db_path: Path, exc: BaseException) -> bool:
+    """Подтвердить «файл не база», прежде чем советовать удалить его (#1539).
+
+    Одиночный ответ — снимок, и снят он бывает в середине чужого ``connect``:
+    CLI и web создают историю одновременно — ровно тот сценарий, ради которого
+    заводился межпроцессный доступ. Принять такой снимок за приговор значит
+    посоветовать человеку удалить базу, которую сосед в этот миг дописывает.
+    Пустой файл — то же «соседнее ``connect`` мгновение назад».
+    """
+    if _SNAPSHOT_MARKER not in str(exc).lower():
+        return True
+    for attempt in range(_SETTLE_ATTEMPTS):
+        if _sqlite_reads(db_path):
+            return False
+        with contextlib.suppress(OSError):
+            if db_path.stat().st_size == 0:
+                return False
+        if attempt + 1 < _SETTLE_ATTEMPTS:
+            time.sleep(_SETTLE_DELAY_S)
+    return True
+
+
 def _note_unusable_db(db_path: Path, exc: BaseException) -> None:
     """Один раз за процесс сообщить, что БД истории непригодна (issue #794).
 
     Транзиентная блокировка не печатает ничего: её лечит повтор, и шум только
     мешал бы. Молчать про НЕустранимое нельзя — повреждённая база выглядела
     ровно как «истории нет», и пользователь прогон за прогоном писал в никуда.
+    Но и «удалите файл» говорится только о подтверждённом повреждении: снимок
+    чужой записи приговором не считается (issue #1539).
     """
     kind = _db_problem_kind(exc)
     if kind is None:
+        return
+    if kind == "corrupt" and not _corruption_confirmed(db_path, exc):
         return
     key = (str(db_path), kind)
     with _WARN_LOCK:
@@ -218,10 +306,56 @@ class RunRecord:
     cases: list[CaseRecord]
     source: str = "cli"
     task_key: str = ""
+    # issue #990: человеческое имя задачи (папка). Ключ стал идентификатором
+    # шага, а в «Прогрессе» пользователь ищет задачу по имени, а не по номеру.
+    task_title: str | None = None
     solution_name: str | None = None
     solution_hash: str | None = None
     duration_s: float | None = None
     lint: list[LintRecord] = field(default_factory=list)
+    # issue #1220: чем исполнялся прогон — ``ISOLATION_NONE`` или имя
+    # sandbox-backend'а (``bwrap``/``sandbox-exec``/``job-objects``). Гарантии у
+    # backend'ов разные (SECURITY.md), поэтому «под песочницей» одним битом не
+    # описывается. ``None`` — «неизвестно» (записи до появления колонки).
+    isolation: str | None = None
+
+
+@dataclass(frozen=True)
+class StepikSubmissionRecord:
+    """Вердикт платформы по одной отправке решения (issue #1175).
+
+    Собирается на пути отправки в ядре, поэтому наполняется и из веба, и из
+    любого будущего потребителя (CLI, оркестратор прогона, серверный режим).
+
+    ``verdict`` — статус Stepik (``correct``/``wrong``); ``our_verdict`` — наш
+    последний вердикт по задаче (``AC`` либо код первого упавшего кейса) или
+    ``None``, если локального прогона не было. ``run_id`` связывает запись с
+    нашим прогоном и может быть ``None``: отправить решение можно и не запуская
+    проверку локально.
+    """
+
+    step_id: int
+    verdict: str
+    task_key: str = ""
+    submission_id: int | None = None
+    hint: str | None = None
+    run_id: int | None = None
+    our_verdict: str | None = None
+
+
+@dataclass(frozen=True)
+class GlossaryHitRecord:
+    """Переход в карточку глоссария ИЗ ОШИБКИ прогона (issue #1220).
+
+    Пишется только deep-link из разбора ошибки, а не любое открытие раздела:
+    ценно использование по назначению («упал → понял»), а не листание
+    справочника. ``failure_kind``/``error_class`` — ключ ошибки, из которой
+    пришли; оба могут быть ``None`` (подсказка есть, таксономия не сработала).
+    """
+
+    card_id: str
+    failure_kind: str | None = None
+    error_class: str | None = None
 
 
 # DDL схемы v1 (канон — docs/audit-2026-07.md § 9.2). Применяется миграцией
@@ -262,6 +396,18 @@ CREATE INDEX IF NOT EXISTS idx_lint_rule  ON lint_violations(rule_code);
 """
 
 _SCHEMA_V1_VERSION = 1
+_SCHEMA_V2_VERSION = 2
+
+
+def _has_column(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    """Есть ли колонка в таблице (``PRAGMA table_info``).
+
+    Нужна миграции 2→3: ``ALTER TABLE ... ADD COLUMN`` не имеет формы
+    ``IF NOT EXISTS``, а инициализация может идти из двух процессов сразу.
+    """
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(row[1] == column for row in rows)
+
 
 # DDL схемы v2 (issue #819): агрегат «попыток/времени до первого зачёта» на
 # задачу. Считать его на лету по таблице ``runs`` было нельзя: retention
@@ -277,6 +423,70 @@ CREATE TABLE IF NOT EXISTS task_progress (
     first_ac_ts_utc      TEXT,
     attempts_to_first_ac INTEGER
 );
+"""
+
+
+# DDL схемы v3 (issue #990): человеческое имя задачи рядом с её ключом. Ключом
+# стал устойчивый идентификатор шага (``step:<id>``), а его нельзя показывать в
+# «Прогрессе» вместо названия папки — пользователь узнаёт задачу по имени, а не
+# по номеру шага. Колонка обновляется на каждом прогоне: папку могли
+# переименовать, и последнее известное имя точнее первого.
+_SCHEMA_V3 = """
+ALTER TABLE task_progress ADD COLUMN display_name TEXT;
+"""
+
+
+# DDL схемы v4, часть 1 (issue #1175): вердикт платформы рядом с нашим. Раньше
+# обратная связь Stepik собиралась однобоко — вердикты приезжали при скачивании
+# (``core/submission_archive``), а результат живой отправки не сохранялся нигде,
+# и сверка «наш вердикт против платформы» оставалась разовой акцией. С этой
+# таблицей расхождение фиксируется в момент, когда случилось, и накапливается
+# между прогонами.
+#
+# ``run_id ... ON DELETE SET NULL``, а НЕ ``CASCADE``: retention (#642) вытесняет
+# старые прогоны, и каскад унёс бы вместе с ними вердикт платформы — самую
+# долгоживущую и невосстановимую часть записи (повторно её взять неоткуда, а наш
+# прогон воспроизводится запуском). Связь теряется, факт остаётся.
+_SCHEMA_V4_SUBMISSIONS = """
+CREATE TABLE IF NOT EXISTS stepik_submissions (
+    id            INTEGER PRIMARY KEY,
+    ts_utc        TEXT    NOT NULL,
+    step_id       INTEGER NOT NULL,
+    task_key      TEXT    NOT NULL DEFAULT '',
+    submission_id INTEGER,
+    verdict       TEXT    NOT NULL,
+    hint          TEXT,
+    run_id        INTEGER REFERENCES runs(id) ON DELETE SET NULL,
+    our_verdict   TEXT,
+    diverged      INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_submissions_step     ON stepik_submissions(step_id, id);
+CREATE INDEX IF NOT EXISTS idx_submissions_diverged ON stepik_submissions(diverged, id);
+"""
+
+
+# DDL схемы v4, часть 2 (issue #1220): обращения к глоссарию ИЗ ОШИБКИ.
+# Отдельная таблица, а не колонка в ``runs``: одна ошибка может увести в
+# несколько карточек, и связь тут «многие к одному», а не «один к одному».
+# Ссылки на ``runs`` нет намеренно — переход случается уже после прогона, при
+# разборе, и переживать retention он должен так же, как вердикт платформы.
+_SCHEMA_V4_GLOSSARY = """
+CREATE TABLE IF NOT EXISTS glossary_hits (
+    id           INTEGER PRIMARY KEY,
+    ts_utc       TEXT NOT NULL,
+    card_id      TEXT NOT NULL,
+    failure_kind TEXT,
+    error_class  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_glossary_hits_card ON glossary_hits(card_id);
+"""
+
+
+# DDL схемы v4, часть 3 (issue #1220): чем исполнялся прогон. Прогон под
+# песочницей медленнее, и без отметки сравнение времён между прогонами вводит в
+# заблуждение — в «Прогрессе» и при сверке вердиктов особенно.
+_SCHEMA_V4_ISOLATION = """
+ALTER TABLE runs ADD COLUMN isolation TEXT;
 """
 
 
@@ -313,25 +523,44 @@ def _backfill_task_progress(conn: sqlite3.Connection) -> None:
 
 
 def _bump_task_progress(
-    conn: sqlite3.Connection, *, task_key: str, ts_utc: str, full_ac: bool
+    conn: sqlite3.Connection,
+    *,
+    task_key: str,
+    ts_utc: str,
+    full_ac: bool,
+    display_name: str | None = None,
 ) -> None:
     """Учесть один прогон режима 1/2 в агрегате задачи (issue #819).
 
     ``first_ts_utc`` пишется один раз (первая попытка), ``runs_total`` растёт,
     а ``first_ac_ts_utc``/``attempts_to_first_ac`` фиксируются на первом полном
     AC и больше не меняются — «первый зачёт» по определению случается однажды.
+
+    ``display_name`` (issue #990), наоборот, обновляется каждым прогоном:
+    ключом стал идентификатор шага, а человеку в «Прогрессе» нужно имя папки, и
+    последнее известное имя точнее первого — папку могли переименовать.
+    ``COALESCE`` в UPDATE защищает уже сохранённое имя от затирания пустым:
+    прогон из папки без имени (корень диска) не должен обезличивать задачу.
     """
     conn.execute(
         "INSERT INTO task_progress "
-        "    (task_key, first_ts_utc, runs_total, first_ac_ts_utc, attempts_to_first_ac) "
-        "VALUES (?, ?, 1, ?, ?) "
+        "    (task_key, first_ts_utc, runs_total, first_ac_ts_utc, attempts_to_first_ac, "
+        "     display_name) "
+        "VALUES (?, ?, 1, ?, ?, ?) "
         "ON CONFLICT(task_key) DO UPDATE SET "
         "    runs_total = runs_total + 1, "
         "    first_ac_ts_utc = COALESCE(first_ac_ts_utc, excluded.first_ac_ts_utc), "
         "    attempts_to_first_ac = COALESCE("
         "        attempts_to_first_ac, "
-        "        CASE WHEN excluded.first_ac_ts_utc IS NOT NULL THEN runs_total + 1 END)",
-        (task_key, ts_utc, ts_utc if full_ac else None, 1 if full_ac else None),
+        "        CASE WHEN excluded.first_ac_ts_utc IS NOT NULL THEN runs_total + 1 END), "
+        "    display_name = COALESCE(excluded.display_name, display_name)",
+        (
+            task_key,
+            ts_utc,
+            ts_utc if full_ac else None,
+            1 if full_ac else None,
+            display_name or None,
+        ),
     )
 
 
@@ -340,13 +569,26 @@ def _migrate(conn: sqlite3.Connection) -> None:
 
     Делегирует общему ``db.apply_schema`` (issue #552) схему v1, затем
     инкрементально доводит до v2 (агрегат ``task_progress``, issue #819) с
-    разовым заполнением по имеющимся прогонам. DDL идемпотентен (``CREATE ...
-    IF NOT EXISTS``), поэтому параллельная инициализация двумя процессами
-    безопасна (#393).
+    разовым заполнением по имеющимся прогонам, v3 (``display_name``, #990) и
+    v4 (вердикт платформы, признак изоляции, переходы в глоссарий — #1175 и
+    #1220). DDL идемпотентен (``CREATE ... IF NOT EXISTS``), поэтому
+    параллельная инициализация двумя процессами безопасна (#393).
 
     Сверка с ИТОГОВОЙ ``SCHEMA_VERSION`` идёт здесь, а не в ``db.apply_schema``:
     примитив знает только про свою ступень, и на базе v2 вызов со ступенью v1
     выглядел бы как откат (issue #794).
+
+    Вся миграция идёт под ОДНИМ write-lock'ом (``db.exclusive_transaction``,
+    issue #947), и версия перечитывается уже под ним. Раньше версия читалась
+    вне транзакции, а мигрирует и путь чтения (раздел «Прогресс» открывает базу
+    так же, как запись прогона) — поэтому два процесса входили в миграцию 1→2
+    одновременно, оба видели ``user_version = 1`` и оба гнали
+    ``_backfill_task_progress``. Бэкфилл не идемпотентен: он зовёт
+    ``_bump_task_progress``, а тот делает ``runs_total = runs_total + 1``, —
+    и «попытки» в «Прогрессе» удваивались молча, без ошибки в логе. Лок делает
+    вход в миграцию взаимоисключающим, а транзакция — атомарной: обрыв между
+    DDL и ``set_user_version`` откатывается целиком, а не оставляет базу
+    полумигрированной.
 
     Raises:
         db.SchemaTooNewError: база записана более новой версией схемы.
@@ -355,12 +597,47 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if current > SCHEMA_VERSION:
         raise db.SchemaTooNewError(found=current, expected=SCHEMA_VERSION)
     if current == SCHEMA_VERSION:
-        return
-    db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
-    conn.executescript(_SCHEMA_V2)
-    _backfill_task_progress(conn)
-    db.set_user_version(conn, SCHEMA_VERSION)
-    conn.commit()
+        return  # быстрый путь: почти каждое открытие базы уже на актуальной схеме
+    with db.exclusive_transaction(conn):
+        current = db.user_version(conn)  # под локом: сосед мог мигрировать, пока мы ждали
+        if current > SCHEMA_VERSION:
+            raise db.SchemaTooNewError(found=current, expected=SCHEMA_VERSION)
+        if current == SCHEMA_VERSION:
+            return
+        # issue #990: ступень 0→1 применяется ТОЛЬКО к базе, которая её не проходила.
+        # Примитив `apply_schema` знает лишь про свою ступень и считает любую версию
+        # выше запрошенной откатом: на базе v2 (а это все базы, созданные до этого
+        # изменения) безусловный вызов со ступенью v1 бросал SchemaTooNewError, и
+        # история отваливалась с «схема новее ожидаемой» сразу после обновления
+        # грейдера. Поймано тестом миграции v2→v3.
+        if current < _SCHEMA_V1_VERSION:
+            db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
+        # DDL — через `db.execute_ddl_script`, а не `conn.executescript`: последний
+        # делает неявный COMMIT и снял бы взятый выше write-lock (issue #947).
+        db.execute_ddl_script(conn, _SCHEMA_V2)
+        # issue #990: ступень 2→3 идёт ДО заполнения агрегата — backfill пишет через
+        # `_bump_task_progress`, а тот уже знает про `display_name`. Обратный порядок
+        # ронял домиграцию старой базы на «no such column» и, из-за best-effort,
+        # выглядел как молча пропавшая запись (поймано тестом миграции v1→v2).
+        #
+        # `ALTER TABLE ... ADD COLUMN` не идемпотентен (в отличие от
+        # `CREATE ... IF NOT EXISTS`), поэтому ступень выполняется по факту наличия
+        # колонки: параллельная инициализация двумя процессами иначе роняла бы
+        # второго на «duplicate column name».
+        if not _has_column(conn, "task_progress", "display_name"):
+            db.execute_ddl_script(conn, _SCHEMA_V3)
+        # Ступень 3→4 (issue #1175/#1220). Обе таблицы — идемпотентный
+        # ``CREATE ... IF NOT EXISTS``; колонка ``runs.isolation`` — по факту
+        # наличия, как ``display_name`` выше: ``ADD COLUMN`` не идемпотентен, и
+        # параллельная домиграция двумя процессами роняла бы второго на
+        # «duplicate column name».
+        db.execute_ddl_script(conn, _SCHEMA_V4_SUBMISSIONS)
+        db.execute_ddl_script(conn, _SCHEMA_V4_GLOSSARY)
+        if not _has_column(conn, "runs", "isolation"):
+            db.execute_ddl_script(conn, _SCHEMA_V4_ISOLATION)
+        if current < _SCHEMA_V2_VERSION:
+            _backfill_task_progress(conn)
+        db.set_user_version(conn, SCHEMA_VERSION)
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -398,6 +675,28 @@ class HistoryRepository(Protocol):
         """Агрегат «попыток/времени до первого зачёта» по задачам (issue #819)."""
         ...
 
+    def last_run_verdict(self, task_key: str) -> tuple[int | None, str | None]:
+        """Наш последний вердикт по задаче: ``(run_id, verdict)`` (issue #1175)."""
+        ...
+
+    def add_stepik_submission(self, record: StepikSubmissionRecord) -> int | None:
+        """Записать вердикт платформы по отправке решения (issue #1175)."""
+        ...
+
+    def stepik_submissions(
+        self, *, step_id: int | None = None, diverged_only: bool = False, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Отправки на Stepik (новые первыми), опционально только расхождения."""
+        ...
+
+    def add_glossary_hit(self, record: GlossaryHitRecord) -> int | None:
+        """Записать переход в карточку глоссария из ошибки (issue #1220)."""
+        ...
+
+    def glossary_hits(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        """Переходы в глоссарий из ошибок (новые первыми, issue #1220)."""
+        ...
+
 
 @dataclass(frozen=True)
 class SqliteHistoryRepository:
@@ -433,7 +732,7 @@ class SqliteHistoryRepository:
                 with _WRITE_LOCK, contextlib.closing(_connect(self.db_path)) as conn:
                     cur = conn.execute(
                         "INSERT INTO runs (ts_utc, mode, source, task_key, solution_name, "
-                        "solution_hash, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        "solution_hash, duration_s, isolation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             ts_utc,
                             record.mode,
@@ -442,6 +741,7 @@ class SqliteHistoryRepository:
                             record.solution_name,
                             record.solution_hash,
                             record.duration_s,
+                            record.isolation,
                         ),
                     )
                     run_id = cur.lastrowid
@@ -477,6 +777,7 @@ class SqliteHistoryRepository:
                             ts_utc=ts_utc,
                             full_ac=bool(record.cases)
                             and all(c.verdict == "AC" for c in record.cases),
+                            display_name=record.task_title,
                         )
                     if max_runs_per_task is not None:
                         # issue #642: retention — оставить не более max_runs_per_task
@@ -586,8 +887,143 @@ class SqliteHistoryRepository:
                 conn.row_factory = sqlite3.Row
                 rows = conn.execute(
                     "SELECT task_key, first_ts_utc, runs_total, first_ac_ts_utc, "
-                    "attempts_to_first_ac FROM task_progress ORDER BY task_key LIMIT ?",
+                    "attempts_to_first_ac, display_name FROM task_progress "
+                    "ORDER BY task_key LIMIT ?",
                     (limit,),
+                ).fetchall()
+                return [dict(row) for row in rows]
+        except (sqlite3.Error, OSError) as exc:
+            _note_unusable_db(self.db_path, exc)
+            return []
+
+    def last_run_verdict(self, task_key: str) -> tuple[int | None, str | None]:
+        """Наш последний вердикт по задаче: ``(run_id, verdict)`` (issue #1175).
+
+        Вердикт прогона — ``"AC"``, если все кейсы зачтены, иначе код первого
+        упавшего (``WA``/``RE``/``TL``…): именно он объясняет, ПОЧЕМУ мы не
+        согласны с платформой. Прогон без кейсов вердикта не даёт.
+
+        Берутся только прогоны проверки (``CORRECTNESS_MODES``): бенчмарк
+        отвечает на вопрос «быстрее ли», и сравнивать его с «зачтено» нельзя.
+        Нет базы, нет прогонов — ``(None, None)``, и запись об отправке уйдёт
+        без нашей стороны сравнения.
+        """
+        if not self.db_path.is_file():
+            return None, None
+        placeholders = ",".join("?" * len(CORRECTNESS_MODES))
+        try:
+            with contextlib.closing(_connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                row = conn.execute(
+                    f"SELECT id FROM runs WHERE task_key = ? AND mode IN ({placeholders}) "
+                    "ORDER BY id DESC LIMIT 1",
+                    (task_key, *sorted(CORRECTNESS_MODES)),
+                ).fetchone()
+                if row is None:
+                    return None, None
+                run_id = int(row["id"])
+                cases = conn.execute(
+                    "SELECT verdict FROM case_results WHERE run_id = ? ORDER BY case_no",
+                    (run_id,),
+                ).fetchall()
+                if not cases:
+                    return run_id, None
+                failed = next((c["verdict"] for c in cases if c["verdict"] != "AC"), None)
+                return run_id, failed or "AC"
+        except (sqlite3.Error, OSError) as exc:
+            _note_unusable_db(self.db_path, exc)
+            return None, None
+
+    def add_stepik_submission(self, record: StepikSubmissionRecord) -> int | None:
+        """Записать вердикт платформы по отправке; вернуть id записи (issue #1175).
+
+        Флаг расхождения считается ЗДЕСЬ, при записи, а не при чтении: наш
+        вердикт — величина изменчивая (следующий прогон перепишет ``runs``,
+        retention вытеснит старые записи), а вопрос «разошлись ли вердикты»
+        задаётся про момент отправки. Посчитанный при чтении, он отвечал бы про
+        сегодняшнее состояние базы, а не про то, что случилось.
+
+        Best-effort, как ``add_run``: проблемы БД не должны ронять отправку —
+        решение на платформу уже ушло, и падать после этого не на чем.
+        """
+        our = record.our_verdict
+        diverged = 0
+        if our is not None and record.verdict in PLATFORM_VERDICTS:
+            diverged = int((record.verdict == "correct") != (our == "AC"))
+        try:
+            with _WRITE_LOCK, contextlib.closing(_connect(self.db_path)) as conn:
+                cur = conn.execute(
+                    "INSERT INTO stepik_submissions (ts_utc, step_id, task_key, submission_id, "
+                    "verdict, hint, run_id, our_verdict, diverged) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        _utc_now_iso(),
+                        record.step_id,
+                        record.task_key,
+                        record.submission_id,
+                        record.verdict,
+                        record.hint,
+                        record.run_id,
+                        our,
+                        diverged,
+                    ),
+                )
+                conn.commit()
+                return cur.lastrowid
+        except (sqlite3.Error, OSError) as exc:
+            _note_unusable_db(self.db_path, exc)
+            return None
+
+    def stepik_submissions(
+        self, *, step_id: int | None = None, diverged_only: bool = False, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """Отправки на Stepik (новые первыми); отсутствующая/битая БД → пусто."""
+        if not self.db_path.is_file():
+            return []
+        clauses: list[str] = []
+        params: list[Any] = []
+        if step_id is not None:
+            clauses.append("step_id = ?")
+            params.append(step_id)
+        if diverged_only:
+            clauses.append("diverged = 1")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        try:
+            with contextlib.closing(_connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    f"SELECT * FROM stepik_submissions {where} ORDER BY id DESC LIMIT ?",
+                    (*params, limit),
+                ).fetchall()
+                return [dict(row) for row in rows]
+        except (sqlite3.Error, OSError) as exc:
+            _note_unusable_db(self.db_path, exc)
+            return []
+
+    def add_glossary_hit(self, record: GlossaryHitRecord) -> int | None:
+        """Записать переход в карточку глоссария из ошибки (issue #1220)."""
+        try:
+            with _WRITE_LOCK, contextlib.closing(_connect(self.db_path)) as conn:
+                cur = conn.execute(
+                    "INSERT INTO glossary_hits (ts_utc, card_id, failure_kind, error_class) "
+                    "VALUES (?, ?, ?, ?)",
+                    (_utc_now_iso(), record.card_id, record.failure_kind, record.error_class),
+                )
+                conn.commit()
+                return cur.lastrowid
+        except (sqlite3.Error, OSError) as exc:
+            _note_unusable_db(self.db_path, exc)
+            return None
+
+    def glossary_hits(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        """Переходы в глоссарий из ошибок (новые первыми); битая БД → пусто."""
+        if not self.db_path.is_file():
+            return []
+        try:
+            with contextlib.closing(_connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT * FROM glossary_hits ORDER BY id DESC LIMIT ?", (limit,)
                 ).fetchall()
                 return [dict(row) for row in rows]
         except (sqlite3.Error, OSError) as exc:
@@ -602,10 +1038,12 @@ def record_run(
     db_path: Path,
     source: str = "cli",
     task_key: str = "",
+    task_title: str | None = None,
     solution_name: str | None = None,
     solution_hash: str | None = None,
     duration_s: float | None = None,
     lint: list[LintRecord] | None = None,
+    isolation: str | None = None,
     max_runs_per_task: int | None = _MAX_RUNS_PER_TASK,
 ) -> int | None:
     """Записать один прогон в локальную историю; вернуть ``run_id`` (или ``None``).
@@ -614,6 +1052,10 @@ def record_run(
     параметры в доменный ``RunRecord`` и делегирует локальному бэкенду. Сигнатура
     сохранена для существующих вызывающих (``cli``/``web``) и тестов — поведение,
     retention (#642) и best-effort те же. Путь передаётся явно (opt-in, #134).
+
+    ``isolation`` (issue #1220) — чем исполнялся прогон; значение снимает
+    ``history_recording.current_isolation()``. Не передали — в базе останется
+    ``NULL``, то есть «неизвестно».
     """
     return SqliteHistoryRepository(db_path).add_run(
         RunRecord(
@@ -621,13 +1063,77 @@ def record_run(
             cases=cases,
             source=source,
             task_key=task_key,
+            task_title=task_title,
             solution_name=solution_name,
             solution_hash=solution_hash,
             duration_s=duration_s,
             lint=lint or [],
+            isolation=isolation,
         ),
         max_runs_per_task=max_runs_per_task,
     )
+
+
+def record_stepik_submission(
+    step_id: int,
+    verdict: str,
+    *,
+    db_path: Path,
+    task_key: str = "",
+    submission_id: int | None = None,
+    hint: str | None = None,
+) -> int | None:
+    """Записать вердикт платформы по отправке решения (issue #1175).
+
+    Нашу сторону сравнения ищет сама: последний прогон проверки по
+    ``task_key``. Локального прогона не было — запись создаётся с
+    ``run_id = NULL`` и без ``our_verdict``, потому что отправить решение можно
+    и не запуская проверку.
+    """
+    repo = SqliteHistoryRepository(db_path)
+    run_id, our_verdict = repo.last_run_verdict(task_key) if task_key else (None, None)
+    return repo.add_stepik_submission(
+        StepikSubmissionRecord(
+            step_id=step_id,
+            verdict=verdict,
+            task_key=task_key,
+            submission_id=submission_id,
+            hint=hint,
+            run_id=run_id,
+            our_verdict=our_verdict,
+        )
+    )
+
+
+def read_stepik_submissions(
+    db_path: Path,
+    *,
+    step_id: int | None = None,
+    diverged_only: bool = False,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    """Отправки на Stepik из истории, новые первыми (issue #1175)."""
+    return SqliteHistoryRepository(db_path).stepik_submissions(
+        step_id=step_id, diverged_only=diverged_only, limit=limit
+    )
+
+
+def record_glossary_hit(
+    card_id: str,
+    *,
+    db_path: Path,
+    failure_kind: str | None = None,
+    error_class: str | None = None,
+) -> int | None:
+    """Записать переход в карточку глоссария из ошибки (issue #1220)."""
+    return SqliteHistoryRepository(db_path).add_glossary_hit(
+        GlossaryHitRecord(card_id=card_id, failure_kind=failure_kind, error_class=error_class)
+    )
+
+
+def read_glossary_hits(db_path: Path, *, limit: int = 100) -> list[dict[str, Any]]:
+    """Переходы в глоссарий из ошибок, новые первыми (issue #1220)."""
+    return SqliteHistoryRepository(db_path).glossary_hits(limit=limit)
 
 
 def read_recent_runs(
@@ -642,6 +1148,32 @@ def read_recent_runs(
     Сигнатура сохранена для тестов (roundtrip) и раздела «Подучить» (#347).
     """
     return SqliteHistoryRepository(db_path).recent_runs(task_key=task_key, limit=limit)
+
+
+def _step_key_from_meta(task_dir: Path) -> str | None:
+    """``step:<id>`` из ``meta.json`` папки задачи или ``None`` (issue #990).
+
+    ``meta.json`` пишет downloader при скачивании шага, и ``step_id`` в нём —
+    единственный идентификатор задачи, устойчивый к переименованию и переезду
+    папки. Имя папки таким идентификатором не является: две задачи из разных
+    курсов, названные одинаково, получали один ключ на двоих — общую историю,
+    общий зачёт и общее удаление.
+
+    JSON читается здесь, а не через ``stepik_client.read_step_id``, намеренно:
+    ``history`` не должен тянуть сетевой слой ради разбора локального файла —
+    это ребро в DAG ради десяти строк stdlib. Любая проблема с файлом (нет,
+    битый, поле не int) означает «устойчивого ключа не будет», а не ошибку:
+    папка просто скачана не downloader'ом.
+    """
+    try:
+        raw = (task_dir / "meta.json").read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except OSError, ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    step_id = data.get("step_id")
+    return f"step:{step_id}" if isinstance(step_id, int) else None
 
 
 def task_key_for(task_dir: Path, base: Path) -> str:
@@ -671,6 +1203,17 @@ def task_key_for(task_dir: Path, base: Path) -> str:
     # всё проходило).
     base = base.resolve()
     task_dir = (base / task_dir).resolve() if not task_dir.is_absolute() else task_dir.resolve()
+
+    # issue #990 (JRN-4A-01/JRN-4B-02): устойчивый идентификатор шага важнее
+    # любого пути. Пока ключом было имя папки, `~/курс-А/задача-3` и
+    # `~/курс-Б/задача-3` были для базы одной задачей: `--purge-history задача-3`
+    # стирал историю обеих, а зачёт в одной красил другую зелёным «✅ Решено».
+    # Проверка идёт ДО разбора пути — путь остаётся запасным вариантом для папок,
+    # скачанных не downloader'ом.
+    step_key = _step_key_from_meta(task_dir)
+    if step_key is not None:
+        return step_key
+
     try:
         rel = task_dir.relative_to(base, walk_up=True)
     except ValueError:
@@ -692,34 +1235,114 @@ def read_task_progress(db_path: Path, *, limit: int = 1000) -> list[dict[str, An
     return SqliteHistoryRepository(db_path).task_progress(limit=limit)
 
 
+class PurgePreview(TypedDict):
+    """Объём предстоящего удаления истории (issue #990)."""
+
+    runs: int
+    tasks: list[str]
+    solutions: list[str]
+
+
+def preview_purge(db_path: Path, *, task_key: str | None = None) -> PurgePreview:
+    """Что именно исчезнет при ``purge_history`` — до удаления (issue #990).
+
+    Сколько прогонов уйдёт, каких задач они касаются и какие файлы решений в
+    них встречались. Удаление истории необратимо, поэтому пользователь обязан
+    увидеть объём заранее — тем более что ключ задачи сейчас совпадает у
+    одноимённых папок разных курсов, и «своя» задача может утащить чужую.
+
+    Best-effort, как вся работа с историей: нет базы, битый файл, нечитаемый
+    путь — пустой предпросмотр, а не исключение.
+    """
+    empty: PurgePreview = {"runs": 0, "tasks": [], "solutions": []}
+    if not db_path.is_file():
+        return empty
+    where = "" if task_key is None else " WHERE task_key = ?"
+    params: tuple[str, ...] = () if task_key is None else (task_key,)
+    try:
+        with contextlib.closing(db.connect(db_path)) as conn:
+            runs = int(conn.execute(f"SELECT COUNT(*) FROM runs{where}", params).fetchone()[0])
+            tasks = [
+                str(row[0])
+                for row in conn.execute(
+                    f"SELECT DISTINCT task_key FROM runs{where} ORDER BY task_key", params
+                )
+                if row[0]
+            ]
+            solutions = [
+                str(row[0])
+                for row in conn.execute(
+                    f"SELECT DISTINCT solution_name FROM runs{where} "
+                    f"ORDER BY solution_name LIMIT 20",
+                    params,
+                )
+                if row[0]
+            ]
+    except sqlite3.DatabaseError, OSError:
+        # Молча, как и остальной модуль: предпросмотр — вспомогательный шаг,
+        # и его отказ не должен мешать самому удалению (битую базу как раз и
+        # хотят снести).
+        return empty
+    return {"runs": runs, "tasks": tasks, "solutions": solutions}
+
+
 def purge_history(db_path: Path, *, task_key: str | None = None) -> int:
     """Удалить историю прогонов; вернуть число удалённых прогонов (issue #813).
 
     ``task_key=None`` — удалить БД целиком вместе с ``-wal``/``-shm``
     спутниками: у пользователя должен быть способ убрать журнал обучения, не
     зная о существовании этих файлов. С ``task_key`` удаляются прогоны только
-    этой задачи (``cases``/``lint`` уходят каскадом по FK), а база остаётся.
+    этой задачи (``cases``/``lint`` уходят каскадом по FK, вердикты платформы —
+    явным запросом), а база остаётся.
+
+    Обращения к глоссарию (``glossary_hits``, issue #1220) точечному удалению
+    не поддаются: у них нет задачи — только ключ ошибки и карточка. Они уходят
+    при удалении базы целиком, и это названо в документации истории, а не
+    оставлено на догадку.
 
     Best-effort, как и вся работа с историей: отсутствующая БД — это 0
-    удалённых, а не ошибка.
+    удалённых, а не ошибка. Битая база — тоже: цель команды и есть «истории не
+    стало», поэтому нечитаемый файл удаляется целиком вместо трейсбека
+    ``sqlite3.DatabaseError`` (issue #990, находки PROD-2-02/FZZ-5-05) —
+    пользователь, у которого журнал повреждён, приходит сюда как раз за этим.
     """
     if not db_path.is_file():
         return 0
     if task_key is None:
+        return _drop_database(db_path)
+    try:
+        with contextlib.closing(_connect(db_path)) as conn:
+            cursor = conn.execute("DELETE FROM runs WHERE task_key = ?", (task_key,))
+            # issue #819 + #813: агрегат «до первого зачёта» живёт отдельной строкой
+            # и каскадом FK не уносится — без этого «историю удалили» оставляло бы
+            # число попыток и время первого зачёта по задаче лежать в базе.
+            conn.execute("DELETE FROM task_progress WHERE task_key = ?", (task_key,))
+            # issue #1175: вердикты платформы FK-каскадом тоже не уносятся —
+            # связь с прогоном намеренно ``ON DELETE SET NULL``, чтобы retention
+            # не стирал невосстановимое. Здесь удаление запрошено человеком, и
+            # «историю по этой задаче удалили» обязано означать всю историю.
+            conn.execute("DELETE FROM stepik_submissions WHERE task_key = ?", (task_key,))
+            conn.commit()
+            # VACUUM возвращает место ОС: иначе удалённые записи остаются
+            # вычитываемыми из файла сырым чтением, а обещание «удалили» — неполным.
+            conn.execute("VACUUM")
+            return int(cursor.rowcount or 0)
+    except sqlite3.DatabaseError, OSError:
+        # Точечное удаление на битой базе невозможно: SQL не выполнить. Сносим
+        # файл целиком — это шире запрошенного, но честнее молчаливого отказа,
+        # и соответствует смыслу команды. Число прогонов неизвестно: база не
+        # читается, поэтому возвращаем 0, а не выдуманную цифру.
+        _drop_database(db_path)
+        return 0
+
+
+def _drop_database(db_path: Path) -> int:
+    """Удалить файл БД вместе с WAL/SHM-спутниками; вернуть число прогонов в ней."""
+    removed = 0
+    with contextlib.suppress(sqlite3.DatabaseError, OSError):
         with contextlib.closing(db.connect(db_path)) as conn:
             removed = int(conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0])
-        for suffix in ("", "-wal", "-shm"):
-            with contextlib.suppress(OSError):
-                db_path.with_name(db_path.name + suffix).unlink(missing_ok=True)
-        return removed
-    with contextlib.closing(_connect(db_path)) as conn:
-        cursor = conn.execute("DELETE FROM runs WHERE task_key = ?", (task_key,))
-        # issue #819 + #813: агрегат «до первого зачёта» живёт отдельной строкой
-        # и каскадом FK не уносится — без этого «историю удалили» оставляло бы
-        # число попыток и время первого зачёта по задаче лежать в базе.
-        conn.execute("DELETE FROM task_progress WHERE task_key = ?", (task_key,))
-        conn.commit()
-        # VACUUM возвращает место ОС: иначе удалённые записи остаются
-        # вычитываемыми из файла сырым чтением, а обещание «удалили» — неполным.
-        conn.execute("VACUUM")
-        return int(cursor.rowcount or 0)
+    for suffix in ("", "-wal", "-shm"):
+        with contextlib.suppress(OSError):
+            db_path.with_name(db_path.name + suffix).unlink(missing_ok=True)
+    return removed

@@ -148,14 +148,43 @@ function renderAuthPanel(data) {
       '<button id="auth-start" class="btn btn-primary btn-sm">' + esc(t("auth.reauth_btn")) + "</button> " +
       '<button id="auth-reconfigure" class="btn btn-secondary btn-sm">' + esc(t("auth.reconfigure")) + "</button>" +
       '<div id="auth-progress" class="hint" hidden></div></div>';
+    applyAuthBusy();
     return;
   }
 
   if (authChoice === null) {
-    panel.innerHTML = renderAuthChoice();
+    panel.innerHTML = renderSecretsProblem(data, path) + renderAuthChoice();
+    applyAuthBusy();
     return;
   }
   panel.innerHTML = authChoice === "existing" ? renderExistingForm(path) : renderWizardForm();
+  applyAuthBusy();
+}
+
+/** Что именно не так с `secrets.json` и по какому пути искали (issue #1213).
+ *
+ * Развилка ниже спрашивает «мастер или готовый файл?», но не говорит, почему
+ * спрашивает. Пользователь видел общий отказ: ни имени файла, ни пути, ни
+ * причины — и решал, ткнуть ли наугад. Сервер всё это время знал и путь, и
+ * состояние (`secrets_state` в ответе `/api/auth/status`).
+ *
+ * Категория, а не содержимое: в файле лежат `client_secret` и токен.
+ */
+function renderSecretsProblem(data, path) {
+  const key = {
+    missing: "auth.secrets_missing",
+    unreadable: "auth.secrets_unreadable",
+    incomplete: "auth.secrets_incomplete",
+  }[data && data.secrets_state];
+  if (!key) return "";
+  // Настроенный путь бывает относительным («secrets.json») и на вопрос «где
+  // искали» не отвечает — показываем разрешённый, если сервер его прислал.
+  const shown = (data && data.secrets_path_resolved) || path;
+  return (
+    '<div class="auth-problem"><span class="auth-state auth-state-warn">' +
+    esc(t(key)) + "</span> " +
+    '<code class="config-value">' + esc(shown) + "</code></div>"
+  );
 }
 
 /** Развилка первого запуска: мастер или готовый файл (issue #723). */
@@ -243,7 +272,6 @@ async function startBrowserAuth() {
   const idEl = $("#auth-client-id");
   const secEl = $("#auth-client-secret");
   const progress = $("#auth-progress");
-  const btn = $("#auth-start");
   // Форма мастера может отсутствовать (повторная авторизация одной кнопкой):
   // тогда креды берёт сервер из secrets.json (issue #723).
   const clientId = idEl ? idEl.value.trim() : "";
@@ -253,8 +281,7 @@ async function startBrowserAuth() {
     if (progress) progress.textContent = t("auth.need_credentials");
     return;
   }
-  if (btn) btn.disabled = true;
-  if (progress) progress.textContent = t("auth.opening_browser");
+  setAuthBusy(t("auth.opening_browser"));
   try {
     const body = idEl ? { client_id: clientId, client_secret: clientSecret } : {};
     const resp = await fetch("/api/auth/start", {
@@ -264,14 +291,14 @@ async function startBrowserAuth() {
     });
     const created = await resp.json();
     if (!created.run_id) {
+      clearAuthBusy();
       if (progress) progress.textContent = created.message || t("auth.start_failed");
-      if (btn) btn.disabled = false;
       return;
     }
     pollAuth(created.run_id);
   } catch (e) {
+    clearAuthBusy();
     if (progress) progress.textContent = t("common.request_error_detail", { detail: String(e) });
-    if (btn) btn.disabled = false;
   }
 }
 
@@ -282,8 +309,43 @@ async function startBrowserAuth() {
 // итерация выходит молча.
 let authPollRunId = null;
 
+// issue #922 (FE-3-03): что показывать, пока авторизация идёт. Панель
+// пересобирается целиком при каждом заходе в раздел (`registerSectionHook`
+// зовёт `loadAuthStatus`), а `renderAuthPanel` рисует индикатор скрытым и
+// кнопку активной — то есть уход в другой раздел и возврат стирал ЕДИНСТВЕННЫЙ
+// признак идущего OAuth. Опрос при этом продолжался (#802), и человек видел
+// панель «ничего не происходит» поверх работающего процесса: следующее нажатие
+// «Авторизоваться» заводило второй прогон и вытесняло первый.
+//
+// Признак живёт не в DOM, а здесь: DOM у этой панели недолговечен.
+let authBusyMessage = null;
+
+function setAuthBusy(message) {
+  authBusyMessage = message;
+  applyAuthBusy();
+}
+
+function clearAuthBusy() {
+  authBusyMessage = null;
+  const btn = $("#auth-start");
+  if (btn) btn.disabled = false;
+}
+
+/** Показать состояние «идёт авторизация» на текущих узлах панели. */
+function applyAuthBusy() {
+  if (authBusyMessage === null) return;
+  const progress = $("#auth-progress");
+  if (progress) {
+    progress.hidden = false;
+    progress.textContent = authBusyMessage;
+  }
+  const btn = $("#auth-start");
+  if (btn) btn.disabled = true;
+}
+
 function cancelAuthPoll() {
   authPollRunId = null;
+  clearAuthBusy();
 }
 
 function pollAuth(runId) {
@@ -297,11 +359,12 @@ function pollAuth(runId) {
     const progress = () => $("#auth-progress");
     const btn = () => $("#auth-start");
     const fail = message => {
+      cancelAuthPoll(); // снимает и «идёт авторизация», и блокировку кнопки
       const el = progress();
-      if (el) el.textContent = message;
-      const b = btn();
-      if (b) b.disabled = false;
-      cancelAuthPoll();
+      if (el) {
+        el.hidden = false;
+        el.textContent = message;
+      }
     };
     try {
       const r = await fetch("/api/v1/runs/" + runId);

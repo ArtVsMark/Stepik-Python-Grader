@@ -1,6 +1,8 @@
 // grade.js — проверка (режимы 1–4), рендер результата, карточки действий (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
-import { $, SECTIONS, codeBlock, cycleTheme, errorSummary, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, stripAnsi, t, toast, tp } from "./core.js";
+import { initNavigation, syncFromPath } from "./navigation.js";
+import { refreshStatementButton, resetStatement } from "./statement.js";
+import { $, SECTIONS, codeBlock, cycleTheme, errorSummary, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, stripAnsi, t, toast, tp, wireChoiceList } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
 // как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
@@ -23,6 +25,9 @@ const VERDICT_BADGE = {
   // issue #729: решение не допущено к замеру (не прошло тесты) — это не сбой
   // замера, а «нечего мерить», поэтому нейтральный бейдж, а не красный ERR.
   SKIPPED: "badge badge-neutral",
+  // issue #1517: вывод обрезан по потолку — проверять нечем. Красный: для
+  // студента это провал кейса, а не предупреждение.
+  OLE: "badge badge-error",
   SANDBOX_VIOLATION: "badge badge-error",
   "NO TESTS": "badge badge-neutral",
   SIMILAR: "verdict-similar",
@@ -189,6 +194,11 @@ function setMode(m) {
 // клампы те же, что у CLI (5–100 повторов, 100–500 000 вызовов), выбор
 // запоминается между сессиями — как режим (issue #727). --------------------
 
+// issue #968: сколько строк диффа рисуем сразу. Меньше серверного предела на
+// вывод кейса (viewmodels._MAX_CASE_LINES): сервер режет патологию, а это —
+// граница единовременной отрисовки, снимаемая кнопкой «показать всё».
+const DIFF_MAX_ROWS = 500;
+
 const BENCH_PROFILE_KEY = "grader_repeats";
 const MICRO_PROFILE_KEY = "grader_micro_profile";
 
@@ -239,6 +249,11 @@ function restoreProfiles() {
 // ---------------------------------------------------------------------------
 let cmView = null;
 let checkTermsTimer = null; // issue #323: debounce обновления «Функции в коде»
+// Номер последнего запроса панели. Debounce не мешает двум запросам оказаться в
+// полёте одновременно (пауза в наборе дольше 400 мс), а ответы приходят в любом
+// порядке: устаревший, пришедший последним, затирал свежий — панель показывала
+// список для кода, которого в редакторе уже нет (issue #1568).
+let checkTermsSeq = 0;
 
 // issue #804: перезапуск debounce — функцией, а не мутацией `checkTermsTimer`
 // снаружи. Привязка импорта в ES-модулях доступна только на чтение, поэтому
@@ -250,14 +265,14 @@ function scheduleCheckTerms() {
   checkTermsTimer = setTimeout(loadCheckTerms, 400);
 }
 
-function mountEditor() {
+async function mountEditor() {
   const mount = document.getElementById("solution-editor");
   // issue #805 (DESW-07): `tabindex="0"` в разметке держит контейнер
   // достижимым, пока редактор не смонтирован. После монтирования фокус берёт
   // на себя contenteditable самого CodeMirror, и оставленный атрибут добавляет
   // в обход клавиатурой лишнюю пустую остановку перед редактором.
   mount.removeAttribute("tabindex");
-  cmView = makeEditor(mount, () => {
+  cmView = await makeEditor(mount, () => {
     updateRunButtonState();
     updateDirtyIndicator(); // issue #297
     scheduleCheckTerms(); // issue #323: обновить панель под новый код
@@ -343,6 +358,7 @@ function loadDroppedFile(file) {
 async function loadCheckTerms() {
   const el = $("#check-terms");
   if (!el) return;
+  const seq = ++checkTermsSeq;
   let body = null;
   const code = getEditorCode();
   if (code.trim()) {
@@ -354,7 +370,9 @@ async function loadCheckTerms() {
     el.innerHTML = '<li class="empty">' + esc(t("check.terms_empty")) + "</li>";
     return;
   }
-  renderTermsInto(el, await fetchCodeTerms(body), t("check.terms_none"));
+  const terms = await fetchCodeTerms(body);
+  if (seq !== checkTermsSeq) return; // пока ждали, код изменился — ответ устарел
+  renderTermsInto(el, terms, t("check.terms_none"));
 }
 
 function getEditorCode() {
@@ -379,6 +397,7 @@ function updateRunButtonState() {
 function resetFilePicker() {
   state.solutions = [];
   state.selectedSolutionFile = null;
+  resetStatement(); // issue #1178: сменилась задача — прежнее условие не её
   const list = $("#solutions-list");
   if (list) list.innerHTML = "";
   setEditorCode("");
@@ -414,10 +433,27 @@ async function refreshSolutionsList() {
     }
     state.solutions = data.files || [];
     renderSolutionsList();
+    // issue #1178: папка задачи известна — можно узнать, есть ли условие.
+    // Не ждём ответа: кнопка активируется, когда придёт, а список решений
+    // показывается сразу.
+    refreshStatementButton();
+    // issue #1179: путь известен — панель навигации встаёт на эту задачу либо
+    // честно показывает «вне курса». Не ждём: список решений уже показан.
+    syncFromPath(folder);
   } catch (e) {
     state.solutions = [];
     list.innerHTML = '<li class="empty">' + esc(t("common.request_error")) + "</li>";
   }
+}
+
+// issue #1179: навигация выбирает задачу, а дальше всё как при ручном вводе
+// пути — ищем решения. Панель об этом не знает: ей передан колбэк.
+function startNavigation() {
+  initNavigation(path => {
+    $("#path").value = path;
+    localStorage.setItem("grader_path", path);
+    findSolutions();
+  });
 }
 
 // issue #55: импорт закреплённого решения Stepik (+топовые) в папку задачи как
@@ -468,9 +504,8 @@ function renderSolutionsList() {
       return '<li data-file="' + esc(f) + '" class="' + sel + '">' + esc(name) + "</li>";
     })
     .join("");
-  el.querySelectorAll("li[data-file]").forEach(li =>
-    li.addEventListener("click", () => selectSolutionFile(li.dataset.file))
-  );
+  // issue #922: клик и клавиатура — один механизм, см. `wireChoiceList`.
+  wireChoiceList(el, "li[data-file]", li => selectSolutionFile(li.dataset.file));
 }
 
 async function selectSolutionFile(fullPath) {
@@ -557,20 +592,21 @@ async function grade() {
     return;
   }
   const q = new URLSearchParams({ path, mode: backendMode, lang: state.lang }); // issue #364
+  let outcome = null; // issue #967: исход этого прогона, null — прогон не дал результата
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
     state.lastResult = data;
+    outcome = data;
     render(data);
     updateCheckSidebarBadge(data);
     announceResult(summaryFromResult(data)); // issue #298
-    updateStepikSubmitButton(data); // issue #683
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
     toast(t("common.request_error"), "error");
     announceResult(t("common.request_error")); // issue #298
   } finally {
-    _finishGradeUI();
+    _finishGradeUI(outcome); // issue #683 — кнопка Stepik обновляется отсюда
   }
 }
 
@@ -640,11 +676,20 @@ function clearSaveError() {
   }
 }
 
-function _finishGradeUI() {
+// issue #967 (FE-2-01): `result` — исход ИМЕННО ЭТОГО прогона, а не то, что
+// лежит в `state.lastResult`. Разница видна на упавшем прогоне: `lastResult`
+// хранит прошлый результат, и кнопка «Отправить в Stepik» осталась бы активной
+// после кода, который только что не прошёл. `null` — «результата нет»
+// (ошибка, отмена, сбой старта), то есть отправлять нечего.
+function _finishGradeUI(result = null) {
   updateRunButtonState();
   $("#run").textContent = t("check.run");
   renderDetailPanel();
   renderResultSummaryBadges();
+  // Раньше кнопку обновляли только synchronous-путь и setMode, а режим 1 в вебе
+  // всегда идёт через async-джобу — она эту ветку не звала вовсе, и состояние
+  // кнопки отставало на один прогон. Место одно на все пути завершения.
+  updateStepikSubmitButton(result);
   // issue #298 (a11y): после завершения прогона фокус уходит на панель
   // результатов (tabindex="-1"), чтобы клавиатурный/скринридер-пользователь
   // оказался у сводки, а не остался на кнопке «Запустить».
@@ -674,7 +719,13 @@ async function submitToStepik() {
   const path = $("#path").value.trim();
   const code = getEditorCode();
   if (!path || !code.trim()) return;
-  if (!window.confirm(t("stepik.confirm"))) return;
+  let question = t("stepik.confirm");
+  if (lastCompat && lastCompat.issues && lastCompat.issues.length) {
+    question =
+      t("stepik.compat_confirm", { target: lastCompat.target }) + "\n" +
+      lastCompat.issues.map(compatLine).join("\n") + "\n\n" + question;
+  }
+  if (!window.confirm(question)) return;
 
   btn.disabled = true;
   const prevText = btn.textContent;
@@ -760,17 +811,18 @@ function summaryFromResult(data) {
     const label = t(data.mode === "bench" ? "check.mode_bench" : "check.mode_microbench");
     return t("grade.bench_done", { label, summary: tp(data.rows.length, "grade.n_solutions") });
   }
-  const ok = data.rows.filter(r => r.status === "OK").length;
+  const { ok, failed } = tallyStatuses(data.rows);
   if (data.rows.length === 1) {
     const r = data.rows[0];
     return t("grade.check_done_single", { file: r.file, status: r.status, passed: r.passed, total: r.total });
   }
   // issue #546: плюрализация «решений» вынесена в core.tp (locale-aware: ru
   // one/few/many, en one/many) — прежняя русская _plur удалена.
+  // issue #1020: непроверенные решения не приплюсовываются к провалам.
   return t("grade.check_done_multi", {
     summary: tp(data.rows.length, "grade.n_solutions"),
     ok,
-    fail: data.rows.length - ok,
+    fail: failed,
   });
 }
 
@@ -813,6 +865,10 @@ async function gradeAsync(path, backendMode, code = null) {
 
   const runId = created.run_id;
   state.activeRunId = runId;
+  // issue #967 (FE-2-01): исход этого прогона. Заполняется только веткой
+  // `done` — отмена и ошибка результата не дают, и кнопка Stepik обязана это
+  // отразить, а не сохранить состояние от прошлого вердикта.
+  let outcome = null;
   const cancelBtn = $("#cancel-run");
   cancelBtn.hidden = false;
   cancelBtn.disabled = false;
@@ -864,6 +920,7 @@ async function gradeAsync(path, backendMode, code = null) {
         $("#bar").innerHTML = "";
         if (data.status === "done") {
           state.lastResult = data.result;
+          outcome = data.result;
           render(data.result);
           updateCheckSidebarBadge(data.result);
           announceResult(summaryFromResult(data.result)); // issue #298
@@ -889,7 +946,7 @@ async function gradeAsync(path, backendMode, code = null) {
     poll();
   });
 
-  _finishGradeUI();
+  _finishGradeUI(outcome);
 }
 
 function updateProgressBar(done, total) {
@@ -915,11 +972,32 @@ function updateProgressBar(done, total) {
   if (fill) fill.style.width = pct + "%";
 }
 
-function cancelActiveRun() {
-  if (!state.activeRunId) return;
+// issue #922 (FE-2-03): отмена, которую можно повторить.
+//
+// Прежде ответ сервера глушился целиком (`.catch(() => {})`), а кнопка гасла
+// сразу и навсегда. Неудачная отмена — 404 (прогон уже свернулся), 409, обрыв
+// сети — оставляла пользователя в тупике: прогон идёт, кнопка мертва, нажать
+// ещё раз нечем, и выход один — перезагрузка страницы. Именно этого требует не
+// допускать первый критерий приёмки подэпика.
+//
+// Тот же путь в «Песочнице» (`cancelSandboxRun`) починен давно и работает
+// правильно; здесь повторяется ровно он — включая проверку «прогон всё ещё
+// тот же»: пока запрос летел, прогон мог завершиться и смениться следующим, и
+// разблокировать кнопку тогда значило бы предложить отменить не то.
+async function cancelActiveRun() {
+  const runId = state.activeRunId;
+  if (!runId) return;
   const cancelBtn = $("#cancel-run");
   cancelBtn.disabled = true;
-  fetch("/api/v1/runs/" + state.activeRunId + "/cancel", { method: "POST" }).catch(() => {});
+  try {
+    const resp = await fetch("/api/v1/runs/" + runId + "/cancel", { method: "POST" });
+    if (resp.ok) return; // прогон свернётся сам — кнопку снимет цикл опроса
+    const data = await resp.json().catch(() => ({}));
+    toast(data.message || t("run.cancel_failed"), "error");
+  } catch (e) {
+    toast(t("common.request_error_detail", { detail: String(e) }), "error");
+  }
+  if (state.activeRunId === runId) cancelBtn.disabled = false;
 }
 
 // -- Песочница: запуск произвольного кода со stdin (issue #317) ---------------
@@ -960,22 +1038,88 @@ function renderResultSummaryBadges() {
       .map(([v, n]) => renderVerdict(v).replace("</span>", " ×" + n + "</span>"))
       .join(" ");
   } else {
-    const ok = data.rows.filter(r => r.status === "OK").length;
+    const { ok, failed, notChecked } = tallyStatuses(data.rows);
     el.innerHTML =
       renderVerdict("OK").replace("</span>", " ×" + ok + "</span>") +
       " " +
-      renderVerdict("FAIL").replace("</span>", " ×" + (data.rows.length - ok) + "</span>");
+      renderVerdict("FAIL").replace("</span>", " ×" + failed + "</span>") +
+      (notChecked
+        ? " " + renderVerdict("NO TESTS").replace("</span>", " ×" + notChecked + "</span>")
+        : "");
   }
 }
 
-function renderTests(rows) {
+// issue #1020: «проверка не состоялась» — не провал. Раньше считался только
+// status === "OK", а всё остальное автоматически падало в FAIL, поэтому папка
+// без тест-кейсов давала верному решению «FAIL 1» и «0%»: пользователь видел
+// приговор там, где его решение никто не запускал.
+const NOT_CHECKED_STATUSES = new Set(["NO TESTS"]);
+
+function tallyStatuses(rows) {
   const ok = rows.filter(r => r.status === "OK").length;
+  const notChecked = rows.filter(r => NOT_CHECKED_STATUSES.has(r.status)).length;
+  return { ok, failed: rows.length - ok - notChecked, notChecked, checked: rows.length - notChecked };
+}
+
+// issue #1621: что в коде не поддерживает версия Python шага Stepik.
+// Предупреждение, а не вердикт: таблица и статусы не меняются. Последний
+// отчёт по единственному решению запоминается — по нему же предупреждает
+// подтверждение отправки на Stepik (код могли поправить после проверки, и тогда
+// предупреждение устарело, — граница названа: сверка идёт на прогоне).
+let lastCompat = null;
+
+// Подписи признаков синтаксиса — явными ключами: собранный ключ гард локалей
+// проверить не может, а пропущенная подпись тогда была бы видна только в браузере.
+const COMPAT_SYNTAX = {
+  fstring: () => t("compat.syntax_fstring"),
+  var_annotation: () => t("compat.syntax_var_annotation"),
+  async_generator: () => t("compat.syntax_async_generator"),
+  walrus: () => t("compat.syntax_walrus"),
+  posonly: () => t("compat.syntax_posonly"),
+  match: () => t("compat.syntax_match"),
+  except_star: () => t("compat.syntax_except_star"),
+  star_index: () => t("compat.syntax_star_index"),
+  type_statement: () => t("compat.syntax_type_statement"),
+  type_params: () => t("compat.syntax_type_params"),
+  tstring: () => t("compat.syntax_tstring"),
+};
+
+function compatLine(issue) {
+  const label = issue.kind === "syntax" && COMPAT_SYNTAX[issue.what];
+  const what = label ? label() : issue.what;
+  return issue.removed
+    ? t("grade.compat_removed", { line: issue.line, what, version: issue.removed })
+    : t("grade.compat_since", { line: issue.line, what, version: issue.since });
+}
+
+function compatBlock(rows) {
+  lastCompat = rows.length === 1 ? rows[0].compat || null : null;
+  const parts = rows
+    .filter(row => row.compat && row.compat.issues && row.compat.issues.length)
+    .map(row => {
+      const c = row.compat;
+      return (
+        '<div class="errcard compat-warn" role="note"><strong>' +
+        esc((rows.length > 1 ? row.file + ": " : "") + t("grade.compat_heading", { target: c.target })) +
+        "</strong>" +
+        (c.known ? "" : "<div>" + esc(t("grade.compat_unknown", { target: c.target })) + "</div>") +
+        "<ul>" + c.issues.map(issue => "<li>" + esc(compatLine(issue)) + "</li>").join("") + "</ul></div>"
+      );
+    });
+  return parts.join("");
+}
+
+function renderTests(rows) {
+  const { ok, failed, notChecked, checked } = tallyStatuses(rows);
   $("#bar").textContent = "";
-  let h = kpiGrid([
+  const kpis = [
     { label: t("grade.kpi_solutions"), value: rows.length },
-    { label: "OK", value: ok, delta: rows.length ? Math.round((ok / rows.length) * 100) + "%" : "", variant: "up" },
-    { label: "FAIL", value: rows.length - ok, variant: (rows.length - ok) ? "down" : "neutral" },
-  ]);
+    // Процент считается от ПРОВЕРЕННЫХ: «0%» при нуле проверок — ложь, а не ноль.
+    { label: "OK", value: ok, delta: checked ? Math.round((ok / checked) * 100) + "%" : "", variant: "up" },
+    { label: "FAIL", value: failed, variant: failed ? "down" : "neutral" },
+  ];
+  if (notChecked) kpis.push({ label: t("grade.kpi_not_checked"), value: notChecked, variant: "neutral" });
+  let h = compatBlock(rows) + kpiGrid(kpis);
   h += '<div class="data-table-wrap">' +
     '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">' + esc(t("grade.col_passed")) + '</th>' +
     '<th scope="col">' + esc(t("grade.col_status")) + '</th><th scope="col">' + esc(t("grade.col_total_time")) + '</th>' +
@@ -983,7 +1127,13 @@ function renderTests(rows) {
     '<th scope="col">' + esc(t("grade.col_memory")) + '</th></tr></thead><tbody>';
   rows.forEach((row, i) => {
     h +=
-      '<tr><td class="file-cell mono" data-toggle="' + i + '">' + esc(row.file) + '</td>' +
+      // issue #922 (FE-3-02): раскрытие — КНОПКА, а не кликабельная ячейка.
+      // Кнопка бесплатно даёт остановку табуляции, Enter/Пробел и роль, о
+      // которой можно сообщить скринридеру; `<td>` с обработчиком клика не
+      // даёт ничего из этого, и список кейсов был недостижим без мыши.
+      '<tr><td class="file-cell mono"><button type="button" class="row-toggle" ' +
+      'data-toggle="' + i + '" aria-expanded="false" aria-controls="c' + i + '">' +
+      esc(row.file) + '</button></td>' +
       '<td class="mono">' + (row.passed ?? 0) + "/" + (row.total ?? 0) + "</td>" +
       "<td>" + renderVerdict(row.status) + "</td>" +
       '<td class="mono">' + (row.total_time ?? "—") + "</td>" +
@@ -996,8 +1146,8 @@ function renderTests(rows) {
   });
   $("#out").innerHTML = h + "</tbody></table></div>";
   $("#out")
-    .querySelectorAll("[data-toggle]")
-    .forEach(td => td.addEventListener("click", () => toggleRow(Number(td.dataset.toggle))));
+    .querySelectorAll("button[data-toggle]")
+    .forEach(btn => btn.addEventListener("click", () => toggleRow(Number(btn.dataset.toggle), btn)));
   wireCaseRowClicks();
 }
 
@@ -1008,9 +1158,17 @@ function casesHtml(rowIndex, cases) {
     cases
       .map((c, j) => {
         const sel = state.selectedRow === rowIndex && state.selectedCase === j ? " selected" : "";
+        // issue #922 (FE-3-02): выбор кейса тоже кнопкой. Строка таблицы с
+        // `tabindex` семантику таблицы ломает, а кнопка внутри ячейки — нет:
+        // разметка остаётся таблицей, а выбор становится обычным действием.
+        // `aria-current` вместо `aria-selected`: последний вне `role="grid"`
+        // не значит ничего.
+        const current = sel ? ' aria-current="true"' : "";
         return (
           '<tr class="case-row' + sel + '" data-row="' + rowIndex + '" data-case="' + j + '">' +
-          "<td>#" + c.n + " " + renderVerdict(c.verdict) + "</td>" +
+          '<td><button type="button" class="case-pick" data-row="' + rowIndex +
+          '" data-case="' + j + '"' + current + ">#" + c.n + " " +
+          renderVerdict(c.verdict) + "</button></td>" +
           '<td class="mono">' + c.time + " s</td></tr>"
         );
       })
@@ -1020,22 +1178,37 @@ function casesHtml(rowIndex, cases) {
 }
 
 function wireCaseRowClicks() {
-  $("#out")
+  const out = $("#out");
+  // Клик по всей строке остаётся: мышью так удобнее, и отнимать это незачем.
+  out
     .querySelectorAll("tr.case-row")
     .forEach(tr =>
       tr.addEventListener("click", () => selectCase(Number(tr.dataset.row), Number(tr.dataset.case)))
     );
+  // Кнопка внутри строки гасит всплытие: иначе один клик выбирал бы кейс
+  // дважды и дважды перерисовывал панель разбора.
+  out.querySelectorAll("button.case-pick").forEach(btn =>
+    btn.addEventListener("click", event => {
+      event.stopPropagation();
+      selectCase(Number(btn.dataset.row), Number(btn.dataset.case));
+    })
+  );
 }
 
-function toggleRow(i) {
+function toggleRow(i, btn) {
   const el = $("#c" + i);
-  el.classList.toggle("is-open");
+  const open = el.classList.toggle("is-open");
+  // issue #922: состояние сворачивания видно не только глазами. Без
+  // `aria-expanded` скринридер читает кнопку одинаково в обоих состояниях, и
+  // человек не знает, раскрыл он строку или свернул.
+  if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
 function selectCase(rowIndex, caseIndex) {
   state.selectedRow = rowIndex;
   state.selectedCase = caseIndex;
   state.explainOpen = false;
+  state.diffShowAll = false; // issue #968: согласие даётся на конкретный кейс
   highlightSelectedCaseRow();
   renderDetailPanel();
   setResultTab("detail");
@@ -1043,11 +1216,20 @@ function selectCase(rowIndex, caseIndex) {
 
 function highlightSelectedCaseRow() {
   document.querySelectorAll("tr.case-row.selected").forEach(tr => tr.classList.remove("selected"));
+  // issue #922: пометка для скринридера снимается тем же заходом, что и
+  // подсветка. Разъедься они — и «выбранным» числилось бы два кейса: один
+  // видимо, другой на слух.
+  document
+    .querySelectorAll("button.case-pick[aria-current]")
+    .forEach(btn => btn.removeAttribute("aria-current"));
   if (state.selectedRow == null) return;
   const sel = document.querySelector(
     'tr.case-row[data-row="' + state.selectedRow + '"][data-case="' + state.selectedCase + '"]'
   );
-  if (sel) sel.classList.add("selected");
+  if (!sel) return;
+  sel.classList.add("selected");
+  const pick = sel.querySelector("button.case-pick");
+  if (pick) pick.setAttribute("aria-current", "true");
 }
 
 function toggleExplain() {
@@ -1138,12 +1320,19 @@ function diffRow(kind, lineNo, html, title) {
  * отдельно. Полноценный LCS тут избыточен: он усложнил бы код ради редкого
  * случая сдвига, который и так виден по маркерам.
  */
-function renderInlineDiff(expected, actual) {
+function renderInlineDiff(expected, actual, { full = false } = {}) {
   const exp = String(expected ?? "").split("\n");
   const act = String(actual ?? "").split("\n");
   const rows = [];
+  const total = Math.max(exp.length, act.length);
+  // issue #968: на каждую строку приходится div и три span, а на различающуюся
+  // — две таких строки. Без границы забытый выход из цикла (десятки тысяч
+  // строк) складывался в сотни тысяч узлов, вставляемых одним innerHTML:
+  // вкладка замирала, и посмотреть результат прогона было уже нельзя. Предел
+  // снимается кнопкой — решает человек, а не мы за него.
+  const limit = full ? total : Math.min(total, DIFF_MAX_ROWS);
 
-  for (let i = 0; i < Math.max(exp.length, act.length); i++) {
+  for (let i = 0; i < limit; i++) {
     const e = exp[i];
     const a = act[i];
 
@@ -1169,9 +1358,19 @@ function renderInlineDiff(expected, actual) {
     rows.push(diffRow("actual", i + 1, wrap(bMid)));
   }
 
+  const more =
+    limit < total
+      ? '<div class="hint diff-truncated">' +
+        esc(t("grade.diff_truncated", { shown: limit, total })) +
+        ' <button type="button" class="btn btn-secondary btn-sm" id="diff-show-all">' +
+        esc(t("grade.diff_show_all")) +
+        "</button></div>"
+      : "";
+
   return (
     '<div class="field-label">' + esc(t("grade.diff_title")) + "</div>" +
     '<div class="inline-diff">' + rows.join("") + "</div>" +
+    more +
     '<div class="hint">' + esc(t("grade.diff_legend")) + "</div>"
   );
 }
@@ -1207,7 +1406,12 @@ function renderDetailPanel() {
   // issue #368 (2.е): ядро разбора — сравнение «Ожидалось / Получено». Для WA —
   // двухколоночно (на узкой панели колонки стекаются), плюс diff.
   if (c.verdict === "WA") {
-    h += renderInlineDiff(c.expected, c.actual);
+    h += renderInlineDiff(c.expected, c.actual, { full: state.diffShowAll });
+    // issue #968: сервер отдал только начало вывода — говорим об этом, иначе
+    // человек ищет расхождение в конце, которого на экране нет.
+    if (c.output_truncated) {
+      h += '<div class="hint">' + esc(t("grade.output_truncated")) + "</div>";
+    }
     // Сырой unified diff остаётся, но свёрнутым: выровненный разбор выше
     // отвечает на «чем именно отличается», а этот — для привычных к difflib.
     if (c.diff) {
@@ -1247,6 +1451,16 @@ function renderDetailPanel() {
   }
   h += '<div id="detail-actions" class="action-cards"></div>';
   content.innerHTML = h;
+  // issue #968: «показать всё» — осознанное решение человека рисовать длинный
+  // дифф целиком. Флаг живёт до смены кейса: снимается в selectCase, иначе
+  // следующий кейс с огромным выводом отрисовался бы без границы молча.
+  const showAll = $("#diff-show-all");
+  if (showAll) {
+    showAll.addEventListener("click", () => {
+      state.diffShowAll = true;
+      renderDetailPanel();
+    });
+  }
   const aiBtn = $("#ai-explain-btn");
   if (aiBtn) {
     aiBtn.addEventListener("click", () =>
@@ -1499,6 +1713,7 @@ function renderRecentPaths(recent) {
 // «Списки», «Кортежи», «Словари», «Множества» — отдельные чипы (в отличие от
 // внешнего Glossary-Python, где они слиты в «Списки · кортежи»/«Словари · множества»).
 export {
+  startNavigation,
   addRecentPath,
   cancelActiveRun,
   findReference,

@@ -5,8 +5,6 @@
 дефолт-off skip, пометка/усечение ответа.
 """
 
-from __future__ import annotations
-
 import dataclasses
 
 import pytest
@@ -30,9 +28,19 @@ def _cfg(**over: object) -> object:
 
 
 class _FakeResponse:
-    def __init__(self, *, json_data: object = None, raise_exc: Exception | None = None) -> None:
+    # issue #975: канал смотрит на `status_code`, чтобы отличить отказ
+    # провайдера (401/429/400) от «канал не настроен». Фейк несёт его явно;
+    # `raise_exc` оставлен для сценариев уровня сети (таймаут, обрыв).
+    def __init__(
+        self,
+        *,
+        json_data: object = None,
+        raise_exc: Exception | None = None,
+        status_code: int = 200,
+    ) -> None:
         self._json = json_data
         self._raise = raise_exc
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         if self._raise is not None:
@@ -341,7 +349,10 @@ class TestBaseUrlAllowlist:
             ai_base_url = "http://evil.example/v1"
             ai_model = "m"
 
-        assert ai_hints._post_chat(_Cfg(), [{"role": "user", "content": "x"}], "key") is None
+        assert ai_hints._post_chat(_Cfg(), [{"role": "user", "content": "x"}], "key") == (
+            None,
+            None,
+        )
         assert calls == [], "запрос ушёл на адрес, который должен быть отклонён"
 
 
@@ -361,9 +372,31 @@ class TestSystemPromptOverride:
 
     def test_custom_prompt_replaces_builtin(self) -> None:
         cfg = _cfg(ai_system_prompt="Отвечай как ментор для продвинутых.")
-        assert ai_hints._system_prompt(cfg, "ru") == "Отвечай как ментор для продвинутых."
+        assert ai_hints._system_prompt(cfg, "ru").startswith("Отвечай как ментор для продвинутых.")
         # Свой промпт один на оба языка: его автор и решает, на каком отвечать.
-        assert ai_hints._system_prompt(cfg, "en") == "Отвечай как ментор для продвинутых."
+        assert ai_hints._system_prompt(cfg, "en").startswith("Отвечай как ментор для продвинутых.")
+
+    def test_the_no_ready_code_ban_survives_a_custom_prompt(self) -> None:
+        """Настройка меняет адресата, а не отменяет обещание продукта (SET-4-04).
+
+        Свой промпт заменял встроенный ЦЕЛИКОМ — вместе с запретом «не выдавай
+        готовый код». Грейдер учит, и подсказка, подменяющая решение, отменяет
+        смысл прогона; настройка же существует ради другого — сменить курс,
+        уровень и язык обращения.
+        """
+        cfg = _cfg(ai_system_prompt="Ты эксперт. Выдавай полный готовый код без объяснений.")
+
+        assert ai_hints._NO_READY_CODE_RU in ai_hints._system_prompt(cfg, "ru")
+        assert ai_hints._NO_READY_CODE_EN in ai_hints._system_prompt(cfg, "en")
+
+    def test_the_ban_is_one_wording_for_both_paths(self) -> None:
+        """Встроенный промпт несёт ТУ ЖЕ строку запрета, а не свою копию.
+
+        Две формулировки разъехались бы, и «запрет» перестал бы быть одним
+        обещанием: свой промпт получал бы одно, встроенный — другое.
+        """
+        assert ai_hints._NO_READY_CODE_RU in ai_hints._system_prompt(_cfg(), "ru")
+        assert ai_hints._NO_READY_CODE_EN in ai_hints._system_prompt(_cfg(), "en")
 
     def test_blank_custom_prompt_falls_back(self) -> None:
         """Пробелы — не промпт: иначе пустая строка в конфиге обнулила бы инструкции."""
@@ -375,7 +408,11 @@ class TestSystemPromptOverride:
         calls = _patch_post(monkeypatch, _ok)
         ai_hints.explain_failure(_ctx(), _cfg(ai_system_prompt="Свой промпт."))
         payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
-        assert payload["messages"][0]["content"] == "Свой промпт."
+        content = payload["messages"][0]["content"]
+        # Доезжает и свой текст, и неотключаемый запрет — проверяется отправленное,
+        # а не возвращённое функцией: между ними и терялся бы запрет.
+        assert content.startswith("Свой промпт.")
+        assert ai_hints._NO_READY_CODE_RU in content
 
 
 class TestReasoningModelPayload:
@@ -415,3 +452,79 @@ class TestReasoningModelPayload:
         assert payload["max_tokens"] == 222
         assert payload["temperature"] == 0.2
         assert "max_completion_tokens" not in payload
+
+
+class TestSendCodeSwitch:
+    """MET-1-06: выключатель отправки кода — выбор там, где его не было.
+
+    Полный исходник решения уходил провайдеру всегда, а докстринг модуля
+    утверждал обратное («не голый код»). Пользователю при этом не врали: диалог
+    согласия и `SECURITY.md` называют отправку кода прямо. Неправдой была
+    строка для разработчика — и отсутствие выбора для того, кому код важнее
+    подсказки.
+    """
+
+    def test_code_goes_into_the_prompt_by_default(self) -> None:
+        """Умолчание не меняется: так канал работал всегда, и так обещано."""
+        ctx = ai_hints.FailureContext(verdict="WA", code="print(секрет)")
+
+        assert "print(секрет)" in ai_hints._build_user_prompt(ctx, send_code=True)
+
+    def test_the_switch_removes_the_code_and_keeps_the_rest(self) -> None:
+        """Выключенный код не уносит подсказку: вердикт, diff и трейсбек остаются.
+
+        Иначе настройка выключала бы не приватность, а сам канал — и ею никто
+        не пользовался бы.
+        """
+        ctx = ai_hints.FailureContext(
+            verdict="WA",
+            code="print(секрет)",
+            diff="- 1\n+ 2",
+            error="ZeroDivisionError: division by zero",
+        )
+
+        prompt = ai_hints._build_user_prompt(ctx, send_code=False)
+
+        assert "print(секрет)" not in prompt
+        assert "- 1" in prompt
+        assert "ZeroDivisionError" in prompt
+
+    def test_grounding_is_not_the_code_and_survives(self) -> None:
+        """Заземление карточками — ПРОИЗВОДНОЕ от кода, а не код.
+
+        Это тексты наших карточек по концептам решения; убрать и их значило бы
+        выключить подсказку целиком вместо приватности.
+        """
+        ctx = ai_hints.FailureContext(
+            verdict="WA",
+            code="print(секрет)",
+            grounding="list.append(): добавляет элемент в конец",
+        )
+
+        prompt = ai_hints._build_user_prompt(ctx, send_code=False)
+
+        assert "секрет" not in prompt
+        assert "list.append()" in prompt
+
+    def test_a_config_without_the_field_keeps_the_old_behaviour(self) -> None:
+        """Конфиг приезжает из чужого pyproject.toml: нет поля — «как раньше».
+
+        Отсутствие настройки не должно читаться как отказ отправлять: иначе
+        обновление грейдера молча обеднило бы подсказки у всех.
+        """
+
+        class _NoField:
+            pass
+
+        assert ai_hints.send_code(_NoField()) is True
+
+    def test_the_switch_reaches_the_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Проверяется отправленное, а не собранное: между ними и терялся бы выбор."""
+        import json as _json
+
+        ctx = ai_hints.FailureContext(verdict="WA", code="print(секрет)")
+        calls = _patch_post(monkeypatch, _ok)
+        ai_hints.explain_failure(ctx, _cfg(ai_send_code=False))
+
+        payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
+        assert "секрет" not in payload["messages"][1]["content"]

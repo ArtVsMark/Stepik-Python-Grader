@@ -21,16 +21,26 @@
 а не ``core/reporter._console`` — модуль остаётся leaf'ом и не тянет ``core/*``).
 """
 
-from __future__ import annotations
-
 import argparse
+import contextlib
 import pathlib
+import sys
 from dataclasses import dataclass
 from datetime import date
 
-from .json_provider import GlossaryError, JsonGlossaryProvider, append_missing_entries
+from .json_provider import (
+    BUNDLED_GLOSSARY_DIR,
+    GlossaryError,
+    JsonGlossaryProvider,
+    append_missing_entries,
+)
 from .models import GlossaryMissingEntry, MissingKind
-from .stdlib_inventory import InventoryKind, StdlibItem, build_stdlib_inventory
+from .stdlib_inventory import (
+    NOTABLE_STDLIB_MODULES,
+    InventoryKind,
+    StdlibItem,
+    build_stdlib_inventory,
+)
 
 __all__ = [
     "CATEGORIES",
@@ -215,6 +225,18 @@ def build_coverage_report(
     return CoverageReport(categories=categories, python_version=python_version)
 
 
+# issue #1394 (и красный windows-джоб на issue #919): консоль Windows работает в
+# cp1251/cp866, и печать символов вне этой кодировки роняет процесс
+# `UnicodeEncodeError`. Сводка покрытия стала русской (issue #919, DATA-1-01) —
+# и `python -m stepik_grader.glossary.coverage` начал падать на всех трёх
+# windows-джобах, хотя сам подсчёт был верен. Тот же приём, что в скриптах
+# гейтов: поток перенастраивается один раз при импорте, а не оборачивается
+# try/except на каждой печати.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
+
 def _print(text: str) -> None:
     if _RICH and _console is not None:
         _console.print(text)
@@ -222,19 +244,51 @@ def _print(text: str) -> None:
         print(text)
 
 
+def _percent(covered: int, total: int) -> str:
+    """Доля покрытия строкой, где 100% значит РОВНО сто процентов.
+
+    issue #919 (``DATA-1-01``): ``f"{0.9967:.0%}"`` даёт «100%», и 607 из 609
+    читалось как полное покрытие. Округление вверх до сотни — худший вид
+    неточности в показателе: цифра, ради которой отчёт и смотрят, говорит
+    «работа закончена» ровно там, где она не закончена.
+    """
+    if total <= 0:
+        return "—"
+    if covered == total:
+        return "100%"
+    return f"{min(covered / total * 100, 99.9):.1f}%"
+
+
 def format_report_summary(report: CoverageReport) -> str:
-    """Отформатировать краткую human-readable сводку покрытия по категориям."""
+    """Отформатировать краткую human-readable сводку покрытия по категориям.
+
+    Заголовок называет ОБЪЁМ измерения (issue #919, ``DATA-1-01``): инвентарь
+    строится по курируемому набору модулей, а не по всей стандартной
+    библиотеке, и прежняя подпись «Glossary stdlib coverage» вместе со строкой
+    «stdlib … (100%)» читалась как «стандартная библиотека покрыта целиком».
+    Показатель обязан называть то, что измеряет, иначе он не показатель.
+    """
     version = report.python_version or "unknown"
-    lines = [f"Glossary stdlib coverage (Python {version})"]
+    lines = [
+        f"Glossary coverage (Python {version})",
+        "  Измерено: встроенные имена, исключения, методы встроенных типов,",
+        f"  {len(NOTABLE_STDLIB_MODULES)} курируемых модулей stdlib "
+        f"(NOTABLE_STDLIB_MODULES) — не вся stdlib.",
+    ]
     for category in CATEGORIES:
         cat = report.categories[category]
+        # «stdlib» без уточнения читалось как «вся стандартная библиотека» —
+        # отсюда и находка. Число курируемых модулей стоит прямо в метке:
+        # это честно и не ломает тех, кто читает сводку по началу строки.
+        label = f"stdlib({len(NOTABLE_STDLIB_MODULES)})" if category == "stdlib" else category
         lines.append(
-            f"  {category:<10} {cat.covered}/{cat.total} covered "
-            f"({cat.ratio:.0%}), {cat.missing_count} missing"
+            f"  {label:<10} {cat.covered}/{cat.total} covered "
+            f"({_percent(cat.covered, cat.total)}), {cat.missing_count} missing"
         )
     covered_total = report.total - report.total_missing
     lines.append(
-        f"  {'total':<10} {covered_total}/{report.total} covered, {report.total_missing} missing"
+        f"  {'total':<10} {covered_total}/{report.total} covered "
+        f"({_percent(covered_total, report.total)}), {report.total_missing} missing"
     )
     return "\n".join(lines)
 
@@ -252,7 +306,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--cards",
         default=None,
         help="Путь к базе карточек глоссария (файл или директория с *.json); "
-        "без флага покрытие считается относительно пустой базы.",
+        "по умолчанию — встроенная база пакета.",
+    )
+    parser.add_argument(
+        "--empty-base",
+        action="store_true",
+        help="Считать покрытие относительно ПУСТОЙ базы (прежнее поведение без "
+        "--cards): каждая сущность stdlib окажется пробелом.",
     )
     parser.add_argument(
         "--missing-out",
@@ -279,10 +339,17 @@ def main(argv: list[str] | None = None) -> None:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
 
+    # issue #957: без ``--cards`` база считалась пустой, и команда из
+    # документации печатала «0/1009 covered» — то есть отчёт о полностью
+    # непокрытом глоссарии при полной базе рядом, в самом пакете. Хуже:
+    # вместе с ``--missing-out`` в очередь пополнения уходила почти тысяча
+    # ложных пробелов. Дефолт — встроенная база; пустая осталась доступной
+    # явным ``--empty-base``, потому что как режим отладки она осмысленна.
     known: set[str] = set()
-    if args.cards:
+    if not args.empty_base:
+        cards = pathlib.Path(args.cards) if args.cards else BUNDLED_GLOSSARY_DIR
         try:
-            provider = JsonGlossaryProvider.load(pathlib.Path(args.cards))
+            provider = JsonGlossaryProvider.load(cards)
         except GlossaryError as exc:
             parser.error(str(exc))
             return  # недостижимо (parser.error поднимает SystemExit); для mypy

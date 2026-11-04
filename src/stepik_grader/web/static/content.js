@@ -13,6 +13,7 @@ import {
   t,
   tOr,
   tp,
+  wireChoiceList,
 } from "./core.js";
 
 function openGlossaryForSelectedCase() {
@@ -27,7 +28,25 @@ function openGlossaryForSelectedCase() {
     id = c.glossary.anchor;
   }
   setSection("glossary");
-  if (id) selectGlossaryCard(id);
+  if (id) {
+    selectGlossaryCard(id);
+    _noteGlossaryHit(id, c);
+  }
+}
+
+// issue #1220: отметить, что в карточку пришли ИЗ ОШИБКИ. Пишется только этот
+// переход, а не любое открытие раздела: измеряем связку «упал → понял», а не
+// листание справочника. Отправка — «выстрелил и забыл»: отметка не должна ни
+// задерживать показ карточки, ни ломать его, если история выключена.
+function _noteGlossaryHit(cardId, c) {
+  const payload = { card_id: cardId };
+  if (c && c.failure_kind) payload.failure_kind = c.failure_kind;
+  if (c && c.glossary && c.glossary.exception) payload.error_class = c.glossary.exception;
+  fetch("/api/glossary/hit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
 }
 
 // -- Result-panel tabs (Таблица / Разбор) -------------------------------------
@@ -331,9 +350,7 @@ function renderGlossaryList() {
       return '<li data-id="' + esc(c.id) + '" class="' + sel + draft + '">' + esc(c.title) + "</li>";
     })
     .join("");
-  el.querySelectorAll("li[data-id]").forEach(li =>
-    li.addEventListener("click", () => selectGlossaryCard(li.dataset.id))
-  );
+  wireChoiceList(el, "li[data-id]", li => selectGlossaryCard(li.dataset.id));
 }
 
 function renderGlossaryMissing() {
@@ -366,8 +383,25 @@ function selectGlossaryCard(id, opts = {}) {
     .then(r => (r.ok ? r.json() : null))
     .then(c => {
       if (c) renderGlossaryDetail(c);
+      else showCardMissing("glossary");
     })
-    .catch(() => {});
+    .catch(() => showCardMissing("glossary"));
+}
+
+// issue #969: карточки по этому адресу нет (404) или запрос не дошёл. Молчать
+// здесь нельзя: на экране остаётся ПРЕДЫДУЩАЯ карточка, и студент, пришедший из
+// ошибки за объяснением, читает чужое объяснение как ответ на свой вопрос. Это
+// хуже пустого экрана — оно учит неверному.
+function showCardMissing(prefix) {
+  const detail = $("#" + prefix + "-detail-content");
+  if (detail) {
+    detail.hidden = true;
+    detail.innerHTML = "";
+  }
+  const empty = $("#" + prefix + "-empty");
+  if (empty) empty.hidden = true;
+  const missing = $("#" + prefix + "-not-found");
+  if (missing) missing.hidden = false;
 }
 
 // issue #329: маршрутизация по URL-хэшу #/glossary/<id> — прямые ссылки на карточку.
@@ -376,8 +410,34 @@ function parseGlossaryHash() {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+// Значки карточки: с какой версии есть, устарело, удалено, на каких ОС
+// (issue #1573). «AllOS» значка не даёт: ограничение показывается, только когда
+// оно есть, иначе каждая карточка несла бы одну и ту же пометку.
+function glossaryLifecycleBadges(card) {
+  const badge = (cls, text) => ' <span class="badge ' + cls + '">' + esc(text) + "</span>";
+  let out = "";
+  if (card.added) {
+    out += badge(
+      "badge-neutral",
+      card.added.startsWith("<") ? t("glossary.added_before3") : t("glossary.added", { v: card.added })
+    );
+  }
+  if (card.deprecated) out += badge("badge-warning", t("glossary.deprecated", { v: card.deprecated }));
+  if (card.removed) {
+    // Удаление в версии новее работающего Python — запланированное (сервер
+    // сравнивает со своим интерпретатором): имя ещё есть, поэтому жёлтым.
+    out += card.removed_pending
+      ? badge("badge-warning", t("glossary.removed_pending", { v: card.removed }))
+      : badge("badge-error", t("glossary.removed", { v: card.removed }));
+  }
+  const os = (card.platforms || []).filter(p => p !== "AllOS");
+  if (os.length) out += badge("badge-neutral", t("glossary.platforms", { os: os.join(", ") }));
+  return out;
+}
+
 function renderGlossaryDetail(card) {
   $("#glossary-empty").hidden = true;
+  $("#glossary-not-found").hidden = true; // issue #969 — прошлый отказ снимаем
   const el = $("#glossary-detail-content");
   el.hidden = false;
   // issue #685: раздел в мете — локализованная подпись сервера (section_label),
@@ -390,9 +450,9 @@ function renderGlossaryDetail(card) {
     card.status === "draft"
       ? ' <span class="badge badge-warning">' + esc(t("glossary.draft_badge")) + "</span>" // issue #328
       : "";
-  const verBadge = card.version
-    ? ' <span class="badge badge-neutral">Python ' + esc(card.version) + "</span>"
-    : "";
+  // issue #1573: жизненный цикл имени и ОС — поля формы 5.0/4.0 Glossary-Python.
+  // Удалённое — красным: в текущем Python его нет, и пример не запустится.
+  const lifeBadges = glossaryLifecycleBadges(card);
   const syntax = card.syntax
     ? '<div class="form-label">' + esc(t("glossary.syntax")) + '</div><pre class="code-block">' + esc(card.syntax) + "</pre>"
     : "";
@@ -420,7 +480,7 @@ function renderGlossaryDetail(card) {
       : "",
   ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =
-    "<h2>" + esc(card.title) + draftBadge + verBadge + "</h2>" +
+    "<h2>" + esc(card.title) + draftBadge + lifeBadges + "</h2>" +
     '<div class="hint">' + meta + "</div>" +
     (card.summary ? "<p>" + esc(card.summary) + "</p>" : "") +
     (card.body ? "<div>" + esc(card.body) + "</div>" : "") +
@@ -532,9 +592,7 @@ function renderRulesList() {
         esc(c.id) + "</span> " + esc(c.title) + badge + "</li>";
     })
     .join("");
-  el.querySelectorAll("li[data-rule]").forEach(li =>
-    li.addEventListener("click", () => selectRuleCard(li.dataset.rule))
-  );
+  wireChoiceList(el, "li[data-rule]", li => selectRuleCard(li.dataset.rule));
 }
 
 function selectRuleCard(code, opts = {}) {
@@ -551,12 +609,16 @@ function selectRuleCard(code, opts = {}) {
   }
   fetch("/api/rules/" + encodeURIComponent(code))
     .then(r => (r.ok ? r.json() : null))
-    .then(c => { if (c) renderRuleDetail(c); })
-    .catch(() => {});
+    .then(c => {
+      if (c) renderRuleDetail(c);
+      else showCardMissing("rules"); // issue #969 — тот же тихий отказ, что в глоссарии
+    })
+    .catch(() => showCardMissing("rules"));
 }
 
 function renderRuleDetail(card) {
   $("#rules-empty").hidden = true;
+  $("#rules-not-found").hidden = true; // issue #969 — прошлый отказ снимаем
   const el = $("#rules-detail-content");
   el.hidden = false;
   const sev = card.severity ? ' <span class="badge badge-neutral">' + esc(card.severity) + "</span>" : "";
@@ -615,6 +677,39 @@ async function loadInsights() {
   }
   renderInsights();
   updateInsightsBadge();
+  loadRevisited();
+}
+
+// issue #1608: темы, к которым возвращаются из своих ошибок. Повторный переход
+// в одну карточку — сигнал «тема не понята», и это прямой ответ на вопрос
+// «что подтянуть». Сбой загрузки блока не ломает раздел: карточки ошибок
+// остаются, а блок просто не показывается.
+async function loadRevisited() {
+  const el = $("#insights-revisited");
+  if (!el) return;
+  let topics = [];
+  try {
+    topics = await fetchJsonOrThrow("/api/insights/revisited");
+  } catch (e) {
+    topics = [];
+  }
+  el.innerHTML = topics.length
+    ? '<h2 class="section-heading">' + esc(t("insights.revisited_heading")) + "</h2>" +
+      '<p class="hint">' + esc(t("insights.revisited_hint")) + "</p>" +
+      '<ul class="insight-list">' +
+      topics
+        .map(
+          topic =>
+            '<li class="insight-card"><div class="insight-head">' +
+            '<a href="#/glossary/' + esc(topic.card_id) + '">' + esc(topic.card_id) + "</a>" +
+            "</div><div class=\"hint\">" +
+            esc(t("insights.revisited_hits", { hits: topic.hits })) +
+            (topic.error_class ? " · " + esc(topic.error_class) : "") +
+            "</div></li>",
+        )
+        .join("") +
+      "</ul>"
+    : "";
 }
 
 function renderInsights() {
@@ -693,8 +788,29 @@ function fmtSecs(secs) {
 
 // Подпись задачи в таблице (зеркалит progress_export._task_label): записи,
 // сделанные до нормализации ключа, хранят "." — точка не название задачи.
-function taskLabel(key) {
+//
+// issue #1212: сначала имя из истории, и только потом ключ. С #990 ключ — это
+// идентификатор шага (`step:<id>`), человеку он ничего не говорит; имя лежало
+// в базе больше месяца, но до экрана не доезжало.
+function taskLabel(task) {
+  const name = task && task.display_name;
+  if (name) return name;
+  const key = task && task.task_key;
   return key && key !== "." ? key : t("progress.no_task");
+}
+
+// Ячейка задачи: имя строкой, ключ — подписью под ним. Ключ убирать нельзя:
+// без него две одноимённые папки из разных курсов снова неразличимы — ровно
+// то, от чего спасал устойчивый ключ #990.
+function taskCell(task) {
+  const label = taskLabel(task);
+  const key = task && task.task_key;
+  const showKey = key && key !== "." && key !== label;
+  return (
+    "<td" + (showKey ? ' title="' + esc(key) + '"' : "") + ">" + esc(label) +
+    (showKey ? '<br><span class="task-key">' + esc(key) + "</span>" : "") +
+    "</td>"
+  );
 }
 
 function renderProgress() {
@@ -759,12 +875,44 @@ function renderProgress() {
       tasks
         .map(
           t =>
-            "<tr><td>" + esc(taskLabel(t.task_key)) + "</td><td>" + esc(t.attempts) + "</td><td>" +
+            "<tr>" + taskCell(t) + "<td>" + esc(t.attempts) + "</td><td>" +
             (t.solved ? "✓" : "—") + "</td><td>" + esc(fmtSecs(t.seconds_to_first_ac)) + "</td></tr>",
         )
         .join("") +
       "</tbody></table>"
     : "";
+
+  $("#progress-submissions").innerHTML = submissionsBlock(rep.submissions);
+}
+
+// issue #1607: сверка «наш вердикт ↔ вердикт Stepik». Расхождение — кандидат в
+// дефект самого грейдера, поэтому показывается рядом с KPI, а не в диагностике.
+// Без отправок блока нет вовсе: пустая таблица ничего не говорит.
+function submissionsBlock(sub) {
+  if (!sub || !sub.total) return "";
+  const head =
+    '<h2 class="section-heading">' + esc(t("progress.submissions_heading")) + "</h2>" +
+    "<p>" + esc(t("progress.submissions_summary", {
+      total: sub.total, compared: sub.compared, diverged: sub.diverged,
+    })) + "</p>";
+  const rows = sub.recent_diverged || [];
+  if (!rows.length) return head + "<p>" + esc(t("progress.submissions_agree")) + "</p>";
+  return (
+    head + '<table class="data-table"><thead><tr>' +
+    "<th>" + esc(t("progress.col_task")) + "</th><th>" + esc(t("progress.col_platform")) +
+    "</th><th>" + esc(t("progress.col_ours")) + "</th><th>" + esc(t("progress.col_when")) +
+    "</th></tr></thead><tbody>" +
+    rows
+      .map(
+        r =>
+          "<tr>" + taskCell({ task_key: r.task_key || "step:" + r.step_id }) +
+          "<td" + (r.hint ? ' title="' + esc(r.hint) + '"' : "") + ">" + esc(r.verdict) +
+          "</td><td>" + esc(r.our_verdict || "—") + "</td><td>" + esc(r.ts_utc || "") +
+          "</td></tr>",
+      )
+      .join("") +
+    "</tbody></table>"
+  );
 }
 
 // -- Загрузчик задач: скачивание со Stepik (issue #186) -----------------------

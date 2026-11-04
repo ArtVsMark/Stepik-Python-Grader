@@ -13,8 +13,6 @@
 как в `tests/test_web_rules_insights.py`.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

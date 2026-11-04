@@ -11,8 +11,6 @@
 (функция :func:`check`) для кросс-OS-энфорса без отдельного CI-джоба.
 """
 
-from __future__ import annotations
-
 import contextlib
 import re
 import sys
@@ -21,6 +19,7 @@ from pathlib import Path
 __all__ = [
     "Pair",
     "check",
+    "check_auto_theme_matches_dark",
     "check_pairs_cover_text_tokens",
     "contrast_ratio",
     "load_tokens",
@@ -39,6 +38,16 @@ _THEME_SELECTORS: dict[str, str] = {
     ':root, [data-theme="light"]': "light",
     '[data-theme="dark"]': "dark",
 }
+
+# issue #921 (находка AUD-2-02): палитра темы «авто» — та, что пользователь
+# видит ПО УМОЛЧАНИЮ, пока не нажал переключатель. Она жила в media-блоке и в
+# проверку не входила вовсе: комментарий рядом утверждал «те же значения», но
+# это утверждение ничем не подтверждалось. Разойдись они — и контраст поедет
+# именно у большинства, а гейт продолжит печатать «все пары проходят».
+#
+# Сверяем на равенство, а не гоняем пары второй раз: совпали — контраст
+# доказан тёмной темой; разошлись — гейт краснеет и называет токен.
+_AUTO_SELECTOR = ":root:not([data-theme])"
 
 _TOKEN_RE = re.compile(r"(--[a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8})\s*;")
 
@@ -128,6 +137,10 @@ _PAIRS: list[Pair] = [
     # светлый (в dark) из поверхностей, то есть худший случай для muted; именно
     # на нём висит пустое состояние `.side-list li.empty` при наведении.
     Pair("text-muted / surface-dynamic", "--color-text-muted", "--color-surface-dynamic", 4.5),
+    # issue #921 (DES-1-04): найдено измерением в браузере — на этом фоне
+    # сидит обычный текст `.btn-secondary` и активной вкладки панели, а не
+    # только приглушённый. Пара была настоящей и незаявленной.
+    Pair("text / surface-dynamic", "--color-text", "--color-surface-dynamic", 4.5),
     Pair("text-muted / surface-2", "--color-text-muted", "--color-surface-2", 4.5),
     Pair("text-muted / surface-offset-2", "--color-text-muted", "--color-surface-offset-2", 4.5),
     # Плейсхолдеры (1.4.3 не покрывает — мягкий порог ради читаемости).
@@ -156,6 +169,11 @@ _PAIRS: list[Pair] = [
     Pair("error / surface", "--color-error", "--color-surface", 4.5),
     Pair("success / surface", "--color-success", "--color-surface", 4.5),
     Pair("warning / surface", "--color-warning", "--color-surface", 4.5),
+    # issue #1213: строка «что не так с secrets.json» стоит в панели
+    # доступа прямо на фоне раздела. Пару нашёл браузерный тест — ровно
+    # тем, ради чего он и заведён: новая разметка добавила настоящее
+    # сочетание, которого не было в списке.
+    Pair("warning / bg", "--color-warning", "--color-bg", 4.5),
     # issue #425: цвета подсветки синтаксиса CodeMirror на фоне редактора
     # (--color-surface) — все ≥4.5:1 в обеих темах.
     Pair("cm-keyword / surface", "--cm-keyword", "--color-surface", 4.5),
@@ -207,6 +225,54 @@ def check_pairs_cover_text_tokens(css_path: Path = _CSS_PATH) -> list[str]:
     ]
 
 
+def check_auto_theme_matches_dark(css_path: Path = _CSS_PATH) -> list[str]:
+    """Палитра темы «авто» обязана совпадать с ``[data-theme="dark"]`` (#921).
+
+    Тема «авто» — состояние по умолчанию: её видит каждый, кто не трогал
+    переключатель. Её значения лежат отдельным media-блоком, и до этой проверки
+    гейт их не читал вовсе — верил комментарию «те же значения».
+
+    Отсутствующий блок — тоже провал, а не «нечего проверять»: без него у
+    большинства пользователей тёмной темы просто нет.
+    """
+    text = css_path.read_text(encoding="utf-8")
+    start = text.find(_AUTO_SELECTOR + " {")
+    if start == -1:
+        start = text.find(_AUTO_SELECTOR + "{")
+    if start == -1:
+        return [
+            f"блок токенов темы «авто» ({_AUTO_SELECTOR}) не найден — "
+            "по умолчанию тёмной темы не будет ни у кого"
+        ]
+    brace = text.find("{", start)
+    auto = {
+        m.group(1): m.group(2) for m in _TOKEN_RE.finditer(text[brace + 1 : text.find("}", brace)])
+    }
+    dark = load_tokens(css_path)["dark"]
+
+    # Сверяем не всю палитру, а ровно те токены, чей контраст утверждён парами
+    # выше. Именно про них мы говорим «проверено», и именно их расхождение
+    # означает, что проверено одно, а показывается другое. Токен, не входящий
+    # ни в одну пару, ничего не красит — его отсутствие в «авто» безвредно, а
+    # требование объявить его превратило бы гейт в счетовода мёртвых значений.
+    # Начнут красить — `check_pairs_cover_text_tokens` затащит его в _PAIRS, и
+    # сверка подхватит его сама.
+    claimed = {ref for pair in _PAIRS for ref in (pair.fg, pair.bg) if not ref.startswith("#")}
+
+    failures = [
+        f'тема «авто»: {token} = {auto[token]}, а в [data-theme="dark"] = {dark[token]} '
+        "— контраст проверен для второго, а видят первое"
+        for token in sorted(claimed & auto.keys() & dark.keys())
+        if auto[token].lower() != dark[token].lower()
+    ]
+    failures += [
+        f"тема «авто»: нет токена {token} — контраст для него проверен только "
+        'в [data-theme="dark"], а по умолчанию видят «авто»'
+        for token in sorted(claimed & dark.keys() - auto.keys())
+    ]
+    return failures
+
+
 def _resolve(ref: str, tokens: dict[str, str]) -> str:
     """Имя токена → его hex; литеральный ``#hex`` возвращается как есть."""
     if ref.startswith("#"):
@@ -220,6 +286,7 @@ def check(css_path: Path = _CSS_PATH) -> list[str]:
     """Проверить все пары в обеих темах. Вернуть список строк-провалов (пусто = ок)."""
     themes = load_tokens(css_path)
     failures: list[str] = check_pairs_cover_text_tokens(css_path)
+    failures += check_auto_theme_matches_dark(css_path)
     for pair in _PAIRS:
         for theme in pair.themes:
             tokens = themes[theme]

@@ -14,8 +14,6 @@ downloader → core`` ациклично.
 не открывает браузер/не блокирует поток — см. её docstring).
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 from typing import Any
@@ -23,9 +21,10 @@ from typing import Any
 import requests
 
 from stepik_grader import downloader
+from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.oauth_flow import load_secrets_dict, try_create_session_without_browser
 from stepik_grader.core.stepik_client import read_step_id
-from stepik_grader.core.storage import load_json_file, save_json_file
+from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
 
 __all__ = [
@@ -77,7 +76,7 @@ def read_config(workspace: pathlib.Path) -> dict[str, Any]:
     if configured:
         try:
             data = load_json_file(config_path)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             data = {}
         root_dir_value = str(data.get("root_dir") or root_dir_value)
         secrets_value = str(data.get("secrets_path") or secrets_value)
@@ -110,7 +109,7 @@ def write_config(
     new_secrets = (
         secrets_path if secrets_path is not None else _absolute(current["secrets_path"], workspace)
     )
-    save_json_file(
+    atomic_write_json(
         workspace / downloader.CONFIG_FILE,
         {"root_dir": str(new_root), "secrets_path": str(new_secrets)},
     )

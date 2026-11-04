@@ -13,8 +13,6 @@ insights + error_glossary сведена сюда, в отдельный мод�
 ``ai_hints.FailureContext``/``explain_failure`` оставались чистыми.
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any
 

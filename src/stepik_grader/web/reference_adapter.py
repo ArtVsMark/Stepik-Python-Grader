@@ -11,8 +11,6 @@
 (``server.py`` через ``_confined_path``), сюда приходит уже безопасным.
 """
 
-from __future__ import annotations
-
 import pathlib
 from typing import Any
 
@@ -61,7 +59,17 @@ def import_reference(
             ),
         }
 
-    session = try_create_session_without_browser(secrets, secrets_path)
+    # issue #966 (ADD-1-01): обновление токена ходит в сеть, а `oauth_flow` ловит
+    # только HTTPError. ConnectionError/Timeout и OSError при перезаписи secrets
+    # уходили мимо этого адаптера в обработчик запроса — то есть 500 вместо
+    # контрактного `{"ok": false}`, вопреки докстрингу выше. У соседа
+    # (`downloader_adapter`) это починено ещё в #806; сюда фикс не перенесли.
+    try:
+        session = try_create_session_without_browser(secrets, secrets_path)
+    except requests.RequestException as exc:
+        return {"ok": False, "message": f"Сетевая ошибка при обновлении токена Stepik: {exc}"}
+    except OSError as exc:
+        return {"ok": False, "message": f"Не удалось сохранить обновлённый токен: {exc}"}
     if session is None:
         return {
             "ok": False,

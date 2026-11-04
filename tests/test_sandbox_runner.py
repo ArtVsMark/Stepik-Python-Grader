@@ -10,9 +10,8 @@ Structure:
   as ``test_storage.py``'s POSIX-only permission-bits gating.
 """
 
-from __future__ import annotations
-
 import functools
+import logging
 import os
 import pathlib
 import shutil
@@ -21,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+from typing import Any
 
 import pytest
 
@@ -141,6 +141,148 @@ def test_ephemeral_run_dir_gives_up_without_raising(monkeypatch: pytest.MonkeyPa
 
 
 # ---------------------------------------------------------------------------
+# issue #996 (OPS-1-07) — осиротевшие каталоги прошлых прогонов.
+#
+# У `finally` есть предел: SIGKILL, падение интерпретатора, выключение машины
+# посреди прогона — и каталог остаётся в temp навсегда. Подметает их первый за
+# процесс вызов `ephemeral_run_dir`. Границы узкие: чужой каталог удаляется
+# только по возрасту, и только если он заведомо наш.
+# ---------------------------------------------------------------------------
+
+
+class TestSweepOrphanedRunDirs:
+    def _aged(self, path: pathlib.Path, hours: float) -> None:
+        """Состарить каталог — обычным ``os.utime``, без ``follow_symlinks``.
+
+        `os.utime(..., follow_symlinks=False)` на Windows поднимает
+        `NotImplementedError` — поймано CI на трёх job'ах разом. Сюда приходят
+        только настоящие каталоги; ссылку состаривать не нужно вовсе, у неё
+        состаривается цель (см. `test_symlink_is_not_followed`).
+        """
+        stamp = time.time() - hours * 3600
+        os.utime(path, (stamp, stamp))
+
+    def test_stale_dir_of_ours_is_removed(self, tmp_path: pathlib.Path) -> None:
+        from stepik_grader.core import run_dir as _run_dir
+
+        orphan = tmp_path / f"{_run_dir.RUN_DIR_PREFIX}dead"
+        orphan.mkdir()
+        (orphan / "wrapper.py").write_text("x", encoding="utf-8")
+        self._aged(orphan, hours=48)
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 1
+        assert not orphan.exists()
+
+    def test_fresh_dir_is_left_alone(self, tmp_path: pathlib.Path) -> None:
+        """Рядом может работать другой грейдер — его каталог трогать нельзя."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        live = tmp_path / f"{_run_dir.RUN_DIR_PREFIX}live"
+        live.mkdir()
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 0
+        assert live.is_dir()
+
+    def test_foreign_names_are_never_touched(self, tmp_path: pathlib.Path) -> None:
+        """Подметается только свой префикс: в temp живёт не только грейдер."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        alien = tmp_path / "pytest-of-root"
+        alien.mkdir()
+        self._aged(alien, hours=48)
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 0
+        assert alien.is_dir()
+
+    def test_symlink_is_not_followed(self, tmp_path: pathlib.Path) -> None:
+        """Ссылка не разыменовывается: чужое дерево за ней остаётся целым.
+
+        Состаривается ЦЕЛЬ, а не ссылка: `stat()` следует по ссылке, поэтому
+        старая цель — единственный способ довести ссылку до проверки возраста.
+
+        Тест **характеризующий**, и это осознанно: снять `is_symlink()` из кода
+        он не заметит — `shutil.rmtree` отказывается удалять директорный симлинк
+        сам, а отказ гасится общим `except OSError`. Проверка в коде оставлена
+        как явная граница: полагаться на то, что `rmtree` откажется, значит
+        зависеть от поведения, которое для junction на Windows описано иначе, —
+        а проверить это из облачной сессии нельзя (CLAUDE.md § Два окна).
+        """
+        from stepik_grader.core import run_dir as _run_dir
+
+        target = tmp_path / "precious"
+        target.mkdir()
+        (target / "data.txt").write_text("важное", encoding="utf-8")
+        link = tmp_path / f"{_run_dir.RUN_DIR_PREFIX}link"
+        try:
+            link.symlink_to(target, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:  # Windows без прав разработчика
+            pytest.skip(f"символические ссылки недоступны: {exc}")
+        self._aged(target, hours=48)
+
+        assert _run_dir.sweep_orphans(root=tmp_path) == 0
+        assert (target / "data.txt").exists()
+        assert link.is_symlink()
+
+    def test_unreadable_temp_does_not_raise(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Уборка мусора не вправе ронять прогон, ради которого её позвали."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        def _boom(self: object, pattern: str) -> object:
+            raise PermissionError("temp закрыт")
+
+        monkeypatch.setattr(pathlib.Path, "glob", _boom)
+
+        assert _run_dir.sweep_orphans() == 0
+
+    def test_sweep_runs_once_per_process(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Иначе при сотне кейсов temp сканировался бы сто раз."""
+        from stepik_grader.core import run_dir as _run_dir
+
+        calls = {"n": 0}
+        monkeypatch.setattr(_run_dir, "_swept", False)
+        monkeypatch.setattr(
+            _run_dir, "sweep_orphans", lambda *a, **kw: calls.__setitem__("n", calls["n"] + 1)
+        )
+
+        for _ in range(3):
+            with _run_dir.ephemeral_run_dir():
+                pass
+
+        assert calls["n"] == 1
+
+
+def test_failed_cleanup_reaches_the_diagnostic_log(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """issue #996 (OPS-1-07): единственным следом отказа было `warnings.warn`.
+
+    В CLI оно по умолчанию не показывается, поэтому симптом «temp пухнет»
+    приходил без причины — а диагностический лог для того и заведён.
+    """
+    from stepik_grader.core import run_dir as _run_dir
+
+    monkeypatch.setattr(_run_dir.shutil, "rmtree", _raise_permission_error)
+    monkeypatch.setattr(_run_dir.time, "sleep", lambda _seconds: None)
+    # `configure_diagnostics` гасит propagate у корневого логгера пакета, и в
+    # полном прогоне (test_diag_log.py) это состояние доживает сюда: без явного
+    # восстановления тест зелен в одиночку и красен в наборе.
+    monkeypatch.setattr(logging.getLogger("stepik_grader"), "propagate", True)
+
+    with caplog.at_level(logging.WARNING, logger=_run_dir._log.name):
+        with pytest.warns(UserWarning, match="could not remove ephemeral run dir"):
+            with _run_dir.ephemeral_run_dir():
+                pass
+
+    assert any(
+        "не удалось удалить временный каталог" in record.getMessage() for record in caplog.records
+    )
+
+
+def _raise_permission_error(path: object) -> None:
+    raise PermissionError("stuck forever")
+
+
+# ---------------------------------------------------------------------------
 # SandboxRunner.__init__ — platform dispatch + SandboxUnavailableError
 # propagation, without touching real OS sandbox tools.
 # ---------------------------------------------------------------------------
@@ -158,6 +300,11 @@ def test_sandbox_runner_dispatches_by_platform(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(sandbox_pkg.platform, "system", lambda: "Linux")
     monkeypatch.setitem(sys.modules, "stepik_grader.core.sandbox._linux", _FakeLinuxModule)
+    # issue #992: `from ... import _linux` берёт АТРИБУТ пакета, если модуль уже
+    # импортирован по-настоящему, и подмена только в sys.modules перестаёт
+    # действовать. Тест зеленел лишь пока никто до него не создавал настоящий
+    # SandboxRunner — то есть зависел от порядка файлов в прогоне.
+    monkeypatch.setattr(sandbox_pkg, "_linux", _FakeLinuxModule, raising=False)
 
     runner = sandbox_pkg.SandboxRunner()
 
@@ -183,6 +330,7 @@ def test_sandbox_runner_propagates_backend_unavailable(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(sandbox_pkg.platform, "system", lambda: "Linux")
     monkeypatch.setitem(sys.modules, "stepik_grader.core.sandbox._linux", _FakeLinuxModule)
+    monkeypatch.setattr(sandbox_pkg, "_linux", _FakeLinuxModule, raising=False)  # issue #992
 
     with pytest.raises(sandbox_pkg.SandboxUnavailableError, match="bwrap not found"):
         sandbox_pkg.SandboxRunner()
@@ -281,6 +429,102 @@ def test_re_outcome_carries_partial_stdout() -> None:
     assert b"printed-before-crash" in outcome.stdout
 
 
+class _FakePopenForPoller:
+    """Минимальный ``Popen`` для потоков-замерщиков: только pid и kill."""
+
+    pid = 424242
+
+    def kill(self) -> None:  # pragma: no cover — в тестах ниже лимит не превышается
+        pass
+
+
+def _publishing_sampler(
+    peak_result: list[float], stop: threading.Event, values: list[float]
+) -> tuple[Any, list[float]]:
+    """Заглушка замера, которая запоминает, что видел бы вызывающий в этот миг.
+
+    Возвращает саму функцию-замерщик и накопитель «увиденного»: в нём и лежит
+    ответ на вопрос, доходит ли пик наружу ДО остановки потока.
+    """
+    seen: list[float] = []
+    samples = iter(values)
+
+    def _sample(_proc: object) -> float:
+        seen.append(peak_result[0])
+        value = next(samples, None)
+        if value is None:  # замеры кончились — так же обрывается и реальный процесс
+            stop.set()
+            return 0.0
+        return value
+
+    return _sample, seen
+
+
+def test_posix_memory_poller_publishes_peak_before_it_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """issue #996 (JRN-1-01): пик виден вызывающей стороне, пока поток ещё жив.
+
+    Запись одной строкой на выходе из функции — ставка на то, что поток успеет
+    завершиться. Вызывающая сторона ждёт его ``join(timeout=0.5)`` и собирает
+    ``RunOutcome`` дальше в любом случае: не успел — замер терялся целиком, и
+    решение получало ноль вместо занятой памяти. В ``LocalRunner`` тот же
+    порядок делал ноль постоянным (см. ``test_runner.py``).
+    """
+    from stepik_grader.core.sandbox import _posix_common
+
+    peak_result = [0.0]
+    stop = threading.Event()
+    sampler, seen = _publishing_sampler(peak_result, stop, [7.0, 21.0])
+    monkeypatch.setattr(_posix_common, "sample_tree_rss", sampler)
+    monkeypatch.setattr(_posix_common.psutil, "Process", lambda pid: object())
+
+    _posix_common._poll_memory(_FakePopenForPoller(), 1024.0, threading.Event(), stop, peak_result)
+
+    assert seen == [0.0, pytest.approx(7.0), pytest.approx(21.0)], (
+        "каждый новый максимум обязан быть опубликован сразу, а не накоплен до выхода"
+    )
+    assert peak_result[0] == pytest.approx(21.0)
+
+
+def test_windows_resource_poller_publishes_peak_before_it_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """То же для Windows-backend'а: дефект был общий, значит и фикс общий.
+
+    Модуль импортируется на любой ОС (``ctypes.windll`` трогается лениво,
+    внутри вызовов), поэтому поллинг проверяется везде — иначе правка на
+    Windows-пути жила бы без единого прогона.
+    """
+    import types
+
+    from stepik_grader.core.sandbox import _windows
+
+    peak_result = [0.0]
+    stop = threading.Event()
+    sampler, seen = _publishing_sampler(peak_result, stop, [5.0, 13.0])
+
+    class _FakePsProcess:
+        def cpu_times(self) -> Any:
+            return types.SimpleNamespace(user=0.0, system=0.0)
+
+    monkeypatch.setattr(_windows, "sample_tree_rss", sampler)
+    monkeypatch.setattr(_windows.psutil, "Process", lambda pid: _FakePsProcess())
+
+    _windows._poll_resources(
+        _FakePopenForPoller(),
+        1024.0,
+        60.0,
+        threading.Event(),
+        threading.Event(),
+        stop,
+        peak_result,
+    )
+
+    assert seen == [0.0, pytest.approx(5.0), pytest.approx(13.0)]
+    assert peak_result[0] == pytest.approx(13.0)
+
+
 # ---------------------------------------------------------------------------
 # Real backend scenarios -- skipif-gated on actual tool/API availability so
 # they execute for real on their native CI runner (issue #266 verification
@@ -337,7 +581,7 @@ def _bwrap_netns_works() -> bool:
     argv += ["--unshare-net", "--unshare-user", "--", "/usr/bin/true"]
     try:
         return subprocess.run(argv, capture_output=True, timeout=15).returncode == 0
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return False
 
 
@@ -428,7 +672,16 @@ def _assert_fork_bomb_contained(runner, tmp_path: pathlib.Path) -> None:
         "print('spawned', len(procs))\n",
     )
     outcome = runner.run(RunSpec(path=path, stdin=None, timeout=8.0))
-    assert outcome.returncode != 0
+    # Предмет — СДЕРЖАНА ли бомба, а не каким путём (issue #1447). Прежняя
+    # редакция требовала только `returncode != 0` и краснела там, где
+    # сдерживание идёт через psutil-backstop: `sandbox_violation="memory"`,
+    # вывод пуст, «spawned 200» не напечатано — то есть всё сработало. Путь
+    # зависит от машины (лимит PID против лимита памяти), и тест, привязанный
+    # к одному, зелен ровно на той машине, где его писали. Соседний
+    # `_assert_memory_overrun_violation` про это оговорён с самого начала.
+    assert outcome.returncode != 0 or outcome.sandbox_violation, (
+        "форк-бомба не сдержана ни кодом возврата, ни объявленным нарушением"
+    )
     assert b"spawned 200" not in outcome.stdout
 
 
@@ -937,3 +1190,42 @@ class TestGoldenComparisonAgainstLocalRunner:
         local, sandboxed = self._both_outcomes(tmp_path, "while True:\n    pass\n")
         assert local.timed_out is True
         assert sandboxed.timed_out is True
+
+    def test_output_survives_a_lingering_grandchild(self, tmp_path: pathlib.Path) -> None:
+        """issue #1143: вывод не теряется, если решение оставило живого внука.
+
+        Внук наследует stdout и держит трубу открытой, EOF не приходит. Дренаж
+        песочницы читал `pipe.read(65536)` — тот отдаёт накопленное только по
+        EOF или по заполнении буфера, то есть здесь никогда: `join(timeout=1.0)`
+        истекал, поток бросали, и ВЕРНОЕ решение получало пустой вывод.
+
+        `LocalRunner` это уже прошёл (issue #952, RUN-4-01) и был исправлен, а
+        backend'ы песочницы — нет. Поэтому проверка стоит именно в паритетном
+        классе: расхождение двух runner'ов на одном решении и есть дефект.
+        """
+        from stepik_grader.core.runner import LocalRunner
+        from stepik_grader.core.sandbox import SandboxRunner
+
+        path = _write_script(
+            tmp_path,
+            "import subprocess, sys\n"
+            "print('ok')\n"
+            "sys.stdout.flush()\n"
+            "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n",
+        )
+
+        # Лимит вывода задаётся явно, как это делает боевой путь
+        # (`grader_core` берёт его из конфига). До issue #1248 без лимита
+        # `LocalRunner` уходил в одиночный `communicate()` и терял вывод сам,
+        # маскируя проверяемое здесь расхождение backend'ов.
+        def _spec() -> RunSpec:
+            return RunSpec(path=path, stdin=None, timeout=5.0, max_output_bytes=1_000_000)
+
+        local = LocalRunner().run(_spec())
+        sandboxed = SandboxRunner().run(_spec())
+
+        assert local.stdout.decode().strip() == "ok"
+        assert sandboxed.stdout.decode().strip() == "ok", (
+            "вывод потерян под изоляцией — верное решение получит WA с пустым Actual"
+        )
+        assert sandboxed.timed_out is False, "прогон не должен ждать внука"

@@ -5,8 +5,6 @@
 без исполнения пользовательского кода.
 """
 
-from __future__ import annotations
-
 from stepik_grader.glossary import NOTABLE_STDLIB_MODULES, StdlibItem, build_stdlib_inventory
 from stepik_grader.glossary.stdlib_inventory import NOTABLE_BUILTIN_TYPES
 

@@ -1,10 +1,7 @@
 # Stepik Python Grader — English quick start
 
-[![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/version.json&cacheSeconds=300)](CHANGELOG.md)
-[![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/dev/glossary.md)
+[![CI: Python, versions, OS, suites, coverage, release, version](https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/python.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+<!-- Unified badge: every part is coloured by its own run on main. -->
 
 > A local grader for the «Поколение Python» Stepik courses — **and for any
 > directory of test cases**. Русская версия: [README.md](README.md).
@@ -30,11 +27,16 @@ account, no download, no OAuth. The web UI and the glossary are bilingual
 Easiest via [pipx](https://pipx.pypa.io):
 
 ```bash
-pipx install stepik-python-grader
+pipx install stepik-python-grader        # then: stepik-grader  (terminal menu)
+stepik-grader-gui                        # launcher window, no terminal
 ```
 
+`stepik-grader-gui` works from any directory right after install. On Windows it
+opens **without a console window** — a double click starts the launcher, not a
+black screen.
+
 Full install (from source, virtualenv, Windows notes, Stepik OAuth setup) —
-[docs/use/installation.md](docs/use/installation.md).
+[docs/use/installation.en.md](docs/use/installation.en.md).
 
 ---
 
@@ -70,8 +72,8 @@ Grade a plain "add 1 to a number" solution against your own tests.
 
 You get a per-case verdict (AC / WA / TLE / RE) with a diff on mismatch. Modes,
 CLI flags and task downloading are covered in
-[docs/use/grader-workflow.md](docs/use/grader-workflow.md) (see the step-by-step
-[first example](docs/use/grader-workflow.md#первый-пример-за-2-минуты)).
+[docs/use/grader-workflow.en.md](docs/use/grader-workflow.en.md) (see the step-by-step
+[first example](docs/use/grader-workflow.en.md#first-example-in-2-minutes)).
 
 `stepik-grader-gui` is the lowest-barrier entry point: a small window where you
 pick plain or isolated (`--sandbox`) startup, the port and the working folder,
@@ -162,13 +164,13 @@ table below refers to it.
 | Local run history (SQLite) + stats — offline | ❌ | ✅ |
 | Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes | ❌ | ✅ |
 
-Per-release evolution — [docs/use/versions.md](docs/use/versions.md).
+Per-release evolution — [HISTORY.md](HISTORY.md) (in Russian).
 
 ---
 
 ## Transparency & trust
 
-- ✅ **Automated test suite** (pytest) on a CI matrix of 3 OSes × Python 3.12/3.13 (+3.14 experimental) — the live count and coverage are in the badges at the top, never hardcoded in prose.
+- ✅ **Automated test suite** (pytest) on a CI matrix of 3 OSes × Python 3.14 (3.15 pre-release in a separate run) — the live count and coverage are in the badges at the top, never hardcoded in prose.
 - 🧠 **Strict mypy** + `ruff` (lint + format) in pre-commit and CI on every PR.
 - 🔐 **Private vulnerability reporting** + a documented threat model — [SECURITY.md](SECURITY.md).
 - 📦 **PyPI publishing via OIDC trusted publishing** — no stored token.
@@ -184,6 +186,11 @@ fork, branch off `main`, run the local gates (`pytest` / `ruff` / `mypy`), add o
 `CHANGELOG.md` line, and open a PR. Full onboarding —
 [CONTRIBUTING.md](CONTRIBUTING.md). Questions & ideas —
 [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
+
+**Those tasks are written in English too.** Every issue carrying that label
+holds both versions — the Russian text and, under an `## In English` heading, its
+translation. The rest of the tracker is Russian: this label is the entry point
+that stays readable for you.
 
 ---
 

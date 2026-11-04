@@ -16,11 +16,17 @@
   ``diag_log.register_secret`` (редактируется в логах). По умолчанию в сеть
   ничего не уходит.
 - **Заземление против галлюцинаций (§5).** В промпт кладём вердикт,
-  ``failure_kind``, diff и текст релевантной карточки (не голый код); ответ
+  ``failure_kind``, diff, текст релевантной карточки — и **код решения**; ответ
   помечен как AI-generated и ограничен по длине.
-"""
 
-from __future__ import annotations
+  Здесь стояло «не голый код», и это было неправдой: код уходил провайдеру
+  всегда (issue #920, ``MET-1-06``). Пользователю при этом не врали — диалог
+  согласия и `SECURITY.md` называют отправку кода прямо, — но разработчик,
+  читавший модуль, получал обратное. Строка исправлена, а выбор отдан
+  настройке :data:`~stepik_grader.config.GraderConfig.ai_send_code`: код в
+  промпте по умолчанию остаётся (без него подсказка вырождается в общие слова),
+  а тот, кому код важнее подсказки, выключает его одной строкой конфига.
+"""
 
 import json
 import os
@@ -33,11 +39,15 @@ from stepik_grader.core.diag_log import get_logger, register_secret
 __all__ = [
     "AI_MARKER_EN",
     "AI_MARKER_RU",
+    "AiHintOutcome",
     "FailureContext",
     "base_url_is_allowed",
+    "consent_endpoint",
     "env_name_is_allowed",
     "explain_failure",
+    "explain_failure_detailed",
     "is_configured",
+    "send_code",
 ]
 
 _log = get_logger("ai_hints")
@@ -58,6 +68,14 @@ _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 # после номера обязательна, иначе под шаблон попал бы, например, "opus".
 _O_SERIES_RE = re.compile(r"^o\d+(?:[-_.]|$)")
 
+# issue #975 (TRE-1-01): семейства, пришедшие после #812 и живущие по тому же
+# контракту — `max_completion_tokens` вместо `max_tokens`, температура не
+# принимается. `gpt-5` и его варианты (`gpt-5.1`, `gpt-5-mini`) под o-серию не
+# подходили ни одним символом, а `deepseek-reasoner` не совпадал с маркером
+# «reasoning» ровно на одну букву. Обоим уходил обычный payload, провайдер
+# отвергал его целиком, и подсказки молча не работали.
+_GPT5_RE = re.compile(r"^gpt-5(?:[-_.]|$)")
+
 # Пометка ответа как сгенерированного ИИ (ADR-0003 §5 — не выдаётся за истину
 # грейдера). Локализована; сам текст подсказки — на языке модели (см. промпт).
 AI_MARKER_RU = "🤖 AI-подсказка (сгенерировано ИИ, может ошибаться)"
@@ -67,21 +85,59 @@ AI_MARKER_EN = "🤖 AI hint (AI-generated, may be wrong)"
 # от простыни, если провайдер проигнорировал max_tokens.
 _MAX_HINT_CHARS = 1200
 
+#: Запрет, который переживает ЛЮБОЙ пользовательский промпт (issue #920,
+#: ``SET-4-04``). Хранится отдельной константой и подставляется в встроенные
+#: промпты, чтобы формулировка была одна: разъехавшись, запрет в своём промпте
+#: и запрет во встроенном перестали бы быть одним обещанием.
+_NO_READY_CODE_RU = "НЕ выдавай готовый код целиком — подскажи направление исправления."
+_NO_READY_CODE_EN = "Do NOT output a full solution — point at the fix."
+
 _SYSTEM_RU = (
     "Ты — дружелюбный помощник-репетитор по Python для новичка на курсе "
     "«Поколение Python». Объясни КОРОТКО (2–4 предложения), ПОЧЕМУ решение не "
     "прошло тест, опираясь ТОЛЬКО на приведённый контекст (вердикт, вид ошибки, "
     "diff ожидаемого/полученного, трейсбек, карточку). НЕ выдумывай фактов, "
-    "которых нет в контексте. НЕ выдавай готовый код целиком — подскажи "
-    "направление исправления. Отвечай по-русски."
+    f"которых нет в контексте. {_NO_READY_CODE_RU} Отвечай по-русски."
 )
 _SYSTEM_EN = (
     "You are a friendly Python tutor for a beginner. Explain BRIEFLY (2-4 "
     "sentences) WHY the solution failed the test, grounded ONLY in the provided "
     "context (verdict, failure kind, expected/actual diff, traceback, card). Do "
-    "NOT invent facts absent from the context. Do NOT output a full solution — "
-    "point at the fix. Answer in English."
+    f"NOT invent facts absent from the context. {_NO_READY_CODE_EN} Answer in English."
 )
+
+
+#: Причины, по которым подсказки нет. Значения — ключи локали
+#: (``ai_reason_<value>``), поэтому вызывающий волен показать их как хочет:
+#: CLI печатает строку, web отдаёт ``message_id``.
+_HTTP_REASONS: dict[int, str] = {
+    400: "bad_request",
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    429: "rate_limited",
+}
+
+
+def _http_error_reason(status: int) -> str:
+    """Код ответа провайдера в причину отказа (issue #975)."""
+    if status in _HTTP_REASONS:
+        return _HTTP_REASONS[status]
+    return "server_error" if status >= 500 else "http_error"
+
+
+@dataclass(frozen=True)
+class AiHintOutcome:
+    """Результат обращения к AI-каналу: текст либо причина его отсутствия.
+
+    ``reason`` — короткий ключ (``unauthorized``, ``rate_limited``,
+    ``bad_request``, ``network``, ``empty``…), а не готовая фраза: локаль и
+    способ показа выбирает вызывающий слой. ``None`` в обоих полях означает
+    «канал не настроен» — это не ошибка, а выключенная функция.
+    """
+
+    text: str | None
+    reason: str | None
 
 
 @dataclass(frozen=True)
@@ -112,6 +168,21 @@ def is_configured(config: object) -> bool:
     return bool(getattr(config, "ai_base_url", None) and getattr(config, "ai_model", None))
 
 
+def send_code(config: object) -> bool:
+    """Класть ли исходник решения в промпт (issue #920, ``MET-1-06``).
+
+    По умолчанию ``True`` — так канал работал всегда, и именно это называют
+    диалог согласия («AI-подсказка отправит ваш код и его ввод-вывод») и
+    `SECURITY.md`. Обещания продукта настройка не меняет: она добавляет выбор
+    там, где его не было.
+
+    Читается через ``getattr`` с дефолтом, как и остальные поля канала: конфиг
+    приезжает из чужого ``pyproject.toml``, и отсутствующее поле означает
+    «как раньше», а не отказ.
+    """
+    return bool(getattr(config, "ai_send_code", True))
+
+
 def env_name_is_allowed(env_name: str) -> bool:
     """Разрешено ли читать ключ из переменной с таким именем (issue #812).
 
@@ -140,10 +211,25 @@ def _system_prompt(config: object, lang: str) -> str:
 
     Свой промпт — один на оба языка: если пользователь его задал, он и решает,
     на каком языке отвечать модели.
+
+    **Но запрет «не выдавай готовый код» пережить настройку обязан** (issue #920,
+    ``SET-4-04``). Настройка существует, чтобы сменить АДРЕСАТА — курс, уровень,
+    язык, — а не чтобы разрешить выдачу решений: грейдер учит, и подсказка,
+    подменяющая решение, отменяет смысл прогона. Поэтому запрет дописывается к
+    своему промпту, а не заменяется им.
+
+    Аудит предлагал убрать саму настройку. Это вернуло бы ``VIS-N2``, ради
+    которого её и завели: встроенный текст называет конкретный курс, и другой
+    аудитории он не годится. Убирается не настройка, а её способность снять
+    обещание продукта.
+
+    Язык запрета берётся из ``lang`` — того же, на котором спрашивают модель;
+    свой промпт при этом может быть на любом.
     """
     custom = str(getattr(config, "ai_system_prompt", "") or "").strip()
     if custom:
-        return custom
+        ban = _NO_READY_CODE_EN if lang == "en" else _NO_READY_CODE_RU
+        return f"{custom}\n\n{ban}"
     return _SYSTEM_EN if lang == "en" else _SYSTEM_RU
 
 
@@ -161,9 +247,11 @@ def _is_reasoning_model(model: str) -> bool:
     """
     name = (model or "").strip().lower()
     name = name.rsplit("/", 1)[-1]  # провайдерский префикс: "openai/o3-mini"
-    if any(marker in name for marker in ("reasoning", "thinking")):
+    # issue #975: «reasoner» — отдельный маркер, а не форма слова «reasoning»:
+    # подстрочный поиск их не связывает, и `deepseek-reasoner` пролетал мимо.
+    if any(marker in name for marker in ("reasoning", "thinking", "reasoner")):
         return True
-    return bool(_O_SERIES_RE.match(name))
+    return bool(_O_SERIES_RE.match(name) or _GPT5_RE.match(name))
 
 
 def base_url_is_allowed(base_url: str) -> bool:
@@ -212,8 +300,20 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
 
 
-def _build_user_prompt(ctx: FailureContext) -> str:
-    """Собрать заземляющий user-промпт из контекста (только непустые секции)."""
+def _build_user_prompt(ctx: FailureContext, *, send_code: bool = True) -> str:
+    """Собрать заземляющий user-промпт из контекста (только непустые секции).
+
+    Args:
+        ctx: заземляющий контекст падения.
+        send_code: класть ли в промпт исходник решения (issue #920,
+            ``MET-1-06``). ``False`` оставляет всё остальное — вердикт, diff,
+            трейсбек, карточки: подсказка становится беднее, но не исчезает.
+
+    Заземление карточками глоссария (``ctx.grounding``) остаётся и при
+    ``send_code=False``: это ПРОИЗВОДНОЕ от кода — названия концептов и тексты
+    наших карточек, — а не сам код. Убрать и его значило бы выключить
+    подсказку целиком, а не приватность.
+    """
     parts: list[str] = [f"Вердикт: {ctx.verdict}"]
     if ctx.failure_kind:
         parts.append(f"Тип падения: {ctx.failure_kind}")
@@ -230,22 +330,27 @@ def _build_user_prompt(ctx: FailureContext) -> str:
         parts.append(f"Справка (карточка):\n{_clip(ctx.card_text, 800)}")
     if ctx.grounding:
         parts.append(f"Релевантные карточки глоссария:\n{_clip(ctx.grounding, 1200)}")
-    if ctx.code:
+    if ctx.code and send_code:
         parts.append(f"Код решения:\n{_clip(ctx.code, 1500)}")
     return "\n\n".join(parts)
 
 
-def _post_chat(config: object, messages: list[dict[str, str]], key: str | None) -> str | None:
-    """Один POST к ``{ai_base_url}/chat/completions``; текст ответа или ``None``.
+def _post_chat(
+    config: object, messages: list[dict[str, str]], key: str | None
+) -> tuple[str | None, str | None]:
+    """Один POST к ``{ai_base_url}/chat/completions``: пара «текст, причина отказа».
 
-    Любая ошибка (сеть/таймаут/HTTP/битый JSON/неожиданная форма) → ``None``:
-    грейдинг не должен падать из-за AI-канала (ADR-0003 §4)."""
+    Любая ошибка (сеть/таймаут/HTTP/битый JSON/неожиданная форма) даёт текст
+    ``None``: грейдинг не должен падать из-за AI-канала (ADR-0003 §4). Но
+    причина возвращается рядом (issue #975), а не растворяется в логе: отказ
+    провайдера обязан быть отличим от «канал не настроен».
+    """
     # requests — уже runtime-зависимость (OAuth/downloader); импорт внутри, чтобы
     # модуль грузился даже там, где requests отсутствует (тогда просто skip).
     try:
         import requests
     except ImportError:  # pragma: no cover — requests в runtime-зависимостях
-        return None
+        return None, None
 
     base_url = str(getattr(config, "ai_base_url", "") or "").rstrip("/")
     if not base_url_is_allowed(base_url):
@@ -254,7 +359,7 @@ def _post_chat(config: object, messages: list[dict[str, str]], key: str | None) 
             "(issue #812); запрос не отправлен",
             base_url,
         )
-        return None
+        return None, None
     url = f"{base_url}/chat/completions"
     headers = {"Content-Type": "application/json"}
     if key:
@@ -282,32 +387,72 @@ def _post_chat(config: object, messages: list[dict[str, str]], key: str | None) 
             data=json.dumps(payload),
             timeout=float(getattr(config, "ai_timeout_seconds", 20.0)),
         )
-        resp.raise_for_status()
+        # issue #975 (TRE-1-03): отказ провайдера обязан быть слышен. Прежде
+        # `raise_for_status` уходил в общий `except`, и 401 («ключ не принят»),
+        # 429 («лимит исчерпан») и 400 («модель отвергла payload») давали ровно
+        # то же, что «канал не настроен», — пустоту. Пользователь, включивший
+        # подсказки, не мог отличить «не работает» от «выключено».
+        if resp.status_code >= 400:
+            _log.debug("ai_hints: провайдер отверг запрос: HTTP %s", resp.status_code)
+            return None, _http_error_reason(resp.status_code)
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
     except Exception as exc:
         _log.debug("ai_hints: пропуск (ошибка канала): %s", exc)
-        return None
+        return None, "network"
     text = str(content or "").strip()
-    return text or None
+    return (text or None), None
+
+
+def consent_endpoint(base_url: str | None) -> str:
+    """Получатель согласия — ``scheme://host[:port]`` без пути (issue #812).
+
+    Путь (``/v1``) отбрасывается: согласие даётся серверу, а не конкретному
+    маршруту на нём, иначе смена ``/v1`` на ``/v1beta`` спрашивала бы заново без
+    всякой пользы. Порт же значим — на другом порту другой сервис.
+
+    Живёт здесь, а не в ``cli/commands.py`` (issue #931): согласие сверяют обе
+    поверхности, и веб не может импортировать CLI — слой маршрутов ходит только
+    в адаптеры и ``core`` (ADR-0010). Прежнее место оставило веб без сверки
+    получателя вовсе.
+    """
+    parsed = urlparse((base_url or "").strip())
+    return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
+
+
+def explain_failure_detailed(ctx: FailureContext, config: object) -> AiHintOutcome:
+    """AI-объяснение упавшего кейса вместе с причиной отказа (issue #975).
+
+    Возвращает :class:`AiHintOutcome`: либо готовый текст, либо ``reason`` —
+    почему подсказки нет. Прежде обе ситуации сводились к ``None``, и
+    «провайдер отверг ключ» выглядело для пользователя ровно как «канал
+    выключен»: он включал подсказки, ничего не происходило, и узнать причину
+    было негде — она уходила в debug-лог, который по умолчанию не пишется.
+
+    Никогда не бросает: грейдинг не падает из-за AI-канала (ADR-0003 §4).
+    """
+    if not is_configured(config):
+        return AiHintOutcome(text=None, reason=None)
+    system = _system_prompt(config, ctx.lang)
+    messages = [
+        {"role": "system", "content": system},
+        {
+            "role": "user",
+            "content": _build_user_prompt(ctx, send_code=send_code(config)),
+        },
+    ]
+    text, reason = _post_chat(config, messages, _resolve_key(config))
+    if not text:
+        return AiHintOutcome(text=None, reason=reason or "empty")
+    marker = AI_MARKER_EN if ctx.lang == "en" else AI_MARKER_RU
+    return AiHintOutcome(text=f"{marker}:\n{_clip(text, _MAX_HINT_CHARS)}", reason=None)
 
 
 def explain_failure(ctx: FailureContext, config: object) -> str | None:
     """AI-объяснение упавшего кейса или ``None`` (skip).
 
-    ``None`` при: не настроен канал (:func:`is_configured` ложно), пустой ответ
-    или любая ошибка сети/провайдера. При успехе — помеченный AI-generated текст,
-    усечённый до :data:`_MAX_HINT_CHARS` (ADR-0003 §4, §5). Никогда не бросает.
+    Тонкая обёртка над :func:`explain_failure_detailed` — имя остаётся в
+    ``__all__`` и в ADR-0003. Причина отказа здесь теряется по построению;
+    вызывающим, которые её показывают, нужен detailed-вариант.
     """
-    if not is_configured(config):
-        return None
-    system = _system_prompt(config, ctx.lang)
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": _build_user_prompt(ctx)},
-    ]
-    text = _post_chat(config, messages, _resolve_key(config))
-    if not text:
-        return None
-    marker = AI_MARKER_EN if ctx.lang == "en" else AI_MARKER_RU
-    return f"{marker}:\n{_clip(text, _MAX_HINT_CHARS)}"
+    return explain_failure_detailed(ctx, config).text

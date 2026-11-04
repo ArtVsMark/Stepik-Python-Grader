@@ -21,8 +21,6 @@ verdict/diff остаётся выше по стеку (``grader_core.py``); ``R
 инъекции и маппинг ``sandbox_violation`` в отдельный verdict).
 """
 
-from __future__ import annotations
-
 import contextlib
 import os
 import pathlib
@@ -34,10 +32,21 @@ import tempfile
 import threading
 import time
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
-import psutil
+# issue #996 (INS-2-03): psutil — объявленная runtime-зависимость, но окружение
+# у аудитории курса ломается регулярно (установка без изоляции, конфликт версий,
+# половина колеса). Голый `import` наверху означал, что весь грейдер падает
+# сырым `ModuleNotFoundError` ещё до разбора аргументов: студент видит трейсбек
+# чужой библиотеки вместо своего вердикта. Без psutil теряются ровно две вещи —
+# замер пиковой памяти и сбор дерева процессов, — и обе деградируют штатно, как
+# `rich` и `resource` ниже.
+try:
+    import psutil
+except ImportError:  # pragma: no cover — окружение без объявленной зависимости
+    psutil = None  # type: ignore[assignment]
 
 # resource — POSIX-only (RLIMIT_AS для best-effort memory cap, issue #43 S-01).
 # На Windows модуль отсутствует; лимит памяти там не применяется — тот же
@@ -47,9 +56,11 @@ try:
 except ImportError:
     resource = None  # type: ignore[assignment]
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import get_config
+from stepik_grader.core import spawn
 
 __all__ = [
+    "TRUNCATION_MARKER",
     "LocalRunner",
     "RunOutcome",
     "RunSpec",
@@ -90,11 +101,15 @@ class RunSpec:
     ``cancel_event``.
 
     ``cancel_event`` (issue #262) — опциональный сигнал best-effort отмены
-    для async job-модели (``web/runs.py``). Единственный блокирующий
-    ``proc.communicate(timeout=...)`` (без poll-накладных) остаётся только когда
-    И ``cancel_event`` нет, И вывод не ограничен (``max_output_bytes is None``);
-    при заданном лимите путь poll-дренажа капит накопление даже без отмены
-    (issue #629), иначе синхронный ``/api/grade``/CLI мог бы набить RAM хоста.
+    для async job-модели (``web/runs.py``). Сбор вывода идёт ОДНИМ путём
+    (``_run_with_polling``) при любых значениях полей: лимит капит накопление
+    (issue #629), отмена прерывает ожидание (issue #262), а без них обоих путь
+    просто ждёт процесс блокирующим ``proc.wait(timeout)`` — без poll-латентности.
+    Прежде «ни лимита, ни отмены» обслуживал одиночный ``proc.communicate()``, и
+    поведение расходилось: там, где дренаж отдавал вывод верного решения,
+    ``communicate()`` ждал EOF от живого внука и возвращал пустой вывод с
+    ``timed_out=True`` (issue #1248). Необязательное поле обязано менять предел,
+    а не вердикт.
     """
 
     stdin: bytes | None
@@ -112,6 +127,20 @@ class RunSpec:
     # CONFIG внутри раннера: модуль намеренно config-agnostic, как timeout и
     # max_memory_mb выше.
     max_output_bytes: int | None = None
+    # issue #992 (SBX-1-01): под каким именем материализовать скрипт. Backend'ы
+    # изоляции всегда писали его как ``solution.py``, и в function-режиме это
+    # ломало верные решения поголовно: исполняемый скрипт там — сгенерированная
+    # обёртка, которая импортирует модуль решения по имени. Записанная под тем же
+    # именем, она импортировала саму себя и падала «cannot import name ... from
+    # partially initialized module» — 3/3 OK без изоляции превращались в 0/3 FAIL.
+    # ``None`` — прежнее поведение (``solution.py``), оно верно для stdin-режима.
+    script_name: str | None = None
+    # issue #992 (SBX-1-02): файлы, которые обязаны лежать рядом со скриптом
+    # внутри изоляции — сам модуль решения для обёртки и соседние модули, что
+    # решение импортирует. ``{имя файла: содержимое}``. Вне изоляции решение
+    # исполняется на месте и соседи доступны сами собой; изоляция видит только
+    # то, что ей отдали, — поэтому список нужен явный.
+    aux_files: tuple[tuple[str, bytes], ...] = ()
     cancel_event: threading.Event | None = None
 
     def __post_init__(self) -> None:
@@ -137,6 +166,33 @@ def spec_source_bytes(spec: RunSpec) -> bytes:
         return spec.code
     assert spec.path is not None  # инвариант __post_init__: задан path или code
     return spec.path.read_bytes()
+
+
+def materialize_spec(spec: RunSpec, run_dir: pathlib.Path) -> pathlib.Path:
+    """Разложить скрипт и его файлы-спутники в ``run_dir``; вернуть путь скрипта.
+
+    Единая точка материализации для всех backend'ов изоляции (issue #992). Раньше
+    каждый писал ``run_dir / "solution.py"`` сам, и три копии одной строки
+    разошлись бы при первой же правке — а именно эта строка и ломала
+    function-режим: обёртка получала имя модуля решения и импортировала саму
+    себя.
+
+    Имена спутников берутся как есть, но только базовые: путь с разделителем или
+    ``..`` означал бы запись за пределы ``run_dir`` — то есть побег из изоляции
+    через её же механизм подготовки.
+
+    Raises:
+        OSError: не удалось записать файл (передаётся вызывающему backend'у,
+            который превращает это в ``launch_error``, а не в провал решения).
+        ValueError: имя файла-спутника не базовое.
+    """
+    script_path = run_dir / (spec.script_name or "solution.py")
+    script_path.write_bytes(spec_source_bytes(spec))
+    for name, content in spec.aux_files:
+        if pathlib.Path(name).name != name or name in {"", ".", ".."}:
+            raise ValueError(f"aux file name must be a bare file name, got {name!r}")
+        (run_dir / name).write_bytes(content)
+    return script_path
 
 
 @dataclass
@@ -179,6 +235,19 @@ class RunOutcome:
     launch_error: str | None = None
     cancelled: bool = False
     sandbox_violation: str | None = None
+    truncated: bool = False
+    """Вывод обрезан по ``RunSpec.max_output_bytes`` (issue #1517).
+
+    Отдельное поле, а не пометка в ``stderr``: после обрезки сравнивать
+    **нечего** — известно лишь, что первые N байт совпали, а что было дальше,
+    не знает никто. Пока признак не доезжал до маппинга, обрезка молча
+    превращала WA в AC: решение, напечатавшее лишнее сверх потолка, теряло
+    лишнее вместе с несовпадением и проходило проверку.
+
+    ``SandboxRunner`` для того же случая выставляет
+    ``sandbox_violation="output_size"`` — он обрывает процесс, а не урезает
+    вывод; здесь процесс доработал, и урезан только результат.
+    """
 
 
 @runtime_checkable
@@ -231,7 +300,7 @@ def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
         resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
 
 
-def sample_tree_rss(proc: psutil.Process) -> float:
+def sample_tree_rss(proc: psutil.Process, *, children: list[Any] | None = None) -> float:
     """Суммарный RSS (МБ) процесса ``proc`` и всех его потомков — единый замер
     памяти для ``LocalRunner`` и ``SandboxRunner`` (issue #556).
 
@@ -248,22 +317,46 @@ def sample_tree_rss(proc: psutil.Process) -> float:
     нет доступа) НЕ глотаем — это сигнал вызывающей стороне (быстрый выход →
     warn в ``_measure_peak_memory``, обрыв поллинга в песочнице). Потомки —
     best-effort: исчезнувший в момент обхода узел пропускаем, не обнуляя итог.
+
+    issue #996 (MTX-6-04): ``children`` — уже собранный список потомков.
+    ``children(recursive=True)`` обходит таблицу процессов целиком и стоит на
+    порядок дороже одного ``memory_info()``, а измеритель пика опрашивает
+    процесс каждые 20 мс — на короткой задаче обход съедает заметную долю того
+    самого времени, которое грейдер и показывает пользователю. Кому нужна
+    скорость, а не мгновенная реакция на новорождённый процесс, обновляет
+    список реже и передаёт его сюда. **Песочница список не кэширует**: там
+    этот же замер — активное enforcement лимита памяти, и появившийся потомок
+    обязан попасть под лимит сразу, а не через полсекунды.
     """
     total = float(proc.memory_info().rss) / 1024 / 1024
-    try:
-        children = proc.children(recursive=True)
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        return total
+    if children is None:
+        try:
+            children = proc.children(recursive=True)
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
+            return total
     for child in children:
         try:
             total += float(child.memory_info().rss) / 1024 / 1024
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
             continue
     return total
 
 
+# issue #996 (MTX-6-04): как часто измеритель перечитывает список потомков и
+# как часто вообще опрашивает память. Обход дерева процессов дорог, а
+# новорождённый потомок для ЗАМЕРА (в отличие от enforcement в песочнице)
+# терпит полсекунды: пик, который держится меньше, всё равно не поймать
+# опросом с любым разумным периодом.
+_CHILDREN_REFRESH_SEC = 0.5
+_POLL_INTERVAL_SEC = 0.02
+
+
 def _measure_peak_memory(
-    proc: subprocess.Popen[bytes], result: list[float], stop: threading.Event
+    proc: subprocess.Popen[bytes],
+    result: list[float],
+    stop: threading.Event,
+    *,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> None:
     """Поток: замерять RSS дерева дочернего процесса (proc + потомки, issue
     #556) до его завершения.
@@ -275,6 +368,13 @@ def _measure_peak_memory(
     Записывает пик памяти (МБ) в result[0]. Замер идёт через общий
     ``sample_tree_rss`` — тот же helper, что и в песочнице, поэтому память
     решения, породившего внуков (multiprocessing/subprocess), не теряется.
+
+    ``monotonic`` — источник времени для срока жизни кэша потомков; в бою это
+    ``time.monotonic``. Параметр существует ради проверяемости: тест на кэш,
+    завязанный на настоящие часы, красный не тогда, когда кэш сломан, а
+    тогда, когда раннер занят — на macOS шесть итераций по 20 мс вышли за
+    полсекунды, кэш протух законно, и проверка «обход ровно один» упала на
+    зелёном коде.
     """
 
     # issue #48 R-05: proc.pid is read after Popen but before communicate() --
@@ -302,29 +402,75 @@ def _measure_peak_memory(
             stacklevel=2,
         )
 
+    if psutil is None:
+        # Замера не будет: вердикт от этого не зависит, а молчаливый ноль без
+        # объяснения выглядел бы как «решение не тратит памяти».
+        warnings.warn(
+            "psutil не установлен — пиковая память не измеряется (в отчёте 0.0). "
+            "Проверьте окружение: pip install stepik-python-grader",
+            stacklevel=2,
+        )
+        return
+
+    # issue #996 (JRN-1-01/JRN-2-01): пик пишется в `result` СРАЗУ, на каждом
+    # обновлении, а не одной строкой в конце функции. Прежний порядок был
+    # неисполним по построению: `RunOutcome` собирается внутри
+    # `_run_with_polling`, а `stop_event.set()` и `join` происходят уже после
+    # его возврата — то есть результат читал `result[0]`, пока поток ещё
+    # крутился и ничего туда не записал. Замер приходил нулевым ВСЕГДА:
+    # проверено прогоном, решение на 24 МБ отдавало `peak_memory_mb=0.0`.
     peak = 0.0
+
+    def remember(rss: float) -> None:
+        """Запомнить пик и сразу отдать его наружу."""
+        nonlocal peak
+        if rss > peak:
+            peak = rss
+            result[0] = peak
+
+    # issue #996 (MTX-6-04): список потомков перечитывается раз в
+    # _CHILDREN_REFRESH_SEC, а не на каждой из пятидесяти итераций в секунду.
+    # Обход дерева процессов — самая дорогая часть замера, и платить за неё
+    # приходится тем самым временем, которое грейдер измеряет.
+    children: list[Any] = []
+    next_refresh = 0.0
+
+    def sample(ps_proc: psutil.Process) -> float:
+        """Замер поддерева со списком потомков из кэша.
+
+        Кэш обновляется ПОСЛЕ замера, а не до: ошибка чтения собственной
+        памяти — сигнал «процесс исчез», и она обязана дойти до вызывающей
+        стороны первой, как и было до кэша. Первый замер идёт с пустым
+        списком — потомков в этот момент ещё нет, а появившиеся попадут в
+        следующий: пик считается максимумом, поэтому ничего не теряется.
+        """
+        nonlocal children, next_refresh
+        rss = sample_tree_rss(ps_proc, children=children)
+        now = monotonic()
+        if now >= next_refresh:
+            try:
+                children = ps_proc.children(recursive=True)
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
+                children = []
+            next_refresh = now + _CHILDREN_REFRESH_SEC
+        return rss
+
     try:
         ps_proc = psutil.Process(proc.pid)
         try:
-            rss = sample_tree_rss(ps_proc)
-            if rss > peak:
-                peak = rss
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            remember(sample(ps_proc))
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
             _warn_unreliable()
-            result[0] = peak
             return
         while not stop.is_set():
             try:
-                rss = sample_tree_rss(ps_proc)
-                if rss > peak:
-                    peak = rss
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                remember(sample(ps_proc))
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
                 _warn_unreliable()
                 break
-            stop.wait(0.02)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
+            stop.wait(_POLL_INTERVAL_SEC)
+    except psutil.NoSuchProcess, psutil.AccessDenied:
         _warn_unreliable()
-    result[0] = peak
 
 
 def _write_stdin(pipe: Any, data: bytes | None) -> None:
@@ -339,11 +485,39 @@ def _write_stdin(pipe: Any, data: bytes | None) -> None:
     try:
         if data is not None:
             pipe.write(data)
-    except (BrokenPipeError, OSError):
+    except BrokenPipeError, OSError:
         pass
     finally:
         with contextlib.suppress(OSError):
             pipe.close()
+
+
+def _kill_orphaned_group(pid: int) -> None:
+    """Добить потомков, переживших ШТАТНЫЙ выход решения (issue #996).
+
+    ``LNG-3-01``/``LNG-3-02``: дерево процессов убивалось только при TLE и
+    отмене. Решение, завершившееся само, но оставившее живого внука
+    (``subprocess.Popen`` без ``wait``, ``multiprocessing`` без ``join``),
+    оставляло его работать: каждый прогон копил осиротевший процесс, а внук,
+    унаследовавший stdout, держал ещё и pipe с потоком-читателем. На сервере
+    это утечка по два дескриптора и два потока на кейс.
+
+    Бьём по группе процессов: ``start_new_session=True`` при spawn делает
+    решение её лидером, поэтому идентификатор группы равен его pid. Сигнал 0
+    сначала спрашивает, существует ли группа вообще, — в штатном случае её уже
+    нет, и SIGKILL не отправляется.
+
+    Предел честный: на Windows групп процессов нет, и без Job Object добить
+    внука нечем — там находка остаётся открытой. Полностью демонизированный
+    (double-fork + setsid) внук уходит и на POSIX: это тот же осознанный предел
+    исполнения без OS-sandbox, что и у :func:`_kill_process_tree`.
+    """
+    if os.name != "posix":
+        return
+    with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+        # Сигнал 0 не доставляется никому — это проверка существования.
+        os.killpg(pid, 0)  # type: ignore[attr-defined]
+        os.killpg(pid, signal.SIGKILL)  # type: ignore[attr-defined]
 
 
 def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
@@ -359,10 +533,15 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
     осознанный предел без OS-sandbox.
     """
     # Собираем детей ДО убийства родителя, пока связь parent->child ещё видна.
-    try:
-        children = psutil.Process(proc.pid).children(recursive=True)
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        children = []
+    # Без psutil (issue #996, INS-2-03) остаётся только удар по группе ниже: на
+    # POSIX этого достаточно, на Windows дерево уцелеет — честный предел, а не
+    # повод не запускаться вовсе.
+    children: list[Any] = []
+    if psutil is not None:
+        try:
+            children = psutil.Process(proc.pid).children(recursive=True)
+        except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
+            children = []
 
     if os.name == "posix":
         # os.killpg/getpgid + signal.SIGKILL — POSIX-only, отсутствуют в
@@ -375,7 +554,7 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
         proc.kill()
 
     for child in children:
-        with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
+        with contextlib.suppress(Exception):
             child.kill()
 
 
@@ -411,27 +590,26 @@ class _OutputBudget:
                 return chunk
             self._used = self._limit
             self.truncated = True
-            return chunk[:room]
+            # issue #996 (MTX-9-01): режем по границе строки, а не посреди неё.
+            # `chunk[:room]` обрывает строку на произвольном байте, и в sink
+            # попадает огрызок, неотличимый от настоящей строки: сравнение
+            # видит не «вывод обрезан», а другое содержимое, и пользователь
+            # получает WA по строке, которой решение не печатало. Целого
+            # перевода строки в куске нет — отдаём как есть: половина строки
+            # всё же лучше, чем пустой вывод.
+            kept, newline, _tail = chunk[:room].rpartition(b"\n")
+            return kept + newline if newline else chunk[:room]
+
+
+# issue #935: маркер выделен в константу, потому что по нему теперь опознают
+# факт обрезки выше по стеку (grader_core). Поиск по вольной подстроке
+# развалился бы от любой правки текста; общая константа делает связь явной.
+TRUNCATION_MARKER = "[stepik-grader] вывод обрезан"
 
 
 def _truncation_note(limit: int | None) -> bytes:
     """Пометка в stderr о том, что вывод обрезан (issue #629)."""
-    return f"\n[stepik-grader] вывод обрезан: превышен лимит {limit} байт\n".encode()
-
-
-def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
-    """``communicate()`` после kill, ограниченный по времени (issue #418/#421).
-
-    Возвращает частичный ``(stdout, stderr)``, накопленный к моменту TLE, и не
-    блокируется дольше ``_KILL_REAP_TIMEOUT`` даже если внук держит pipe.
-    """
-    try:
-        out, err = proc.communicate(timeout=_KILL_REAP_TIMEOUT)
-        return out or b"", err or b""
-    except subprocess.TimeoutExpired:
-        return b"", b""
-    except (OSError, ValueError):
-        return b"", b""
+    return f"\n{TRUNCATION_MARKER}: превышен лимит {limit} байт\n".encode()
 
 
 # issue #632: типовые подстроки в ИМЕНИ env-переменной, выдающие секрет. Скраб
@@ -448,6 +626,25 @@ _SECRET_ENV_SUBSTRINGS: tuple[str, ...] = (
     "ACCESS_KEY",
     "PRIVATE_KEY",
     "CREDENTIAL",
+    # issue #996 (SEC-2-06): `AUTH` покрывает то, что списком «секретных слов»
+    # не ловилось вовсе — `SSH_AUTH_SOCK` и `XAUTHORITY`. Ни то, ни другое не
+    # содержит самого секрета, и именно поэтому опаснее: сокет ssh-агента даёт
+    # решению подписать что угодно ключами пользователя, не раскрывая ключ, а
+    # X-cookie — доступ к его дисплею. Утечка при этом невидима: ключ остаётся
+    # на месте, а подпись уже сделана.
+    "AUTH",
+)
+
+# Переменные, чьё имя ни о чём не говорит, но значение — тот же доступ:
+# путь к связке ключей GPG, конфиг кластера, адрес агента. Списком подстрок их
+# не выразить, не задев безобидных соседей, поэтому — точные имена.
+_SECRET_ENV_NAMES: frozenset[str] = frozenset(
+    {
+        "GNUPGHOME",
+        "GPG_AGENT_INFO",
+        "KUBECONFIG",
+        "SSH_AGENT_PID",
+    }
 )
 
 
@@ -458,14 +655,26 @@ def _scrub_secret_env(env: dict[str, str]) -> None:
     ОС-изоляции и наследует окружение грейдера (а под ``--serve`` без
     ``--sandbox`` — всё окружение сервера), но собственные секреты грейдера коду
     решения не нужны и не должны в него утекать. Убирается сконфигурированное имя
-    AI-ключа (``CONFIG.ai_api_key_env``, даже если оператор его переименовал) и
-    любая переменная, чьё имя содержит типовую секрет-подстроку. Sandbox-бэкенды
+    AI-ключа (``CONFIG.ai_api_key_env``, даже если оператор его переименовал),
+    любая переменная с типовой секрет-подстрокой в имени и отдельный список
+    точных имён — тех, где секрета в значении нет, а доступ есть: сокет
+    ssh-агента, X-cookie, связка GPG, конфиг кластера (issue #996, SEC-2-06). Sandbox-бэкенды
     чистят окружение целиком; здесь — консервативный denylist, чтобы не сломать
     project-import (см. ``supports_project_imports``).
     """
-    ai_key_var = CONFIG.ai_api_key_env
+    # issue #996 (LNCH-3-03): имя переменной читается в момент ВЫЗОВА.
+    # `CONFIG` связан на импорте, а `override_config()` (флаги CLI, `--config`)
+    # создаёт НОВЫЙ объект — прежний остаётся со старым значением. Здесь это
+    # не косметика: по этому имени из окружения решения вычищается ключ AI,
+    # и устаревшее значение означает, что чистится не та переменная.
+    ai_key_var = get_config().ai_api_key_env
     for name in list(env):
-        if name == ai_key_var or any(sub in name.upper() for sub in _SECRET_ENV_SUBSTRINGS):
+        upper = name.upper()
+        if (
+            name == ai_key_var
+            or upper in _SECRET_ENV_NAMES
+            or any(sub in upper for sub in _SECRET_ENV_SUBSTRINGS)
+        ):
             env.pop(name, None)
 
 
@@ -543,8 +752,15 @@ class LocalRunner:
             popen_kwargs["start_new_session"] = True
         proc: subprocess.Popen[bytes] | None = None
         try:
-            proc = subprocess.Popen(
-                [sys.executable, exec_path],
+            # issue #1149: запуск идёт через страховку, а не голым Popen. Свой
+            # `timeout` ниже покрывает работу процесса, но подвиснуть можно
+            # РАНЬШЕ — в самом `Popen.__init__`, на чтении errpipe после
+            # fork/exec; тогда таймаут прогона до дела не доходит, и поток
+            # остаётся заблокированным навсегда (под `--serve` это занятый
+            # воркер, которого никто не отменит). Ловили на macOS/Windows с
+            # Python 3.14 — здесь и в `run_lint` (issue #877).
+            proc = spawn.guarded_popen(
+                [sys.executable, str(exec_path)],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -563,54 +779,15 @@ class LocalRunner:
                 )
                 mem_thread.start()
 
-            # issue #629: одиночный блокирующий communicate() — только когда вывод
-            # НЕ ограничен (нечего капить) И нет отмены. При заданном
-            # max_output_bytes (грейдинг всегда ставит его из CONFIG) идём
-            # poll-путём с bounded-дренажем: communicate() читает весь stdout
-            # решения в память без предела, и бешеный print на синхронном
-            # /api/grade / в CLI набил бы RAM хоста по OOM (раньше капился только
-            # poll-путь web async job'ов).
-            if spec.cancel_event is None and spec.max_output_bytes is None:
-                try:
-                    stdout_bytes, stderr_bytes = proc.communicate(
-                        input=spec.stdin, timeout=spec.timeout
-                    )
-                except subprocess.TimeoutExpired:
-                    # issue #418: убить всё дерево (внуки держат pipe → иначе
-                    # communicate() виснет); issue #421: вернуть частичный вывод,
-                    # накопленный до TLE, с ограниченным reap.
-                    _kill_process_tree(proc)
-                    partial_out, partial_err = _reap_after_kill(proc)
-                    # issue #799 (PY-09): дождаться измерителя и отдать пик
-                    # памяти. Раньше этот путь возвращался, не тронув
-                    # mem_thread: поток оставался висеть, а измеренный пик
-                    # молча терялся — TLE отдавал peak_memory_mb=0.0, хотя
-                    # решение и упало-то как раз на прожорливости.
-                    stop_event.set()
-                    if mem_thread is not None:
-                        mem_thread.join(timeout=0.5)
-                    return RunOutcome(
-                        stdout=partial_out,
-                        stderr=partial_err,
-                        timed_out=True,
-                        elapsed=spec.timeout,
-                        peak_memory_mb=peak_mb_result[0],
-                    )
-                finally:
-                    stop_event.set()
-
-                elapsed = time.perf_counter() - start
-                if mem_thread is not None:
-                    mem_thread.join(timeout=0.5)
-
-                return RunOutcome(
-                    stdout=stdout_bytes,
-                    stderr=stderr_bytes,
-                    returncode=proc.returncode,
-                    elapsed=elapsed,
-                    peak_memory_mb=peak_mb_result[0],
-                    timed_out=False,
-                )
+            # issue #1248: путь ОДИН — bounded-дренаж. Прежде здесь стоял
+            # быстрый `communicate()` для случая «нет отмены И нет лимита»,
+            # и он вёл себя иначе: решение, оставившее живого внука с
+            # открытым stdout, не давало EOF, `communicate()` ждал весь
+            # таймаут и возвращал ПУСТОЙ вывод с `timed_out=True` — верное
+            # решение получало TLE. Дренаж-потоки читают `read1` и такого
+            # решения не теряют (issue #952). Боевой путь лимит задаёт
+            # всегда, поэтому дефект жил в контракте `RunSpec`: поле
+            # объявлено необязательным, а поведение без него было другим.
 
             try:
                 outcome = self._run_with_polling(proc, spec, start, peak_mb_result)
@@ -619,7 +796,9 @@ class LocalRunner:
             if mem_thread is not None:
                 mem_thread.join(timeout=0.5)
             return outcome
-        except OSError as exc:
+        except (OSError, spawn.SpawnTimeout) as exc:
+            # SpawnTimeout — это «не стартовал», то есть тот же класс, что и
+            # OSError при спавне: вердикт получает причину вместо зависания.
             stop_event.set()
             return RunOutcome(launch_error=str(exc), timed_out=False)
         finally:
@@ -647,9 +826,9 @@ class LocalRunner:
         """Poll-версия ``proc.communicate()`` с bounded-дренажем вывода.
 
         Прерывается по ``spec.cancel_event`` (issue #262) и капит накопление
-        stdout+stderr по ``spec.max_output_bytes`` (issue #629). Вызывается,
-        когда задан хотя бы один из них; ``cancel_event`` опционален (``None`` →
-        просто poll без отмены).
+        stdout+stderr по ``spec.max_output_bytes`` (issue #629). Единственный
+        путь сбора вывода (issue #1248): оба поля опциональны — ``None`` в
+        лимите означает «без потолка», ``None`` в отмене — ожидание без опроса.
 
         Дренирует stdout/stderr в фоновых потоках всё время ожидания — как
         это делает сам ``communicate()`` внутри себя. Без этого дочерний
@@ -668,12 +847,23 @@ class LocalRunner:
         budget = _OutputBudget(spec.max_output_bytes)
 
         def _drain(pipe: Any, sink: list[bytes]) -> None:
+            # issue #952 (RUN-4-01): `read1`, а не `read`. `read(65536)` ждёт
+            # ЛИБО полные 65536 байт, ЛИБО EOF — и отдаёт накопленное только
+            # тогда. Решение, оставившее живого внука с открытым stdout, EOF не
+            # даёт: «7\n» лежит в буфере, `proc.wait()` уже вернулся по
+            # основному процессу, `reader.join(timeout=1.0)` истекает, поток
+            # бросают — и sink остаётся ПУСТЫМ. Верное решение получает
+            # `WA / Actual: (empty)`.
+            #
+            # `read1` возвращает то, что пришло за один системный вызов, — так
+            # же читает и сам `communicate()`. Байты попадают в sink сразу,
+            # независимо от того, кто ещё держит другой конец трубы.
             try:
-                for chunk in iter(lambda: pipe.read(65536), b""):
+                for chunk in iter(lambda: pipe.read1(65536), b""):
                     kept = budget.take(chunk)
                     if kept:
                         sink.append(kept)
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 pass
 
         readers = [
@@ -725,6 +915,12 @@ class LocalRunner:
 
         for reader in readers:
             reader.join(timeout=1.0)
+        # issue #996 (LNG-3-01/LNG-3-02): порядок важен — сначала дочитать, потом
+        # добивать. Внук, держащий stdout, отдаёт байты именно читателям выше
+        # (issue #952), и убийство до `join` вернуло бы пустой вывод верному
+        # решению. После `join` брать больше нечего, а живой потомок — только
+        # утечка: процесс, поток-читатель и пара дескрипторов на каждый кейс.
+        _kill_orphaned_group(proc.pid)
 
         elapsed = time.perf_counter() - start
         # issue #421: reader'ы уже слили частичный вывод в память — вернуть его
@@ -735,6 +931,10 @@ class LocalRunner:
             # Пометка идёт в stderr, а не в stdout: stdout сравнивается с
             # ожидаемым выводом, и служебная строка ломала бы вердикт.
             stderr += _truncation_note(spec.max_output_bytes)
+        # issue #1517: признак обрезки едет во ВСЕХ трёх исходах. Он не
+        # заменяет их вердикт (TLE и CANCELLED старше), но и потеряться не
+        # должен: обрезанный вывод недостоверен независимо от того, чем
+        # кончился прогон.
         if timed_out:
             return RunOutcome(
                 stdout=stdout,
@@ -742,6 +942,7 @@ class LocalRunner:
                 timed_out=True,
                 elapsed=spec.timeout,
                 peak_memory_mb=peak_mb_result[0],
+                truncated=budget.truncated,
             )
         if cancelled:
             return RunOutcome(
@@ -750,6 +951,7 @@ class LocalRunner:
                 cancelled=True,
                 elapsed=elapsed,
                 peak_memory_mb=peak_mb_result[0],
+                truncated=budget.truncated,
             )
         return RunOutcome(
             stdout=stdout,
@@ -758,6 +960,7 @@ class LocalRunner:
             elapsed=elapsed,
             peak_memory_mb=peak_mb_result[0],
             timed_out=False,
+            truncated=budget.truncated,
         )
 
 

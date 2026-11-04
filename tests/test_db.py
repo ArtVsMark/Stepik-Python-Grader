@@ -4,8 +4,6 @@
 close-on-fail) и примитивы ``user_version``/``set_user_version``/``apply_schema``.
 """
 
-from __future__ import annotations
-
 import contextlib
 import sqlite3
 import stat
@@ -26,6 +24,57 @@ def test_connect_creates_db_and_enables_pragmas(tmp_path: Path) -> None:
         assert conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
         assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == db.BUSY_TIMEOUT_MS
+
+
+class TestWritersWaitLongEnough:
+    """Порог ожидания write-lock: сколько писатель стоит в очереди (issue #1546).
+
+    Без явного значения конкурентный писатель падает сразу — запись теряется
+    молча. С коротким он падает не сразу, а под нагрузкой: ровно так ночной
+    прогон `main` получил `database is locked` на четырёх писателях, хотя
+    десяти секунд хватало годами при двух.
+    """
+
+    def test_the_default_is_read_when_nothing_is_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv(db.ENV_BUSY_TIMEOUT, raising=False)
+
+        assert db.busy_timeout_ms() == db.BUSY_TIMEOUT_MS
+
+    def test_the_environment_raises_the_threshold(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """У чужой ФС свои скорости, и дефолт по нашему раннеру ей не указ."""
+        monkeypatch.setenv(db.ENV_BUSY_TIMEOUT, "45000")
+
+        assert db.busy_timeout_ms() == 45000
+
+    @pytest.mark.parametrize("junk", ["", "быстро", "0", "-1", "3.5"])
+    def test_junk_means_not_set(self, monkeypatch: pytest.MonkeyPatch, junk: str) -> None:
+        """Мусор читается как «не задано», а не как «ждать ноль».
+
+        Ноль здесь означал бы «не ждать вовсе» — ровно то поведение, ради
+        отказа от которого порог и заведён.
+        """
+        monkeypatch.setenv(db.ENV_BUSY_TIMEOUT, junk)
+
+        assert db.busy_timeout_ms() == db.BUSY_TIMEOUT_MS
+
+    def test_the_value_actually_reaches_the_connection(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Провод до самого соединения: настройка без него — обещание, а не порог."""
+        monkeypatch.setenv(db.ENV_BUSY_TIMEOUT, "12345")
+
+        with contextlib.closing(db.connect(tmp_path / "x.db")) as conn:
+            assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 12345
+
+    def test_the_default_leaves_room_for_four_writers(self) -> None:
+        """Порог назван числом, и число это — не «сколько-нибудь».
+
+        Приёмочный тест межпроцессной дозаписи гоняет четыре писателя по
+        пятнадцать транзакций; последний в очереди ждёт их все. Опустив порог
+        обратно, мы вернём падение, которое выглядит дефектом кода, а означает
+        скорость файловой системы.
+        """
+        assert db.BUSY_TIMEOUT_MS >= 30000
 
 
 def test_user_version_roundtrip(tmp_path: Path) -> None:
@@ -237,3 +286,114 @@ def test_connect_closes_connection_when_migration_refuses(tmp_path: Path) -> Non
         db.connect(path, migrate=_migrate)
     with pytest.raises(sqlite3.ProgrammingError):
         captured[0].execute("SELECT 1")
+
+
+# ---------------------------------------------------------------------------
+# issue #947 — write-lock на время миграции: версия читалась вне транзакции,
+# и два процесса входили в неё одновременно
+# ---------------------------------------------------------------------------
+
+
+def test_exclusive_transaction_holds_write_lock(tmp_path: Path) -> None:
+    """Внутри блока лок взят, после выхода — снят и данные закоммичены."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        with db.exclusive_transaction(conn):
+            assert conn.in_transaction
+            conn.execute("INSERT INTO t (v) VALUES ('a')")
+        assert not conn.in_transaction
+
+    with contextlib.closing(sqlite3.connect(path)) as other:
+        assert other.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 1
+
+
+def test_exclusive_transaction_rolls_back_on_error(tmp_path: Path) -> None:
+    """Исключение внутри блока откатывает всё, что успело записаться."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        with pytest.raises(RuntimeError), db.exclusive_transaction(conn):
+            conn.execute("INSERT INTO t (v) VALUES ('a')")
+            raise RuntimeError("сбой посреди транзакции")
+        assert conn.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 0
+
+
+def test_exclusive_transaction_is_reentrant(tmp_path: Path) -> None:
+    """Вложенный вход не открывает вторую транзакцию и не коммитит раньше срока.
+
+    Нужно ``core/history._migrate``: он берёт лок на всю многоступенчатую
+    миграцию и вызывает внутри ``apply_schema``, который тоже просит лок.
+    Sqlite вложенных ``BEGIN`` не умеет — вложенный вход обязан быть no-op.
+    """
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        with db.exclusive_transaction(conn):
+            conn.execute("INSERT INTO t (v) VALUES ('outer')")
+            with db.exclusive_transaction(conn):
+                conn.execute("INSERT INTO t (v) VALUES ('inner')")
+            assert conn.in_transaction, "вложенный выход закоммитил внешнюю транзакцию"
+        assert conn.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 2
+
+
+def test_execute_ddl_script_keeps_transaction_open(tmp_path: Path) -> None:
+    """Многооператорный DDL не разрывает транзакцию — в отличие от executescript.
+
+    Это и есть причина дефекта #947: ``executescript`` делает неявный COMMIT,
+    то есть снимает взятый write-lock ровно в середине миграции. Проверяем оба
+    поведения рядом, чтобы разница была видна, а не подразумевалась.
+    """
+    path = tmp_path / "x.db"
+    script = "CREATE TABLE IF NOT EXISTS a (x INTEGER);\nCREATE TABLE IF NOT EXISTS b (y INTEGER);"
+    with contextlib.closing(db.connect(path)) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        db.execute_ddl_script(conn, script)
+        assert conn.in_transaction, "execute_ddl_script разорвал транзакцию"
+        conn.execute("COMMIT")
+
+        conn.execute("BEGIN IMMEDIATE")
+        conn.executescript(script)
+        assert not conn.in_transaction, (
+            "поведение executescript изменилось — фикс #947 пересмотреть"
+        )
+
+    with contextlib.closing(sqlite3.connect(path)) as other:
+        names = {
+            row[0] for row in other.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    assert {"a", "b"} <= names
+
+
+def test_execute_ddl_script_runs_statement_without_trailing_semicolon(tmp_path: Path) -> None:
+    """Последнее выражение без ``;`` тоже исполняется, а не теряется молча."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.execute_ddl_script(conn, "CREATE TABLE IF NOT EXISTS solo (x INTEGER)")
+        assert conn.execute("SELECT COUNT(*) FROM solo").fetchone()[0] == 0
+
+
+def test_apply_schema_rechecks_version_under_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Версия перечитывается под локом: сосед мог мигрировать, пока мы ждали.
+
+    Патчим ``user_version`` так, чтобы первое (быстрое) чтение отдало 0, а
+    второе — уже 1: ровно то, что видит процесс, дождавшийся чужой миграции.
+    DDL при этом исполняться не должен.
+    """
+    path = tmp_path / "x.db"
+    versions = iter([0, 1])
+
+    def fake_user_version(conn: sqlite3.Connection) -> int:
+        return next(versions)
+
+    with contextlib.closing(db.connect(path)) as conn:
+        monkeypatch.setattr(db, "user_version", fake_user_version)
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        monkeypatch.undo()
+
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    assert "t" not in tables, "DDL применён поверх чужой завершённой миграции"

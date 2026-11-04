@@ -10,8 +10,6 @@
 HTTP end-to-end (server→runs→grade) — в ``tests/test_web.py``.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader import grader, web

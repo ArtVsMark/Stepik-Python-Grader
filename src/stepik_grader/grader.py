@@ -13,8 +13,6 @@ core/grader_core.py (загрузка/исполнение), core/reporter.py (�
 `stepik-grader` после `pip install -e .`)
 """
 
-from __future__ import annotations
-
 from stepik_grader.core.grader_core import *
 from stepik_grader.core.grader_core import (
     ENCODING,
@@ -40,6 +38,17 @@ from stepik_grader.core.grader_core import (
     apply_relative_ranking,
     run_microbench,
 )
+
+# issue #997 (VIS-2-03): точка расширения была асимметрична — ``set_runner``
+# приезжал в фасад через grader_core, а типы, которыми пишут свой runner
+# (``Runner``, ``RunSpec``, ``RunOutcome``), оставались только в ``core/``.
+# Расширять фасад, читая при этом core, — ровно то, чего фасад должен избавить.
+from stepik_grader.core.runner import (
+    LocalRunner,
+    RunOutcome,
+    Runner,
+    RunSpec,
+)
 from stepik_grader.core.reporter import *
 from stepik_grader.core.reporter import (
     Console,
@@ -57,13 +66,21 @@ from stepik_grader.cli import (
     __version__,
     _ask_bench_profile,
     _ask_micro_profile,
-    _ask_number,
-    _BENCH_PROFILES,
     _interactive_menu,
-    _MICRO_PROFILES,
     _print_menu,
     _resolve_test_dir_from_input,
     main,
+    run_cli,
+)
+
+# issue #903: приватное берётся из своего модуля, а не с фасада пакета —
+# реэкспорт закреплял бы его как де-факто публичный API `stepik_grader.cli`.
+# Здесь это обратная совместимость `grader.py`: имена в его `__all__` не входят,
+# но исторически были видны, и молча их убирать не за чем.
+from stepik_grader.cli.interactive import (
+    _BENCH_PROFILES,
+    _MICRO_PROFILES,
+    _ask_number,
 )
 
 __all__ = [
@@ -73,7 +90,12 @@ __all__ = [
     "MUCH_SLOWER_THRESHOLD",
     "SIMILAR_THRESHOLD",
     "TIMEOUT_SECONDS",
+    "LocalRunner",
+    "RunOutcome",
+    "RunSpec",
+    "Runner",
     "TestCase",
+    "active_runner",
     "collect_grouped_files",
     "find_all_solution_files",
     "format_benchmark_row",
@@ -95,4 +117,5 @@ __all__ = [
 ]
 
 if __name__ == "__main__":
-    main()
+    # issue #936: код исхода прогона становится статусом процесса.
+    run_cli()

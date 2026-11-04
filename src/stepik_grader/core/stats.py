@@ -26,10 +26,9 @@ Best-effort по всему модулю (тот же принцип, что ``G
 диск — никогда не должны ронять грейдинг, только тихо пропустить запись.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
+import os
 import pathlib
 import platform
 import threading
@@ -38,7 +37,15 @@ from typing import Any
 
 from stepik_grader.atomic_io import atomic_write_text
 
-__all__ = ["STATS_FILE_NAME", "purge_stats", "read_summary", "record_run"]
+__all__ = [
+    "STATS_FILE_NAME",
+    "find_existing_stats_file",
+    "purge_stats",
+    "read_summary",
+    "record_run",
+    "stats_path",
+    "user_stats_path",
+]
 
 STATS_FILE_NAME = ".grader_stats.jsonl"
 _MAX_BYTES = 1 * 1024 * 1024  # 1 MiB — ротация (оставить новую половину строк)
@@ -54,8 +61,85 @@ _SCHEMA_VERSION = 1
 _WRITE_LOCK = threading.Lock()
 
 
+#: Единый пользовательский журнал — один на человека, а не на папку (issue #920,
+#: ``SEC-3-04``). Каталог тот же, где уже лежат база истории (#818) и настройки
+#: (#1186): пользовательские данные инструмента живут в одном месте.
+_USER_STATS_DIR = ".stepik-grader"
+_USER_STATS_FILE = "stats.jsonl"
+
+#: Аварийный переключатель пути. Нужен там, где менять конфиг нельзя или
+#: опасно — CI, контейнеры и, главное, СОБСТВЕННЫЙ набор тестов: пока журнал
+#: лежал в ``cwd``, тесты попадали в свой «естественно», через ``chdir`` в
+#: ``tmp_path``; с единым пользовательским файлом такой изоляции уже мало, и
+#: прогон писал бы (а ``purge_stats`` — удалял) реальные данные в домашней
+#: папке. Ровно этот урок стоил данных при переезде истории (#818).
+_ENV_STATS_FILE = "STEPIK_GRADER_STATS_FILE"
+
+
+def user_stats_path() -> pathlib.Path:
+    """Единый журнал прогонов пользователя — ``~/.stepik-grader/stats.jsonl``."""
+    return pathlib.Path.home() / _USER_STATS_DIR / _USER_STATS_FILE
+
+
+def find_existing_stats_file(start: pathlib.Path | None = None) -> pathlib.Path | None:
+    """Ближайший существующий ``.grader_stats.jsonl`` от ``start`` вверх.
+
+    Ради обратной совместимости: у тех, кто уже накопил журнал в рабочей папке,
+    он обязан продолжать пополняться, а не осиротеть при обновлении.
+
+    Обход ограничен строго ВНУТРЕННОСТЬЮ домашней папки — сама ``home`` в
+    цепочку не входит. Без границы поиск доходил бы до корня диска и цеплял
+    посторонний журнал, а файл в корне ``home`` перехватывал бы любой запуск,
+    где бы он ни происходил. Граница та же, что у истории (#818), и по той же
+    причине.
+    """
+    current = (start or pathlib.Path.cwd()).resolve()
+    home = pathlib.Path.home().resolve()
+    if home in current.parents:
+        chain = [current, *(folder for folder in current.parents if home in folder.parents)]
+    else:
+        chain = [current]
+    for folder in chain:
+        candidate = folder / STATS_FILE_NAME
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _default_path() -> pathlib.Path:
-    return pathlib.Path.cwd() / STATS_FILE_NAME
+    """Куда писать журнал прогонов (issue #920, ``SEC-3-04``).
+
+    Порядок:
+
+    0. ``STEPIK_GRADER_STATS_FILE`` — аварийный переключатель.
+    1. Существующий ``.grader_stats.jsonl`` рядом или выше по дереву — чтобы
+       накопленное продолжало пополняться после обновления.
+    2. ``~/.stepik-grader/stats.jsonl`` — единый журнал пользователя.
+
+    Зачем изменено: журнал лежал строго в ``pathlib.Path.cwd()``, а
+    рекомендованный сценарий — запуск из папки задачи. Значит на каждую задачу
+    заводился свой файл, а ``purge_stats`` («удалить мои данные») убирал ровно
+    один из них — остальные оставались лежать по всем папкам, где студент
+    когда-либо запускал грейдер. Обещание очистки выполнялось для текущей папки
+    и молча не выполнялось для остальных.
+    """
+    override = os.environ.get(_ENV_STATS_FILE, "").strip()
+    if override:
+        return pathlib.Path(override).expanduser()
+    existing = find_existing_stats_file()
+    if existing is not None:
+        return existing
+    return user_stats_path()
+
+
+def stats_path(path: pathlib.Path | None = None) -> pathlib.Path:
+    """Путь к журналу статистики (issue #1005).
+
+    Публичен, потому что о файле приходится ГОВОРИТЬ: сообщение про
+    нечитаемый журнал бесполезно без имени файла, который предлагается
+    удалить, а вызывающему знать про приватный ``_default_path`` незачем.
+    """
+    return path or _default_path()
 
 
 def _rotate_if_needed(path: pathlib.Path) -> None:
@@ -108,8 +192,12 @@ def record_run(
     total_time: float,
     *,
     stats_path: pathlib.Path | None = None,
+    isolation: str | None = None,
 ) -> None:
     """Дописать одну запись о прогоне (issue #268).
+
+    ``isolation`` — уровень изоляции прогона (``"none"`` или имя backend'а
+    песочницы); ``None`` — поле не пишется, как в записях до issue #997.
 
     ``mode`` — 1..4 (номер режима CLI); ``verdicts`` — тальи по вердиктам
     (для режимов 1/2 — AC/WA/RE/TLE по кейсам, для 3/4 —
@@ -129,8 +217,18 @@ def record_run(
         "verdicts": verdicts,
         "total_time": total_time,
     }
+    if isolation is not None:
+        # issue #997 (SBX-5-04): по строке статистики нельзя было отличить
+        # прогон под --sandbox от обычного, а вердикты они дают разные.
+        entry["isolation"] = isolation
     try:
         with _WRITE_LOCK:
+            # issue #920: журнал переехал в `~/.stepik-grader/`, и на чистой
+            # машине этого каталога ещё нет. Без создания родителя запись тихо
+            # проваливалась бы в `except OSError` — то есть на новой машине
+            # статистика не велась бы вовсе, и молча. Каталог создаётся только
+            # при реальной записи: `stats` и `--purge-stats` его не плодят.
+            path.parent.mkdir(parents=True, exist_ok=True)
             _rotate_if_needed(path)
             # issue #793 (FST-03): если предыдущая запись оборвалась без
             # завершающего перевода строки (крэш ровно посреди write), append
@@ -155,6 +253,13 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
     при крэше, ручное редактирование) просто пропускается, не роняя чтение
     остальных строк — тот же принцип graceful degradation, что у
     ``GraderCache._load()``.
+
+    Число пропущенных строк возвращается в ``skipped`` (issue #1005,
+    ``FZZ-5-06``): пропуск сам по себе правильный, но молчаливый. Журнал,
+    испорченный целиком, давал ``total_runs=0`` и сообщение «статистика
+    выключена или ещё не накопилась» — то есть ровно ту причину, которой нет:
+    записи были, их просто не удалось прочитать, и починить это можно было
+    только удалением файла, о котором никто не сказал.
     """
     path = stats_path or _default_path()
     by_mode: dict[int, int] = {}
@@ -162,6 +267,7 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
     verdict_totals: dict[str, int] = {}
     total_runs = 0
     total_time = 0.0
+    skipped = 0
 
     if path.is_file():
         try:
@@ -181,14 +287,20 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
             try:
                 entry = json.loads(stripped)
             except json.JSONDecodeError:
+                skipped += 1
                 continue
             if not isinstance(entry, dict):
+                skipped += 1
                 continue
 
             mode = entry.get("mode")
             if isinstance(mode, int):
                 by_mode[mode] = by_mode.get(mode, 0) + 1
                 total_runs += 1
+            else:
+                # Запись разобралась как JSON, но без режима она в сводку не
+                # попадает ничем — для пользователя это такая же потеря.
+                skipped += 1
 
             os_name = entry.get("os")
             if isinstance(os_name, str):
@@ -210,6 +322,13 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
         "by_os": by_os,
         "verdict_totals": verdict_totals,
         "total_time": total_time,
+        # issue #1192: среднее время прогона — явным полем, а не «поделите сами».
+        # В накопителе копилась только сумма, и вопрос «сколько занимает один
+        # прогон» требовал арифметики над двумя другими числами; при пустом
+        # журнале эта же арифметика давала ZeroDivisionError у каждого, кто
+        # пробовал.
+        "avg_time": total_time / total_runs if total_runs else 0.0,
+        "skipped": skipped,
     }
 
 

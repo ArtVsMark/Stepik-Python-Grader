@@ -16,20 +16,19 @@ OS-sandbox (см. ``core/runner.py``, CLAUDE.md). Сервер слушает т
 127.0.0.1 — запускай для своих решений на своей машине.
 """
 
-from __future__ import annotations
-
 import html
 import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from stepik_grader import config
 from stepik_grader.core import user_settings
 from stepik_grader.web import runs
 from stepik_grader.web.api_routes import _ApiRoutesMixin
 from stepik_grader.web.http_guards import (
     _lang_from_query,
 )
-from stepik_grader.web.i18n import render_message
+from stepik_grader.web.i18n import DEFAULT_LANG, render_message, resolve_lang
 from stepik_grader.web.viewmodels import (
     set_web_record_history,
 )
@@ -119,11 +118,15 @@ class _GraderServer(ThreadingHTTPServer):
         confine: bool,
         sandbox: bool = False,
         record_history: bool = True,
+        lang: str = "ru",
     ) -> None:
         self.workspace = workspace
         self.confine = confine
         self.sandbox = sandbox
         self.record_history = record_history
+        # issue #1131: нормализуем здесь, а не у вызывающего, — тогда защищён
+        # любой путь создания сервера, включая тесты и будущих потребителей.
+        self.lang = resolve_lang(lang)
         super().__init__(server_address, handler_cls)
 
 
@@ -175,7 +178,10 @@ class _Handler(_ApiRoutesMixin):
             # директории»), читаем его тут и инжектим в data-onboarding-seen.
             onboarding_seen = (
                 user_settings.load_settings(
-                    self.server.workspace / user_settings.SETTINGS_FILE_NAME
+                    # issue #948: путь резолвится общей функцией — иначе страница
+                    # читала бы папочный файл, когда всё остальное уже перешло на
+                    # общий ~/.stepik-grader/settings.json.
+                    user_settings.default_settings_path(self.server.workspace)
                 ).onboarding_seen
                 is True
             )
@@ -186,6 +192,14 @@ class _Handler(_ApiRoutesMixin):
                 .replace("__EXEC_SANDBOX__", "true" if self.server.sandbox else "false")
                 .replace("__RECORD_HISTORY__", "true" if self.server.record_history else "false")
                 .replace("__ONBOARDING_SEEN__", "true" if onboarding_seen else "false")
+                # issue #1131 (LNCH-2-05): стартовый язык страницы. Фронт брал
+                # его только из localStorage с откатом на "ru", поэтому
+                # `--serve --lang en` открывал английскому пользователю русский
+                # интерфейс — единственный выбор языка, который он сделал явно,
+                # игнорировался. localStorage остаётся сильнее: переключатель в
+                # шапке — более поздний и более конкретный выбор того же
+                # человека, и запуск с флагом не должен его отменять.
+                .replace("__START_LANG__", html.escape(self.server.lang, quote=True))
             )
             self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
         elif parsed.path in _STATIC_ROUTES:
@@ -213,6 +227,7 @@ def run_server(
     confine: bool = True,
     sandbox: bool = False,
     record_history: bool = True,
+    lang: str = DEFAULT_LANG,
 ) -> None:
     """Запустить веб-интерфейс на http://host:port (Ctrl+C — остановить).
 
@@ -237,6 +252,13 @@ def run_server(
     наполнялся раздел «Подучить». В отличие от CLI (opt-in ``--history``), для
     браузерной аудитории история включена по умолчанию; ``--no-history``
     выключает. Ставит оверрайд в ``viewmodels`` (``CONFIG`` — frozen).
+
+    ``lang`` (issue #1131, находка LNCH-2-05) — язык, на котором открывается
+    страница при первом заходе. Прежде фронт брал его только из
+    ``localStorage`` с откатом на ``ru``, поэтому ``--serve --lang en``
+    показывал английскому пользователю русский интерфейс: единственный явный
+    выбор языка игнорировался. Неизвестное значение нормализуется к ``ru``
+    (``resolve_lang``) — тот же graceful degradation, что и у ``?lang=``.
     """
     set_web_record_history(record_history)
     if sandbox:
@@ -245,6 +267,10 @@ def run_server(
 
         set_runner(SandboxRunner())
     workspace = root.expanduser().resolve() if root else pathlib.Path.cwd().resolve()
+    # issue #984: workspace сервера — он же корень настроек прогона. Прежде веб
+    # якорил настройки на ``--root``, а конфиг читался от cwd: один запуск имел
+    # два разных корня, и вердикт зависел от того, откуда стартовал сервер.
+    config.set_workspace_root(workspace)
     server = _GraderServer(
         (host, port),
         _Handler,
@@ -252,6 +278,7 @@ def run_server(
         confine=confine,
         sandbox=sandbox,
         record_history=record_history,
+        lang=lang,
     )
     url = f"http://{host}:{port}"
     # Консольный вывод оператора сервера (не JSON-ответ API) — тоже через

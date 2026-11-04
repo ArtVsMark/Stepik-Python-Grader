@@ -1,14 +1,14 @@
 """Unit-тесты для normalizers.py."""
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.core.normalizers import (
+    floats_equal_with_precision,
     normalize_floats,
     normalize_whitespace,
     sort_lines,
     split_output_lines,
+    strip_trailing_blanks,
 )
 
 # ---------------------------------------------------------------------------
@@ -233,3 +233,132 @@ def test_split_output_lines_keeps_exotic_controls_as_data(code_point: int, name:
 def test_split_output_lines_is_symmetric_for_file_and_stream() -> None:
     """Файл (universal newlines) и поток дают одинаковое разбиение."""
     assert split_output_lines("a\r\nb") == split_output_lines("a\nb") == ["a", "b"]
+
+
+# ---------------------------------------------------------------------------
+# floats_equal_with_precision — толерантность без потери требования разрядности
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("actual", "expected", "equal", "why"),
+    [
+        # issue #940: незначащие нули ожидания значимы — это требование формата.
+        ("12.3", "12.30", False, "решение дало меньше знаков, чем требует ожидание"),
+        ("1.5", "1.50", False, "то же на одном знаке"),
+        ("100.0", "100.00", False, "нули после точки не «лишние», если их ждут"),
+        # Прежняя толерантность цела: хвост двоичного представления прощается.
+        ("0.30000000000000004", "0.3", True, "знаков не меньше — мусор за 9-м прощается"),
+        ("3.14159265358979", "3.141592654", True, "округление до 9 знаков"),
+        ("12.30", "12.30", True, "совпадение как есть"),
+        ("12.300", "12.30", True, "знаков больше требуемого — требование выполнено"),
+        # Разные формы записи: сравнивать разрядность нечего, работает округление.
+        ("1e-07", "0.0000001", True, "экспонента против десятичной записи"),
+        ("0.0000001", "1e-07", True, "то же в обратную сторону"),
+        # Не-числовые расхождения нормализация не спасает.
+        ("12.3", "12.4", False, "разные величины"),
+        ("abc", "abd", False, "текст сравнивается дословно"),
+    ],
+)
+def test_floats_equal_with_precision(actual: str, expected: str, equal: bool, why: str) -> None:
+    """Толерантность к записи float не стирает требование числа знаков (issue #940)."""
+    assert floats_equal_with_precision(actual, expected) is equal, why
+
+
+# ---------------------------------------------------------------------------
+# issue #1111 — нормализация хвоста для режима сравнения `stepik`
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "lines,expected,why",
+    [
+        (["a ", "b\t"], ["a", "b"], "хвостовые пробелы и табы снимаются с каждой строки"),
+        (["a", "", ""], ["a"], "пустые строки в конце отбрасываются"),
+        ([""], [], "единственная пустая строка = отсутствие вывода"),
+        ([], [], "пустой список остаётся пустым"),
+        (["", "a"], ["", "a"], "пустая строка В НАЧАЛЕ значима"),
+        (["  *"], ["  *"], "ведущие пробелы значимы — ёлочки и отступы не ломаются"),
+        (["a b"], ["a b"], "внутренние пробелы не трогаются"),
+        (["   ", "x"], ["", "x"], "строка из одних пробелов схлопывается, но не исчезает"),
+    ],
+)
+def test_strip_trailing_blanks(lines: list[str], expected: list[str], why: str) -> None:
+    """Снимается ровно хвост: то, чего не различает чекер платформы (issue #1111)."""
+    assert strip_trailing_blanks(lines) == expected, why
+
+
+@pytest.mark.parametrize(
+    "code_point,name",
+    [
+        (0x0B, "вертикальная табуляция"),
+        (0x0C, "перевод страницы"),
+        (0xA0, "неразрывный пробел"),
+    ],
+)
+def test_strip_trailing_blanks_keeps_exotic_whitespace(code_point: int, name: str) -> None:
+    """Экзотические пробельные — ДАННЫЕ, а не хвост вывода (регрессия issue #843).
+
+    Голый ``str.rstrip()`` считает пробельными и ``\\x0b``/``\\x0c``, поэтому
+    первая версия #1111 срезала их — и мутация ``vertical_tab`` из каталога
+    корпуса получила AC вместо WA. Ровно тот ложный AC, который закрывал #843:
+    поймано прогоном стенда, а не ревью.
+    """
+    line = "a" + chr(code_point)
+    assert strip_trailing_blanks([line]) == [line], name
+
+
+def test_strip_trailing_blanks_does_not_mutate_input() -> None:
+    """Вход остаётся исходным: `output`/`expected` в отчёте показываются как есть."""
+    original = ["a ", ""]
+    strip_trailing_blanks(original)
+    assert original == ["a ", ""]
+
+
+class TestFalseAcceptWhereRoundingGlues:
+    """issue #996: округление до девяти знаков — АБСОЛЮТНОЕ, и там, где double
+    не решает, оно склеивало разные числа в один вердикт.
+
+    Все четыре случая воспроизведены на боевом пути ядра
+    (`grader_core` сравнивает через `floats_equal_with_precision`), а не на
+    вспомогательной функции.
+    """
+
+    def test_overflow_does_not_equate_different_numbers(self) -> None:
+        """PY-1-02: 1.0e400 и 2.0e400 оба дают `inf` — и признавались равными."""
+        assert not floats_equal_with_precision("1.0e400", "2.0e400")
+
+    def test_large_integers_beyond_double_precision(self) -> None:
+        """MTX-8-02: double не держит 18 значащих цифр, repr выходит один."""
+        assert not floats_equal_with_precision("123456789012345678.0", "123456789012345679.0")
+
+    def test_tiny_numbers_stay_glued_on_purpose(self) -> None:
+        """MTX-8-01/MTX-8-03 в части малых чисел ОТКЛОНЕНЫ — это сам контракт.
+
+        Числа меньше 5e-10 укладываются в девять знаков после запятой, и
+        сравнение до девяти знаков обязано их склеивать: сузить границу —
+        значит завернуть законное `print(0.1234567894)` при ожидании
+        `0.123456789`, что и поймал `test_output_comparison`.
+        """
+        assert floats_equal_with_precision("0.0000000002", "0.0000000001")
+        assert floats_equal_with_precision("-0.0000000002", "-0.0000000001")
+
+    def test_binary_noise_still_passes(self) -> None:
+        """Главный риск правки: толерантность к двоичному представлению обязана остаться.
+
+        Без неё 0.1 + 0.2 никогда не совпадёт с 0.3, и грейдер станет бесполезен
+        на любой задаче с дробями (issue #940).
+        """
+        assert floats_equal_with_precision("0.30000000000000004", "0.3")
+
+    def test_ninth_digit_tolerance_still_passes(self) -> None:
+        """Разница за девятым знаком по-прежнему прощается."""
+        assert floats_equal_with_precision("0.1234567891", "0.1234567890")
+
+    def test_required_precision_still_enforced(self) -> None:
+        """И требование разрядности не ослаблено: 12.3 не проходит за 12.30."""
+        assert not floats_equal_with_precision("12.3", "12.30")
+
+    def test_ninth_digit_tolerance_survives_on_large_numbers(self) -> None:
+        """Разница за пределами девятого знака прощается и на больших числах."""
+        assert floats_equal_with_precision("12345.6789012341", "12345.6789012342")

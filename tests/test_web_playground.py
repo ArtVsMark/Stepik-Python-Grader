@@ -5,8 +5,6 @@
 ``POST /api/v1/runs`` с ``mode="playground"`` + polling — на реальном сервере.
 """
 
-from __future__ import annotations
-
 import dataclasses
 import json
 import threading

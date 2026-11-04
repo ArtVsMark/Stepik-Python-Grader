@@ -12,8 +12,6 @@ PREFIX}`` (issue #427) плюс спец-роут ``GET /``. Падает, ес�
 эндпоинт (фиксированный allowlist, не файловый сервер).
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

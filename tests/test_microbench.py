@@ -1,47 +1,32 @@
 """Unit tests for microbench_runner."""
 
-from __future__ import annotations
-
 from stepik_grader.core.microbench_runner import (
-    SIMILAR_THRESHOLD_PERCENT,
     WARMUP_RUNS,
-    MicrobenchResult,
-    apply_relative_micro,
+    classify_relative,
     run_microbench,
 )
 
 
-def test_similar_threshold_value() -> None:
-    """Константа должна быть единственным источником истины."""
-    assert SIMILAR_THRESHOLD_PERCENT == 5.0
+def test_classify_relative_uses_the_thresholds_it_is_given() -> None:
+    """Пороги приходят параметрами — вшитых в модуль чисел нет (issue #1587)."""
+    kwargs = {"similar_threshold": 1.15, "much_slower_threshold": 1.5}
+    assert classify_relative(1.0, **kwargs) == "SIMILAR"
+    assert classify_relative(1.15, **kwargs) == "SIMILAR"
+    assert classify_relative(1.2, **kwargs) == "SLOWER"
+    assert classify_relative(1.5, **kwargs) == "SLOWER"
+    assert classify_relative(1.51, **kwargs) == "MUCH_SLOWER"
 
 
-def test_result_no_timings_defaults() -> None:
-    r = MicrobenchResult(file="x.py", repeats=10)
-    assert r.min_time == 0.0
-    assert r.median_time == 0.0
-    assert r.mean_time == 0.0
-    assert r.max_time == 0.0
-    assert r.std_dev_time == 0.0
+def test_grader_verdict_is_classify_with_config_thresholds() -> None:
+    """``grader_core._verdict`` и ранжирование не расходятся: одна точка расчёта."""
+    from stepik_grader.core import grader_core
 
-
-def test_apply_relative_micro_empty() -> None:
-    assert apply_relative_micro([]) == []
-
-
-def test_apply_relative_micro_single() -> None:
-    r = MicrobenchResult(file="a.py", repeats=10, timings=[0.001])
-    results = apply_relative_micro([r])
-    assert results[0].verdict == "SIMILAR"
-    assert results[0].relative_percent == 100.0
-
-
-def test_apply_relative_micro_two_solutions() -> None:
-    fast = MicrobenchResult(file="fast.py", repeats=10, timings=[0.001])
-    slow = MicrobenchResult(file="slow.py", repeats=10, timings=[0.002])
-    results = apply_relative_micro([fast, slow])
-    assert results[0].verdict == "SIMILAR"
-    assert results[1].verdict in {"SLOWER", "MUCH_SLOWER"}
+    for relative in (1.0, 1.1, 1.3, 2.0):
+        assert grader_core._verdict(relative) == classify_relative(
+            relative,
+            similar_threshold=grader_core.SIMILAR_THRESHOLD,
+            much_slower_threshold=grader_core.MUCH_SLOWER_THRESHOLD,
+        )
 
 
 def test_run_microbench_syntax_error() -> None:
@@ -76,6 +61,56 @@ def test_warmup_applied_in_bench_script() -> None:
     # tracemalloc — в измеряемые время/память не входит.
     assert script.index("_timeit.timeit(") < script.index("_timeit.repeat(")
     assert script.index("_timeit.timeit(") < script.index("_tm.start()")
+
+
+def test_timing_run_is_outside_tracemalloc() -> None:
+    """Замер времени НЕ идёт под профилировщиком памяти (issue #956).
+
+    `tracemalloc` берёт плату пропорционально числу аллокаций, поэтому под ним
+    решение, активнее работающее со структурами данных, выглядит медленнее
+    независимо от реальной скорости — режим 4 ранжировал решения наоборот.
+    Порядок починен в #991, но гейта на него не было: возврат `_tm.start()`
+    выше замера тесты не заметили бы, а сам дефект виден только на сравнении
+    двух решений, то есть у пользователя.
+    """
+    from stepik_grader.core.microbench_runner import _build_bench_script
+
+    script = _build_bench_script("x = [i for i in range(1000)]\n", stdin_data="", number=10)
+
+    repeat_at = script.index("_timeit.repeat(")
+    start_at = script.index("_tm.start()")
+    stop_at = script.index("_tm.stop()")
+    assert start_at < stop_at, "профилировщик должен открываться и закрываться"
+    assert not (start_at < repeat_at < stop_at), (
+        "замер времени оказался между _tm.start() и _tm.stop(): накладные расходы "
+        "tracemalloc снова штрафуют решения по числу аллокаций"
+    )
+
+
+def test_memory_pass_stays_under_tracemalloc() -> None:
+    """Пик памяти по-прежнему меряется — отдельным прогоном под профилировщиком."""
+    from stepik_grader.core.microbench_runner import _build_bench_script
+
+    script = _build_bench_script("x = 1\n", stdin_data="", number=10)
+
+    start_at = script.index("_tm.start()")
+    stop_at = script.index("_tm.stop()")
+    measure_at = script.index("_tm.get_traced_memory()")
+    assert start_at < measure_at < stop_at, "пик памяти снимается внутри окна профилировщика"
+    assert "print('MEM:' + str(_peak_bytes))" in script
+
+
+def test_peak_memory_survives_the_split_run() -> None:
+    """Строка `MEM:` доезжает до результата живым прогоном (issue #956).
+
+    Разделение проходов трогает формат stdout bench-скрипта, а его разбирает
+    `run_microbench`. Регресс здесь выглядел бы безобидно — «память просто 0» —
+    и молча обнулял бы половину сравнения решений.
+    """
+    result = run_microbench("data = [i * i for i in range(20000)]\n", number=1)
+
+    assert not result["error"]
+    assert result["peak_memory_mb"] > 0, "пик памяти обнулился — строка MEM: не разобралась"
 
 
 def test_run_microbench_with_input() -> None:

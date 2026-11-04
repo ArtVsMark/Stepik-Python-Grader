@@ -16,8 +16,6 @@ stdout/stderr в список без предела, и решение с бес
 объём не ограничивает (``print('x' * 10**9)`` — это один шаг).
 """
 
-from __future__ import annotations
-
 import dataclasses
 import pathlib
 import threading
@@ -43,7 +41,11 @@ def test_budget_without_limit_passes_everything() -> None:
 
 
 def test_budget_splits_chunk_at_the_boundary() -> None:
-    """Чанк, пересекающий границу, обрезается ровно по остатку бюджета."""
+    """Чанк, пересекающий границу, обрезается по остатку бюджета.
+
+    Переводов строки в этих данных нет, поэтому срез идёт ровно по остатку
+    (issue #996, MTX-9-01: граница строки соблюдается там, где она есть).
+    """
     budget = _OutputBudget(10)
 
     assert budget.take(b"abc") == b"abc"
@@ -157,8 +159,13 @@ def test_sync_path_caps_output_when_limited(tmp_path: pathlib.Path) -> None:
     assert outcome.returncode == 0
 
 
-def test_fast_path_without_limit_or_cancel_keeps_full_output(tmp_path: pathlib.Path) -> None:
-    """Контроль: без лимита и без cancel — быстрый communicate, весь вывод цел."""
+def test_no_limit_and_no_cancel_keeps_full_output(tmp_path: pathlib.Path) -> None:
+    """Контроль: без лимита и без cancel вывод цел — потолка нет, обрезать нечего.
+
+    issue #1248: этот случай обслуживал отдельный ``communicate()``; теперь путь
+    общий, и проверка сторожит, что снятие лимита по-прежнему означает «без
+    потолка», а не «другой сборщик вывода».
+    """
     script = tmp_path / "chatty.py"
     script.write_text("for _ in range(200):\n    print('y' * 100)\n", encoding="utf-8")
     spec = RunSpec(
@@ -260,9 +267,8 @@ def test_trace_without_limit_keeps_full_output() -> None:
 def test_trace_code_passes_output_limit_to_runner(monkeypatch) -> None:
     """``RunSpec`` трассировщика несёт ``CONFIG.max_output_bytes``.
 
-    Без него ``LocalRunner`` уходит на безлимитный ``communicate()``
-    (``runner.py``: ``cancel_event is None and max_output_bytes is None``) и
-    читает stdout дочернего процесса — весь JSON-трейс — в память без предела.
+    Без него накопление stdout дочернего процесса — весь JSON-трейс — ничем не
+    ограничено: ``None`` в ``max_output_bytes`` означает «без потолка».
 
     Патчится имя в самом ``tracer``: ``run_spec`` он импортирует напрямую,
     поэтому подмена в ``core.runner`` до него уже не доходит.
@@ -347,3 +353,30 @@ def test_microbench_caps_solution_stderr(monkeypatch) -> None:
     # Бюджет общий на stdout+stderr; сверх лимита приезжает только пометка.
     assert len(outcome.stdout) + len(outcome.stderr) <= 20_000 + 200
     assert "вывод обрезан" in outcome.stderr.decode("utf-8", errors="replace")
+
+
+# ---------------------------------------------------------------------------
+# MTX-9-01 (issue #996) — обрезка не порождает псевдо-строку
+# ---------------------------------------------------------------------------
+
+
+def test_budget_cuts_at_a_line_boundary() -> None:
+    """Остаток бюджета режется по последнему переводу строки, а не посреди неё.
+
+    Обрыв на произвольном байте даёт огрызок, неотличимый от настоящей строки:
+    сравнение видит не «вывод обрезан», а другое содержимое, и пользователь
+    получает WA по строке, которой решение не печатало.
+    """
+    budget = _OutputBudget(10)
+
+    # В бюджет влезли бы «раз\nдва\nтр», но «тр» — половина строки.
+    assert budget.take("раз\nдва\nтри\n".encode()) == "раз\n".encode()
+    assert budget.truncated is True
+
+
+def test_budget_keeps_a_chunk_without_newlines() -> None:
+    """Перевода строки в куске нет — отдаём срез: это лучше пустого вывода."""
+    budget = _OutputBudget(4)
+
+    assert budget.take(b"abcdefgh") == b"abcd"
+    assert budget.truncated is True

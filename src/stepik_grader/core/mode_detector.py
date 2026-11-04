@@ -11,19 +11,21 @@
 решения (core/grader_core.py). Извлечён из grader_core.py (Issue #45 A-01).
 """
 
-from __future__ import annotations
-
 import ast
-import json
 import pathlib
+from collections.abc import Iterable
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core.storage import load_json_file
 
 __all__ = [
     "is_function_only_solution",
 ]
 
+# issue #996 (PY-1-07, LNCH-3-03): снимок на момент импорта — ради фасада и
+# внешних ссылок на имя. Внутри модуля кодировка читается `get_config()` в
+# момент ВЫЗОВА: связанная на импорте, она игнорирует и `--config`, и
+# `override_config()`, то есть настройка молча не действует.
 ENCODING: str = CONFIG.encoding
 
 
@@ -134,7 +136,7 @@ def _is_python_code_block(block: str) -> bool:
     )
 
 
-def _block_invokes_solution(block: str, function_name: str | None) -> bool:
+def _block_invokes_solution(block: str, function_name: str | Iterable[str] | None) -> bool:
     """Вернуть True, если тест-блок сам вызывает решение и печатает результат.
 
     Это признак формата python-generation (format 3), где блок — полноценный
@@ -156,6 +158,9 @@ def _block_invokes_solution(block: str, function_name: str | None) -> bool:
         ``a = 5``                   → False (только данные)
         ``d1 = date(2020, 1, 1)``   → False (данные, хотя есть вызов date)
         ``5``                       → False (голый литерал)
+
+    ``function_name`` принимает как одно имя, так и набор имён всех функций
+    решения — вызов любой из них означает, что блок является драйвером.
     """
     if not block.strip():
         return False
@@ -164,12 +169,25 @@ def _block_invokes_solution(block: str, function_name: str | None) -> bool:
     except SyntaxError:
         return False
 
+    # issue #938 (RUN-2-02): сверяем со ВСЕМИ функциями решения, а не с одной.
+    # Раньше сюда приходило имя первой функции по ``ast.walk``, поэтому решение
+    # с ``def _helper`` перед ``def show`` при блоке ``show(5)`` не опознавалось
+    # как драйвер: блок уходил в legacy-обёртку и падал ``NameError: name 'show'
+    # is not defined``. Перестановка функций местами давала AC — то есть вердикт
+    # зависел от порядка объявлений в файле пользователя.
+    names = (
+        set()
+        if function_name is None
+        else {function_name}
+        if isinstance(function_name, str)
+        else set(function_name)
+    )
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
             continue
         if node.func.id == "print":
             return True
-        if function_name and node.func.id == function_name:
+        if node.func.id in names:
             return True
     return False
 
@@ -178,7 +196,21 @@ def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
     """Прочитать function_name из meta.json рядом с файлом решения.
 
     Ищет meta.json в той же директории, что и solution_path.
-    Возвращает None если файл не найден или поле отсутствует.
+    Возвращает None если файл не найден, повреждён или поле отсутствует —
+    тогда режим определяется эвристикой по AST решения.
+
+    issue #996 (PY-3-04): ловится ``ValueError``, а не только
+    ``JSONDecodeError``. Тот — его подкласс, но мимо прежнего перехвата шли ещё
+    два реальных случая: не-UTF8 байт в файле даёт ``UnicodeDecodeError``
+    (тоже подкласс ``ValueError``), а JSON с массивом в корне — голый
+    ``ValueError`` из ``load_json_file``. Оба роняли **весь прогон** там, где
+    достаточно откатиться на эвристику: `meta.json` — подсказка, а не источник
+    истины, и повреждённая подсказка не повод не проверять решение.
+
+    Проверено по всем одиннадцати вызовам ``load_json_file`` в проекте: узкий
+    перехват был только здесь, остальные ловят ``(OSError, ValueError)`` либо
+    намеренно пробрасывают ошибку наверх (конфиг и секреты — там молчать
+    нельзя).
     """
     meta_path = solution_path.parent / "meta.json"
     if not meta_path.exists():
@@ -187,14 +219,53 @@ def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
         meta = load_json_file(meta_path)
         name = meta.get("function_name")
         return str(name) if name else None
-    except (json.JSONDecodeError, OSError):
+    except ValueError, OSError:
         return None
 
 
+def _ast_function_names(solution_path: pathlib.Path) -> list[str]:
+    """Вернуть имена всех функций верхнего уровня решения, в порядке объявления.
+
+    issue #938 (RUN-2-02): нужно, чтобы «блок вызывает решение» проверялось по
+    всем функциям, а не по первой попавшейся. Вложенные функции сюда не
+    попадают намеренно — снаружи модуля они не вызываемы, поэтому драйвером
+    теста быть не могут.
+    """
+    try:
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
+        tree = ast.parse(source)
+    except SyntaxError, OSError:
+        return []
+    return [
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+
+
+def _ast_class_names(solution_path: pathlib.Path) -> list[str]:
+    """Вернуть имена классов верхнего уровня решения, в порядке объявления.
+
+    issue #938: «в решении нечего вызывать» — это отсутствие и функций, **и**
+    классов. Задача ООП-курса состоит из одного `class Vector`, а тест-блок
+    создаёт объект и печатает результат; считать такое решение stdin-скриптом
+    нельзя.
+    """
+    try:
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
+        tree = ast.parse(source)
+    except SyntaxError, OSError:
+        return []
+    return [node.name for node in tree.body if isinstance(node, ast.ClassDef)]
+
+
 def _ast_function_name(solution_path: pathlib.Path) -> str | None:
-    """Парсит файл решения через ast и возвращает имя первой функции (эвристика).
+    """Парсит файл решения через ast и возвращает имя целевой функции (эвристика).
 
     Используется как fallback когда meta.json недоступен или function_name = None.
+
+    issue #938: из нескольких функций верхнего уровня предпочитается первая
+    **публичная** — имя с ведущим подчёркиванием по соглашению означает
+    вспомогательную. Прежняя «первая по ``ast.walk``» выбирала ``_helper``,
+    объявленный выше целевой функции, и legacy-обёртка вызывала не то.
     """
     try:
         # issue #792 (PY-03): байты + декодирование с заменой. Решение,
@@ -204,14 +275,74 @@ def _ast_function_name(solution_path: pathlib.Path) -> str | None:
         # лишь имя функции: подставной символ в комментарии на AST не влияет,
         # а если исходник действительно не разбирается — вернём None, как и
         # для любого синтаксически неверного файла.
-        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        source = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         tree = ast.parse(source)
-    except (SyntaxError, OSError):
+    except SyntaxError, OSError:
         return None
+    top_level = [
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+    for name in top_level:
+        if not name.startswith("_"):
+            return name
+    if top_level:
+        return top_level[0]
+    # Функций верхнего уровня нет — берём любую вложенную, как раньше: на
+    # обёртку это всё равно не сработает, но поведение для странных решений
+    # остаётся прежним, а не превращается в новый режим отказа.
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             return node.name
     return None
+
+
+def _reads_function_marker(type_file: pathlib.Path) -> bool:
+    """``.type``-файл говорит «function»? Терпимо к кодировке и BOM.
+
+    issue #792 (``PY-03``): не-UTF8 в ``.type`` не должен ронять детекцию.
+
+    issue #987 (``REV-1-02``): BOM срезается отдельно — ``strip()`` его не
+    трогает (U+FEFF не пробельный), и ``﻿function`` не совпадал с маркером.
+    Позвать здесь ``read_test_text`` нельзя: он живёт в ``test_loader``,
+    который импортирует этот модуль, — общий хелпер замкнул бы DAG.
+    """
+    try:
+        raw = type_file.read_bytes().decode(get_config().encoding, errors="replace")
+    except OSError:
+        return False
+    return raw.lstrip("﻿").strip() == "function"
+
+
+def _type_files_cover_every_case(test_dir: pathlib.Path) -> bool:
+    """Помечают ли ``.type``-файлы весь набор как function-режим.
+
+    issue #996 (``MTX-5-02``): ``N.type`` относится к **кейсу N** — так его и
+    читает загрузчик набора. Детектор же принимал любой такой файл за сигнал
+    файлового уровня: одного ``1.type`` хватало, чтобы ВСЕ кейсы уехали в
+    function-режим. Набор из двух кейсов, где помечен только первый, превращал
+    верное stdin-решение в ``0/2 RE`` — при том что оставшийся ``.type`` мог
+    просто пережить прошлую задачу в той же папке.
+
+    Поэтому глобальный вывод делается, только когда сигнал не противоречит
+    по-кейсовому: либо кейсов формата 1 в каталоге нет вовсе (форматы 2 и 3
+    ``.type`` не читают, и файл может относиться только к набору целиком),
+    либо ``.type`` с маркером есть у **каждого** кейса. Смешанный набор
+    остаётся stdin на уровне файла, а помеченные кейсы получают ``function``
+    там, где это и решается, — в ``load_test_cases``.
+    """
+    marked = {
+        type_file.name.removesuffix(".type")
+        for type_file in test_dir.glob("*.type")
+        if _reads_function_marker(type_file)
+    }
+    if not marked:
+        return False
+    legacy_cases = {
+        entry.name
+        for entry in test_dir.iterdir()
+        if entry.name.isdigit() and (test_dir / f"{entry.name}.clue").exists()
+    }
+    return not legacy_cases or legacy_cases <= marked
 
 
 def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str:
@@ -219,7 +350,7 @@ def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str
 
     Стратегия определения (первый сработавший выигрывает):
       1. meta.json рядом с файлом: если function_name != None → "function"
-      2. .type-файлы в test_dir: если хоть один содержит "function" → "function"
+      2. .type-файлы в test_dir, помечающие ВСЕ кейсы формата 1 → "function"
       3. AST-анализ файла решения через is_function_only_solution → "function"
       4. Иначе → "stdin"
 
@@ -231,17 +362,13 @@ def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str
         return "function"
 
     # 2. .type-файлы
-    if test_dir.is_dir():
-        for type_file in test_dir.glob("*.type"):
-            # issue #792 (PY-03): не-UTF8 в .type не должен ронять детекцию.
-            raw = type_file.read_bytes().decode(ENCODING, errors="replace").strip()
-            if raw == "function":
-                return "function"
+    if test_dir.is_dir() and _type_files_cover_every_case(test_dir):
+        return "function"
 
     # 3. AST-анализ файла решения
     try:
         # issue #792 (PY-03): то же декодирование с заменой — см. выше.
-        file_content = solution_path.read_bytes().decode(ENCODING, errors="replace")
+        file_content = solution_path.read_bytes().decode(get_config().encoding, errors="replace")
         if is_function_only_solution(file_content):
             return "function"
     except OSError:

@@ -15,8 +15,6 @@
 diagnostic_stepik.py. Источник истины — stepik_client.py.
 """
 
-from __future__ import annotations
-
 import pathlib
 import threading
 import time
@@ -26,6 +24,8 @@ import requests
 
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.stepik_client import (
+    OAuthCallbackPortBusy,
+    StepikNetworkError,
     authorize_via_browser,
     create_user_session,
     make_session,
@@ -46,6 +46,8 @@ _log = get_logger("oauth_flow")  # issue #149: диагностический л
 _REFRESH_LOCK = threading.Lock()
 
 __all__ = [
+    "OAuthCallbackPortBusy",
+    "StepikNetworkError",
     "authorize_and_get_token",
     "authorize_via_browser",
     "create_user_session",
@@ -88,7 +90,7 @@ def _reread_secrets(secrets_path: pathlib.Path) -> dict[str, Any] | None:
     """
     try:
         return load_secrets_dict(secrets_path)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
 
 
@@ -162,6 +164,15 @@ def try_create_session_without_browser(
         except requests.HTTPError as exc:
             _log.warning("обновление по refresh_token не удалось: %s", exc)
             return None
+        except ValueError as exc:
+            # issue #943 (ADD-2-02): ответ 200 с валидным JSON, но без
+            # access_token. Раньше он уходил в secrets как есть: прежний
+            # протухший токен оставался, а expires_at сдвигался в будущее — и
+            # token_is_valid() целый час отвечал True, пока каждый запрос
+            # получал 401 без внятной причины. secrets НЕ трогаем и честно
+            # отдаём None: вызывающая сторона уйдёт на браузерную авторизацию.
+            _log.warning("ответ токен-эндпоинта непригоден: %s", exc)
+            return None
         token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
         secrets.update(token_data)
         save_secrets(secrets_path, secrets)
@@ -174,6 +185,7 @@ def authorize_and_get_token(
     client_secret: str,
     redirect_uri: str,
     secrets_path: pathlib.Path = pathlib.Path("secrets.json"),
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Выполняет полный OAuth2 flow и сохраняет токены в secrets_path.
 
@@ -184,7 +196,7 @@ def authorize_and_get_token(
     Returns:
         Обновлённый словарь secrets (исходные поля + новые токены).
     """
-    token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
+    token_data = authorize_via_browser(client_id, client_secret, redirect_uri, cancel_event)
 
     secrets: dict[str, Any] = {}
     if secrets_path.exists() and secrets_path.is_file():

@@ -20,14 +20,13 @@
 показать ошибку или продолжить с пустой базой.
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib
 import sqlite3
 import sys
 import threading
+import time
 from typing import Any, Protocol, runtime_checkable
 
 from stepik_grader import db
@@ -36,21 +35,29 @@ from .models import GlossaryCard, GlossaryMissingEntry
 
 __all__ = [
     "BUNDLED_GLOSSARY_DIR",
+    "MOVED_FILE_NAME",
     "GlossaryError",
     "GlossaryProvider",
     "JsonGlossaryProvider",
     "append_missing_entries",
     "load_missing_queue",
+    "load_moved",
     "save_missing_queue",
 ]
 
-# Комплектная база карточек (импорт из Glossary-Python, issue #326; число ready
-# считает ``scripts/generate_glossary_badge.py``, не хардкод — #398/#535):
-# каталог ``glossary/data/*.json``, попадает в wheel через package-data.
+# Комплектная база карточек — выгрузка Glossary-Python, разложенная по группам
+# ``scripts/import_glossary.py`` (issue #1573; закреплённый выпуск — в
+# ``data/_source.json``): каталог ``glossary/data/*.json``, попадает в wheel
+# через package-data.
 # Используется web-адаптером как zero-config источник по умолчанию (когда
 # ``CONFIG.glossary_store`` не задан), с деградацией на компактный
 # ``core/glossary.py``, если каталог отсутствует/пуст.
 BUNDLED_GLOSSARY_DIR: pathlib.Path = pathlib.Path(__file__).parent / "data"
+
+#: Перенаправления id слитых карточек (поле ``moved`` выгрузки Glossary-Python,
+#: форма 4.1+): «старый id → новый». Лежит в каталоге данных под именем с
+#: подчёркиванием — служебные файлы каталога карточками не читаются.
+MOVED_FILE_NAME = "_moved.json"
 
 
 class GlossaryError(ValueError):
@@ -71,14 +78,6 @@ class GlossaryProvider(Protocol):
 
     def search(self, query: str) -> list[GlossaryCard]:
         """Поиск по id/title/aliases/keywords/tags (подстрока, без регистра)."""
-        ...
-
-    def list_by_status(self, status: str) -> list[GlossaryCard]:
-        """Карточки с заданным статусом жизненного цикла."""
-        ...
-
-    def list_by_tag(self, tag: str) -> list[GlossaryCard]:
-        """Карточки, помеченные заданным тегом."""
         ...
 
 
@@ -102,16 +101,46 @@ def _iter_card_dicts(payload: Any, source: pathlib.Path) -> list[dict[str, Any]]
     return result
 
 
+def load_moved(directory: pathlib.Path) -> dict[str, str]:
+    """Перенаправления id слитых карточек из ``<directory>/_moved.json``.
+
+    Файла нет (каталог без выгрузки, одиночный store-файл) — перенаправлений
+    нет. Нечитаемый или не той формы — ``GlossaryError``: молча потерянное
+    перенаправление — битая ссылка у студента.
+    """
+    file_path = directory / MOVED_FILE_NAME
+    if not file_path.is_file():
+        return {}
+    try:
+        payload = json.loads(file_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise GlossaryError(f"{file_path}: невалидный JSON — {exc}") from exc
+    if not isinstance(payload, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in payload.items()
+    ):
+        raise GlossaryError(f"{file_path}: ожидался объект «старый id → новый id»")
+    return dict(payload)
+
+
 class JsonGlossaryProvider:
     """JSON-реализация ``GlossaryProvider``: карточки из файла или директории."""
 
-    def __init__(self, cards: list[GlossaryCard]) -> None:
+    def __init__(self, cards: list[GlossaryCard], *, moved: dict[str, str] | None = None) -> None:
         self._cards: list[GlossaryCard] = list(cards)
         self._by_id: dict[str, GlossaryCard] = {}
         for card in self._cards:
             if card.id in self._by_id:
                 raise GlossaryError(f"Дублирующийся id карточки: {card.id!r}")
             self._by_id[card.id] = card
+        # Перенаправление на несуществующую карточку — битая ссылка, а не
+        # переезд: издатель обещает, что новый id есть в той же выгрузке, и
+        # нарушение этого обещания должно быть видно здесь, а не в браузере.
+        self._moved: dict[str, str] = dict(moved or {})
+        for old, new in self._moved.items():
+            if new not in self._by_id:
+                raise GlossaryError(f"Перенаправление {old!r} → {new!r}: карточки {new!r} нет")
+            if old in self._by_id:
+                raise GlossaryError(f"Перенаправление {old!r}: карточка с этим id ещё существует")
 
     # -- конструкторы загрузки -------------------------------------------
 
@@ -127,8 +156,10 @@ class JsonGlossaryProvider:
             raise GlossaryError(f"Директория глоссария не найдена: {path}")
         cards: list[GlossaryCard] = []
         for json_file in sorted(path.glob("*.json")):
+            if json_file.name.startswith("_"):
+                continue  # служебный файл каталога (``_moved.json``), не карточки
             cards.extend(cls._load_cards_from_file(json_file))
-        return cls(cards)
+        return cls(cards, moved=load_moved(path))
 
     @classmethod
     def load(cls, path: pathlib.Path) -> JsonGlossaryProvider:
@@ -157,8 +188,21 @@ class JsonGlossaryProvider:
     # -- запросы ----------------------------------------------------------
 
     def get(self, card_id: str) -> GlossaryCard | None:
-        """Вернуть карточку по id или None."""
-        return self._by_id.get(card_id)
+        """Вернуть карточку по id или None.
+
+        Id слитой карточки (``_moved.json``) ведёт на ту, в которую её слили:
+        старая ссылка ``#/glossary/<id>`` в закладке или истории продолжает
+        открывать карточку, а не «не найдено».
+        """
+        card = self._by_id.get(card_id)
+        if card is None and card_id in self._moved:
+            card = self._by_id.get(self._moved[card_id])
+        return card
+
+    @property
+    def moved(self) -> dict[str, str]:
+        """Перенаправления «старый id → новый» (копия)."""
+        return dict(self._moved)
 
     def all(self) -> list[GlossaryCard]:
         """Все карточки базы (копия списка)."""
@@ -171,19 +215,32 @@ class JsonGlossaryProvider:
         """Поиск по id/title/aliases/keywords/tags (подстрока, без регистра)."""
         return [card for card in self._cards if card.matches(query)]
 
-    def list_by_status(self, status: str) -> list[GlossaryCard]:
-        """Карточки с заданным статусом жизненного цикла."""
-        return [card for card in self._cards if card.status == status]
+    #: Статусы, при которых карточка считается ЗАКОНЧЕННОЙ (issue #919,
+    #: находка ``DATA-1-04``). `new` и `draft` — заготовки: у них может не быть
+    #: ни описания, ни примеров, и засчитывать их в покрытие значит объявлять
+    #: работу сделанной ровно там, где она только начата. `exported` — та же
+    #: готовая карточка, уже уехавшая в витрину.
+    _COMPLETE_STATUSES: frozenset[str] = frozenset({"ready", "exported"})
 
-    def list_by_tag(self, tag: str) -> list[GlossaryCard]:
-        """Карточки, помеченные заданным тегом (без регистра)."""
-        needle = tag.strip().lower()
-        return [card for card in self._cards if needle in {t.lower() for t in card.tags}]
+    def known_terms(self, *, include_unfinished: bool = False) -> set[str]:
+        """Search-термины ЗАКОНЧЕННЫХ карточек — для покрытия и подавления дублей.
 
-    def known_terms(self) -> set[str]:
-        """Все search-термины базы — для подавления дублей в детекторе."""
+        Черновик не отвечает на вопрос студента, поэтому и не закрывает
+        пробел: покрытие, посчитанное вместе с заготовками, показывает не
+        сделанное, а запланированное. На момент правки в базе черновиков нет
+        вовсе — дефект спящий, и тем он опаснее: первая же заготовка молча
+        поднимет показатель.
+
+        Args:
+            include_unfinished: считать и заготовки (``new``/``draft``). Нужно
+                там, где вопрос стоит «есть ли вообще такая карточка» —
+                например, чтобы не заводить в очередь пополнения дубль того,
+                что уже начали писать.
+        """
         terms: set[str] = set()
         for card in self._cards:
+            if not include_unfinished and card.status not in self._COMPLETE_STATUSES:
+                continue
             terms.update(card.search_terms)
         return terms
 
@@ -278,6 +335,98 @@ def _is_sqlite_db(path: pathlib.Path) -> bool:
             return fh.read(16) == _SQLITE_MAGIC
     except OSError:
         return False
+
+
+def _sqlite_accepts(path: pathlib.Path) -> bool:
+    """Открывается ли файл как база самим ``sqlite3`` (issue #924).
+
+    Ответ по первым байтам — снимок, который успевает устареть: конкурентный
+    писатель дописывает заголовок между нашим чтением и решением. ``sqlite3``
+    открывает файл с блокировкой и отвечает про его СОГЛАСОВАННОЕ состояние,
+    поэтому спорные случаи решает он, а не мы.
+
+    ``PRAGMA schema_version`` выбран как самое дешёвое обращение, которое всё же
+    заставляет прочитать заголовок: простое ``connect`` ленивое и не открыло бы
+    файл вовсе.
+
+    ДВА ОТКАЗА, И ОНИ ЗНАЧАТ РАЗНОЕ.
+
+    ``sqlite3.DatabaseError`` — «это не база»: содержимое чужое, и дорога к
+    миграции и карантину открыта.
+
+    ``OSError`` — «сейчас не открыть»: на Windows файл, который другой процесс
+    держит открытым, недоступен для чтения целиком, а не «пуст» или «чужой».
+    Считать такой отказ приговором содержимому значит удалить живую базу соседа
+    ровно там, где ОС просила подождать. Именно так падал windows-джоб: на
+    Linux пересечение дескрипторов проходит молча, и дефект был виден лишь
+    в одном из трёх CI-джобов.
+
+    Поэтому «занято» трактуется как «это чужая база» — консервативно: хуже
+    пропустить чужой формат (его отвергнет следующая же операция) и оставить
+    файл на месте, чем удалить данные.
+    """
+    try:
+        with contextlib.closing(sqlite3.connect(path)) as conn:
+            conn.execute("PRAGMA schema_version").fetchone()
+    except sqlite3.DatabaseError:
+        return False
+    except OSError:
+        return True
+    except sqlite3.Error:
+        # Прочие ошибки sqlite (например, недоступный путь) — не приговор
+        # содержимому файла, поэтому тоже без удаления.
+        return True
+    return True
+
+
+#: Сколько раз переспросить sqlite про спорный файл, прежде чем счесть его
+#: чужим форматом, и пауза между попытками (issue #1533).
+#:
+#: Число маленькое намеренно: это не «ждать, пока починится», а «дать соседу
+#: дописать заголовок». Настоящий чужой формат не станет базой ни за какую
+#: паузу, поэтому цена ошибки здесь — доли секунды на файле, который всё равно
+#: уедет в карантин.
+_SETTLE_ATTEMPTS = 5
+_SETTLE_DELAY_S = 0.02
+
+
+def _sqlite_accepts_settled(path: pathlib.Path) -> bool:
+    """Тот же вопрос, что и :func:`_sqlite_accepts`, но с правом переспросить.
+
+    Одиночный ответ — снимок, и снимок этот бывает снят В СЕРЕДИНЕ чужой
+    работы. ``sqlite3.connect`` создаёт файл сразу, а заголовок дописывает
+    позже: между этими моментами файл существует, но базой ещё не является, и
+    сосед честно отвечает ``DatabaseError``. Приняв такой ответ за приговор,
+    мы уводим ЖИВУЮ базу в карантин из-под открытого дескриптора — владелец
+    получает ``disk I/O error`` на ближайшем ``COMMIT``, и его добавки
+    пропадают (issue #1533; трассировка пришла с ubuntu × 3.14).
+
+    Фикс #924 закрыл окно между чтением первых байтов и решением; это окно —
+    следующее, внутри самой проверки. Закрывается оно временем: файл, который
+    сосед дописывает, станет базой за микросекунды, а чужой формат не станет
+    им никогда.
+
+    **Пустой файл базой считается сразу.** Ноль байт не бывает ни legacy JSON,
+    ни осмысленным мусором: это либо соседнее ``connect`` мгновение назад, либо
+    след оборванного создания. В обоих случаях sqlite примет его как пустую
+    базу, а карантин уничтожил бы чужую работу.
+
+    Args:
+        path: Путь к спорному файлу.
+
+    Returns:
+        ``True`` — файл принадлежит sqlite (наш или соседский), карантин
+        запрещён; ``False`` — содержимое действительно чужое.
+    """
+    for attempt in range(_SETTLE_ATTEMPTS):
+        if _sqlite_accepts(path):
+            return True
+        with contextlib.suppress(OSError):
+            if path.stat().st_size == 0:
+                return True
+        if attempt + 1 < _SETTLE_ATTEMPTS:
+            time.sleep(_SETTLE_DELAY_S)
+    return False
 
 
 def _row_to_entry(row: sqlite3.Row) -> GlossaryMissingEntry:
@@ -393,8 +542,35 @@ def _ensure_queue_db(path: pathlib.Path) -> None:
     (``_quarantine_unreadable``, issue #794). Файла нет, но рядом legacy
     ``<stem>.json`` (сменился дефолт пути на ``.db``, #552) → импортируем его один
     раз. Вызывается только на пути записи под ``_MISSING_QUEUE_LOCK``.
+
+    ПОРЯДОК ПРОВЕРОК ЗДЕСЬ ВАЖЕН (issue #924). Чтение первых байтов — снимок,
+    который успевает устареть: пока мы решаем по нему, конкурентный ПРОЦЕСС
+    дописывает заголовок своей новой базы. Поэтому спорный случай решает сам
+    ``sqlite3``, и только его отказ открывает дорогу к удалению и карантину.
+    Обратный порядок стоил потери данных: файл соседа уезжал в ``.corrupt``
+    из-под его открытого дескриптора, сосед получал ``disk I/O error``, и
+    половина добавок пропадала.
+
+    И ОДНОГО ОТВЕТА SQLITE МАЛО (issue #1533). Он тоже снимок — снятый, бывает,
+    в середине чужой работы: ``connect`` создаёт файл сразу, заголовок пишет
+    позже, и между этими мгновениями сосед честно отвечает «не база». Поэтому
+    спрашивает :func:`_sqlite_accepts_settled` — с правом переспросить. Файл,
+    который дописывают, станет базой за микросекунды; чужой формат не станет им
+    никогда.
     """
     if path.exists() and _is_sqlite_db(path):
+        return
+    if path.is_file() and _sqlite_accepts_settled(path):
+        # issue #924: файл не выглядел базой при чтении первых байтов, но
+        # sqlite3 его ПРИНЯЛ — значит нас обогнал конкурентный писатель, и это
+        # его база, дописанная между нашей проверкой и этой строкой.
+        #
+        # Проверка байтами и решение по ней разнесены во времени, а межпроцессной
+        # блокировки у нас на этом участке нет — классический TOCTOU. Раньше
+        # окно заканчивалось карантином ЧУЖОЙ ЖИВОЙ базы: сосед получал
+        # `disk I/O error`, потому что файл увели у него из-под открытого
+        # дескриптора, и половина добавок терялась. Спрашиваем у sqlite —
+        # он открывает файл с блокировкой и видит согласованное состояние.
         return
     legacy: list[GlossaryMissingEntry] = []
     if path.is_file():
@@ -404,7 +580,7 @@ def _ensure_queue_db(path: pathlib.Path) -> None:
         # упадёт ``GlossaryError``, как и до issue #794.
         try:
             legacy = _read_legacy_json_queue(path)
-        except (GlossaryError, OSError, ValueError):
+        except GlossaryError, OSError, ValueError:
             # ``ValueError`` — это и ``UnicodeDecodeError`` (issue #794, MIGR-04):
             # битый заголовок трактовался как legacy JSON, ошибка декодирования
             # утекала мимо suppress и наверху переклеивалась в «ошибка записи

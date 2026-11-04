@@ -29,8 +29,6 @@ Windows) → ``SandboxUnavailableError`` с понятной причиной �
 тихий fallback на ``LocalRunner`` (issue #266, явное требование).
 """
 
-from __future__ import annotations
-
 import platform
 
 from stepik_grader.core.runner import Runner, RunOutcome, RunSpec
@@ -75,3 +73,13 @@ class SandboxRunner:
     def run(self, spec: RunSpec) -> RunOutcome:
         """Делегировать выбранному при конструировании backend'у."""
         return self._backend.run(spec)
+
+    @property
+    def backend_name(self) -> str:
+        """Имя платформенного backend'а — для паспорта прогона (issue #984).
+
+        Публичный аксессор вместо ``type(runner._backend).__name__`` у
+        вызывающего: гарантии изоляции у трёх backend'ов разные, поэтому в
+        отчёте и в ключе кэша должен стоять конкретный, а не общее «песочница».
+        """
+        return type(self._backend).__name__

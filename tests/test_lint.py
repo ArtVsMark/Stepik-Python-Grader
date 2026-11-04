@@ -4,8 +4,6 @@
 graceful-ветки (ruff нет / упал / мусор) замоканы и работают всегда.
 """
 
-from __future__ import annotations
-
 import pathlib
 import subprocess
 import time

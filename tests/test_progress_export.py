@@ -4,8 +4,6 @@
 самодостаточен, пустая история → дружелюбный отчёт (не ошибка).
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from stepik_grader.core import history, progress_export

@@ -49,11 +49,8 @@ process-count нарушения, см. докстринг ``RunOutcome.sandbox_
   блокируются. Задокументировано как явный пробел, не пропущено молча.
 """
 
-from __future__ import annotations
-
 import contextlib
 import ctypes
-import math
 import os
 import subprocess
 import sys
@@ -71,13 +68,17 @@ from stepik_grader.core.runner import (
     RunSpec,
     _kill_process_tree,
     _write_stdin,
+    materialize_spec,
     sample_tree_rss,
-    spec_source_bytes,
 )
+from stepik_grader.core.sandbox import _limits
 
 __all__ = ["WindowsSandboxRunner", "create_backend"]
 
 _CREATE_SUSPENDED = 0x00000004
+# issue #927: NTSTATUS, с которым Job Object завершает процесс, исчерпавший
+# `PerProcessUserTimeLimit`. В консоли виден как 3221225540.
+_STATUS_QUOTA_EXCEEDED = 0xC0000044
 
 _JOB_OBJECT_LIMIT_PROCESS_TIME = 0x00000002
 _JOB_OBJECT_LIMIT_ACTIVE_PROCESS = 0x00000008
@@ -192,6 +193,10 @@ def _poll_resources(
     stop: threading.Event,
     peak_result: list[float],
 ) -> None:
+    # issue #996 (JRN-1-01): пик публикуется СРАЗУ, а не одной строкой на
+    # выходе из функции. Выход наступает после `stop`, а `join` вызывающей
+    # стороны ограничен по времени: не успел поток — замер терялся целиком.
+    # В `LocalRunner` тот же порядок делал пик нулевым ВСЕГДА (см. runner.py).
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
@@ -202,6 +207,7 @@ def _poll_resources(
                 rss = sample_tree_rss(ps_proc)
                 if rss > peak:
                     peak = rss
+                    peak_result[0] = peak
                 if rss > max_memory_mb:
                     mem_exceeded.set()
                     proc.kill()
@@ -211,12 +217,11 @@ def _poll_resources(
                     cpu_exceeded.set()
                     proc.kill()
                     break
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
                 break
             stop.wait(0.02)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
+    except psutil.NoSuchProcess, psutil.AccessDenied:
         pass
-    peak_result[0] = peak
 
 
 class WindowsSandboxRunner:
@@ -230,10 +235,10 @@ class WindowsSandboxRunner:
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
-            script_path = run_dir / "solution.py"
             try:
-                script_path.write_bytes(spec_source_bytes(spec))
-            except OSError as exc:
+                # issue #992: см. _linux — общая материализация spec.
+                script_path = materialize_spec(spec, run_dir)
+            except (OSError, ValueError) as exc:
                 return RunOutcome(launch_error=str(exc))
 
             interpreter_dir = str(Path(sys.executable).resolve().parent)
@@ -246,8 +251,15 @@ class WindowsSandboxRunner:
                 # как в LocalRunner и POSIX-backend'ах.
                 "PYTHON_COLORS": "0",
             }
-            max_memory_mb = float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024)
-            cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
+            max_memory_mb = float(
+                _limits.sandbox_memory_mb(spec.max_memory_mb, CONFIG.max_memory_mb)
+            )
+            # issue #927: квота считается от wall-таймаута прогона, а не от одной
+            # константы. Прежде `--timeout 60` под изоляцией не работал вовсе:
+            # Job Object убивал верное решение на десятой секунде CPU, когда до
+            # таймаута оставалось ещё пятьдесят. POSIX-backend'ы связали квоту с
+            # таймаутом ещё в #986 — Windows остался на константе.
+            cpu_seconds = _limits.cpu_quota_seconds(spec.timeout, CONFIG.sandbox_max_cpu_seconds)
 
             start = time.perf_counter()
             try:
@@ -306,11 +318,16 @@ class WindowsSandboxRunner:
                     proc.kill()
 
         def _drain(pipe: Any, sink: list[bytes]) -> None:
+            # issue #1143: `read1`, а не `read`. `read(65536)` ждёт ЛИБО полные
+            # 65536 байт, ЛИБО EOF; решение, оставившее живого внука с открытым
+            # stdout, EOF не даёт, `join(timeout=1.0)` ниже истекает — и sink
+            # остаётся пустым на ВЕРНОМ решении. То же исправление, что в
+            # `LocalRunner` (issue #952): там его сделали, сюда не перенесли.
             try:
-                for chunk in iter(lambda: pipe.read(65536), b""):
+                for chunk in iter(lambda: pipe.read1(65536), b""):
                     sink.append(chunk)
                     _on_chunk(len(chunk))
-            except (OSError, ValueError):
+            except OSError, ValueError:
                 pass
 
         readers = [
@@ -449,6 +466,22 @@ class WindowsSandboxRunner:
                 peak_memory_mb=peak_mb_result[0],
             )
 
+        # issue #927: Job Object убивает процесс САМ, по `PerProcessUserTimeLimit`,
+        # и делает это раньше, чем watcher-поток успеет выставить `cpu_exceeded`.
+        # Приходит обычный ненулевой код `0xC0000044` (`STATUS_QUOTA_EXCEEDED`) —
+        # и без этой ветки он разбирался как `RE`: студент видел «Process exited
+        # with code 3221225540 (no stderr)» на верном решении. Падала квота, а
+        # отвечало решение — тот же класс, что #986 закрывал на POSIX.
+        if _quota_exceeded(proc.returncode):
+            return RunOutcome(
+                sandbox_violation="cpu",
+                stdout=partial_stdout,
+                stderr=partial_stderr,
+                elapsed=elapsed,
+                returncode=proc.returncode,
+                peak_memory_mb=peak_mb_result[0],
+            )
+
         return RunOutcome(
             stdout=b"".join(stdout_chunks),
             stderr=b"".join(stderr_chunks),
@@ -456,6 +489,19 @@ class WindowsSandboxRunner:
             elapsed=elapsed,
             peak_memory_mb=peak_mb_result[0],
         )
+
+
+def _quota_exceeded(returncode: int | None) -> bool:
+    """Код завершения означает «Job Object убил по квоте» (issue #927).
+
+    ``STATUS_QUOTA_EXCEEDED`` приходит и как беззнаковое ``3221225540``, и как
+    знаковое ``-1073741756`` — Python отдаёт то или другое в зависимости от
+    того, как код прошёл через API. Сверяются младшие 32 бита, поэтому обе
+    формы распознаются одинаково.
+    """
+    if returncode is None or returncode == 0:
+        return False
+    return (returncode & 0xFFFFFFFF) == _STATUS_QUOTA_EXCEEDED
 
 
 def create_backend() -> WindowsSandboxRunner:

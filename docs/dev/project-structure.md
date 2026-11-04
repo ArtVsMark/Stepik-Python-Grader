@@ -23,6 +23,9 @@ Stepik-Python-Grader/
 │       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
 │       ├── atomic_io.py           # Utilities: atomic_write_json (temp+os.replace, leaf, ADR-0011)
 │       ├── db.py                  # Utilities: общий SQLite-коннектор connect/user_version/apply_schema (leaf, ADR-0011)
+│       ├── mtime_cache.py         # Utilities: mtime_signature/MtimeCache[T] — кеш загрузки (leaf, ADR-0011)
+│       ├── stdio_encoding.py      # Utilities: force_utf8_stdio — вывод точек входа в UTF-8 (leaf)
+│       ├── build_info.py          # Utilities: логическая версия из _build_info.json для окна (leaf)
 │       ├── web/                   # Локальный веб-интерфейс (--serve)
 │       │   ├── __init__.py        # Публичный API пакета (реэкспорт для back-compat)
 │       │   ├── server.py          # Каркас HTTP-сервера (http.server): собирает хендлер из миксинов, статика
@@ -70,6 +73,7 @@ Stepik-Python-Grader/
 │           ├── reporter.py       # rich-таблицы, вывод, verbose-diff
 │           ├── result.py         # TestResult (frozen dataclass) + Verdict Literal (leaf)
 │           ├── runner.py         # Runner Protocol + LocalRunner — абстракция запуска кода
+│           ├── spawn.py          # запуск процесса с дедлайном на сам spawn (leaf)
 │           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
 │           ├── normalizers.py    # Нормализация вывода: округление float, sort/whitespace
 │           ├── glossary.py       # Компактная карта исключений → подсказка + ссылка, leaf
@@ -79,15 +83,18 @@ Stepik-Python-Grader/
 │           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
 │           ├── task_page_parser.py   # Разбор HTML текста задачи: таблица кейсов, ссылки (leaf)
+│           ├── task_index.py       # Дерево скачанных задач по иерархии meta.json (leaf)
+│           ├── html_sanitizer.py    # Очистка условия по whitelist перед показом (leaf)
+│           ├── html_to_markdown.py   # Условие задачи из HTML в читаемый Markdown (leaf)
 │           ├── tests_writer.py       # Запись Format 1/3 тест-кейсов на диск (leaf)
 │           ├── test_source_fetcher.py # Скачивание тестов из ZIP/GitHub → Format 3
 │           ├── step_content.py       # Разбор Stepik API-контента и URL шага (leaf)
+│           ├── task_scaffold.py  # Каталог задачи без Stepik (--init-task): решение + tests/
 │           ├── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 │           ├── i18n.py           # Загрузка JSON-локалей меню/CLI
 │           ├── locales/          # JSON-локали меню/CLI: en.json, ru.json (читает i18n.py)
 │           ├── stats.py          # Opt-in локальная статистика запусков
 │           ├── history.py        # Opt-in SQLite-история прогонов
-│           ├── mtime_cache.py    # Generic mtime-кеш загрузки
 │           ├── lint.py           # Opt-in PEP-проверка через ruff, extra [lint]
 │           ├── insights.py       # Таксономия падений + затухание карточек «Подучить»
 │           ├── history_recording.py # Сборка записей истории из грейдинга для CLI+web
@@ -97,7 +104,11 @@ Stepik-Python-Grader/
 │           ├── progress_export.py # Экспорт прогресса в Markdown/HTML (--export-progress)
 │           ├── user_settings.py  # Персистентные настройки CLI (.grader_settings.json, leaf)
 │           ├── stepik_reference.py # Импорт закреплённых решений Stepik как reference (--import-reference)
+│           ├── submission_archive.py # История своих отправок в <задача>/submissions/ (вердикт + hint)
+│           ├── submission.py     # Общий путь отправки решения: вердикт платформы → история
+│           ├── attachments.py      # Вложения условия (media/attachments) рядом с решением
 │           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов
+│           ├── diagnostics.py    # Реестр проверок окружения: проверка — данные, движок не печатает и не чинит
 │           ├── feedback.py       # Обратная связь: prefilled-URL к GitHub Issue Forms, редакция секретов
 │           ├── tracer.py         # Пошаговый трассировщик кода (sys.settrace → JSON-трейс) для песочницы
 │           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox
@@ -123,7 +134,7 @@ Stepik-Python-Grader/
 │       └── rules/                # Domain: карточки правил PEP 8
 │           ├── __init__.py       # Публичный API пакета rules
 │           ├── models.py         # RuleCard (leaf, только stdlib)
-│           ├── json_provider.py  # JsonRulesProvider + bundled_rules() (кеш core/mtime_cache)
+│           ├── json_provider.py  # JsonRulesProvider + bundled_rules() (кеш top-level mtime_cache)
 │           └── data/pep8_ru.json # Комплектная база ≥30 карточек правил (package-data)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
 ├── tests/                     # pytest-набор (число — в CI-прогоне / бейджах README)
@@ -135,8 +146,8 @@ Stepik-Python-Grader/
 │   ├── corpus_sweep.py        # Сквозной прогон подсистем по локальной базе (docs/agent/local-sweep.md)
 │   └── corpus_fetch.py        # Сбор локальной базы: обход курса Stepik → downloader
 ├── docs/                      # База знаний (архитектура, структура, версии)
-├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
-├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
+├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.14 (3.15 — python-next.yml)
+├── .pre-commit-config.yaml    # Pre-commit хуки: ruff + guardrail-скрипты CI
 ├── pyproject.toml             # Конфигурация проекта (ruff, mypy, pytest, зависимости, packages.find where=["src"])
 ├── LICENSE                    # MIT
 ├── secrets.json.example       # Шаблон файла с OAuth-токеном

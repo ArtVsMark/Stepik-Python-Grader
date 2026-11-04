@@ -34,14 +34,19 @@ web-API (`core/locales/*.json`), но НЕ саму UI-оболочку (`web/st
     python scripts/check_ui_locale_guardrails.py   # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
+import contextlib
 import json
 import re
 import sys
 from collections.abc import Iterator
 from html.parser import HTMLParser
 from pathlib import Path
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
     "LATIN_TEXT_ALLOWLIST",
@@ -162,7 +167,7 @@ def load_ui_catalog() -> tuple[dict[str, str], dict[str, str]]:
     """(`ru`, `en`) словари каталога `ui.json` (пустые, если файл битый/не-объект)."""
     try:
         data = json.loads(_UI_JSON.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {}, {}
     if not isinstance(data, dict):
         return {}, {}

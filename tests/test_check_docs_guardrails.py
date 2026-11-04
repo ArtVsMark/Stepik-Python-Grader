@@ -4,8 +4,6 @@
 приёмом, что и test_check_version_consistency.py.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import os
 import subprocess
@@ -33,7 +31,9 @@ def test_passes_on_current_repo() -> None:
 
 def test_cli_exits_zero() -> None:
     """`python scripts/check_docs_guardrails.py` завершается 0."""
-    result = subprocess.run([sys.executable, str(_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -471,6 +471,38 @@ def test_ui_issue_tail_policy_on_current_repo() -> None:
     assert errors == []
 
 
+def test_ui_guard_fails_when_options_py_moved(tmp_path, monkeypatch) -> None:
+    """Пропавший вход — ошибка, а не тихий пропуск проверки (issue #988).
+
+    Прежде оба источника брались «если найдутся», поэтому переезд `options.py`
+    обнулял гейт: он печатал «0 строк проверено» тем же тоном, что и «всё
+    чисто». Guard, зеленеющий на пустом входе, неотличим от отсутствующего.
+    """
+    module = _load_module()
+    _make_ui_tree(tmp_path, 'parser.add_argument("--lang", help="Язык меню.")\n', {"ok": "Готово"})
+    (tmp_path / "src" / "stepik_grader" / "cli" / "options.py").unlink()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_ui_issue_tail_policy(errors)
+
+    assert any("options.py" in error for error in errors), errors
+
+
+def test_ui_guard_fails_when_locales_are_gone(tmp_path, monkeypatch) -> None:
+    """Каталог локалей опустел — политика по сообщениям не проверена, это ошибка."""
+    module = _load_module()
+    _make_ui_tree(tmp_path, 'parser.add_argument("--lang", help="Язык меню.")\n', {"ok": "Готово"})
+    for locale in (tmp_path / "src" / "stepik_grader" / "core" / "locales").glob("*.json"):
+        locale.unlink()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_ui_issue_tail_policy(errors)
+
+    assert any("locales" in error for error in errors), errors
+
+
 # --- Подписи-пути у ссылок (issue #827) --------------------------------------
 
 
@@ -689,3 +721,53 @@ def test_nested_badge_links_are_checked_for_relative_targets(tmp_path, monkeypat
 
     assert len(errors) == 1
     assert "docs/dev/glossary.md" in errors[0]
+
+
+def test_conflict_markers_are_flagged(tmp_path, monkeypatch) -> None:
+    """Незаконченное слияние в документации — нарушение (#1164).
+
+    Такое уже уезжало в main и жило там несколько PR: ссылки резолвились,
+    бюджет строк соблюдался, индексы были полны — а раздел про лаунчер читатель
+    видел дважды, вперемешку с «HEAD» и «origin/main».
+    """
+    module = _load_module()
+    opening, middle, closing = "<" * 7, "=" * 7, ">" * 7
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text(
+        f"Абзац\n{opening} HEAD\nмоя версия\n{middle}\nчужая версия\n{closing} origin/main\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_no_conflict_markers(errors)
+
+    assert len(errors) == 1
+    assert "docs/guide.md" in errors[0].replace(os.sep, "/")
+    assert "строка 2" in errors[0]
+
+
+def test_setext_heading_underline_is_not_a_conflict(tmp_path, monkeypatch) -> None:
+    """Подчёркивание заголовка «=======» — валидный Markdown, а не конфликт.
+
+    Поэтому средний маркер сам по себе ничего не значит: ловим только открытие
+    и закрытие, у которых после знаков идёт имя ревизии.
+    """
+    module = _load_module()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text("Заголовок\n=======\n\nТекст\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+
+    module.check_no_conflict_markers(errors)
+
+    assert errors == []
+
+
+def test_conflict_marker_check_passes_on_repo() -> None:
+    """На актуальном репозитории маркеров нет."""
+    errors: list[str] = []
+
+    _load_module().check_no_conflict_markers(errors)
+
+    assert errors == []

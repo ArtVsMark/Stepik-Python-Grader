@@ -1,7 +1,5 @@
 """Тесты пакета rules/ — карточки правил PEP 8 (issue #345, эпик #342)."""
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
 
@@ -53,7 +51,6 @@ def test_provider_from_file_and_queries(tmp_path) -> None:
     assert got is not None and got.title == "Long line"
     assert prov.get("nope") is None
     assert [c.id for c in prov.search("unused")] == ["F401"]
-    assert [c.id for c in prov.list_by_tag("fmt")] == ["E501"]
 
 
 def test_provider_rejects_duplicate_ids(tmp_path) -> None:

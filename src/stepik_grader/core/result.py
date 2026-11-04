@@ -4,14 +4,22 @@
 
 Контракт полей — канонично в
 [`docs/dev/result-contract.md § Case result`](../../../docs/dev/result-contract.md).
-``run_single_test()`` продолжает возвращать ``dict[str, Any]`` — это уже
-задокументированный публичный контракт CLI/Web/API (issue #116), и менять его
-форму здесь не входит в задачу. ``TestResult`` формализует ту же форму как
-типизированную модель для мест, где нужна типобезопасность поверх словаря —
-сейчас: ``core.reporter.print_case_verbose`` (issue #114).
-"""
 
-from __future__ import annotations
+``run_single_test()`` **аннотирован** ``CaseResult``, а ``run_tests()`` —
+``SolutionResult`` (issue #442); runtime-представление при этом осталось
+обычным ``dict``, потому что это публичный контракт CLI/Web/API (issue #116) и
+менять его форму не входит в задачу. ``TypedDict`` даёт mypy ловить опечатки
+ключей, ничего не меняя в том, что видит потребитель.
+
+``TestResult`` формализует ту же форму как frozen-dataclass — для мест, где
+нужна типобезопасность поверх словаря; сейчас это
+``core.reporter.print_case_verbose`` (issue #114).
+
+issue #996 (PAIR-2-04): прежний абзац утверждал, что ``run_single_test``
+возвращает ``dict[str, Any]``, и расходился и с кодом, и с
+``result-contract.md`` — читатель докстринга получал устаревшее описание
+типа прямо в модуле, который этот тип и объявляет.
+"""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -19,7 +27,30 @@ from typing import Any, Literal, NotRequired, TypedDict
 
 __all__ = ["BenchResult", "CaseResult", "SolutionResult", "TestResult", "Verdict"]
 
-Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]
+
+def _as_exit_code(value: Any) -> int | None:
+    """Код возврата решения из словаря; ``None`` — не измерялся или мусор.
+
+    Терпимость та же, что у остальных полей ``from_dict``: словарь приходит из
+    JSON и от сторонних потребителей контракта, и одно испорченное значение не
+    должно ронять разбор всего результата.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    return value if isinstance(value, int) else None
+
+
+Verdict = Literal["AC", "WA", "OLE", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]
+"""Исход одного кейса.
+
+``OLE`` (issue #1517) — вывод решения перерос потолок ``max_output_bytes`` и
+был обрезан. Отдельный исход, а не ``WA``, по той же причине, по которой
+отдельно живёт ``TLE``: превышен **лимит**, а не «ответ неверный». Разница не
+косметическая — после обрезки сравнивать нечего: известно лишь, что первые N
+байт совпали, а что было дальше, не знает никто. Пока признак не доезжал до
+маппинга, обрезка молча превращала ``WA`` в ``AC`` — болтливое неверное
+решение теряло лишнее вместе с несовпадением и проходило проверку.
+"""
 
 
 class CaseResult(TypedDict):
@@ -74,6 +105,11 @@ class SolutionResult(TypedDict):
     avg_time: float
     peak_memory_mb: float
     first_fail: int | None
+    # issue #935: предупреждения загрузки набора кейсов — рассогласование
+    # блоков формата 3, непарные файлы, смешение форматов. NotRequired, потому
+    # что словари результата собирают и другие пути (кэш, web-адаптеры), а
+    # обязательный ключ сломал бы их молча.
+    warnings: NotRequired[list[str]]
     cases: list[CaseResult]
 
 
@@ -127,6 +163,13 @@ class TestResult:
     memory: float = 0.0
     error: str = ""
     timed_out: bool = False
+    # issue #996 (ARCH-1-06): поле контрактное — его пишут и `_fail_result`, и
+    # `_map_outcome_to_result`, а `CaseResult` объявляет обязательным. Без него
+    # `to_dict()` возвращал словарь, который контракту НЕ удовлетворяет: код
+    # возврата решения терялся на round-trip, хотя именно по нему отличают
+    # «упало» от «отработало с ненулевым статусом». Дефолт `None` — «не
+    # измерялось» (кейс не запускался вовсе).
+    exit_code: int | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> TestResult:
@@ -149,6 +192,7 @@ class TestResult:
             memory=float(data.get("memory", 0.0)),
             error=str(data.get("error", "")),
             timed_out=bool(data.get("timed_out", False)),
+            exit_code=_as_exit_code(data.get("exit_code")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -163,4 +207,5 @@ class TestResult:
             "memory": self.memory,
             "error": self.error,
             "timed_out": self.timed_out,
+            "exit_code": self.exit_code,
         }

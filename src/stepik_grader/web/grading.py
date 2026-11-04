@@ -14,8 +14,6 @@ core-модулям сами (ADR-0010); этот фасад про grade/bench/
 собственной логики: он фиксирует ГРАНИЦУ, а не добавляет уровень абстракции.
 """
 
-from __future__ import annotations
-
 from stepik_grader.core.cache import hash_solution
 from stepik_grader.core.grader_core import (
     preflight_solution,
@@ -31,6 +29,7 @@ from stepik_grader.core.microbench_runner import (
 )
 from stepik_grader.core.reporter import fmt_time, safe_rel
 from stepik_grader.core.runner import RunSpec
+from stepik_grader.core.stepik_compat import compat_report
 from stepik_grader.core.test_loader import (
     collect_grouped_files,
     find_all_solution_files,
@@ -45,6 +44,7 @@ __all__ = [
     "apply_reference_ranking",
     "apply_relative_ranking",
     "collect_grouped_files",
+    "compat_report",
     "find_all_solution_files",
     "fmt_time",
     "hash_solution",

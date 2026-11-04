@@ -1,0 +1,1 @@
+`preflight.py` в `git worktree` больше не падает `FileExistsError`, когда `git` не ответил за дедлайн (macOS + 3.14): служебный каталог берётся из файла `.git` (`gitdir:` и `commondir`), а не откатывается на `root/.git`, где лежит файл (#1604)

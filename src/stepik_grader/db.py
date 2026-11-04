@@ -24,18 +24,21 @@ Best-effort по духу (как ``core/history``/``core/cache``): вызыва
 обработчики ловили его сами и деградация оставалась штатной.
 """
 
-from __future__ import annotations
-
 import contextlib
+import os
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 __all__ = [
     "BUSY_TIMEOUT_MS",
+    "ENV_BUSY_TIMEOUT",
     "SchemaTooNewError",
     "apply_schema",
+    "busy_timeout_ms",
     "connect",
+    "exclusive_transaction",
+    "execute_ddl_script",
     "restrict_to_owner",
     "set_user_version",
     "user_version",
@@ -62,9 +65,45 @@ class SchemaTooNewError(sqlite3.DatabaseError):
         self.expected = expected
 
 
-# Явный busy_timeout: конкурентные писатели ЖДУТ write-lock, а не падают
-# ``sqlite3.OperationalError`` → тихая потеря записи (issue #393/#552).
-BUSY_TIMEOUT_MS = 10000
+#: Сколько писатель ЖДЁТ своей очереди за write-lock, прежде чем сдаться.
+#:
+#: Без явного значения конкурентный писатель падает ``OperationalError`` сразу —
+#: то есть запись теряется молча (issue #393/#552).
+#:
+#: ПОЧЕМУ ТРИДЦАТЬ, А НЕ ДЕСЯТЬ (issue #1546). Десяти секунд хватало, пока
+#: сценарием были два процесса пользователя — CLI и web. Приёмочный тест
+#: межпроцессной дозаписи гоняет ЧЕТЫРЕ писателя по пятнадцать транзакций, и на
+#: Windows-раннере это в десять секунд не уложилось: каждая транзакция ждёт
+#: fsync, а последний в очереди ждёт их все. Замер 13.09.2026, ночной прогон
+#: `main`: ``sqlite3.OperationalError: database is locked`` на ``BEGIN
+#: IMMEDIATE`` у воркера 2.
+#:
+#: Это не «подождать, пока починится»: таймаут ровно для того и существует —
+#: сказать, сколько писатель стоит в очереди. Прежнее значение было выбрано без
+#: замера под четырёх писателей на медленной ФС, и оно измеряло не корректность,
+#: а скорость раннера.
+#:
+#: Настраивается :data:`ENV_BUSY_TIMEOUT`: у чужого окружения ФС может быть ещё
+#: медленнее, и дефолт, подобранный по нашему раннеру, там снова окажется мал.
+BUSY_TIMEOUT_MS = 30000
+
+#: Переменная окружения, поднимающая порог ожидания. Значение — миллисекунды;
+#: мусор и неположительное читаются как «не задано».
+ENV_BUSY_TIMEOUT = "STEPIK_GRADER_SQLITE_BUSY_TIMEOUT_MS"
+
+
+def busy_timeout_ms() -> int:
+    """Порог ожидания write-lock: из окружения, иначе :data:`BUSY_TIMEOUT_MS`.
+
+    Returns:
+        Миллисекунды ожидания; всегда положительное число.
+    """
+    raw = os.environ.get(ENV_BUSY_TIMEOUT, "")
+    try:
+        value = int(raw)
+    except TypeError, ValueError:
+        return BUSY_TIMEOUT_MS
+    return value if value > 0 else BUSY_TIMEOUT_MS
 
 
 # issue #813 (SECD-04): к каким файлам применяется приватный режим — сама БД и
@@ -121,7 +160,7 @@ def connect(
     # оставшиеся от прежних версий с широкими правами.
     restrict_to_owner(db_path)
     try:
-        conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+        conn.execute(f"PRAGMA busy_timeout={busy_timeout_ms()}")
         # Смена journal_mode в WAL невозможна, пока к БД открыты ДРУГИЕ соединения
         # (барьерная конкурентная первая инициализация) — sqlite отдаёт
         # SQLITE_BUSY, busy_timeout тут не помогает. WAL — оптимизация, а не
@@ -149,6 +188,63 @@ def set_user_version(conn: sqlite3.Connection, version: int) -> None:
     conn.execute(f"PRAGMA user_version = {int(version)}")
 
 
+@contextlib.contextmanager
+def exclusive_transaction(conn: sqlite3.Connection) -> Iterator[None]:
+    """Взять write-lock БД на время блока (``BEGIN IMMEDIATE`` → ``COMMIT``).
+
+    Сериализует конкурентных писателей, в том числе МЕЖПРОЦЕССНО: второй
+    писатель ждёт освобождения лока в пределах ``busy_timeout``, а не работает
+    параллельно с первым. Тот же приём уже применён в очереди пополнения
+    глоссария (``glossary/json_provider``) — здесь он вынесен в общий примитив,
+    потому что понадобился и миграции схемы (issue #947).
+
+    Повторный вход — no-op: если транзакция уже открыта (``in_transaction``),
+    блок исполняется под УЖЕ взятым локом, без вложенного ``BEGIN`` (sqlite их
+    не поддерживает) и без преждевременного ``COMMIT``. Это позволяет
+    ``core/history._migrate`` взять лок один раз на всю многоступенчатую
+    миграцию и вызывать ``apply_schema`` внутри неё.
+
+    Raises:
+        sqlite3.OperationalError: лок не удалось взять за ``busy_timeout``.
+    """
+    if conn.in_transaction:  # лок уже держит внешний вызов — не трогаем границы
+        yield
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+        conn.execute("COMMIT")
+    except BaseException:
+        with contextlib.suppress(sqlite3.Error):
+            conn.execute("ROLLBACK")
+        raise
+
+
+def execute_ddl_script(conn: sqlite3.Connection, ddl: str) -> None:
+    """Исполнить многооператорный DDL, НЕ разрывая текущую транзакцию (issue #947).
+
+    ``Connection.executescript`` перед работой делает неявный ``COMMIT`` — то
+    есть снимает write-lock, взятый ``exclusive_transaction``, и миграция снова
+    становится гоночной (проверено прогоном: ``in_transaction`` после
+    ``executescript`` — ``False``). Поэтому выражения разбираются
+    ``sqlite3.complete_statement`` и исполняются по одному через ``execute``,
+    который границ транзакции не трогает.
+
+    Разбор по ``;`` корректен для аддитивного DDL схем пакета (``CREATE TABLE
+    / CREATE INDEX / ALTER TABLE``); составные тела ``CREATE TRIGGER ...
+    BEGIN ... END`` он бы порвал — их в схемах нет и добавлять их следует
+    отдельным путём.
+    """
+    statement = ""
+    for line in ddl.splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            conn.execute(statement)
+            statement = ""
+    if statement.strip():
+        conn.execute(statement)
+
+
 def apply_schema(conn: sqlite3.Connection, *, version: int, ddl: str) -> None:
     """Идемпотентная миграция ``user_version`` 0→``version`` аддитивным ``ddl``.
 
@@ -159,6 +255,14 @@ def apply_schema(conn: sqlite3.Connection, *, version: int, ddl: str) -> None:
     инкрементальных (1→2) изменений схемы вызывающая сторона пишет свою миграцию
     поверх этого примитива — и сама сверяет ИТОГОВУЮ версию с базой, потому что
     здесь про промежуточные ступени ничего не известно (см. ``core/history``).
+
+    Версия перечитывается ПОД write-lock'ом (issue #947): без него два процесса
+    читали ``user_version`` одновременно, оба видели «мигрировать надо» и оба
+    исполняли ступень. Для чисто аддитивного DDL это сходило с рук
+    (``IF NOT EXISTS``), но не для миграций с заполнением данных — см.
+    ``core/history._migrate``. Быстрая проверка до лока сохранена: подавляющее
+    большинство открытий соединения идёт по уже актуальной схеме и лок им не
+    нужен.
 
     Raises:
         SchemaTooNewError: ``user_version`` в базе БОЛЬШЕ ``version``. Раньше это
@@ -171,6 +275,11 @@ def apply_schema(conn: sqlite3.Connection, *, version: int, ddl: str) -> None:
         return
     if current > version:
         raise SchemaTooNewError(found=current, expected=version)
-    conn.executescript(ddl)
-    set_user_version(conn, version)
-    conn.commit()
+    with exclusive_transaction(conn):
+        current = user_version(conn)  # под локом: соседний процесс мог успеть
+        if current == version:
+            return
+        if current > version:
+            raise SchemaTooNewError(found=current, expected=version)
+        execute_ddl_script(conn, ddl)
+        set_user_version(conn, version)

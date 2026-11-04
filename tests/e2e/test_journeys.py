@@ -8,8 +8,6 @@ explicitly: ``pytest tests/e2e/`` (after ``pip install -e ".[e2e]"`` +
 ``playwright install chromium``).
 """
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 from typing import Any
@@ -20,6 +18,30 @@ from tests.e2e._helpers import write_task
 
 _TIMEOUT_MS = 10_000
 _CYRILLIC = re.compile(r"[А-Яа-яЁё]")
+
+#: issue #1562: бюджет ожидания плеера обязан быть БОЛЬШЕ того, что разрешено
+#: продукту. Трассировщику законно отведено до 10 с (`core/tracer.py`,
+#: `trace_code(timeout=10.0)`), сверху — запуск дочернего интерпретатора и опрос
+#: статуса страницей. С общим `_TIMEOUT_MS` (те же 10 с) тест мерил загрузку
+#: раннера, а не страницу, и держал очередь мержа красным `e2e`.
+_TRACE_TIMEOUT_MS = 30_000
+
+#: Что показывает страница вместо плеера: ошибку прогона или отмену.
+_TRACE_OUTCOME = "#trace-code, #sandbox-output .msg, #sandbox-output .msg-neutral"
+
+
+def _open_trace(page: Any) -> None:
+    """Нажать «По шагам» и дождаться плеера — или назвать, что показано вместо него.
+
+    Без второй половины отказ трассировщика (в том числе его собственный
+    ``TimeoutError``) выглядел как «элемент не появился»: текст на странице
+    терялся, и падение было неотличимо от медленного раннера.
+    """
+    page.click("#sandbox-step")
+    page.wait_for_selector(_TRACE_OUTCOME, timeout=_TRACE_TIMEOUT_MS)
+    if page.locator("#trace-code").count() == 0:
+        shown = page.locator("#sandbox-output").inner_text()
+        raise AssertionError(f"плеер не открылся, страница показала: {shown!r}")
 
 
 def test_mode2_folder_grading_shows_table_and_detail_tab(
@@ -40,7 +62,7 @@ def test_mode2_folder_grading_shows_table_and_detail_tab(
     assert row_badge.text_content().strip() == "OK"
 
     # Expand the row, then open the case's detail tab.
-    page.click('td.file-cell[data-toggle="0"]')
+    page.click('button.row-toggle[data-toggle="0"]')
     page.click('tr.case-row[data-row="0"][data-case="0"]')
 
     page.wait_for_selector("#restab-detail:not([hidden])", timeout=_TIMEOUT_MS)
@@ -83,6 +105,34 @@ def test_mode2_result_announced_and_focused_for_a11y(
     assert focused_id == "restab-table"
 
 
+def test_folder_without_test_cases_is_not_counted_as_failure(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #1020): «проверка не состоялась» — отдельное состояние, не провал.
+
+    Папка с решением и без ``tests/`` — обычный итог скачивания шага, у которого
+    публичных тестов нет. Раньше сводка считала только ``status === "OK"``, а всё
+    остальное падало в ``FAIL``, и верное решение получало «FAIL ×1» и «0%» —
+    приговор там, где его никто не запускал.
+    """
+    (tmp_path / "task.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+
+    page.goto(e2e_server + "/")
+    page.click('.mode-btn[data-mode="tests"]')
+    page.fill("#path", str(tmp_path))
+    page.click("#run")
+
+    page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
+
+    badges = page.locator("#result-summary-badges")
+    expect(badges).to_contain_text("NO TESTS", timeout=_TIMEOUT_MS)
+    assert "FAIL ×1" not in badges.text_content()
+
+    summary = page.locator("#out").text_content()
+    assert "Не проверено" in summary  # отдельный KPI, а не строка провалов
+    assert "0%" not in summary  # процент от нуля проверенных — ложь, а не ноль
+
+
 def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J (issue #298): прогресс-бар долгого прогона имеет role="progressbar"
     и корректные aria-value* (min/max), видимые assistive tech."""
@@ -93,13 +143,29 @@ def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_pa
     page.fill("#path", str(tmp_path))
     page.click("#run")
 
-    # Progress bar appears while the async bench job runs.
-    pb = page.locator('#bar [role="progressbar"]')
-    pb.wait_for(state="attached", timeout=_TIMEOUT_MS)
-    assert pb.get_attribute("aria-label")
-    assert pb.get_attribute("aria-valuemin") == "0"
+    # Полоса живёт, пока идёт прогон, и короткий прогон убирает её раньше, чем
+    # три отдельных `get_attribute` успевают дойти до узла (issue #1582: тест
+    # мигал и локально, и в CI). Атрибуты снимаются ОДНОЙ функцией в браузере в
+    # тот кадр, когда полоса появилась, — снимок не может разойтись с узлом.
+    # И ждётся узел, у которого атрибуты УЖЕ проставлены: появление узла и
+    # запись aria-value* — разные кадры, и под трейсингом CI (issue #1582)
+    # снимок попадал между ними — `aria-valuemin` приходил `None`.
+    attrs = page.wait_for_function(
+        """() => {
+            const el = document.querySelector('#bar [role="progressbar"]');
+            return el && el.hasAttribute("aria-valuemin")
+                && el.hasAttribute("aria-valuemax") && {
+                label: el.getAttribute("aria-label"),
+                min: el.getAttribute("aria-valuemin"),
+                max: el.getAttribute("aria-valuemax"),
+            };
+        }""",
+        timeout=_TIMEOUT_MS,
+    ).json_value()
+    assert attrs["label"]
+    assert attrs["min"] == "0"
     # aria-valuemax reflects total planned run_single_test calls (>= 1).
-    assert int(pb.get_attribute("aria-valuemax")) >= 1
+    assert int(attrs["max"]) >= 1
 
     # And the run still completes and announces a summary.
     expect(page.locator("#result-announce")).to_contain_text("авершён", timeout=_TIMEOUT_MS)
@@ -118,7 +184,7 @@ def test_check_code_terms_panel_shows_exception_from_code(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.type('raise ValueError("bad")')
+    page.keyboard.insert_text('raise ValueError("bad")')
 
     page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
     titles = page.locator("#check-terms .term-card-title").all_inner_texts()
@@ -138,7 +204,7 @@ def test_check_code_terms_panel_shows_bare_name_reference(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.type("ok = isinstance(v, int)")
+    page.keyboard.insert_text("ok = isinstance(v, int)")
 
     page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
     titles = [t.lower() for t in page.locator("#check-terms .term-card-title").all_inner_texts()]
@@ -156,7 +222,7 @@ def test_check_code_terms_panel_and_mode_visibility(
     page.click('.mode-btn[data-mode="file"]')
     page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#solution-editor .cm-content")
-    page.keyboard.type("xs = sorted([3, 1, 2])")
+    page.keyboard.insert_text("xs = sorted([3, 1, 2])")
     page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
     titles = page.locator("#check-terms .term-card-title").all_inner_texts()
     assert any("sorted" in t.lower() for t in titles), titles
@@ -213,8 +279,13 @@ def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_
     assert page.locator("#editor-dirty").is_hidden()
 
     editor_content.click()
-    page.keyboard.press("Control+A")
-    page.keyboard.type("print(int(input()) + 1)\n")  # correct code, in the editable window
+    # issue #1004, находка `QA-2-06`: модификатор портируемый, а не Control.
+    # На macOS «выделить всё» — это Meta+A, а Control+A там переводит курсор в
+    # начало строки (emacs-биндинг): набранный следом текст дописался бы к
+    # старому вместо замены. Набор чинился под Linux, и у контрибьютора на
+    # macOS ломался по смыслу — «ControlOrMeta» разрешается платформой сам.
+    page.keyboard.press("ControlOrMeta+A")
+    page.keyboard.insert_text("print(int(input()) + 1)\n")  # correct code, in the editable window
 
     # issue #297: editing shows the unsaved-changes indicator.
     page.wait_for_selector("#editor-dirty:not([hidden])", timeout=_TIMEOUT_MS)
@@ -276,7 +347,10 @@ def test_glossary_related_links_navigate(page: Any, e2e_server: str, tmp_path: P
     # Ждём именно заголовок, а не location.hash: хэш меняется синхронно по клику,
     # а сосед вне текущей выборки дорисовывается после fetch /api/glossary/<id>
     # (см. selectGlossaryCard в content.js) — проверка хэша прошла бы до рендера.
-    expect(heading).to_have_text("dict.get", timeout=_TIMEOUT_MS)
+    # Заголовок начинается с имени, за ним — значки жизненного цикла («со
+    # времён Python 2» и т. п.): сравниваем начало, а не весь текст, иначе тест
+    # ломался бы от каждого нового значка, ничего не говоря о навигации.
+    expect(heading).to_have_text(re.compile(r"^dict\.get(\s|$)"), timeout=_TIMEOUT_MS)
 
     # `related_errors` хранит имя исключения (FileNotFoundError), а ссылка ведёт
     # на id карточки в нижнем регистре — проверяем именно это преобразование.
@@ -321,7 +395,7 @@ def test_sandbox_runs_code_with_stdin(page: Any, e2e_server: str, tmp_path: Path
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
 
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type("print(input().upper())")
+    page.keyboard.insert_text("print(input().upper())")
     page.fill("#sandbox-stdin", "hello")
     page.click("#sandbox-run")
 
@@ -331,22 +405,23 @@ def test_sandbox_runs_code_with_stdin(page: Any, e2e_server: str, tmp_path: Path
 
 
 def _type_sandbox_code(page: Any, code: str) -> None:
-    """Ввести многострочный код в редактор песочницы, снимая автоотступ CodeMirror.
+    """Ввести многострочный код в редактор песочницы ровно как ``code``.
 
-    После двоеточия CodeMirror сам добавляет отступ на новой строке; чистим
-    строку (Home → Shift+End → Delete) и печатаем её с нуля, чтобы трейс получил
-    ровно ``code``.
+    Одним ``insert_text`` — то есть одним событием ввода, как вставка из
+    буфера, — а не построчно клавишами (issue #1582). Построчный набор шёл
+    через ``Enter``/``Home``/``Shift+End``/``Delete`` поверх автоотступа
+    CodeMirror, и исход зависел от тайминга: на CI набранный код
+    периодически приходил искажённым («unexpected indent (solution.py,
+    line 2)»). Вставка автоотступ не вызывает вовсе — его делает команда
+    ``Enter``, а не ввод текста с переводами строк.
     """
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.press("Control+a")
+    page.keyboard.press("ControlOrMeta+a")
     page.keyboard.press("Delete")
-    for i, line in enumerate(code.split("\n")):
-        if i:
-            page.keyboard.press("Enter")
-            page.keyboard.press("Home")
-            page.keyboard.press("Shift+End")
-            page.keyboard.press("Delete")
-        page.keyboard.type(line)
+    page.keyboard.insert_text(code)
+    expect(page.locator("#sandbox-editor .cm-content")).to_have_text(
+        code.replace("\n", ""), timeout=_TIMEOUT_MS
+    )
 
 
 def _sandbox_var_value(page: Any, name: str) -> str | None:
@@ -365,8 +440,7 @@ def test_sandbox_step_player_loop_and_keyboard(page: Any, e2e_server: str, tmp_p
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
 
     _type_sandbox_code(page, "for i in range(3):\n    print(i)")
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
 
     label = page.locator("#trace-step-label").text_content()
     assert "шаг 1 из" in label, label
@@ -409,8 +483,7 @@ def test_sandbox_step_player_function_frame_appears(
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
 
     _type_sandbox_code(page, "def f(n):\n    return n + 1\nx = f(5)")
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
 
     total = int(page.locator("#trace-step-label").text_content().split("из")[1])
     saw_frame_with_n = False
@@ -436,8 +509,7 @@ def test_sandbox_diagram_shows_aliasing_and_nesting(
 
     # aliasing: a и b ссылаются на один список → один узел, две стрелки в него
     _type_sandbox_code(page, "a = [1, 2]\nb = a")
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
     page.locator('[data-trace="last"]').click()  # финал: a и b заданы
     page.click('[data-traceview="diagram"]')
     page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
@@ -450,8 +522,7 @@ def test_sandbox_diagram_shows_aliasing_and_nesting(
 
     # вложенность: m = {"x": [1]} → два узла (dict + list), стрелка узел→узел
     _type_sandbox_code(page, 'm = {"x": [1]}')
-    page.click("#sandbox-step")
-    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    _open_trace(page)
     page.locator('[data-trace="last"]').click()
     page.click('[data-traceview="diagram"]')
     page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
@@ -471,7 +542,7 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
 
     # мини-карточка sorted появляется по мере ввода кода; клик открывает глоссарий
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type("xs = sorted([3, 1, 2])")
+    page.keyboard.insert_text("xs = sorted([3, 1, 2])")
     page.wait_for_selector("#sandbox-terms .term-card", timeout=_TIMEOUT_MS)
     titles = page.locator("#sandbox-terms .term-card-title").all_inner_texts()
     assert any("sorted" in t.lower() for t in titles), titles
@@ -484,9 +555,9 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
     page.click('[data-section="sandbox"]')
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.press("Control+a")
+    page.keyboard.press("ControlOrMeta+a")
     page.keyboard.press("Delete")
-    page.keyboard.type("1 / 0")
+    page.keyboard.insert_text("1 / 0")
     page.click("#sandbox-run")
     page.wait_for_selector(".sandbox-errcard", timeout=_TIMEOUT_MS)
     assert "ZeroDivisionError" in page.locator(".sandbox-errcard").inner_text()
@@ -558,9 +629,13 @@ def test_exec_mode_badge_visible_without_sandbox(
     expect(badge).to_contain_text("Без OS-изоляции")
 
 
-def test_history_notice_shown_once(page: Any, e2e_server: str, tmp_path: Path) -> None:
+def test_history_notice_shown_once(fresh_page: Any, e2e_server: str, tmp_path: Path) -> None:
     """issue #565: уведомление о локальном сборе истории показывается один раз —
-    после «Понятно» флаг ложится в localStorage, повторный визит его не показывает."""
+    после «Понятно» флаг ложится в localStorage, повторный визит его не показывает.
+
+    `fresh_page`, а не `page`: остальным тестам флаг «уже видели» ставится
+    заранее (issue #1582), а здесь проверяется именно первый показ."""
+    page = fresh_page
     page.goto(e2e_server + "/")
     notice = page.locator("#history-notice")
     expect(notice).to_be_visible(timeout=_TIMEOUT_MS)
@@ -611,7 +686,7 @@ def test_english_localizes_dynamic_sandbox_output(
     page.click('[data-section="sandbox"]')
     page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type('print("hi")')
+    page.keyboard.insert_text('print("hi")')
     page.click("#sandbox-run")
 
     page.wait_for_selector("#sandbox-output pre.code-block", timeout=_TIMEOUT_MS)
@@ -634,7 +709,7 @@ def test_ai_hint_button_consent_and_graceful_skip(
     page.click("#run")
 
     page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
-    page.click('td.file-cell[data-toggle="0"]')
+    page.click('button.row-toggle[data-toggle="0"]')
     page.click('tr.case-row[data-row="0"][data-case="0"]')
     page.wait_for_selector("#restab-detail:not([hidden])", timeout=_TIMEOUT_MS)
 

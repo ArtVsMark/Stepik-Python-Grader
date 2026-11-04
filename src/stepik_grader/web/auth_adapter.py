@@ -12,9 +12,8 @@ DAG: web → core (импортирует только ``core/*``), без об�
 HTTP-обработчика. Для удалённого сервера (#151, не в scope) не применимо.
 """
 
-from __future__ import annotations
-
 import pathlib
+import threading
 from typing import Any
 
 from stepik_grader.core.oauth_flow import authorize_and_get_token, token_is_valid
@@ -25,6 +24,7 @@ __all__ = [
     "STEPIK_OAUTH_APPS_URL",
     "auth_status",
     "perform_browser_auth",
+    "secrets_state",
     "stored_credentials",
 ]
 
@@ -49,11 +49,11 @@ def auth_status(secrets_path: pathlib.Path) -> dict[str, Any]:
         return {"authorized": False, "reason": "no_secrets"}
     try:
         secrets = load_json_file(secrets_path)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {"authorized": False, "reason": "no_secrets"}
     try:
         valid = token_is_valid(secrets)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         # Битый expires_at/access_token (напр. строка вместо числа) — трактуем как
         # «валидного токена нет», а не роняем сервер (best-effort, см. docstring).
         valid = False
@@ -61,6 +61,39 @@ def auth_status(secrets_path: pathlib.Path) -> dict[str, Any]:
         return {"authorized": True, "reason": "ok"}
     has_creds = all(str(secrets.get(field, "")).strip() for field in _CRED_FIELDS)
     return {"authorized": False, "reason": "no_token" if has_creds else "no_secrets"}
+
+
+def secrets_state(secrets_path: pathlib.Path) -> str:
+    """Почему ``secrets.json`` не годится: ``ok``/``missing``/``unreadable``/``incomplete``.
+
+    :func:`auth_status` намеренно сводит три последних случая в один
+    ``no_secrets``: его ответ говорит, ЧТО делать (нужна форма), и менять это
+    незачем. Пользователю же нужно знать, ЧТО СЛУЧИЛОСЬ — «файла нет по пути X»
+    и «файл есть, но прочитать не удалось» чинятся по-разному, а общий отказ
+    оставляет в тупике (issue #1213).
+
+    Возвращается только **категория**. Ни пути внутрь файла, ни его содержимого
+    здесь нет и быть не может: рядом лежат ``client_secret`` и токен, и
+    веб-слою запрещено отдавать оттуда что-либо, кроме состояния (SECURITY.md).
+
+    Args:
+        secrets_path: путь, по которому ожидается ``secrets.json``.
+
+    Returns:
+        ``ok`` — файл читается и креды полны; ``missing`` — файла нет;
+        ``unreadable`` — файл есть, но не читается или это не JSON;
+        ``incomplete`` — JSON разобран, но ``client_id``/``client_secret``/
+        ``redirect_uri`` заполнены не все.
+    """
+    if not secrets_path.exists() or not secrets_path.is_file():
+        return "missing"
+    try:
+        secrets = load_json_file(secrets_path)
+    except OSError, ValueError:
+        return "unreadable"
+    if not all(str(secrets.get(field, "")).strip() for field in _CRED_FIELDS):
+        return "incomplete"
+    return "ok"
 
 
 def stored_credentials(secrets_path: pathlib.Path) -> dict[str, str]:
@@ -77,7 +110,7 @@ def stored_credentials(secrets_path: pathlib.Path) -> dict[str, str]:
         return {}
     try:
         secrets = load_json_file(secrets_path)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return {}
     return {
         field: str(secrets.get(field, "")).strip()
@@ -91,6 +124,7 @@ def perform_browser_auth(
     client_id: str,
     client_secret: str,
     redirect_uri: str,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Записать креды в ``secrets.json`` (0600) и провести браузерный OAuth (issue #402).
 
@@ -106,11 +140,13 @@ def perform_browser_auth(
     if secrets_path.exists() and secrets_path.is_file():
         try:
             existing = load_json_file(secrets_path)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             existing = {}
     existing.update(
         {"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri}
     )
     save_secrets(secrets_path, existing)
-    authorize_and_get_token(client_id, client_secret, redirect_uri, secrets_path)
+    authorize_and_get_token(
+        client_id, client_secret, redirect_uri, secrets_path, cancel_event=cancel_event
+    )
     return {"authorized": True, "reason": "ok"}

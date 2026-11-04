@@ -7,8 +7,6 @@ N/T/K берутся из `CONFIG`; путь БД — `.grader_history.db` в р
 (#349) — логика не дублируется.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -89,6 +87,11 @@ def insights_cards(
         include_archived=include_archived,
     )
     return [asdict(card) for card in cards]
+
+
+def revisited_topics(*, db_path: Path | None = None) -> list[dict[str, Any]]:
+    """Темы, к которым возвращаются из ошибок, — для `/api/insights/revisited` (#1608)."""
+    return [asdict(topic) for topic in insights.revisited_topics(_db_path(db_path))]
 
 
 def active_count(*, db_path: Path | None = None) -> int:

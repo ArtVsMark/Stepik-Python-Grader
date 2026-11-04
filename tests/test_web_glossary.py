@@ -5,8 +5,6 @@ a real ThreadingHTTPServer on an ephemeral port, mirroring tests/test_web.py's
 established pattern.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import pathlib
@@ -253,7 +251,7 @@ class TestGlossaryFilterAndSort:
                 kind="construct",
                 section="Условный оператор",
                 status="draft",
-                version="3.10",
+                added="3.10",
             ),
             GlossaryCard(
                 id="zzz-term",
@@ -319,8 +317,8 @@ class TestGlossaryFilterAndSort:
         res = glossary_adapter.glossary_search(
             "", sort="version", status="all", store_path=str(store_path)
         )
-        assert res[0]["version"] == "3.10"  # версионированные — вперёд
-        assert all(c["version"] == "" for c in res[1:])  # без версии — в конец
+        assert res[0]["added"] == "3.10"  # версионированные — вперёд
+        assert all(c["added"] == "" for c in res[1:])  # без версии — в конец
 
 
 class TestGlossaryGroupsAndRelevance:
@@ -457,7 +455,8 @@ class TestGlossaryGroupsAndRelevance:
 
     def test_every_bundled_section_has_explicit_group(self) -> None:
         # Guard дрейфа (#684 активно правит разделы): «Прочее» в комплектной базе
-        # должно быть пустым — новый раздел классифицируется в taxonomy.SECTION_GROUPS.
+        # должно быть пустым — новый раздел обязан прийти в навигации выгрузки
+        # (taxonomy.SECTION_GROUPS).
         unclassified = glossary_adapter.glossary_search("", group="other", status="all")
         assert unclassified == [], "разделы без семейства: " + ", ".join(
             sorted({c["section"] for c in unclassified})
@@ -971,7 +970,14 @@ class TestGlossaryHttpEndpoints:
         assert status == 200
         cards = json.loads(body)
         assert cards and all(c["group"] == "modules" for c in cards)
-        assert all(c["section"].startswith("Модуль ") for c in cards)
+        # Раздел модулей — «Модуль X» либо явно отнесённый к модулям в таблице
+        # (``Удалено из стандартной библиотеки``, Glossary-Python #174).
+        from stepik_grader.glossary.taxonomy import SECTION_GROUPS
+
+        assert all(
+            c["section"].startswith("Модуль ") or SECTION_GROUPS.get(c["section"]) == "modules"
+            for c in cards
+        )
 
     def test_api_glossary_sort_relevance_ranks_exact_title_first(self, server: str) -> None:
         status, body = _get(

@@ -12,8 +12,6 @@
   - format_correctness_row / print_correctness_header / print_benchmark_header (206-207, 304, 374)
 """
 
-from __future__ import annotations
-
 import pathlib
 from unittest.mock import MagicMock, patch
 

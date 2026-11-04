@@ -5,8 +5,6 @@
 test_generate_coverage_badge.py.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib
@@ -35,6 +33,7 @@ def test_load_project_version_fn_matches_scripts_version_py() -> None:
     expected = subprocess.check_output(
         [sys.executable, str(pathlib.Path(__file__).parent.parent / "scripts" / "version.py")],
         text=True,
+        encoding="utf-8",
     ).strip()
     assert fn() == expected
 

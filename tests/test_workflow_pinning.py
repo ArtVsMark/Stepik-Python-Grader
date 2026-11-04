@@ -11,8 +11,6 @@ supply-chain-вектор (случай tj-actions/changed-files), и защит
 тест не фиксирует конкретные версии, только форму ссылки.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
 

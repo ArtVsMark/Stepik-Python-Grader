@@ -6,7 +6,7 @@
 <title>Stepik Python Grader</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body data-sandbox="__EXEC_SANDBOX__" data-record-history="__RECORD_HISTORY__" data-onboarding-seen="__ONBOARDING_SEEN__">
+<body data-sandbox="__EXEC_SANDBOX__" data-record-history="__RECORD_HISTORY__" data-onboarding-seen="__ONBOARDING_SEEN__" data-start-lang="__START_LANG__">
 <a class="sr-only" href="#main-content" data-i18n="a11y.skip_to_content">Перейти к содержимому</a>
 
 <div class="app-shell">
@@ -90,6 +90,39 @@
           </div>
 
           <div class="panel-body">
+            <!-- issue #1179: выбор задачи навигацией — АЛЬТЕРНАТИВА вводу пути,
+                 а не замена. Работа с произвольной папкой вне скачанного курса
+                 остаётся рабочим сценарием и к тому же первым по времени:
+                 сначала пробуют одну задачу, курс качают потом. -->
+            <div id="nav-switch" class="mode-row" role="group"
+                 aria-label="Способ выбора задачи" data-i18n-aria-label="nav.switch_aria">
+              <button id="nav-tab-browse" class="mode-btn" type="button" aria-pressed="false"
+                      data-i18n="nav.tab_browse">Навигация</button>
+              <button id="nav-tab-path" class="mode-btn active" type="button" aria-pressed="true"
+                      data-i18n="nav.tab_path">Путь</button>
+            </div>
+
+            <div id="nav-panel" class="nav-panel" hidden>
+              <div class="nav-controls">
+                <button id="nav-prev" class="btn-icon" type="button" disabled
+                        aria-label="Предыдущая" data-i18n-aria-label="nav.prev_aria">‹</button>
+                <label class="sr-only" for="nav-level" data-i18n="nav.level_label">Уровень листания</label>
+                <select id="nav-level" class="form-input nav-level">
+                  <option value="course" data-i18n="nav.level_course">Курс</option>
+                  <option value="section" data-i18n="nav.level_section">Глава</option>
+                  <option value="step" selected data-i18n="nav.level_step">Шаг</option>
+                </select>
+                <button id="nav-next" class="btn-icon" type="button" disabled
+                        aria-label="Следующая" data-i18n-aria-label="nav.next_aria">›</button>
+                <span id="nav-counter" class="nav-counter"></span>
+                <button id="nav-list-toggle" class="btn-icon" type="button"
+                        aria-expanded="false" aria-controls="nav-list"
+                        aria-label="Список" data-i18n-aria-label="nav.list_aria">☰</button>
+              </div>
+              <p id="nav-context" class="nav-context"></p>
+              <ul id="nav-list" class="nav-list" role="listbox" tabindex="-1" hidden></ul>
+            </div>
+
             <div class="form-group">
               <label class="form-label" for="path" data-i18n="check.path_label">Папка с решениями</label>
               <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__" list="recent-paths-datalist"
@@ -152,6 +185,12 @@
                 <button id="stepik-submit" class="btn btn-secondary" type="button" disabled
                         data-i18n="stepik.submit" data-i18n-title="stepik.submit_title"
                         title="Отправить решение на Stepik — доступно после прохождения всех тестов">↑ Отправить в Stepik</button>
+                <!-- issue #1178: условие задачи рядом с решением. Живёт в том же
+                     блоке, что и «Отправить в Stepik»: он виден только в режиме 1,
+                     а условие показывается для одной выбранной задачи. -->
+                <button id="statement-open" class="btn btn-secondary" type="button" disabled
+                        data-i18n="statement.open" data-i18n-title="statement.open_title"
+                        title="Показать условие задачи — доступно, если оно скачано">📄 Условие задачи</button>
                 <button id="find-reference-btn" class="btn btn-secondary" type="button"
                         title="Импортировать закреплённое решение Stepik (+топовые) из ветки решений как эталон для сравнения"
                         data-i18n="check.find_reference" data-i18n-title="check.find_reference_title">Найти эталонное решение</button>
@@ -327,6 +366,14 @@
               <h3 data-i18n="glossary.empty_title">Карточка не выбрана</h3>
               <p data-i18n="glossary.empty_text">Выберите термин слева, чтобы увидеть описание.</p>
             </div>
+            <!-- issue #969: адрес указывает на карточку, которой нет. Отдельный
+                 блок, а не подмена текста в #glossary-empty: у пустого состояния
+                 свой смысл («ничего не выбрано»), и оба перерисовываются при
+                 смене языка через data-i18n. -->
+            <div id="glossary-not-found" class="empty-state" hidden>
+              <h3 data-i18n="glossary.not_found_title">Карточка не найдена</h3>
+              <p data-i18n="glossary.not_found_text">В базе нет карточки с таким адресом — возможно, ссылка устарела.</p>
+            </div>
             <div id="glossary-detail-content" hidden></div>
           </div>
         </div>
@@ -357,6 +404,11 @@
               <h3 data-i18n="rules.empty_title">Правило не выбрано</h3>
               <p data-i18n="rules.empty_text">Выберите код слева, чтобы увидеть объяснение и примеры «до/после».</p>
             </div>
+            <!-- issue #969: то же для правил — deep-link #/rules/<код>. -->
+            <div id="rules-not-found" class="empty-state" hidden>
+              <h3 data-i18n="rules.not_found_title">Правило не найдено</h3>
+              <p data-i18n="rules.not_found_text">Правила с таким кодом нет в справочнике — возможно, ссылка устарела.</p>
+            </div>
             <div id="rules-detail-content" hidden></div>
           </div>
         </div>
@@ -378,6 +430,7 @@
               появятся карточки частых ошибок с прогрессом их исправления.</span></p>
           </div>
           <ul id="insights-cards" class="insight-list" hidden></ul>
+          <div id="insights-revisited"></div>
         </div>
       </div>
     </section>
@@ -401,6 +454,7 @@
             <div id="progress-badges"></div>
             <div id="progress-verdicts"></div>
             <div id="progress-tasks"></div>
+            <div id="progress-submissions"></div>
           </div>
         </div>
       </div>
@@ -530,8 +584,12 @@
       <p><strong data-i18n="onboarding.download_title">Скачивание задач — по желанию.</strong> <span class="onboarding-desc" data-i18n="onboarding.download_body">Проверять решения можно без входа. Чтобы скачивать задачи со Stepik по URL, нужен OAuth (secrets.json).</span></p>
     </div>
 
+    <!-- issue #934: без статического checked. Состояние выставляет initOnboarding()
+         из data-onboarding-seen: разметка, утверждающая «отмечено», врала о
+         сохранённой настройке, и следующий же «закрыть» отключал авто-показ,
+         который пользователь только что попросил оставить. -->
     <label class="onboarding-dont-show">
-      <input type="checkbox" id="onboarding-dont-show" checked>
+      <input type="checkbox" id="onboarding-dont-show">
       <span data-i18n="onboarding.dont_show">Не открывать это окно автоматически при следующем запуске</span>
     </label>
     <div class="onboarding-actions">
@@ -549,6 +607,25 @@
      Submit жмёт сам пользователь. Кнопка «Открыть GitHub» — это <a>, а не button:
      навигация по клику пользователя не блокируется попап-блокером, в отличие от
      window.open() из fetch-колбэка. Focus-trap/Escape — как в онбординге. -->
+<!-- issue #1178: окно условия задачи. Шире остальных модалок (модификатор
+     .statement) — в условии таблицы примеров и иллюстрации, в ширину диалога
+     согласия они не помещаются. Прокрутка внутри окна, страница под ним не
+     смещается. -->
+<div id="statement-overlay" class="modal-overlay" hidden>
+  <div class="modal statement" role="dialog" aria-modal="true" aria-labelledby="statement-title">
+    <div class="statement-head">
+      <div>
+        <p id="statement-crumbs" class="statement-crumbs"></p>
+        <h2 id="statement-title"><span aria-hidden="true">📄</span> <span data-i18n="statement.title">Условие задачи</span></h2>
+      </div>
+      <button id="statement-close-x" class="btn-icon" type="button" aria-label="Закрыть"
+              data-i18n-aria-label="statement.close_aria">✕</button>
+    </div>
+    <div id="statement-body" class="statement-body"></div>
+    <div id="statement-attachments" class="statement-attachments" hidden></div>
+  </div>
+</div>
+
 <div id="feedback-overlay" class="modal-overlay" hidden>
   <div class="modal feedback" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
     <div class="feedback-head">
@@ -578,7 +655,13 @@
              data-i18n-placeholder="feedback.step_url_placeholder">
     </div>
 
-    <details class="feedback-preview">
+    <!-- issue #920 (ADD-4-02): `open` не украшение. Контракт приватности —
+         «сначала покажи, что уйдёт, потом отправляй», — а свёрнутый по
+         умолчанию блок перекладывает показ на любопытство пользователя: не
+         нажал — не увидел, и обещание выполнено только формально. Раскрытый
+         блок закрывается одним кликом, свёрнутый требует его, чтобы обещание
+         сработало. -->
+    <details class="feedback-preview" open>
       <summary data-i18n="feedback.preview_summary">Показать, что уйдёт в форму</summary>
       <div id="feedback-preview-body" class="feedback-preview-body"></div>
     </details>

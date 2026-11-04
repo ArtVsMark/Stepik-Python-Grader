@@ -23,31 +23,31 @@
     Память (Issue #25): psutil-подход режима 3 (отдельный поток, читающий RSS
     дочернего процесса) здесь неприменим — все 5 повторов timeit.repeat идут
     в ОДНОМ subprocess, замерить RSS отдельно для каждого нельзя. Вместо этого
-    ``tracemalloc`` включается перед timeit.repeat и выключается сразу после;
-    пик выделений Python-heap печатается отдельной строкой (``MEM:<bytes>``)
-    после строк с таймингами и парсится отдельно. Это НЕ RSS процесса —
-    tracemalloc не видит память, выделенную C-расширениями (numpy и т.п.) —
-    но для чистого Python-кода даёт содержательное сравнение.
+    ``tracemalloc`` включается на ОТДЕЛЬНЫЙ однократный прогон после замера
+    времени (issue #991/#956: под профилировщиком тайминги смещены — плата
+    растёт с числом аллокаций, и решение, активнее работающее со структурами
+    данных, выглядит медленнее независимо от реальной скорости). Пик выделений
+    Python-heap печатается отдельной строкой (``MEM:<bytes>``) после строк с
+    таймингами и парсится отдельно. Это НЕ RSS процесса — tracemalloc не видит
+    память, выделенную C-расширениями (numpy и т.п.) — но для чистого
+    Python-кода даёт содержательное сравнение.
 
-Дополнительный публичный API (вспомогательные структуры для агрегации):
-    MicrobenchResult          — dataclass с таймингами одного решения
-    apply_relative_micro      — расстановка относительных процентов и вердиктов
-    apply_relative_ranking    — то же для dict-результатов run_benchmark/
-                                run_microbench_mode (grader_core.py)
+Дополнительный публичный API (ранжирование результатов):
+    classify_relative         — ЕДИНСТВЕННАЯ точка вердикта по относительному
+                                времени (SIMILAR/SLOWER/MUCH_SLOWER), issue #1587
+    apply_relative_ranking    — вердикты dict-результатов run_benchmark/
+                                run_microbench_mode относительно самого быстрого
+    apply_reference_ranking   — то же относительно эталонного решения
 
     Печать таблицы результатов в этом модуле НЕ реализована — это
     ответственность вызывающей стороны (grader.py делает это сам).
 """
 
-from __future__ import annotations
-
-import contextlib
 import pathlib
 import re
-import statistics
+import shutil
 import tempfile
 from collections.abc import MutableMapping
-from dataclasses import dataclass, field
 from typing import Any
 
 from stepik_grader.config import CONFIG
@@ -56,18 +56,15 @@ from stepik_grader.core.runner import RunSpec, run_spec
 
 __all__ = [
     "ENCODING",
-    "SIMILAR_THRESHOLD_PERCENT",
     "WARMUP_RUNS",
-    "MicrobenchResult",
     "apply_reference_ranking",
-    "apply_relative_micro",
     "apply_relative_ranking",
+    "classify_relative",
     "run_microbench",
     "strip_harness_frames",
 ]
 
 ENCODING: str = "utf-8"
-SIMILAR_THRESHOLD_PERCENT = 5.0
 # issue #412: число холостых прогонов stmt ПЕРЕД замером — праймит импорты/кэши,
 # чтобы cold-start не завышал min/median. Вшивается в bench-скрипт
 # (_build_bench_script) как `_warmup`; вне tracemalloc/timeit.repeat.
@@ -125,43 +122,6 @@ def strip_harness_frames(text: str, *, harness_path: str | None = None) -> str:
     return "\n".join(kept).strip()
 
 
-@dataclass
-class MicrobenchResult:
-    """Timing result for a single solution file."""
-
-    file: str
-    repeats: int
-    timings: list[float] = field(default_factory=list)
-    error: str = ""
-    relative_percent: float = 100.0
-    verdict: str = "OK"
-
-    @property
-    def min_time(self) -> float:
-        """Минимальный per-call тайминг; 0.0 при отсутствии замеров."""
-        return min(self.timings) if self.timings else 0.0
-
-    @property
-    def median_time(self) -> float:
-        """Медианный per-call тайминг; 0.0 при отсутствии замеров."""
-        return statistics.median(self.timings) if self.timings else 0.0
-
-    @property
-    def mean_time(self) -> float:
-        """Средний per-call тайминг; 0.0 при отсутствии замеров."""
-        return statistics.mean(self.timings) if self.timings else 0.0
-
-    @property
-    def max_time(self) -> float:
-        """Максимальный per-call тайминг; 0.0 при отсутствии замеров."""
-        return max(self.timings) if self.timings else 0.0
-
-    @property
-    def std_dev_time(self) -> float:
-        """Standard deviation of per-call timings. Returns 0.0 if fewer than 2 samples."""
-        return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
-
-
 def _build_bench_script(source_code: str, stdin_data: str, number: int) -> str:
     """Собрать self-contained bench-скрипт для timeit-замера одного решения.
 
@@ -176,6 +136,14 @@ def _build_bench_script(source_code: str, stdin_data: str, number: int) -> str:
     ПЕРЕД замером и ВНЕ ``tracemalloc`` — праймят импорты, ленивую инициализацию
     и кэши, чтобы cold-start первого прогона не завышал min/median (в измеряемые
     время и память прогрев не входит).
+
+    Порядок замеров (issue #991): сначала время — вне ``tracemalloc``, затем
+    отдельный однократный прогон под профилировщиком ради пика памяти. Раньше
+    всё шло одним проходом под ``tracemalloc``, и его накладные расходы,
+    пропорциональные числу аллокаций, систематически штрафовали решения,
+    активнее работающие с памятью: режим 4 ставил быстрое решение ниже
+    медленного с расхождением 2175%. Режим существует ради сравнения решений,
+    поэтому смещение, зависящее от свойств решения, обесценивает его целиком.
     """
     return (
         "import timeit as _timeit, sys as _sys, io as _io, os as _os, "
@@ -195,13 +163,21 @@ def _build_bench_script(source_code: str, stdin_data: str, number: int) -> str:
         "try:\n"
         "    # прогрев до замера: холостые прогоны праймят кэши/импорты (issue #412)\n"
         "    _timeit.timeit(stmt=_stmt, setup='pass', number=_warmup)\n"
-        "    _tm.start()\n"
+        "    # issue #991: время меряется БЕЗ tracemalloc. Профилировщик берёт плату\n"
+        "    # пропорционально числу аллокаций, поэтому под ним решение, активнее\n"
+        "    # работающее с памятью, выглядит медленнее независимо от реальной\n"
+        "    # скорости — режим 4 ранжировал решения наоборот (расхождение 2175%).\n"
         "    _times = _timeit.repeat(\n"
         "        stmt=_stmt,\n"
         "        setup='pass',\n"
         "        repeat=5,\n"
         "        number=_number,\n"
         "    )\n"
+        "    # Память — отдельным проходом: один прогон даёт тот же пик, что и\n"
+        "    # серия (пик — максимум по времени жизни, а не сумма), но не пачкает\n"
+        "    # тайминги. Цена — ровно один дополнительный прогон против 5×number.\n"
+        "    _tm.start()\n"
+        "    _timeit.timeit(stmt=_stmt, setup='pass', number=1)\n"
         "    _peak_bytes = _tm.get_traced_memory()[1]\n"
         "    _tm.stop()\n"
         "finally:\n"
@@ -226,10 +202,14 @@ def run_microbench(
     ``run_spec()`` активным Runner'ом (issue #417/#640), а не напрямую subprocess'ом.
     stdin сбрасывается перед каждой итерацией через _reset_stdin() в начале stmt.
 
-    bench-скрипт пишется во временный файл с delete=False и удаляется в блоке
-    finally — единственный надёжный кросс-платформенный способ передать путь
-    Runner'у. delete_on_close=False (Python 3.12+) ведёт себя по-разному
-    на Linux (удаляет при close) и Windows, и непригоден здесь.
+    bench-скрипт пишется в ПРИВАТНЫЙ каталог 0700 (``mkdtemp``) и удаляется
+    вместе с ним в блоке finally — так же, как это делают ``runner.py`` и
+    ``tracer.py`` (issue #799, здесь — issue #945). Общий системный temp не
+    годится: каталог скрипта CPython ставит первым в ``sys.path`` дочернего
+    процесса, и на многопользовательском POSIX-хосте посторонний мог подложить
+    туда свой ``timeit.py``, чтобы строка ``import timeit as _timeit``
+    bench-скрипта исполнила чужой код правами владельца грейдера. Права самого
+    файла (0600) от этого не спасают — атака идёт на каталог.
 
     max_memory_mb: best-effort лимит адресного пространства дочернего процесса
         (RLIMIT_AS, POSIX-only; issue #43 S-01). None — без ограничения.
@@ -253,17 +233,18 @@ def run_microbench(
     # нет, и ацикличность держится структурой, а не дисциплиной «не забыть
     # сделать импорт ленивым».
 
-    # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
-    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
-        mode="w", suffix=".py", encoding=ENCODING, delete=False
-    )
+    # issue #945 (находка DEV-2-06): приватный каталог 0700 вместо общего
+    # системного temp — тот же вектор и та же схема, что уже закрыты в
+    # runner.py и tracer.py (issue #799, SECC-01); микробенч в ту правку не
+    # попал. Каталог удаляется целиком в finally, поэтому путь скрипта живёт
+    # ровно столько, сколько идёт прогон.
+    tmp_dir = pathlib.Path(tempfile.mkdtemp(prefix="stepik-bench-"))
+    bench_path = tmp_dir / "bench.py"
     try:
-        tmp.write(bench_script)
-        tmp.flush()
-        tmp.close()
+        bench_path.write_text(bench_script, encoding=ENCODING)
         outcome = run_spec(
             RunSpec(
-                path=pathlib.Path(tmp.name),
+                path=bench_path,
                 stdin=None,
                 timeout=60.0,
                 measure_memory=False,
@@ -276,8 +257,7 @@ def run_microbench(
             )
         )
     finally:
-        with contextlib.suppress(OSError):
-            pathlib.Path(tmp.name).unlink()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if outcome.launch_error is not None:
         return {"times": [], "error": outcome.launch_error, "peak_memory_mb": 0.0}
@@ -296,10 +276,11 @@ def run_microbench(
     stderr = outcome.stderr.decode(ENCODING, errors="replace")
     if outcome.returncode != 0:
         # issue #726: без кадров timeit-обёртки — они относятся к механике
-        # замера, а не к решению (bench-скрипт уже удалён, путь берём из tmp).
+        # замера, а не к решению (bench-скрипт уже удалён вместе с каталогом,
+        # поэтому путь берём из переменной, а не с диска).
         return {
             "times": [],
-            "error": strip_harness_frames(stderr.strip(), harness_path=tmp.name),
+            "error": strip_harness_frames(stderr.strip(), harness_path=str(bench_path)),
             "peak_memory_mb": 0.0,
         }
     try:
@@ -314,37 +295,20 @@ def run_microbench(
     return {"times": times, "error": "", "peak_memory_mb": peak_mb}
 
 
-def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResult]:
-    """Set relative_percent and verdict on each result relative to the fastest."""
-    valid = [r for r in results if r.timings and not r.error]
-    if not valid:
-        return results
+def classify_relative(
+    relative: float, *, similar_threshold: float, much_slower_threshold: float
+) -> str:
+    """Вердикт по относительному времени (``1.0`` — эталон или самое быстрое).
 
-    best = min(r.median_time for r in valid)
-
-    for r in valid:
-        if best > 0:
-            r.relative_percent = (r.median_time / best) * 100
-        else:
-            # Все решения имеют нулевое медианное время — считаем равноценными.
-            r.relative_percent = 100.0
-        delta = r.relative_percent - 100
-        if delta <= SIMILAR_THRESHOLD_PERCENT:
-            r.verdict = "SIMILAR"
-        elif delta <= 15:
-            r.verdict = "SLOWER"
-        else:
-            # issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) во всех
-            # путях. Раньше здесь была форма с пробелом ("MUCH SLOWER"), из-за
-            # чего insights._BENCH_SLOW (знает только "MUCH_SLOWER") молча не
-            # относил такие прогоны к «медленным», а reporter держал двойной алиас.
-            r.verdict = "MUCH_SLOWER"
-
-    for r in results:
-        if r.error:
-            r.verdict = "ERROR"
-
-    return results
+    Единственная точка расчёта (issue #1587): прежде те же пороги сравнивались
+    в трёх местах, и третье — со своими вшитыми 5 %/15 % вместо порогов
+    конфига — расходилось с остальными молча.
+    """
+    if relative <= similar_threshold:
+        return "SIMILAR"
+    if relative <= much_slower_threshold:
+        return "SLOWER"
+    return "MUCH_SLOWER"
 
 
 def apply_relative_ranking(
@@ -365,12 +329,11 @@ def apply_relative_ranking(
     min_median = min(v["median"] for v in ok.values())
     for v in ok.values():
         v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
-        if v["relative"] <= similar_threshold:
-            v["verdict"] = "SIMILAR"
-        elif v["relative"] <= much_slower_threshold:
-            v["verdict"] = "SLOWER"
-        else:
-            v["verdict"] = "MUCH_SLOWER"
+        v["verdict"] = classify_relative(
+            v["relative"],
+            similar_threshold=similar_threshold,
+            much_slower_threshold=much_slower_threshold,
+        )
 
 
 def apply_reference_ranking(
@@ -400,9 +363,9 @@ def apply_reference_ranking(
             v["verdict"] = "REFERENCE"
         elif v["relative"] < faster_bound:
             v["verdict"] = "FASTER"
-        elif v["relative"] <= similar_threshold:
-            v["verdict"] = "SIMILAR"
-        elif v["relative"] <= much_slower_threshold:
-            v["verdict"] = "SLOWER"
         else:
-            v["verdict"] = "MUCH_SLOWER"
+            v["verdict"] = classify_relative(
+                v["relative"],
+                similar_threshold=similar_threshold,
+                much_slower_threshold=much_slower_threshold,
+            )

@@ -20,18 +20,18 @@ MVP без новых зависимостей: реестр job'ов — module
 провалидированный/сконфайненный ``path``.
 """
 
-from __future__ import annotations
-
+import contextlib
 import pathlib
 import tempfile
 import threading
 import time
 import uuid
-from concurrent.futures import Future, ThreadPoolExecutor
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.ai_hints import explain_failure, is_configured
+from stepik_grader.core.ai_hints import explain_failure_detailed, is_configured
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.failure_context import build_failure_context
 from stepik_grader.web.grading import find_all_solution_files, trace_code
@@ -42,9 +42,18 @@ from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
     grade_path,
+    history_db_path_if_enabled,
 )
 
-__all__ = ["Job", "TooManyRunsError", "cancel_job", "get_job", "shutdown_jobs", "submit_job"]
+__all__ = [
+    "Job",
+    "TooManyRunsError",
+    "cancel_job",
+    "get_job",
+    "shutdown_jobs",
+    "submit_job",
+    "sync_slot",
+]
 
 # issue #831 (DEV-12): диагностический логгер web-слоя. До него падение
 # job'а оставляло в логе только строки запросов, а само место сбоя нигде не
@@ -94,7 +103,6 @@ class Job:
         self.message_fields: dict[str, Any] | None = None
         self.cancel_event = threading.Event()
         self.lock = threading.Lock()
-        self.future: Future[None] | None = None
 
     @property
     def status(self) -> str:
@@ -132,6 +140,14 @@ _JOBS_LOCK = threading.Lock()
 _executor: ThreadPoolExecutor | None = None
 _executor_lock = threading.Lock()
 
+# issue #971: авторизация живёт в СВОЁМ пуле. Она блокирует поток до двух минут
+# (ждёт, пока человек нажмёт кнопку в браузере), а пул проверок по умолчанию на
+# два воркера — две таких job'ы занимали его целиком, и «Проверить» переставала
+# отвечать, хотя грейдер простаивал. Один воркер: параллельных авторизаций не
+# бывает по смыслу — браузер и callback-порт всё равно одни.
+_auth_executor: ThreadPoolExecutor | None = None
+_auth_executor_lock = threading.Lock()
+
 
 def _get_executor() -> ThreadPoolExecutor:
     """Ленивый singleton (как ``config.get_config()``) — не создаёт пул
@@ -143,6 +159,16 @@ def _get_executor() -> ThreadPoolExecutor:
             if _executor is None:
                 _executor = ThreadPoolExecutor(max_workers=max(1, CONFIG.job_workers))
     return _executor
+
+
+def _get_auth_executor() -> ThreadPoolExecutor:
+    """Пул под блокирующую авторизацию — отдельный от пула проверок (issue #971)."""
+    global _auth_executor
+    if _auth_executor is None:
+        with _auth_executor_lock:
+            if _auth_executor is None:
+                _auth_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="grader-auth")
+    return _auth_executor
 
 
 def shutdown_jobs(*, wait: bool = False) -> None:
@@ -171,6 +197,13 @@ def shutdown_jobs(*, wait: bool = False) -> None:
         executor, _executor = _executor, None
     if executor is not None:
         executor.shutdown(wait=wait, cancel_futures=True)
+    # issue #971: второй пул гасится тем же заходом — иначе Ctrl+C оставлял бы
+    # висеть поток авторизации, ради которого и заводился shutdown_jobs.
+    global _auth_executor
+    with _auth_executor_lock:
+        auth_executor, _auth_executor = _auth_executor, None
+    if auth_executor is not None:
+        auth_executor.shutdown(wait=wait, cancel_futures=True)
 
 
 def _evict_overflow_locked() -> None:
@@ -227,14 +260,58 @@ class TooManyRunsError(RuntimeError):
         self.limit = limit
 
 
+#: Сколько СИНХРОННЫХ грейдов (``GET /api/grade``) идёт прямо сейчас.
+#:
+#: issue #922 (``ARCH-2-02``): этот путь не заводит job'у и потому не попадал в
+#: учёт вовсе — лимит одновременных прогонов его не видел, и наоборот. Десять
+#: вкладок с синхронным грейдом поднимали десять подпроцессов Python при любом
+#: значении ``max_active_runs``: настройка была, а половина трафика шла мимо
+#: неё. Счётчик общий с реестром именно поэтому — лимит один на сервер, а не
+#: один на способ запуска.
+_SYNC_ACTIVE = 0
+
+
 def _count_active_locked() -> int:
-    """Число нетерминальных (``queued``/``running``) job'ов в реестре.
+    """Число активных прогонов: нетерминальные job'ы плюс синхронные.
 
     Вызывать под ``_JOBS_LOCK``. Чтение ``job.status`` без ``job.lock`` — тот же
     грязно-читающий приём, что и ``_sweep_expired_locked`` (атрибут-строка
     читается атомарно; off-by-one на границе running↔done безвреден для
     эвристического лимита back-pressure)."""
-    return sum(1 for j in _JOBS.values() if j.status in ("queued", "running"))
+    return sum(1 for j in _JOBS.values() if j.status in ("queued", "running")) + _SYNC_ACTIVE
+
+
+@contextlib.contextmanager
+def sync_slot() -> Iterator[None]:
+    """Место в общем учёте прогонов на время СИНХРОННОГО грейда (issue #922).
+
+    Синхронный ``GET /api/grade`` держит HTTP-запрос открытым всю длительность
+    прогона и job'у не заводит. Отмены и TTL у него быть не может по природе —
+    отменять нечего, а результат никуда не складывается; асинхронный путь
+    (``POST /api/v1/runs``) остаётся единственным, где отмена есть. А вот
+    back-pressure к его природе отношения не имеет: подпроцессы Python он
+    поднимает такие же, и не считать их — значит не считать половину нагрузки.
+
+    Raises:
+        TooManyRunsError: активных прогонов уже не меньше
+            ``CONFIG.max_active_runs`` — вызывающая сторона отвечает ``429``,
+            тем же кодом и тем же сообщением, что и асинхронный путь.
+    """
+    global _SYNC_ACTIVE
+    with _JOBS_LOCK:
+        _sweep_expired_locked()
+        if _count_active_locked() >= max(1, CONFIG.max_active_runs):
+            raise TooManyRunsError(CONFIG.max_active_runs)
+        _SYNC_ACTIVE += 1
+    try:
+        yield
+    finally:
+        # Освобождение под тем же локом и в `finally`: выброс из грейда не
+        # должен оставлять слот занятым навсегда — иначе одна ошибка тихо
+        # уменьшала бы лимит до нуля, и сервер переставал бы принимать
+        # прогоны без единого сообщения о причине.
+        with _JOBS_LOCK:
+            _SYNC_ACTIVE -= 1
 
 
 def submit_job(
@@ -292,13 +369,33 @@ def submit_job(
         # только терминальные, каждый результат живёт 15 мин).
         if _count_active_locked() >= max(1, CONFIG.max_active_runs):
             raise TooManyRunsError(CONFIG.max_active_runs)
+        # issue #971: вторая авторизация не ставится в очередь, а переиспользует
+        # текущую. Параллельных браузерных flow не бывает: браузер и
+        # callback-порт одни, вторая попытка упёрлась бы в занятый порт. Отдать
+        # уже идущую job'у честнее отказа — UI получает тот же run_id и
+        # продолжает следить за тем же процессом.
+        if kind == "auth":
+            running = _active_auth_job_locked()
+            if running is not None:
+                return running
         _JOBS[job.id] = job
         # issue #811: потолок реестра — ПОСЛЕ вставки, иначе он держался бы с
         # точностью до одной записи (вытеснили до предела, тут же добавили).
         # Только что вставленная job не терминальна, поэтому себя не вытеснит.
         _evict_overflow_locked()
-    job.future = _get_executor().submit(_run_job, job, kind, path, params, code, stdin, workspace)
+    # issue #971: авторизация уходит в свой пул — блокирующий OAuth не должен
+    # занимать воркеры, которыми считаются решения.
+    pool = _get_auth_executor() if kind == "auth" else _get_executor()
+    pool.submit(_run_job, job, kind, path, params, code, stdin, workspace)
     return job
+
+
+def _active_auth_job_locked() -> Job | None:
+    """Идущая auth-job'а, если она есть (issue #971). Вызывать под ``_JOBS_LOCK``."""
+    for existing in _JOBS.values():
+        if existing.kind == "auth" and existing.status not in _TERMINAL_STATUSES:
+            return existing
+    return None
 
 
 def get_job(run_id: str) -> Job | None:
@@ -430,6 +527,10 @@ def _run_job(
                 workspace=workspace,
                 timeout=timeout_s,
                 max_memory_mb=memory_mb,
+                # issue #1211: подписывать результат тем, что выбрал человек, а
+                # не временным файлом, который тут исполняется. Без кода в теле
+                # грейдится сам `path` — подменять нечего.
+                display_path=path if temp_code_path is not None else None,
             )
         elif kind == "bench":
             result = grade_benchmark(
@@ -532,7 +633,7 @@ def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> Non
         raw_case = params.get("case")
         case = raw_case if isinstance(raw_case, dict) else {}
         fc = build_failure_context(case, code=code, lang=lang)
-        hint = explain_failure(fc, CONFIG)
+        outcome = explain_failure_detailed(fc, CONFIG)
     except Exception as exc:
         with job.lock:
             job.status = "error"
@@ -547,7 +648,14 @@ def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> Non
             job.message_fields = message_fields("run_cancelled", lang)
             return
         job.status = "done"
-        job.result = {"hint": hint, "configured": is_configured(CONFIG)}
+        # issue #975: рядом с подсказкой едет причина её отсутствия. Без неё
+        # интерфейс не мог отличить «провайдер отверг ключ» от «канал
+        # выключен» — в обоих случаях приходил `hint: null`.
+        job.result = {
+            "hint": outcome.text,
+            "configured": is_configured(CONFIG),
+            "reason": outcome.reason,
+        }
 
 
 def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: str) -> None:
@@ -561,10 +669,15 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
     уходит). Ленивый импорт stepik/oauth-стека держит ``runs.py`` импортируемым
     в изоляции (как ``_run_auth_job``). Результат — ``{status, hint, score,
     submission_id}`` (``status`` = correct/wrong/evaluation).
+
+    issue #1175: вердикт платформы попутно уходит в историю — через
+    ``core/submission``, общий путь отправки, а не отдельной веткой веб-слоя.
+    Гейт согласия остаётся у веба (``history_db_path_if_enabled``): только он
+    знает про оверрайд ``--serve --no-history``.
     """
     import requests
 
-    from stepik_grader.core import stepik_client
+    from stepik_grader.core import submission
     from stepik_grader.core.oauth_flow import (
         load_secrets_dict,
         try_create_session_without_browser,
@@ -586,7 +699,7 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
                 job.status = "error"
                 job.message_fields = message_fields("stepik_network_error", lang, error=str(exc))
             return
-        except (OSError, ValueError):
+        except OSError, ValueError:
             # нет/битый secrets.json — трактуем как «нет авторизации», не как сбой
             session = None
         if session is None:
@@ -594,8 +707,16 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
                 job.status = "error"
                 job.message_fields = message_fields("stepik_auth_required", lang)
             return
-        result = stepik_client.submit_and_wait(
-            session, step_id, code, cancel_event=job.cancel_event
+        raw_task_dir = str(params.get("task_dir") or "")
+        raw_workspace = str(params.get("workspace") or "")
+        result = submission.submit_and_record(
+            session,
+            step_id,
+            code,
+            task_dir=pathlib.Path(raw_task_dir) if raw_task_dir else None,
+            base_dir=pathlib.Path(raw_workspace) if raw_workspace else None,
+            history_db=history_db_path_if_enabled(),
+            cancel_event=job.cancel_event,
         )
     except Exception as exc:
         with job.lock:
@@ -629,6 +750,7 @@ def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:
     OAuth/requests-стека; в самом ``--serve`` он всё равно грузится через
     ``server.py`` (верхнеуровневый импорт).
     """
+    from stepik_grader.core.stepik_client import OAuthCancelled
     from stepik_grader.web import auth_adapter
 
     try:
@@ -637,7 +759,16 @@ def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:
             str(params["client_id"]),
             str(params["client_secret"]),
             str(params["redirect_uri"]),
+            cancel_event=job.cancel_event,
         )
+    except OAuthCancelled:
+        # issue #971: отмена — не сбой авторизации. Человек, сам нажавший
+        # «отмена», не должен читать сообщение о поломке; и `error` тут
+        # означал бы «повторите», хотя повторять нечего.
+        with job.lock:
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+        return
     except Exception as exc:
         with job.lock:
             job.status = "error"

@@ -1,7 +1,5 @@
 """Tests for web.py — локальный веб-интерфейс грейдера (issue #58, эпик #80 Tier 1)."""
 
-from __future__ import annotations
-
 import dataclasses
 import http.client
 import json
@@ -16,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from stepik_grader import web
+from stepik_grader.core.ai_hints import AiHintOutcome
 from stepik_grader.web import runs, viewmodels
 from stepik_grader.web import server as web_server
 from stepik_grader.web import viewmodels as web_vm
@@ -482,6 +481,20 @@ class TestEstimateRunCount:
 # ---------------------------------------------------------------------------
 
 
+# Насколько медленнее «медленное» решение (issue #1244). Вердикт считается от
+# ОТНОСИТЕЛЬНОГО времени, а в него входит запуск интерпретатора — общий для
+# обоих решений. При задержке 0.05 с разрыв тонул в этом старте: стоило машине
+# быть занятой (параллельный прогон, CI), как relative опускалось ниже порога
+# `similar_threshold` (1.15), и «медленное» решение получало SIMILAR. Замер:
+# три одиночных прогона подряд дали passed, passed, failed — без всякой
+# параллельности.
+#
+# 0.3 с держит запас: чтобы разрыв снова утонул, запуск Python должен занять
+# больше двух секунд. Цена — около секунды на тест, и это дешевле флейка,
+# который проще отключить, чем разобрать.
+_SLOW_SOLUTION_DELAY_S = 0.3
+
+
 def _make_bench_pair(tmp_path: pathlib.Path) -> None:
     """task1_1.py (быстрый) + task1_2.py (заметно медленнее) + общий tests/."""
     tests = tmp_path / "tests"
@@ -490,7 +503,8 @@ def _make_bench_pair(tmp_path: pathlib.Path) -> None:
     (tests / "1.clue").write_text("5", encoding="utf-8")
     (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
     (tmp_path / "task1_2.py").write_text(
-        "import time\ntime.sleep(0.05)\nprint(int(input()) + 1)\n", encoding="utf-8"
+        f"import time\ntime.sleep({_SLOW_SOLUTION_DELAY_S})\nprint(int(input()) + 1)\n",
+        encoding="utf-8",
     )
 
 
@@ -770,6 +784,7 @@ def server_factory():
         confine: bool = True,
         sandbox: bool = False,
         record_history: bool = True,
+        lang: str = "ru",
     ) -> str:
         httpd = web_server._GraderServer(
             ("127.0.0.1", 0),
@@ -778,6 +793,7 @@ def server_factory():
             confine=confine,
             sandbox=sandbox,
             record_history=record_history,
+            lang=lang,
         )
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()
@@ -789,6 +805,9 @@ def server_factory():
     for httpd, thread in started:
         httpd.shutdown()
         httpd.server_close()
+        # Не клиентский таймаут: здесь ждём завершения потока сервера уже
+        # ПОСЛЕ shutdown(). Пять секунд — с запасом, а больше только оттянуло бы
+        # диагноз, если поток всё же завис.
         thread.join(timeout=5)
 
 
@@ -799,10 +818,24 @@ def server(tmp_path: pathlib.Path, server_factory) -> str:
     return server_factory(tmp_path)
 
 
+# Клиентский таймаут HTTP-запросов набора. Пять секунд, стоявшие здесь раньше,
+# годились для статики, но тем же хелпером ходят запросы, которые ИСПОЛНЯЮТ
+# решение: `/api/grade` поднимает подпроцесс Python и ждёт его завершения.
+# На windows-раннере под coverage холодный старт интерпретатора съедал этот
+# лимит целиком, и `test_confine_false_allows_path_outside_workspace` падал
+# `TimeoutError: timed out` — на PR, где менялись только .md-файлы.
+#
+# Это технический предохранитель от вечного зависания, а не проверка скорости:
+# ни один тест не утверждает «ответ быстрее пяти секунд». Значение поднято до
+# минуты — заведомо больше любого честного ответа и заведомо меньше таймаута
+# самого прогона (pytest-timeout, 120 с), чтобы падение оставалось читаемым.
+_CLIENT_TIMEOUT_S = 60
+
+
 def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
     req = urllib.request.Request(url, headers=headers or {})
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=_CLIENT_TIMEOUT_S) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
@@ -884,6 +917,38 @@ class TestHttpHandler:
         assert 'data-sandbox="true"' in page
         assert 'data-record-history="false"' in page
 
+    def test_index_injects_start_lang_default_ru(self, server: str) -> None:
+        """issue #1131: стартовый язык страницы приходит от сервера, дефолт — ru."""
+        _, body = _get(server + "/")
+        page = body.decode("utf-8")
+        assert 'data-start-lang="ru"' in page
+        assert "__START_LANG__" not in page
+
+    def test_index_start_lang_follows_the_flag(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """`--serve --lang en` открывает английскую страницу, а не русскую.
+
+        Находка LNCH-2-05: фронт брал язык только из localStorage с откатом на
+        «ru», поэтому единственный явный выбор языка игнорировался — флаг
+        переводил сообщения API и молчал про интерфейс.
+        """
+        url = server_factory(tmp_path, lang="en")
+
+        _, body = _get(url + "/")
+
+        assert 'data-start-lang="en"' in body.decode("utf-8")
+
+    def test_index_start_lang_falls_back_on_garbage(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """Неизвестная локаль — не 500 и не пустая страница, а откат на ru."""
+        url = server_factory(tmp_path, lang="klingon")
+
+        _, body = _get(url + "/")
+
+        assert 'data-start-lang="ru"' in body.decode("utf-8")
+
     def test_index_injects_onboarding_seen_default_false(self, server: str) -> None:
         """issue #660: чистый workspace → онбординг ещё не закрыт (флаг false)."""
         _, body = _get(server + "/")
@@ -899,7 +964,7 @@ class TestHttpHandler:
 
         user_settings.save_settings(
             user_settings.UserSettings(onboarding_seen=True),
-            tmp_path / user_settings.SETTINGS_FILE_NAME,
+            user_settings.default_settings_path(tmp_path),
         )
         url = server_factory(tmp_path)
         _, body = _get(url + "/")
@@ -917,7 +982,9 @@ class TestHttpHandler:
         )
         assert status == 200
         assert (
-            user_settings.load_settings(tmp_path / user_settings.SETTINGS_FILE_NAME).onboarding_seen
+            user_settings.load_settings(
+                user_settings.default_settings_path(tmp_path)
+            ).onboarding_seen
             is True
         )
 
@@ -927,7 +994,7 @@ class TestHttpHandler:
         """issue #660: снятая галка «не показывать» (POST false) возвращает авто-показ."""
         from stepik_grader.core import user_settings
 
-        settings_path = tmp_path / user_settings.SETTINGS_FILE_NAME
+        settings_path = user_settings.default_settings_path(tmp_path)
         user_settings.save_settings(user_settings.UserSettings(onboarding_seen=True), settings_path)
         url = server_factory(tmp_path)
         status, _ = _post(
@@ -943,13 +1010,13 @@ class TestHttpHandler:
     # -- static routes (issue #125 — JS/CSS extracted from _INDEX_HTML) ------
 
     def test_static_app_css_served(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/static/app.css", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.status == 200
             assert "text/css" in resp.headers["Content-Type"]
             assert b":root" in resp.read()
 
     def test_static_app_js_served(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.js", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/static/app.js", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.status == 200
             assert "javascript" in resp.headers["Content-Type"]
             # issue #426: app.js is now the ES-module entry that imports the
@@ -968,12 +1035,43 @@ class TestHttpHandler:
         ],
     )
     def test_static_font_served(self, server: str, name: str) -> None:
-        with urllib.request.urlopen(server + "/static/fonts/" + name, timeout=5) as resp:
+        with urllib.request.urlopen(
+            server + "/static/fonts/" + name, timeout=_CLIENT_TIMEOUT_S
+        ) as resp:
             assert resp.status == 200
             assert resp.headers["Content-Type"] == "font/woff2"
             body = resp.read()
             assert body[:4] == b"wOF2"  # WOFF2 magic number
             assert len(body) > 1000
+
+    def test_onboarding_checkbox_has_no_hardcoded_state(self) -> None:
+        """issue #934: галка «не показывать» не объявлена checked в разметке.
+
+        Статический `checked` врал о сохранённой настройке: пользователь снимал
+        галку, прося показывать окно дальше, а при следующем открытии она снова
+        стояла отмеченной — и первое же закрытие отправляло `seen=true`, отменяя
+        его выбор. Состояние выставляет JS из `data-onboarding-seen`.
+        """
+        import re
+
+        markup = re.search(r'<input[^>]*id="onboarding-dont-show"[^>]*>', web_server._INDEX_HTML)
+
+        assert markup, "чекбокс онбординга пропал из разметки"
+        assert "checked" not in markup.group(0)
+
+    def test_onboarding_script_reads_saved_state(self) -> None:
+        """И вторая половина: JS обязан прочитать состояние, а не только не врать.
+
+        Без этой проверки уборка `checked` из разметки перевернула бы дефект в
+        другую сторону — галка всегда пустая, и авто-показ не выключался бы
+        никогда.
+        """
+        app_js = (pathlib.Path(web_server.__file__).parent / "static" / "app.js").read_text(
+            encoding="utf-8"
+        )
+
+        assert "onboardingSeen" in app_js
+        assert "dontShow.checked = seen" in app_js
 
     def test_index_html_has_no_external_resource_links(self) -> None:
         """Регрессия issue #260: страница не должна грузить ни один ресурс с
@@ -987,7 +1085,9 @@ class TestUiLocaleCatalog:
     и его согласованность с data-i18n-разметкой index.html."""
 
     def test_ui_locales_served_as_json(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/locales/ui.json", timeout=5) as resp:
+        with urllib.request.urlopen(
+            server + "/static/locales/ui.json", timeout=_CLIENT_TIMEOUT_S
+        ) as resp:
             assert resp.status == 200
             assert "application/json" in resp.headers["Content-Type"]
             # _send ставит nosniff на все ответы (issue #563)
@@ -1023,7 +1123,7 @@ class TestSecurityHeaders:
     """issue #563: CSP + X-Content-Type-Options на ответах и read-timeout."""
 
     def test_html_response_carries_csp_and_nosniff(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/", timeout=_CLIENT_TIMEOUT_S) as resp:
             csp = resp.headers["Content-Security-Policy"]
             assert resp.headers["X-Content-Type-Options"] == "nosniff"
         for token in (
@@ -1045,18 +1145,18 @@ class TestSecurityHeaders:
         режет — без этих заголовков жертва кликает по невидимым кнопкам
         «Проверить»/«Скачать» своего же грейдера.
         """
-        with urllib.request.urlopen(server + "/", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert "frame-ancestors 'none'" in resp.headers["Content-Security-Policy"]
             # X-Frame-Options — для браузеров, не понимающих frame-ancestors.
             assert resp.headers["X-Frame-Options"] == "DENY"
 
     def test_static_css_carries_nosniff(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/static/app.css", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.headers["X-Content-Type-Options"] == "nosniff"
 
     def test_api_json_carries_nosniff(self, server: str) -> None:
         # /api/grade без path → JSON-ошибка (200), заголовок nosniff всё равно есть.
-        with urllib.request.urlopen(server + "/api/grade", timeout=5) as resp:
+        with urllib.request.urlopen(server + "/api/grade", timeout=_CLIENT_TIMEOUT_S) as resp:
             assert resp.headers["X-Content-Type-Options"] == "nosniff"
 
     def test_no_inline_styles_in_served_static(self) -> None:
@@ -1121,6 +1221,44 @@ class TestSecurityHeaders:
         data = json.loads(body)
         assert data["kind"] == "error"
         assert data["message_id"] == "source_not_a_solution"
+        assert b"SECRET-XYZ" not in body
+
+    def test_api_save_solution_refuses_non_python_target(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """issue #963 (SEC-1-03): ручка сохраняет РЕШЕНИЕ, а не любой файл.
+
+        Замерено до фикса живым сервером: `path=secrets.json` возвращал 200 и
+        затирал токен Stepik текстом решения. Optimistic-lock не мешал — без
+        `expected_mtime` проверки нет вовсе.
+        """
+        secrets = tmp_path / "secrets.json"
+        secrets.write_text('{"client_secret": "SECRET-XYZ"}', encoding="utf-8")
+        payload = json.dumps(
+            {"folder": str(tmp_path), "path": str(secrets), "code": "print(1)"}
+        ).encode()
+
+        status, body = _post(server + "/api/save-solution", payload)
+
+        assert status == 403
+        assert json.loads(body)["message_id"] == "source_not_a_solution"
+        assert "SECRET-XYZ" in secrets.read_text(encoding="utf-8"), "файл затёрт"
+
+    def test_api_hint_refuses_non_python_path(self, server: str, tmp_path: pathlib.Path) -> None:
+        """issue #963 (SEC-1-01): здесь файл не показывается, а увозится наружу.
+
+        Содержимое `path` уходит в промпт внешнему AI-провайдеру, и следов в
+        интерфейсе не остаётся — в ответе только подсказка. Гейт обязан стоять
+        до чтения файла, а не после.
+        """
+        secrets = tmp_path / "secrets.json"
+        secrets.write_text('{"access_token": "SECRET-XYZ"}', encoding="utf-8")
+        payload = json.dumps({"verdict": "WA", "path": str(secrets), "consent": True}).encode()
+
+        status, body = _post(server + "/api/v1/hint", payload)
+
+        assert status == 403
+        assert json.loads(body)["message_id"] == "source_not_a_solution"
         assert b"SECRET-XYZ" not in body
 
     def test_api_source_still_reads_uppercase_py(self, server: str, tmp_path: pathlib.Path) -> None:
@@ -1213,7 +1351,7 @@ def _post(url: str, body: bytes, headers: dict[str, str] | None = None) -> tuple
     for name, value in (headers or {}).items():
         req.add_header(name, value)
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=_CLIENT_TIMEOUT_S) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
@@ -1230,7 +1368,7 @@ def _post_raw(
     Content-Length (issue #259).
     """
     parsed = urllib.parse.urlparse(server)
-    conn = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=5)
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=_CLIENT_TIMEOUT_S)
     try:
         conn.putrequest("POST", path)
         conn.putheader("Content-Type", "application/json")
@@ -1843,7 +1981,7 @@ class TestStepikSubmit:
 
         sent: list[int] = []
 
-        def _fake_submit(session, step_id, code, *, cancel_event=None):
+        def _fake_submit(session, step_id, code, **kwargs):
             sent.append(step_id)
             return SimpleNamespace(status="correct", hint="", score=1, submission_id=7)
 
@@ -2017,8 +2155,13 @@ class TestRunsApiCancel:
         assert create_status == 202
         run_id = json.loads(create_body)["run_id"]
 
-        assert wait_until(pidfile.exists, timeout=10.0), "child process never started"
-        pid = int(pidfile.read_text().strip())
+        # Wait for the *content*, not just the file: `write_text` creates the
+        # file first and fills it after, so `exists()` goes true while the file
+        # is still empty and `int("")` blows up. Seen as a real CI failure, not
+        # a hypothetical -- once per few hundred runs, on an unrelated PR.
+        raw_pid = wait_until(lambda: pidfile.read_text().strip() if pidfile.exists() else "")
+        assert raw_pid, "child process never started"
+        pid = int(raw_pid)
 
         cancel_status, cancel_body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
         assert cancel_status == 200
@@ -2350,13 +2493,22 @@ def test_consent_modal_traps_focus_and_restores_it() -> None:
     удерживает: `Tab` свободно уходил на страницу под оверлеем, где можно было
     нажимать кнопки, пока диалог «ждёт» ответа. Плюс `Escape`: диалог с двумя
     вариантами обязан закрываться отказом.
+
+    Гарантии прежние, но с #1225 их даёт общий помощник `openModal`, а не своя
+    копия ловушки: копий было три, они разошлись, и фикс #804 (слушать `keydown`
+    на `document`, а не на оверлее) попал только в одну из них.
     """
     start = web_server._STATIC_JS_SOURCES.index("function _requestAiConsent(")
     body = web_server._STATIC_JS_SOURCES[start : web_server._STATIC_JS_SOURCES.index("\n}", start)]
 
-    assert 'e.key === "Escape"' in body, "Escape должен закрывать диалог отказом"
-    assert 'e.key !== "Tab"' in body, "нужен перехват Tab на краях"
-    assert "returnFocus" in body, "фокус обязан вернуться туда, откуда открыли"
+    assert "openModal(" in body, "окно согласия обязано брать общий помощник"
+
+    helper = web_server._STATIC_JS_SOURCES[
+        web_server._STATIC_JS_SOURCES.index("function openModal(") :
+    ][:2600]
+    assert 'e.key === "Escape"' in helper, "Escape должен закрывать диалог отказом"
+    assert 'e.key !== "Tab"' in helper, "нужен перехват Tab на краях"
+    assert "returnFocus" in helper, "фокус обязан вернуться туда, откуда открыли"
 
 
 def test_waiting_states_share_one_skeleton_language() -> None:
@@ -2405,7 +2557,9 @@ def test_wa_detail_uses_aligned_inline_diff() -> None:
     """
     src = web_server._STATIC_JS_SOURCES
     assert "function renderInlineDiff(" in src
-    assert "renderInlineDiff(c.expected, c.actual)" in src
+    # issue #968 добавил третий аргумент (граница отрисовки), поэтому сверяется
+    # не сигнатура вызова целиком, а то, что разбор WA идёт именно через дифф.
+    assert "renderInlineDiff(c.expected, c.actual" in src
     # Сырой diff остаётся, но свёрнутым — он больше не основной способ понять WA.
     assert "details class='raw-diff'" in src
 
@@ -2795,12 +2949,51 @@ class TestRunServerSandbox:
 class TestAuthApi:
     def test_status_no_secrets(self, server: str) -> None:
         status, body = _get(server + "/api/auth/status")
+        data = json.loads(body)
         assert status == 200
-        assert json.loads(body) == {
-            "authorized": False,
-            "reason": "no_secrets",
-            "secrets_path": "secrets.json",
-        }
+        assert (data["authorized"], data["reason"]) == (False, "no_secrets")
+        assert data["secrets_path"] == "secrets.json"
+
+    def test_status_says_what_exactly_is_wrong(self, server: str) -> None:
+        """issue #1213: `no_secrets` не говорит, ЧТО случилось и где искали.
+
+        `reason` отвечает, что делать (нужна форма), и меняться не должен —
+        поэтому причина приезжает отдельным полем, а путь ещё и разрешённым:
+        настроенный бывает относительным («secrets.json») и на вопрос «где
+        искали» не отвечает.
+        """
+        status, body = _get(server + "/api/auth/status")
+        data = json.loads(body)
+
+        assert status == 200
+        assert data["secrets_state"] == "missing"
+        assert data["secrets_path_resolved"].endswith("secrets.json")
+        assert pathlib.Path(data["secrets_path_resolved"]).is_absolute()
+
+    def test_status_never_leaks_the_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        """Граница из SECURITY.md: статус — категория, а не содержимое.
+
+        Прецедент уже был: `?path=secrets.json` отдавал 200 с `client_secret` и
+        токеном. Новое поле про состояние файла обязано остаться категорией.
+        """
+        (tmp_path / "secrets.json").write_text(
+            json.dumps(
+                {
+                    "client_id": "id-в-файле",
+                    "client_secret": "секрет-в-файле",
+                    "redirect_uri": "http://localhost:8080/callback",
+                    "access_token": "токен-в-файле",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        _status, body = _get(server + "/api/auth/status")
+
+        text = body.decode("utf-8") if isinstance(body, bytes) else body
+        assert "секрет-в-файле" not in text
+        assert "токен-в-файле" not in text
+        assert "id-в-файле" not in text
 
     def test_status_ok_with_valid_token(self, server: str, tmp_path: pathlib.Path) -> None:
         import time
@@ -2819,11 +3012,9 @@ class TestAuthApi:
         )
         status, body = _get(server + "/api/auth/status")
         assert status == 200
-        assert json.loads(body) == {
-            "authorized": True,
-            "reason": "ok",
-            "secrets_path": "secrets.json",
-        }
+        data = json.loads(body)
+        assert (data["authorized"], data["reason"]) == (True, "ok")
+        assert (data["secrets_path"], data["secrets_state"]) == ("secrets.json", "ok")
 
     def test_start_requires_creds(self, server: str) -> None:
         status, body = _post(
@@ -2847,7 +3038,9 @@ class TestAuthApi:
 
         captured: dict[str, object] = {}
 
-        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+            # **kwargs: подмена не должна падать от новых необязательных
+            # параметров настоящей функции (issue #971 добавил cancel_event).
             captured["args"] = (client_id, client_secret, redirect_uri)
             return {"access_token": "t"}
 
@@ -2912,7 +3105,9 @@ class TestAuthApi:
 
         captured: dict[str, object] = {}
 
-        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path, **kwargs):
+            # **kwargs: подмена не должна падать от новых необязательных
+            # параметров настоящей функции (issue #971 добавил cancel_event).
             captured["args"] = (client_id, client_secret, redirect_uri)
             return {"access_token": "t"}
 
@@ -2939,11 +3134,9 @@ class TestAuthApi:
         )
         status, body = _get(server + "/api/auth/status")
         assert status == 200
-        assert json.loads(body) == {
-            "authorized": False,
-            "reason": "no_token",
-            "secrets_path": "secrets.json",
-        }
+        data = json.loads(body)
+        assert (data["authorized"], data["reason"]) == (False, "no_token")
+        assert (data["secrets_path"], data["secrets_state"]) == ("secrets.json", "ok")
 
     def test_start_flow_error_becomes_error_status(
         self, server: str, monkeypatch: pytest.MonkeyPatch
@@ -3137,34 +3330,176 @@ class TestReferenceAdapterUnit:
 class TestAiHintApi:
     """POST /api/v1/hint (issue #543): async AI-подсказка + обязательный consent.
 
-    Мокаем канал на уровне ``runs.explain_failure``/``runs.is_configured`` (сам
-    explain_failure покрыт в test_ai_hints.py) — проверяем плумбинг эндпоинт →
+    Мокаем канал на уровне ``runs.explain_failure_detailed``/``runs.is_configured``
+    (сам канал покрыт в test_cli_ai_hints.py) — проверяем плумбинг эндпоинт →
     job → результат, consent-гейт и graceful skip.
     """
 
     _HINT = "🤖 AI-подсказка: попробуй прибавить 1"
 
+    # ------------------------------------------------------------------
+    # issue #931 — согласие привязано к получателю, как в CLI
+    # ------------------------------------------------------------------
+
+    def test_consent_is_bound_to_the_recipient(self, server, monkeypatch) -> None:
+        """Согласие дано адресу A → при адресе B снова 403, код не уходит.
+
+        Инвариант #812 в CLI соблюдался, а веб читал один флаг и игнорировал
+        `ai_hint_consent_endpoint`: согласие, данное локальному ollama, молча
+        распространялось на любой адрес, попавший в конфиг позже. А конфиг
+        приезжает вместе с чужой папкой задач.
+
+        Получатель подменяется в адаптере, а не через `override_config`: в
+        наборе живут ДВА экземпляра модуля `config` (после теста переимпорта),
+        и переопределение попадало не в тот, который видит сервер, — тест
+        проходил в одиночку и падал в полном прогоне. Что адрес читается из
+        конфига, проверяет отдельный тест ниже.
+        """
+        from stepik_grader.web import settings_adapter
+
+        called: list[int] = []
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: called.append(1) or AiHintOutcome(text=self._HINT, reason=None),
+        )
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        body = json.dumps(
+            {"verdict": "WA", "actual": "6", "expected": "5", "consent": True}
+        ).encode()
+
+        monkeypatch.setattr(
+            settings_adapter, "ai_consent_recipient", lambda: "http://localhost:11434"
+        )
+        status, _ = _post(server + "/api/v1/hint", body)
+        assert status == 202, "согласие получателю A не принято"
+
+        # Пользователь сменил провайдера в конфиге.
+        monkeypatch.setattr(settings_adapter, "ai_consent_recipient", lambda: "https://third-party")
+        no_consent = json.dumps({"verdict": "WA", "actual": "6", "expected": "5"}).encode()
+        status, resp = _post(server + "/api/v1/hint", no_consent)
+
+        assert status == 403
+        assert json.loads(resp)["message_id"] == "consent_required"
+        assert len(called) == 1, "код ушёл новому получателю без согласия"
+
+    def test_consent_for_new_recipient_can_be_granted(self, server, monkeypatch) -> None:
+        """Повторный вопрос закрывается обычным consent:true — тупика нет."""
+        from stepik_grader.web import settings_adapter
+
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        body = json.dumps(
+            {"verdict": "WA", "actual": "6", "expected": "5", "consent": True}
+        ).encode()
+
+        monkeypatch.setattr(
+            settings_adapter, "ai_consent_recipient", lambda: "http://localhost:11434"
+        )
+        _post(server + "/api/v1/hint", body)
+        monkeypatch.setattr(settings_adapter, "ai_consent_recipient", lambda: "https://another")
+        status, _ = _post(server + "/api/v1/hint", body)
+
+        assert status == 202
+
+    def test_recipient_comes_from_the_configured_provider(self, monkeypatch) -> None:
+        """`ai_consent_recipient` — это адрес провайдера без пути (issue #812).
+
+        Путь отбрасывается: согласие даётся серверу, а не маршруту на нём.
+        """
+        from stepik_grader.web import settings_adapter
+
+        monkeypatch.setattr(
+            settings_adapter,
+            "get_config",
+            lambda: type("C", (), {"ai_base_url": "http://localhost:11434/v1"})(),
+        )
+
+        assert settings_adapter.ai_consent_recipient() == "http://localhost:11434"
+
+    # ------------------------------------------------------------------
+    # issue #933 — согласие отзывается из интерфейса, а не только из терминала
+    # ------------------------------------------------------------------
+
+    def test_consent_can_be_revoked_through_settings(self, server, monkeypatch) -> None:
+        """Отозвали в вебе → следующая подсказка снова спрашивает.
+
+        Отозвать согласие можно было только командой CLI и только в текущей
+        папке: согласие, которое нельзя отозвать там, где ты находишься,
+        согласием не является.
+        """
+        from stepik_grader.web import settings_adapter
+
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        monkeypatch.setattr(
+            settings_adapter, "ai_consent_recipient", lambda: "http://localhost:11434"
+        )
+        granted = json.dumps(
+            {"verdict": "WA", "actual": "6", "expected": "5", "consent": True}
+        ).encode()
+
+        assert _post(server + "/api/v1/hint", granted)[0] == 202
+
+        status, resp = _post(
+            server + "/api/v1/settings", json.dumps({"ai_hint_consent": False}).encode()
+        )
+        assert status == 200
+        assert json.loads(resp)["ai_consent"] is False
+
+        without = json.dumps({"verdict": "WA", "actual": "6", "expected": "5"}).encode()
+        status, resp = _post(server + "/api/v1/hint", without)
+
+        assert status == 403
+        assert json.loads(resp)["message_id"] == "consent_required"
+
+    def test_settings_endpoint_does_not_grant_consent(self, server) -> None:
+        """Дать согласие через настройки нельзя — только отозвать.
+
+        Выдача идёт своим путём, где рядом показано, кому уйдут данные, и
+        привязывается к получателю; «включить» в общем списке настроек обошло
+        бы и то, и другое.
+        """
+        status, resp = _post(
+            server + "/api/v1/settings", json.dumps({"ai_hint_consent": True}).encode()
+        )
+
+        assert status == 200
+        assert json.loads(resp)["ai_consent"] is False
+
     def test_hint_requires_consent_nothing_sent(self, server, monkeypatch) -> None:
         """Без согласия → 403 consent_required; провайдер НЕ вызывается (в сеть 0)."""
         called: list[int] = []
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: called.append(1) or "x")
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: called.append(1) or AiHintOutcome(text="x", reason=None),
+        )
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         body = json.dumps({"verdict": "WA", "actual": "6", "expected": "5"}).encode()
         status, resp = _post(server + "/api/v1/hint", body)
         assert status == 403
         assert json.loads(resp)["message_id"] == "consent_required"
-        assert called == []  # job не поставлен, explain_failure не вызван
+        assert called == []  # job не поставлен, канал не вызван
 
     def test_hint_configured_returns_marked_hint(self, server, monkeypatch) -> None:
         """consent:true + настроенный канал → 202 → job отдаёт hint отдельным полем;
         контекст собран из полей тела (verdict/actual/expected/stdin)."""
         captured: dict[str, object] = {}
 
-        def _fake(fc: object, cfg: object) -> str:
+        def _fake(fc: object, cfg: object) -> AiHintOutcome:
             captured["fc"] = fc
-            return self._HINT
+            return AiHintOutcome(text=self._HINT, reason=None)
 
-        monkeypatch.setattr(runs, "explain_failure", _fake)
+        monkeypatch.setattr(runs, "explain_failure_detailed", _fake)
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         body = json.dumps(
             {"verdict": "WA", "stdin": "4", "expected": "5", "actual": "6", "consent": True}
@@ -3173,7 +3508,7 @@ class TestAiHintApi:
         assert status == 202
         data = _poll_run(server, json.loads(resp)["run_id"])
         assert data["status"] == "done"
-        assert data["result"] == {"hint": self._HINT, "configured": True}
+        assert data["result"] == {"hint": self._HINT, "configured": True, "reason": None}
         fc = captured["fc"]
         assert fc.verdict == "WA"  # type: ignore[attr-defined]
         assert fc.actual == "6" and fc.expected == "5"  # type: ignore[attr-defined]
@@ -3182,7 +3517,9 @@ class TestAiHintApi:
     def test_hint_not_configured_graceful_null(self, server, monkeypatch) -> None:
         """consent:true, провайдер не настроен → job done с hint=null (graceful)."""
         monkeypatch.setattr(runs, "is_configured", lambda cfg: False)
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: None)
+        monkeypatch.setattr(
+            runs, "explain_failure_detailed", lambda fc, cfg: AiHintOutcome(text=None, reason=None)
+        )
         body = json.dumps(
             {"verdict": "RE", "error": "ZeroDivisionError: x", "consent": True}
         ).encode()
@@ -3190,17 +3527,23 @@ class TestAiHintApi:
         assert status == 202
         data = _poll_run(server, json.loads(resp)["run_id"])
         assert data["status"] == "done"
-        assert data["result"] == {"hint": None, "configured": False}
+        assert data["result"] == {"hint": None, "configured": False, "reason": None}
 
     def test_hint_consent_persists_across_requests(self, server, tmp_path, monkeypatch) -> None:
         """consent:true фиксируется в .grader_settings.json; далее без consent проходит."""
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: self._HINT)
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         first = json.dumps({"verdict": "WA", "actual": "6", "consent": True}).encode()
         status1, resp1 = _post(server + "/api/v1/hint", first)
         assert status1 == 202
         _poll_run(server, json.loads(resp1)["run_id"])
-        settings_file = tmp_path / ".grader_settings.json"
+        from stepik_grader.core import user_settings
+
+        settings_file = user_settings.default_settings_path(tmp_path)
         assert settings_file.exists()
         assert json.loads(settings_file.read_text(encoding="utf-8"))["ai_hint_consent"] is True
         # Второй запрос БЕЗ поля consent — согласие уже запомнено сервером.
@@ -3210,7 +3553,11 @@ class TestAiHintApi:
 
     def test_hint_path_outside_workspace_rejected(self, server, monkeypatch) -> None:
         """consent даёт согласие, но path вне workspace → 403 path_outside_workspace."""
-        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: self._HINT)
+        monkeypatch.setattr(
+            runs,
+            "explain_failure_detailed",
+            lambda fc, cfg: AiHintOutcome(text=self._HINT, reason=None),
+        )
         monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
         body = json.dumps({"verdict": "WA", "path": "../../etc/passwd", "consent": True}).encode()
         status, resp = _post(server + "/api/v1/hint", body)
@@ -3359,11 +3706,10 @@ class TestDownloaderConfigApi:
 
         _status, body = _get(server + "/api/auth/status")
 
-        assert json.loads(body) == {
-            "authorized": True,
-            "reason": "ok",
-            "secrets_path": "creds.json",
-        }
+        data = json.loads(body)
+        assert (data["authorized"], data["reason"]) == (True, "ok")
+        assert data["secrets_path"] == "creds.json"
+        assert data["secrets_path_resolved"].endswith("creds.json")
 
 
 # ---------------------------------------------------------------------------

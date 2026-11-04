@@ -6,8 +6,6 @@
 «RefCard»-слой (решение § 11 аудита). Канон формата — `docs/dev/rules-insights.md`.
 """
 
-from __future__ import annotations
-
 from .json_provider import (
     BUNDLED_RULES_DIR,
     JsonRulesProvider,

@@ -8,8 +8,8 @@
 1. **Возврат статического источника истины.** ``[project]`` в ``pyproject.toml``
    не должен снова объявлять ``version = "..."`` — только ``dynamic = ["version"]``.
 2. **Дрейф "текущей версии" в документации.** Верхняя запись ``CHANGELOG.md``
-   (и, мягко, таблица метрик ``CLAUDE.md`` с таблицей эволюции
-   ``docs/use/versions.md``) должна соответствовать актуальному релизному
+   (и, мягко, таблица метрик ``CLAUDE.md`` с таблицей эволюции метрик
+   ``HISTORY.md``) должна соответствовать актуальному релизному
    baseline — последнему git-тегу ``vX.Y.0``. Исключение — **готовящийся
    релиз**: верхняя запись ровно на один MINOR впереди тега допускается, потому
    что релизный PR переименовывает ``[Unreleased]`` в ``[X.Y+1.0]`` до того, как
@@ -35,19 +35,25 @@ Baseline вычисляется из git (``git describe --tags --abbrev=0``). �
     python scripts/check_version_consistency.py     # exit 0 — ок, 1 — дрейф
 """
 
-from __future__ import annotations
-
+import contextlib
+import os
 import re
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
 _ROOT = Path(__file__).resolve().parent.parent
 _PYPROJECT = _ROOT / "pyproject.toml"
 _CHANGELOG = _ROOT / "CHANGELOG.md"
 _CLAUDE = _ROOT / "CLAUDE.md"
-_VERSIONS = _ROOT / "docs" / "use" / "versions.md"
+_HISTORY = _ROOT / "HISTORY.md"
 
 _SEMVERISH = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
@@ -63,14 +69,34 @@ def _latest_tag_baseline() -> tuple[int, int, int] | None:
             ["git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"],
             cwd=_ROOT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stderr=subprocess.DEVNULL,
         ).strip()
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     m = _SEMVERISH.search(out)
     if not m:
         return None
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
+def _baseline_is_required() -> bool:
+    """Обязан ли baseline быть доступен в этом окружении (issue #988, REV-2-01).
+
+    Прежде отсутствие baseline всегда давало ``SKIP`` и ``exit 0``: любая ошибка
+    git — сломанный репозиторий, урезанный чекаут, отсутствующие теги — гасила
+    гейт целиком, а следом печаталось ``OK: versions consistent``. Гейт зеленел
+    именно тогда, когда проверить ничего не удалось.
+
+    Различать причины по коду выхода ``git describe`` нельзя — «тегов нет» и
+    «репозиторий недоступен» дают одинаковый ``CalledProcessError``. Зато точно
+    известно окружение, где baseline обязан быть: CI выкачивает историю с
+    ``fetch-depth: 0``, поэтому там ``SKIP`` означает поломку, а не сборку из
+    tarball. Признак — стандартная переменная ``CI``; локально поведение
+    прежнее, чтобы сборка из sdist без истории не падала.
+    """
+    return os.environ.get("CI", "").lower() in {"1", "true", "yes"}
 
 
 def _check_pyproject_dynamic(errors: list[str]) -> None:
@@ -160,19 +186,25 @@ def _check_claude_metrics(baseline: tuple[int, int, int], warnings: list[str]) -
         )
 
 
-def _check_versions_md(baseline: tuple[int, int, int], warnings: list[str]) -> None:
-    """docs/use/versions.md: таблица эволюции имеет колонку последнего релиза (мягко).
+def _check_history_md(baseline: tuple[int, int, int], warnings: list[str]) -> None:
+    """HISTORY.md: у последнего релиза есть СТРОКА в таблице эволюции метрик (мягко).
 
-    Таблица «Эволюция версий» — про качественные скачки, свободный формат;
-    поэтому warning, а не error (владелец может решить не выделять релиз в
-    отдельную колонку). Закрывает слепую зону аудита #381: без этой проверки
-    канон уже отставал — таблица кончалась на v1.7.0 при git-теге v1.8.0.
+    Warning, а не error: числа в таблице — снимок на момент релиза, и владелец
+    подставляет их при постановке тега, а не в релизном PR. Закрывает слепую
+    зону аудита #381: без этой проверки канон уже отставал — таблица кончалась
+    на v1.7.0 при git-теге v1.8.0.
+
+    Ищется именно строка таблицы (``| v1.10.0 |``), а не вхождение версии где
+    угодно: в записи о релизе тег упомянут заголовком, и проверка «есть ли
+    подстрока» проходила бы на пустой таблице (issue #1181 — документ переехал
+    из ``docs/use/versions.md``, где релизы шли колонками).
     """
     tag = f"v{baseline[0]}.{baseline[1]}.0"
-    if tag not in _VERSIONS.read_text(encoding="utf-8"):
+    text = _HISTORY.read_text(encoding="utf-8")
+    if not re.search(rf"^\|\s*{re.escape(tag)}\s*\|", text, re.MULTILINE):
         warnings.append(
-            f"docs/use/versions.md: evolution table has no column for the latest "
-            f"release {tag}. Add a {tag} column at the next MINOR release."
+            f"HISTORY.md: metrics table has no row for the latest release {tag}. "
+            f"Add a {tag} row at the next MINOR release."
         )
 
 
@@ -187,12 +219,19 @@ def main() -> int:
     _check_pyproject_dynamic(errors)
 
     if baseline is None:
-        print("SKIP: no git tag vX.Y.0 found (no git/history) - baseline comparison skipped.")
+        if _baseline_is_required():
+            errors.append(
+                "no git tag vX.Y.0 found, but CI=1: history and tags must be available here "
+                "(actions/checkout with fetch-depth: 0). Without a baseline this gate checks "
+                "nothing but pyproject - it must fail, not print OK (issue #988)."
+            )
+        else:
+            print("SKIP: no git tag vX.Y.0 found (no git/history) - baseline comparison skipped.")
     else:
         print(f"Release baseline (latest git tag): v{baseline[0]}.{baseline[1]}.{baseline[2]}")
         _check_changelog(baseline, errors)
         _check_claude_metrics(baseline, warnings)
-        _check_versions_md(baseline, warnings)
+        _check_history_md(baseline, warnings)
 
     for w in warnings:
         print(f"  WARNING: {w}")

@@ -21,8 +21,6 @@
 Живой сети/ФС нет: тестируется чистый разбор строк и построение путей.
 """
 
-from __future__ import annotations
-
 import pathlib
 import time
 

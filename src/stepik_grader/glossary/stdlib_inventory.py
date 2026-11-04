@@ -18,8 +18,6 @@ stdlib-модулей. Используется коэффициент полн�
 средой доверия), но пользовательский код здесь не запускается.
 """
 
-from __future__ import annotations
-
 import builtins
 import importlib
 import inspect

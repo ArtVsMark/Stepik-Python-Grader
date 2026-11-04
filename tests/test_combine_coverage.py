@@ -8,8 +8,6 @@
 проглатывается молча; строгий --fail-under применяется только при полных данных.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import pathlib
 from types import ModuleType

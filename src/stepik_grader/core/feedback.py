@@ -39,8 +39,6 @@ GitHub Issue Forms (``.github/ISSUE_TEMPLATE/*.yml``)::
 ``id:`` в YAML-шаблонах (парность стережёт ``tests/test_feedback.py``).
 """
 
-from __future__ import annotations
-
 import importlib.metadata
 import os
 import platform
@@ -49,7 +47,7 @@ import subprocess
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote_plus, urlencode
 
 from stepik_grader.core.diag_log import redact
 
@@ -200,7 +198,7 @@ def _short_path(path: str) -> str | None:
         # core/sandbox/_windows.py).
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         length = int(kernel32.GetShortPathNameW(path, buffer, len(buffer)))
-    except (OSError, AttributeError, ValueError):
+    except OSError, AttributeError, ValueError:
         return None
     # 0 — ошибка (каталога нет, 8.3 отключены); >= размера буфера — путь не влез
     # целиком, и обрезок сворачивать нельзя.
@@ -282,9 +280,45 @@ def _truncate(value: str, limit: int) -> str:
     return value[:keep].rstrip() + _TRUNCATION_MARKER
 
 
-def _halve(value: str) -> str:
-    """Сжать поле примерно вдвое, но не ниже ``_MIN_KEPT_CHARS``."""
-    return _truncate(value, max(_MIN_KEPT_CHARS, len(value) // 2))
+def _encoded_len(value: str) -> int:
+    """Длина значения в символах URL — после percent-encoding (issue #996).
+
+    Считается тем же кодировщиком, что и сборка ссылки: ``urlencode`` вызывает
+    ``quote_plus``, где пробел даёт ``+`` (один символ), а не ``%20`` (три).
+    Оценка «на глаз» здесь невозможна: символ кириллицы разворачивается в шесть
+    символов, а латиница остаётся собой.
+    """
+    return len(quote_plus(value))
+
+
+def _shrink_by(value: str, excess: int) -> str:
+    """Убрать из значения ровно ``excess`` символов URL, не ниже ``_MIN_KEPT_CHARS``.
+
+    issue #996 (``ADD-4-04``): прежде поле сжималось **вдвое** — мерой длины
+    служили исходные символы, а тесно было в символах URL. Для латиницы эти две
+    меры совпадают, для кириллицы расходятся вшестеро, и русский текст платил за
+    переполнение вдвое больше нужного: из заявленных ``FIELD_BUDGET_CHARS``
+    символов в форму доезжала половина, тогда как такой же английский лог
+    проходил целиком.
+
+    Теперь снимается ровно столько, сколько не влезло. Возврат может оказаться
+    не короче исходного (уже на минимуме) — вызывающая сторона трактует это как
+    «сжимать больше нечего» и выбрасывает поле целиком.
+    """
+    target = max(0, _encoded_len(value) - excess)
+    if target <= _encoded_len(_TRUNCATION_MARKER) or len(value) <= _MIN_KEPT_CHARS:
+        return _truncate(value, _MIN_KEPT_CHARS)
+
+    # Двоичный поиск по длине ИСХОДНОЙ строки: зависимость закодированной длины
+    # от неё монотонна, но не линейна — в смешанном тексте цена символа разная.
+    low, high = _MIN_KEPT_CHARS, len(value)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if _encoded_len(_truncate(value, middle)) <= target:
+            low = middle
+        else:
+            high = middle - 1
+    return _truncate(value, low)
 
 
 def collect_environment(
@@ -315,21 +349,12 @@ def collect_environment(
     return "\n".join(lines)
 
 
-def collect_commit(*, cwd: Path | None = None, timeout: float = 5.0) -> str | None:
-    """`git log --oneline -1` рабочей копии или ``None``, если коммит не определить.
-
-    Заполняет поле `commit` формы: хеш + subject сразу привязывают отчёт к точке
-    истории, тогда как версия в «Окружении» несёт только хеш (``+g<hash>`` от
-    setuptools-scm) и молчит о том, git-клон это или установка через pip.
-
-    ``None`` — рабочая директория не git-репозиторий, git не установлен, вызов
-    завис или упал: обратная связь не должна ломаться из-за отсутствия git, поэтому
-    любая неудача здесь тихая (поле просто останется пустым в форме).
-    """
+def _git_output(args: list[str], cwd: Path, timeout: float) -> str | None:
+    """Вывод git-команды или ``None`` при любой неудаче (тихо, как и раньше)."""
     try:
         proc = subprocess.run(
-            ["git", "log", "--oneline", "-1"],
-            cwd=cwd if cwd is not None else Path.cwd(),
+            ["git", *args],
+            cwd=cwd,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -337,11 +362,47 @@ def collect_commit(*, cwd: Path | None = None, timeout: float = 5.0) -> str | No
             timeout=timeout,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     if proc.returncode != 0:
         return None
     return proc.stdout.strip() or None
+
+
+def _is_grader_checkout(cwd: Path, timeout: float) -> bool:
+    """Рабочая копия — клон самого грейдера, а не чужой проект (issue #964).
+
+    Признак — корень репозитория содержит ``src/stepik_grader/__init__.py``.
+    Проверять remote нельзя: у форка и зеркала он другой, а работа в них
+    законна.
+    """
+    top = _git_output(["rev-parse", "--show-toplevel"], cwd, timeout)
+    if not top:
+        return False
+    return (Path(top) / "src" / "stepik_grader" / "__init__.py").is_file()
+
+
+def collect_commit(*, cwd: Path | None = None, timeout: float = 5.0) -> str | None:
+    """`git log --oneline -1` **клона грейдера** или ``None`` (issue #964).
+
+    Заполняет поле `commit` формы: хеш + subject сразу привязывают отчёт к точке
+    истории, тогда как версия в «Окружении» несёт только хеш (``+g<hash>`` от
+    setuptools-scm) и молчит о том, git-клон это или установка через pip.
+
+    **Чужой репозиторий пропускается.** Раньше команда звалась в любой рабочей
+    директории, и прогон из рабочего проекта уводил в поле `commit` заголовок
+    постороннего коммита — «секретный проект заказчика: …», — а оттуда в
+    prefilled-URL **публичного** GitHub issue. Пустое поле честнее чужой тайны:
+    хеш грейдера всё равно виден в «Окружении».
+
+    ``None`` — не git-репозиторий, чужой репозиторий, git не установлен, вызов
+    завис или упал: обратная связь не должна ломаться из-за git, поэтому любая
+    неудача здесь тихая (поле просто останется пустым в форме).
+    """
+    directory = cwd if cwd is not None else Path.cwd()
+    if not _is_grader_checkout(directory, timeout):
+        return None
+    return _git_output(["log", "--oneline", "-1"], directory, timeout)
 
 
 def _build_url(kind: FeedbackKind, fields: dict[str, str]) -> str:
@@ -395,13 +456,15 @@ def prepare_issue(
     url = _build_url(kind, prepared)
     # Жертвуем по одному шагу за итерацию, каждый раз пересобирая URL: длина
     # зависит от percent-encoding (символ кириллицы — 6 символов на выходе),
-    # поэтому посчитать её заранее «на глаз» нельзя. Сжатие — вдвое, а не сразу
-    # до минимума: иначе из-за одного лишнего килобайта терялся бы весь лог.
+    # поэтому посчитать её заранее «на глаз» нельзя. Снимается ровно лишнее, а
+    # не половина поля (issue #996, ADD-4-04): иначе из-за одного лишнего
+    # килобайта терялся бы весь лог — и терялся бы тем сильнее, чем больше в нём
+    # кириллицы.
     while len(url) > max_url_length:
         candidate = next((name for name in _SACRIFICE_ORDER if name in prepared), None)
         if candidate is None:
             break
-        squeezed = _halve(prepared[candidate])
+        squeezed = _shrink_by(prepared[candidate], len(url) - max_url_length)
         # Сжатие, которое не уменьшило поле, ничего не даст — такое поле
         # выбрасываем целиком, иначе цикл крутился бы на месте.
         if len(squeezed) < len(prepared[candidate]):
@@ -419,8 +482,8 @@ def prepare_issue(
     # длинное ключевое поле). Жмём самое длинное из оставшихся — ключевые поля
     # не дропаем никогда, без них обращение бессмысленно.
     while len(url) > max_url_length and prepared:
-        name = max(prepared, key=lambda key: len(prepared[key]))
-        squeezed = _halve(prepared[name])
+        name = max(prepared, key=lambda key: _encoded_len(prepared[key]))
+        squeezed = _shrink_by(prepared[name], len(url) - max_url_length)
         if len(squeezed) >= len(prepared[name]):
             break  # дальше не сжать (всё уже на минимуме) — отдаём как есть
         prepared[name] = squeezed

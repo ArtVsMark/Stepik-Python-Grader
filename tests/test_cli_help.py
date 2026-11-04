@@ -5,8 +5,6 @@
 которую действительно можно набрать, и текст не выглядит выпиской из трекера.
 """
 
-from __future__ import annotations
-
 import io
 import re
 from contextlib import redirect_stdout

@@ -6,8 +6,6 @@ print_correctness_header, print_benchmark_header,
 print_correctness_results, print_benchmark_results.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

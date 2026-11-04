@@ -13,19 +13,17 @@ JSON-база не настроена (``CONFIG.glossary_store is None``), — �
 (``glossary/lookup.py``) и наборы имён для сканера
 (``glossary/stdlib_inventory.scanner_name_sets``) — живут в домене и доступны
 любому потребителю, не только HTTP. Здесь остаётся web-специфичное: разрешение
-источника с кешем по mtime (``core/mtime_cache``), сборка JSON-словарей ответа и
+источника с кешем по mtime (``mtime_cache.py``), сборка JSON-словарей ответа и
 zero-config fallback на ``core/glossary`` — ребро на ``core/*``, которого в
 ``glossary/`` быть не должно (ADR-0011).
 """
 
-from __future__ import annotations
-
 import pathlib
 from typing import Any, NamedTuple
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core.glossary import all_entries
-from stepik_grader.core.mtime_cache import MtimeCache
+from stepik_grader.core.history import record_glossary_hit as record_hit
 from stepik_grader.glossary.detector import MissingConceptDetector, scan_code_concepts
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
@@ -33,6 +31,7 @@ from stepik_grader.glossary.json_provider import (
     JsonGlossaryProvider,
     append_missing_entries,
     load_missing_queue,
+    load_moved,
 )
 from stepik_grader.glossary.lookup import (
     card_index,
@@ -49,14 +48,41 @@ from stepik_grader.glossary.taxonomy import (
     section_label,
     sort_cards,
 )
+from stepik_grader.mtime_cache import MtimeCache
 
 __all__ = [
     "code_terms",
     "glossary_get",
     "glossary_missing",
     "glossary_search",
+    "missing_queue_path",
     "queue_code_gaps",
+    "record_glossary_hit",
 ]
+
+
+def record_glossary_hit(
+    card_id: str,
+    *,
+    db_path: pathlib.Path,
+    failure_kind: str | None = None,
+    error_class: str | None = None,
+) -> bool:
+    """Записать переход в карточку ИЗ ОШИБКИ прогона (issue #1220).
+
+    Пас-through в ``core/history``: гейт согласия отработал выше, в роутере, —
+    сюда путь к базе приходит уже разрешённым. Пишется только deep-link из
+    разбора ошибки; открытие раздела «Глоссарий» руками не пишется, иначе
+    метрика превратилась бы в «просмотрел N карточек» и перестала отвечать на
+    вопрос, ради которого заведена: работает ли связка «упал → понял».
+
+    Возвращает, легла ли запись: ``core/history`` best-effort и на битой базе
+    молча вернёт ``None``.
+    """
+    return (
+        record_hit(card_id, db_path=db_path, failure_kind=failure_kind, error_class=error_class)
+        is not None
+    )
 
 
 def _fallback_cards() -> list[GlossaryCard]:
@@ -76,7 +102,7 @@ def _fallback_cards() -> list[GlossaryCard]:
 # Кеш распарсенных карточек по источнику (issue #339): раньше каждый запрос к
 # /api/glossary*, /api/code-terms заново читал и парсил всю бандл-базу (1.2 МБ
 # JSON, ~1400 карточек). Теперь парсим один раз и держим в памяти, инвалидируя
-# по mtime через общий core/mtime_cache.MtimeCache (issue #345 — тот же
+# по mtime через общий mtime_cache.py.MtimeCache (issue #345 — тот же
 # механизм переиспользует провайдер правил, не копипастя его; правка store
 # подхватывается, read-only бандл-база после первой загрузки стабильна).
 # Потребители карточки не мутируют (glossary_search/card_index строят новые
@@ -122,7 +148,7 @@ def _resolve_source(
 
     ``cache_key``/``files`` — сигнатура источника (issue #404): по ней и
     ``_CARDS_CACHE``, и ``_INDEX_CACHE`` инвалидируются вместе. Для fallback —
-    ``("fallback", [])``: ``mtime_signature([]) == 0.0`` стабильна, а статические
+    ``("fallback", [])``: ``mtime_signature([]) == (0, 0.0)`` стабильна, а статические
     карточки ``core/glossary.py`` не меняются, поэтому производный индекс тоже
     кешируется корректно.
     """
@@ -240,6 +266,23 @@ def glossary_search(
     ]
 
 
+def _moved_for(store_path: pathlib.Path | None) -> dict[str, str]:
+    """Перенаправления id того же источника, что и карточки (каталог — да, файл — нет)."""
+    key, _files, _cards = _resolve_source(store_path)
+    if key == "bundled":
+        directory: pathlib.Path | None = BUNDLED_GLOSSARY_DIR
+    elif key.startswith("store:"):
+        directory = pathlib.Path(key.removeprefix("store:"))
+    else:
+        directory = None
+    if directory is None or not directory.is_dir():
+        return {}
+    try:
+        return load_moved(directory)
+    except GlossaryError:
+        return {}  # битый файл перенаправлений не роняет выдачу карточки
+
+
 def glossary_get(
     card_id: str, *, lang: str = "ru", store_path: pathlib.Path | None = None
 ) -> dict[str, Any] | None:
@@ -249,7 +292,13 @@ def glossary_get(
     и для подписи раздела ``section_label`` (issue #685) — как в ``glossary_search``,
     чтобы deep-link на карточку показывал раздел на том же языке, что и список.
     """
-    card = _glossary_index(store_path).by_id.get(card_id)  # issue #404: O(1) вместо O(n)
+    by_id = _glossary_index(store_path).by_id
+    card = by_id.get(card_id)  # issue #404: O(1) вместо O(n)
+    if card is None:
+        # Карточку слили с дублем (``_moved.json`` выгрузки, issue #1573): старая
+        # ссылка #/glossary/<id> из закладки или истории открывает новую.
+        moved_to = _moved_for(store_path).get(card_id)
+        card = by_id.get(moved_to) if moved_to else None
     if card is None:
         return None
     return {
@@ -331,6 +380,31 @@ def code_terms(
     return terms
 
 
+def missing_queue_path(workspace: pathlib.Path | None = None) -> pathlib.Path:
+    """Путь к очереди пополнения относительно рабочей директории сервера.
+
+    Дефолт ``CONFIG.glossary_missing_queue`` относительный
+    (``.grader_glossary_missing.db``), а `pathlib.Path` резолвит такой путь от
+    **cwd процесса**. Для веб-слоя это не то же самое, что ``--root``: сервер
+    запускают из любой папки, и очередь оказывалась то там, то тут — то есть
+    «Недостающее» показывало пустоту, а пополнение уходило мимо (issue #966,
+    ADD-1-03; тот же класс, что #723 для secrets.json).
+
+    Args:
+        workspace: рабочая директория сервера; ``None`` — поведение как раньше.
+
+    Returns:
+        Абсолютный путь, если задан workspace и настройка относительна.
+    """
+    # Конфиг читается В МОМЕНТ ВЫЗОВА (`get_config()`), а не через связанный при
+    # импорте `CONFIG`: иначе значение вмораживается и `override_config` — то
+    # есть флаги CLI и настройки лаунчера — до этой функции не доходят.
+    configured = pathlib.Path(get_config().glossary_missing_queue)
+    if workspace is None or configured.is_absolute():
+        return configured
+    return workspace / configured
+
+
 def queue_code_gaps(
     code: str,
     *,
@@ -353,7 +427,7 @@ def queue_code_gaps(
         entries = MissingConceptDetector().detect_from_code(code, known=known, source=source)
         if entries:
             append_missing_entries(path, entries)
-    except (GlossaryError, OSError):
+    except GlossaryError, OSError:
         pass
 
 

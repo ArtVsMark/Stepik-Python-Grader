@@ -14,8 +14,6 @@ python-generation: Professional, OOP, Samurai.
     - Samurai Module_13.1.1 — функция group_ranges, печать списка строк
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

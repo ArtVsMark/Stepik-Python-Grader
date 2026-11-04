@@ -1,0 +1,603 @@
+{
+  "groups": [
+    "types",
+    "syntax",
+    "builtins",
+    "io",
+    "modules",
+    "algorithms",
+    "other"
+  ],
+  "labels": {
+    "types": {
+      "ru": "Типы данных",
+      "en": "Data types"
+    },
+    "syntax": {
+      "ru": "Синтаксис",
+      "en": "Syntax"
+    },
+    "builtins": {
+      "ru": "Встроенные и исключения",
+      "en": "Built-ins & exceptions"
+    },
+    "io": {
+      "ru": "Ввод-вывод и файлы",
+      "en": "I/O & files"
+    },
+    "modules": {
+      "ru": "Модули",
+      "en": "Modules"
+    },
+    "algorithms": {
+      "ru": "Алгоритмы",
+      "en": "Algorithms"
+    },
+    "other": {
+      "ru": "Прочее",
+      "en": "Other"
+    }
+  },
+  "sections": {
+    "Алгоритмы и структуры данных": {
+      "group": "algorithms",
+      "ru": "Алгоритмы и структуры данных",
+      "en": "Algorithms & data structures"
+    },
+    "Аннотации и typing": {
+      "group": "syntax",
+      "ru": "Аннотации и typing",
+      "en": "Annotations & typing"
+    },
+    "Арифметика и операторы": {
+      "group": "syntax",
+      "ru": "Арифметика и операторы",
+      "en": "Arithmetic & operators"
+    },
+    "Асинхронное программирование": {
+      "group": "syntax",
+      "ru": "Асинхронное программирование",
+      "en": "Async programming"
+    },
+    "Байтовые последовательности": {
+      "group": "types",
+      "ru": "Байтовые последовательности",
+      "en": "Byte sequences"
+    },
+    "Ввод и вывод": {
+      "group": "io",
+      "ru": "Ввод и вывод",
+      "en": "Input & output"
+    },
+    "Встроенные типы": {
+      "group": "types",
+      "ru": "Встроенные типы",
+      "en": "Built-in types"
+    },
+    "Встроенные функции": {
+      "group": "builtins",
+      "ru": "Встроенные функции",
+      "en": "Built-in functions"
+    },
+    "Исключения": {
+      "group": "builtins",
+      "ru": "Исключения",
+      "en": "Exceptions"
+    },
+    "Итераторы и генераторы": {
+      "group": "syntax",
+      "ru": "Итераторы и генераторы",
+      "en": "Iterators & generators"
+    },
+    "Кортежи (tuple)": {
+      "group": "types",
+      "ru": "Кортежи (tuple)",
+      "en": "Tuples (tuple)"
+    },
+    "Множества (set)": {
+      "group": "types",
+      "ru": "Множества (set)",
+      "en": "Sets (set)"
+    },
+    "Модули и импорт": {
+      "group": "syntax",
+      "ru": "Модули и импорт",
+      "en": "Modules & imports"
+    },
+    "Модуль abc": {
+      "group": "modules",
+      "ru": "abc",
+      "en": "abc"
+    },
+    "Модуль argparse": {
+      "group": "modules",
+      "ru": "argparse",
+      "en": "argparse"
+    },
+    "Модуль array": {
+      "group": "modules",
+      "ru": "array",
+      "en": "array"
+    },
+    "Модуль ast": {
+      "group": "modules",
+      "ru": "ast",
+      "en": "ast"
+    },
+    "Модуль atexit": {
+      "group": "modules",
+      "ru": "atexit",
+      "en": "atexit"
+    },
+    "Модуль base64": {
+      "group": "modules",
+      "ru": "base64",
+      "en": "base64"
+    },
+    "Модуль binascii": {
+      "group": "modules",
+      "ru": "binascii",
+      "en": "binascii"
+    },
+    "Модуль bisect": {
+      "group": "modules",
+      "ru": "bisect",
+      "en": "bisect"
+    },
+    "Модуль calendar": {
+      "group": "modules",
+      "ru": "calendar",
+      "en": "calendar"
+    },
+    "Модуль cmath": {
+      "group": "modules",
+      "ru": "cmath",
+      "en": "cmath"
+    },
+    "Модуль codecs": {
+      "group": "modules",
+      "ru": "codecs",
+      "en": "codecs"
+    },
+    "Модуль collections": {
+      "group": "modules",
+      "ru": "collections",
+      "en": "collections"
+    },
+    "Модуль concurrent.futures": {
+      "group": "modules",
+      "ru": "concurrent.futures",
+      "en": "concurrent.futures"
+    },
+    "Модуль concurrent.interpreters": {
+      "group": "modules",
+      "ru": "concurrent.interpreters",
+      "en": "concurrent.interpreters"
+    },
+    "Модуль configparser": {
+      "group": "modules",
+      "ru": "configparser",
+      "en": "configparser"
+    },
+    "Модуль contextlib": {
+      "group": "modules",
+      "ru": "contextlib",
+      "en": "contextlib"
+    },
+    "Модуль contextvars": {
+      "group": "modules",
+      "ru": "contextvars",
+      "en": "contextvars"
+    },
+    "Модуль copy": {
+      "group": "modules",
+      "ru": "copy",
+      "en": "copy"
+    },
+    "Модуль ctypes": {
+      "group": "modules",
+      "ru": "ctypes",
+      "en": "ctypes"
+    },
+    "Модуль dataclasses": {
+      "group": "modules",
+      "ru": "dataclasses",
+      "en": "dataclasses"
+    },
+    "Модуль datetime": {
+      "group": "modules",
+      "ru": "datetime",
+      "en": "datetime"
+    },
+    "Модуль difflib": {
+      "group": "modules",
+      "ru": "difflib",
+      "en": "difflib"
+    },
+    "Модуль doctest": {
+      "group": "modules",
+      "ru": "doctest",
+      "en": "doctest"
+    },
+    "Модуль enum": {
+      "group": "modules",
+      "ru": "enum",
+      "en": "enum"
+    },
+    "Модуль fnmatch": {
+      "group": "modules",
+      "ru": "fnmatch",
+      "en": "fnmatch"
+    },
+    "Модуль functools": {
+      "group": "modules",
+      "ru": "functools",
+      "en": "functools"
+    },
+    "Модуль gc": {
+      "group": "modules",
+      "ru": "gc",
+      "en": "gc"
+    },
+    "Модуль getpass": {
+      "group": "modules",
+      "ru": "getpass",
+      "en": "getpass"
+    },
+    "Модуль glob": {
+      "group": "modules",
+      "ru": "glob",
+      "en": "glob"
+    },
+    "Модуль graphlib": {
+      "group": "modules",
+      "ru": "graphlib",
+      "en": "graphlib"
+    },
+    "Модуль gzip": {
+      "group": "modules",
+      "ru": "gzip",
+      "en": "gzip"
+    },
+    "Модуль hashlib": {
+      "group": "modules",
+      "ru": "hashlib",
+      "en": "hashlib"
+    },
+    "Модуль heapq": {
+      "group": "modules",
+      "ru": "heapq",
+      "en": "heapq"
+    },
+    "Модуль hmac": {
+      "group": "modules",
+      "ru": "hmac",
+      "en": "hmac"
+    },
+    "Модуль http.client": {
+      "group": "modules",
+      "ru": "http.client",
+      "en": "http.client"
+    },
+    "Модуль inspect": {
+      "group": "modules",
+      "ru": "inspect",
+      "en": "inspect"
+    },
+    "Модуль io": {
+      "group": "modules",
+      "ru": "io",
+      "en": "io"
+    },
+    "Модуль ipaddress": {
+      "group": "modules",
+      "ru": "ipaddress",
+      "en": "ipaddress"
+    },
+    "Модуль itertools": {
+      "group": "modules",
+      "ru": "itertools",
+      "en": "itertools"
+    },
+    "Модуль json": {
+      "group": "modules",
+      "ru": "json",
+      "en": "json"
+    },
+    "Модуль locale": {
+      "group": "modules",
+      "ru": "locale",
+      "en": "locale"
+    },
+    "Модуль logging": {
+      "group": "modules",
+      "ru": "logging",
+      "en": "logging"
+    },
+    "Модуль math": {
+      "group": "modules",
+      "ru": "math",
+      "en": "math"
+    },
+    "Модуль multiprocessing": {
+      "group": "modules",
+      "ru": "multiprocessing",
+      "en": "multiprocessing"
+    },
+    "Модуль numbers": {
+      "group": "modules",
+      "ru": "numbers",
+      "en": "numbers"
+    },
+    "Модуль operator": {
+      "group": "modules",
+      "ru": "operator",
+      "en": "operator"
+    },
+    "Модуль os": {
+      "group": "modules",
+      "ru": "os",
+      "en": "os"
+    },
+    "Модуль pathlib": {
+      "group": "modules",
+      "ru": "pathlib",
+      "en": "pathlib"
+    },
+    "Модуль pdb": {
+      "group": "modules",
+      "ru": "pdb",
+      "en": "pdb"
+    },
+    "Модуль pickle": {
+      "group": "modules",
+      "ru": "pickle",
+      "en": "pickle"
+    },
+    "Модуль platform": {
+      "group": "modules",
+      "ru": "platform",
+      "en": "platform"
+    },
+    "Модуль pprint": {
+      "group": "modules",
+      "ru": "pprint",
+      "en": "pprint"
+    },
+    "Модуль queue": {
+      "group": "modules",
+      "ru": "queue",
+      "en": "queue"
+    },
+    "Модуль random": {
+      "group": "modules",
+      "ru": "random",
+      "en": "random"
+    },
+    "Модуль re": {
+      "group": "modules",
+      "ru": "re",
+      "en": "re"
+    },
+    "Модуль secrets": {
+      "group": "modules",
+      "ru": "secrets",
+      "en": "secrets"
+    },
+    "Модуль shlex": {
+      "group": "modules",
+      "ru": "shlex",
+      "en": "shlex"
+    },
+    "Модуль shutil": {
+      "group": "modules",
+      "ru": "shutil",
+      "en": "shutil"
+    },
+    "Модуль signal": {
+      "group": "modules",
+      "ru": "signal",
+      "en": "signal"
+    },
+    "Модуль socket": {
+      "group": "modules",
+      "ru": "socket",
+      "en": "socket"
+    },
+    "Модуль sqlite3": {
+      "group": "modules",
+      "ru": "sqlite3",
+      "en": "sqlite3"
+    },
+    "Модуль stat": {
+      "group": "modules",
+      "ru": "stat",
+      "en": "stat"
+    },
+    "Модуль statistics": {
+      "group": "modules",
+      "ru": "statistics",
+      "en": "statistics"
+    },
+    "Модуль string": {
+      "group": "modules",
+      "ru": "string",
+      "en": "string"
+    },
+    "Модуль struct": {
+      "group": "modules",
+      "ru": "struct",
+      "en": "struct"
+    },
+    "Модуль subprocess": {
+      "group": "modules",
+      "ru": "subprocess",
+      "en": "subprocess"
+    },
+    "Модуль sys": {
+      "group": "modules",
+      "ru": "sys",
+      "en": "sys"
+    },
+    "Модуль tarfile": {
+      "group": "modules",
+      "ru": "tarfile",
+      "en": "tarfile"
+    },
+    "Модуль tempfile": {
+      "group": "modules",
+      "ru": "tempfile",
+      "en": "tempfile"
+    },
+    "Модуль textwrap": {
+      "group": "modules",
+      "ru": "textwrap",
+      "en": "textwrap"
+    },
+    "Модуль threading": {
+      "group": "modules",
+      "ru": "threading",
+      "en": "threading"
+    },
+    "Модуль time": {
+      "group": "modules",
+      "ru": "time",
+      "en": "time"
+    },
+    "Модуль timeit": {
+      "group": "modules",
+      "ru": "timeit",
+      "en": "timeit"
+    },
+    "Модуль tomllib": {
+      "group": "modules",
+      "ru": "tomllib",
+      "en": "tomllib"
+    },
+    "Модуль traceback": {
+      "group": "modules",
+      "ru": "traceback",
+      "en": "traceback"
+    },
+    "Модуль types": {
+      "group": "modules",
+      "ru": "types",
+      "en": "types"
+    },
+    "Модуль typing": {
+      "group": "modules",
+      "ru": "typing",
+      "en": "typing"
+    },
+    "Модуль unicodedata": {
+      "group": "modules",
+      "ru": "unicodedata",
+      "en": "unicodedata"
+    },
+    "Модуль unittest": {
+      "group": "modules",
+      "ru": "unittest",
+      "en": "unittest"
+    },
+    "Модуль urllib.parse": {
+      "group": "modules",
+      "ru": "urllib.parse",
+      "en": "urllib.parse"
+    },
+    "Модуль urllib.request": {
+      "group": "modules",
+      "ru": "urllib.request",
+      "en": "urllib.request"
+    },
+    "Модуль uuid": {
+      "group": "modules",
+      "ru": "uuid",
+      "en": "uuid"
+    },
+    "Модуль warnings": {
+      "group": "modules",
+      "ru": "warnings",
+      "en": "warnings"
+    },
+    "Модуль weakref": {
+      "group": "modules",
+      "ru": "weakref",
+      "en": "weakref"
+    },
+    "Модуль xml.etree.ElementTree": {
+      "group": "modules",
+      "ru": "xml.etree.ElementTree",
+      "en": "xml.etree.ElementTree"
+    },
+    "Модуль zipfile": {
+      "group": "modules",
+      "ru": "zipfile",
+      "en": "zipfile"
+    },
+    "Модуль zlib": {
+      "group": "modules",
+      "ru": "zlib",
+      "en": "zlib"
+    },
+    "Модуль zoneinfo": {
+      "group": "modules",
+      "ru": "zoneinfo",
+      "en": "zoneinfo"
+    },
+    "ООП": {
+      "group": "syntax",
+      "ru": "ООП",
+      "en": "OOP"
+    },
+    "Словари (dict)": {
+      "group": "types",
+      "ru": "Словари (dict)",
+      "en": "Dictionaries (dict)"
+    },
+    "Списки (list)": {
+      "group": "types",
+      "ru": "Списки (list)",
+      "en": "Lists (list)"
+    },
+    "Строки (str)": {
+      "group": "types",
+      "ru": "Строки (str)",
+      "en": "Strings (str)"
+    },
+    "Типы данных": {
+      "group": "types",
+      "ru": "Типы данных",
+      "en": "Data types"
+    },
+    "Удалено из стандартной библиотеки": {
+      "group": "modules",
+      "ru": "Удалено из стандартной библиотеки",
+      "en": "Removed from the standard library"
+    },
+    "Условный оператор": {
+      "group": "syntax",
+      "ru": "Условный оператор",
+      "en": "Conditionals"
+    },
+    "Файлы и I/O": {
+      "group": "io",
+      "ru": "Файлы и I/O",
+      "en": "Files & I/O"
+    },
+    "Функции": {
+      "group": "syntax",
+      "ru": "Функции",
+      "en": "Functions"
+    },
+    "Циклы": {
+      "group": "syntax",
+      "ru": "Циклы",
+      "en": "Loops"
+    },
+    "Числа и математика": {
+      "group": "types",
+      "ru": "Числа и математика",
+      "en": "Numbers & math"
+    }
+  }
+}

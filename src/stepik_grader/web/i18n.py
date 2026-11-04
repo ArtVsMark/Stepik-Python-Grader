@@ -16,8 +16,6 @@
 единственное место в web-слое, которое знает про JSON-локали.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from stepik_grader.core.i18n import load_locale_messages
@@ -68,7 +66,7 @@ def render_message(message_id: str, lang: str = DEFAULT_LANG, **params: Any) -> 
         return template
     try:
         return template.format(**params)
-    except (KeyError, IndexError):
+    except KeyError, IndexError:
         return template
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Девять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+Десять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
 файлами не протухли ни целью, ни подписью, документация не расползлась мимо направлений, индексы не
 отставали от состава каталогов, а объясняющие документы и пользовательские
 строки интерфейса не превратились в журнал работ (эпик #167 «README как
@@ -58,6 +58,12 @@
    Гейт на доках держал ноль, а самая читаемая поверхность — справка — годами
    печатала «Issue #51 D-01» и «Эпик #80 Tier 1»: выписка из трекера вместо
    объяснения флага.
+10. **Merge conflict markers (#1164).** В Markdown нет маркеров незаконченного
+   слияния. Единственная поломка, которую проходили все девять защит выше
+   разом: ссылки резолвятся, бюджет соблюдён, индексы полны — а раздел про
+   лаунчер читатель видит дважды, вперемешку с ``HEAD`` и ``origin/main``. В
+   ``.py`` то же самое ловит ruff (там это ``SyntaxError``), у документации
+   такого рубежа не было.
 
 Никаких внешних зависимостей: чистый ``ast``/``json``/``re`` + ``pathlib``,
 детерминированно и кроссплатформенно (Windows/Linux/macOS).
@@ -67,9 +73,8 @@
     python scripts/check_docs_guardrails.py     # exit 0 — ок, 1 — нарушение
 """
 
-from __future__ import annotations
-
 import ast
+import importlib.util
 import json
 import re
 import sys
@@ -78,12 +83,14 @@ from pathlib import Path
 __all__ = [
     "CHANGELOG_MAX_VERSIONS",
     "README_LINE_BUDGET",
+    "check_changelog_fragments",
     "check_changelog_version_budget",
     "check_docs_directions",
     "check_docs_index_completeness",
     "check_issue_tail_policy",
     "check_link_captions",
     "check_markdown_links",
+    "check_no_conflict_markers",
     "check_pypi_readme_is_absolute",
     "check_readme_budget",
     "check_showcase_metrics",
@@ -121,6 +128,16 @@ _ISSUE_TAIL_RE = re.compile(r"#\d+(?:\.\d+)?")
 # docs/agent/ — указатели вроде roadmap-issue. Снижать при чистке, не повышать:
 # рост бюджета означает, что журнал снова пополз в объясняющий текст.
 _DESIGN_TAIL_BUDGET = 22
+#: Начало первой строки файла, собранного скриптом: номера задач в нём — данные
+#: (след правила), а не рабочий журнал (issue #1342).
+#:
+#: Именно ПРЕФИКС, а не маркер, и имя об этом говорит: за словом идёт путь к
+#: генератору, который у каждого файла свой. Маркер сверяют целиком (правило
+#: 141), префикс — началом, и подменять одно другим нельзя ни в коде, ни в
+#: названии. Полноту шапки (генератор назван и существует) проверяет
+#: `check_generated_sources.py`.
+_GENERATED_PREFIX = "<!-- СГЕНЕРИРОВАНО"
+
 _AGENT_TAIL_BUDGET = 6
 
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
@@ -397,6 +414,30 @@ def check_docs_index_completeness(errors: list[str]) -> None:
     print(f"docs/ index: checked {checked} file(s) against per-directory README indexes.")
 
 
+def check_changelog_fragments(errors: list[str]) -> None:
+    """Фрагменты ``changelog.d/`` читаются сборкой релиза.
+
+    Негодный фрагмент опасен именно тем, что молчит: запись просто не попадёт в
+    релиз, и обнаружится это через месяц. Правила разбора живут в
+    ``scripts/collect_changelog.py`` — здесь они не дублируются, а вызываются,
+    иначе два набора правил разъедутся при первой же правке.
+    """
+    script = _ROOT / "scripts" / "collect_changelog.py"
+    spec = importlib.util.spec_from_file_location("_collect_changelog_guard", script)
+    if spec is None or spec.loader is None:  # pragma: no cover — файл на месте в репозитории
+        errors.append("scripts/collect_changelog.py: не удалось загрузить модуль сборки")
+        return
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    problems: list[str] = module.validate(_ROOT / "changelog.d")
+    for problem in problems:
+        errors.append(f"changelog.d/{problem}")
+    if not problems:
+        count = len(module.fragment_files(_ROOT / "changelog.d"))
+        print(f"changelog.d: {count} fragment(s), all readable by the release collector.")
+
+
 def check_changelog_version_budget(errors: list[str]) -> None:
     """CHANGELOG.md держит не более ``CHANGELOG_MAX_VERSIONS`` версионных релизов.
 
@@ -414,7 +455,7 @@ def check_changelog_version_budget(errors: list[str]) -> None:
         errors.append(
             f"CHANGELOG.md: {len(versions)} versioned releases exceed the budget "
             f"of {CHANGELOG_MAX_VERSIONS} (issue #373). Rotate the oldest into "
-            "docs/changelog-archive.md (keep [Unreleased] + the newest "
+            "docs/archive/changelog-archive.md (keep [Unreleased] + the newest "
             f"{CHANGELOG_MAX_VERSIONS} MINOR releases)."
         )
     else:
@@ -471,7 +512,10 @@ def check_issue_tail_policy(errors: list[str]) -> None:
 
     Зоны, где номер УМЕСТЕН и потому не проверяются:
 
-    * ``CHANGELOG.md`` и ``docs/archive/`` — это и есть логи;
+    * ``CHANGELOG.md``, ``HISTORY.md`` и ``docs/archive/`` — это и есть логи.
+      ``HISTORY.md`` живёт в корне, а не в ``docs/archive/`` (issue #1181): это
+      витрина уровня README, но жанр у неё исторический, и номера релизных
+      issue в записях — часть содержания, а не журнал работ;
     * ``docs/audit/`` — находки аудита привязаны к задачам по определению;
     * ``docs/dev/adr/`` — ADR отвечает «почему решили так», задача часть ответа;
     * ``docs/dev/design/`` — там номер работает как идентификатор согласованного
@@ -479,12 +523,17 @@ def check_issue_tail_policy(errors: list[str]) -> None:
       требования к sandbox, на которые ADR-0008 ссылается поштучно). Лимит
       ``_DESIGN_TAIL_BUDGET`` не даёт этой зоне снова обрасти журналом;
     * ``CLAUDE.md`` и ``docs/agent/`` — агентский контракт; лимит
-      ``_AGENT_TAIL_BUDGET`` оставляет место указателям вроде roadmap-issue.
+      ``_AGENT_TAIL_BUDGET`` оставляет место указателям вроде roadmap-issue;
+    * **сгенерированные файлы** (issue #1342) — там номера не текст, а данные:
+      указатель правил собирается из следов каталога, и след — это и есть
+      ссылка на задачу. Править такой файл руками нельзя, значит и «вынести
+      журнал в CHANGELOG» в нём невозможно: лимит ловил бы генератор, а не
+      автора. Признак — маркер ``СГЕНЕРИРОВАНО`` в первой строке.
 
     Всё остальное (``docs/use/``, ``docs/dev/*.md``, ``README``, ``SECURITY``,
     ``CONTRIBUTING``) должно держать ноль.
     """
-    free_zones = ("CHANGELOG.md", "docs/archive/", "docs/audit/", "docs/dev/adr/")
+    free_zones = ("CHANGELOG.md", "HISTORY.md", "docs/archive/", "docs/audit/", "docs/dev/adr/")
     budgeted = {
         "docs/dev/design/": _DESIGN_TAIL_BUDGET,
         "CLAUDE.md": _AGENT_TAIL_BUDGET,
@@ -493,11 +542,17 @@ def check_issue_tail_policy(errors: list[str]) -> None:
 
     zone_totals: dict[str, int] = {}
     checked = 0
+    generated = 0
     for md in collect_markdown_files():
         rel = md.relative_to(_ROOT).as_posix()
         if any(rel == z or rel.startswith(z) for z in free_zones):
             continue
-        tails = _ISSUE_TAIL_RE.findall(md.read_text(encoding="utf-8"))
+        text = md.read_text(encoding="utf-8")
+        # issue #1342: файл собран скриптом — номера в нём данные, а не журнал.
+        if text.lstrip().startswith(_GENERATED_PREFIX):
+            generated += 1
+            continue
+        tails = _ISSUE_TAIL_RE.findall(text)
         zone = next((z for z in budgeted if rel == z or rel.startswith(z)), None)
         if zone is not None:
             zone_totals[zone] = zone_totals.get(zone, 0) + len(tails)
@@ -522,6 +577,7 @@ def check_issue_tail_policy(errors: list[str]) -> None:
     print(
         f"issue-tail policy: {checked} explanatory file(s) at zero; "
         + ", ".join(f"{z} {zone_totals.get(z, 0)}/{b}" for z, b in budgeted.items())
+        + (f"; {generated} generated file(s) skipped" if generated else "")
     )
 
 
@@ -557,22 +613,42 @@ def _json_strings(value: object) -> list[str]:
     return []
 
 
-def collect_ui_strings() -> dict[str, list[str]]:
+def collect_ui_strings(errors: list[str] | None = None) -> dict[str, list[str]]:
     """Пользовательские строки интерфейса: ``{относительный путь: [строки]}``.
 
     Две поверхности, которые пользователь читает наравне с документацией:
     вывод ``--help`` (``cli/options.py``) и каталоги сообщений
-    (``core/locales/*.json``). Отсутствующий файл молча пропускается — guard
-    не должен падать на урезанном чекауте.
+    (``core/locales/*.json``).
+
+    issue #988 (REV-2-02): пропавший вход — это ошибка, а не повод пропустить
+    проверку. Прежняя редакция брала оба источника «если найдётся» (``is_file``
+    плюс ``glob``), поэтому переезд ``options.py`` или каталога локалей обнулял
+    гейт, оставляя его зелёным: проверка сообщала «0 строк проверено» ровно тем
+    же тоном, что и «всё чисто». Guard, зеленеющий на пустом входе, не отличим
+    от отсутствующего.
     """
     strings: dict[str, list[str]] = {}
+
     options_py = _ROOT / "src" / "stepik_grader" / "cli" / "options.py"
     if options_py.is_file():
         strings[options_py.relative_to(_ROOT).as_posix()] = _help_strings(options_py)
+    elif errors is not None:
+        errors.append(
+            "UI-strings guard: не найден src/stepik_grader/cli/options.py — вход проверки "
+            "пропал (переезд файла?), политика по строкам --help не проверена."
+        )
+
     locales = _ROOT / "src" / "stepik_grader" / "core" / "locales"
-    for loc in sorted(locales.glob("*.json")):
+    locale_files = sorted(locales.glob("*.json"))
+    if not locale_files and errors is not None:
+        errors.append(
+            "UI-strings guard: в src/stepik_grader/core/locales нет ни одного *.json — "
+            "вход проверки пропал, политика по сообщениям локалей не проверена."
+        )
+    for loc in locale_files:
         data = json.loads(loc.read_text(encoding="utf-8"))
         strings[loc.relative_to(_ROOT).as_posix()] = _json_strings(data)
+
     return strings
 
 
@@ -585,7 +661,7 @@ def check_ui_issue_tail_policy(errors: list[str]) -> None:
     Markdown, поэтому гейт на доках эту зону не покрывал.
     """
     checked = 0
-    for source, values in collect_ui_strings().items():
+    for source, values in collect_ui_strings(errors).items():
         tails = sorted({tail for value in values for tail in _ISSUE_TAIL_RE.findall(value)})
         checked += len(values)
         if tails:
@@ -639,6 +715,38 @@ def check_pypi_readme_is_absolute(errors: list[str]) -> None:
     print(f"PyPI readme: {name} has no relative links or images.")
 
 
+def check_no_conflict_markers(errors: list[str]) -> None:
+    """В документации нет незаконченного слияния (#1164).
+
+    Маркеры конфликта — единственный вид поломки, который в Markdown проходит
+    все остальные гейты: ссылки резолвятся, бюджет строк соблюдён, индексы
+    полны, а раздел про лаунчер при этом показан читателю дважды, вперемешку с
+    ``HEAD`` и ``origin/main``. В ``.py`` то же самое ловит ruff — там это
+    синтаксическая ошибка; у документации такого рубежа не было.
+
+    Прецедент: описание окна лаунчера уехало в ``main`` с маркерами и прожило
+    там несколько PR — ни один прогон CI не возразил.
+    """
+    opening, closing = "<" * 7, ">" * 7
+    files = collect_markdown_files()
+    found = 0
+    for md in files:
+        hits = [
+            number
+            for number, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1)
+            if line.startswith((f"{opening} ", f"{closing} "))
+        ]
+        if hits:
+            found += 1
+            where = ", ".join(f"строка {number}" for number in hits[:5])
+            errors.append(
+                f"{md.relative_to(_ROOT)}: маркеры конфликта слияния ({where}) — "
+                "слияние не доведено до конца, читателю показаны обе версии текста."
+            )
+    if not found:
+        print(f"Merge conflicts: none across {len(files)} Markdown file(s).")
+
+
 def _force_utf8_stdout() -> None:
     """Печатать UTF-8 независимо от кодовой страницы консоли.
 
@@ -657,6 +765,7 @@ def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     _force_utf8_stdout()
     errors: list[str] = []
+    check_no_conflict_markers(errors)
     check_readme_budget(errors)
     check_pypi_readme_is_absolute(errors)
     check_markdown_links(errors)
@@ -665,6 +774,7 @@ def main() -> int:
     check_docs_directions(errors)
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)
+    check_changelog_fragments(errors)
     check_issue_tail_policy(errors)
     check_ui_issue_tail_policy(errors)
 

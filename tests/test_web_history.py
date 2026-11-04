@@ -7,8 +7,6 @@
 и что отмена/выключенный флаг не пишут.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest

@@ -32,11 +32,16 @@ files as always, some naturally at 0% on their machine's OS).
     python scripts/generate_ci_coveragerc.py <Linux|Darwin|Windows>
 """
 
-from __future__ import annotations
-
+import contextlib
 import sys
 import tomllib
 from pathlib import Path
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = ["main", "other_platforms_omit"]
 
@@ -91,8 +96,11 @@ def main() -> int:
         "omit =\n"
         f"    {omit_lines}\n"
         "\n"
+        # issue #954: порог не пишется сюда. Он живёт флагом `--cov-fail-under`
+        # в шаге прогона — там, где прогон заведомо полный. В конфиге он делал
+        # ложно-красным любой частичный запуск, потому что `--cov` включён в
+        # `addopts` безусловно.
         "[report]\n"
-        f"fail_under = {report_cfg['fail_under']}\n"
         "exclude_lines =\n"
         f"    {exclude_lines}\n"
     )

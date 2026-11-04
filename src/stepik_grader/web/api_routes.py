@@ -8,13 +8,12 @@ submit (#429) и кламп числовых query/body-параметров (#2
 статику. HTTP-контракт — docs/dev/api.md (контракт-тест api.md↔роуты).
 """
 
-from __future__ import annotations
-
 import contextlib
 import json
 import pathlib
+import traceback
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from stepik_grader.web import auth_adapter, runs
 from stepik_grader.web.commands import filter_commands
@@ -31,24 +30,40 @@ from stepik_grader.web.glossary_adapter import (
     glossary_get,
     glossary_missing,
     glossary_search,
+    missing_queue_path,
     queue_code_gaps,
+    record_glossary_hit,
 )
 from stepik_grader.web.http_guards import _GuardMixin, _json, _lang_from_query
-from stepik_grader.web.i18n import message_fields
-from stepik_grader.web.insights_adapter import insights_cards, progress_report
+from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
+from stepik_grader.web.insights_adapter import (
+    insights_cards,
+    progress_report,
+    revisited_topics,
+)
+from stepik_grader.web.navigation_adapter import read_task_tree
 from stepik_grader.web.reference_adapter import import_reference
 from stepik_grader.web.rules_adapter import rules_get, rules_search
-from stepik_grader.web.settings_adapter import read_settings, set_flag
+from stepik_grader.web.settings_adapter import (
+    grant_ai_consent,
+    has_ai_consent,
+    read_settings,
+    revoke_ai_consent,
+    set_flag,
+)
+from stepik_grader.web.statement_adapter import read_image, read_statement
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
     grade_path,
+    history_db_path_if_enabled,
     list_solutions,
     read_source,
     save_solution,
 )
 
 __all__ = ["_ApiRoutesMixin"]
+
 
 # issue #259 (A-2): API — не server-ready без лимитов на входные данные.
 # Тело POST ограничено 1 MiB (413 при превышении); repeats/number из query
@@ -67,7 +82,7 @@ def _int(values: list[str] | None, default: int) -> int:
     """Первое значение из query как int, иначе default (без падения)."""
     try:
         return int((values or [str(default)])[0])
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -84,7 +99,7 @@ def _to_int(value: Any, default: int) -> int:
         return default
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
@@ -130,10 +145,14 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/glossary/missing": "_get_glossary_missing",
         "/api/rules": "_get_rules",
         "/api/insights": "_get_insights",
+        "/api/insights/revisited": "_get_insights_revisited",
         "/api/progress": "_get_progress",
         "/api/commands": "_get_commands",
         "/api/solutions": "_get_solutions",
         "/api/source": "_get_source",
+        "/api/task/statement": "_get_task_statement",
+        "/api/task/image": "_get_task_image",
+        "/api/tasks/index": "_get_tasks_index",
         "/api/auth/status": "_get_auth_status",
         "/api/downloader/config": "_get_downloader_config",
     }
@@ -149,6 +168,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/stepik/submit": "_handle_stepik_submit",
         "/api/auth/start": "_handle_auth_start",
         "/api/code-terms": "_post_code_terms",
+        "/api/glossary/hit": "_post_glossary_hit",
         "/api/download": "_post_download",
         "/api/feedback": "_post_feedback",
         "/api/downloader/config": "_post_downloader_config",
@@ -178,7 +198,47 @@ class _ApiRoutesMixin(_GuardMixin):
         if handler is None:
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
-        getattr(self, handler)(parsed, *args)
+        try:
+            getattr(self, handler)(parsed, *args)
+        except Exception as exc:
+            # issue #922: необработанное исключение в хендлере `http.server` НЕ
+            # становится ответом. Базовый класс печатает трейсбек в лог сервера
+            # и закрывает соединение, а клиент получает разрыв — «сервер не
+            # ответил» вместо «вот что случилось». Для одностраничного
+            # интерфейса это худший исход: раздел молча остаётся в состоянии
+            # «идёт запрос», и единственный выход — перезагрузка страницы,
+            # ровно то, чего критерий приёмки подэпика требует не допускать.
+            #
+            # Рубеж НЕ заменяет обработку ошибок в хендлерах: каждая известная
+            # причина обязана иметь свой код и своё сообщение (NUL-байт —
+            # 400 выше по стеку, а не 500 здесь). Он ловит НЕизвестные, чтобы
+            # цена ошибки была «ответ 500 с текстом», а не «интерфейс завис».
+            #
+            # Если ответ уже начат, второго не будет: дописать статус поверх
+            # отправленных заголовков нельзя, и попытка испортила бы поток
+            # сильнее самой ошибки. Исключение пробрасывается — соединение
+            # закроет базовый класс, как и раньше.
+            if self._response_started:
+                raise
+            lang = args[0] if args and isinstance(args[0], str) else DEFAULT_LANG
+            self._send(
+                500,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields(
+                            "server_internal_error",
+                            lang,
+                            route=parsed.path,
+                            error=f"{type(exc).__name__}: {exc}",
+                        ),
+                    }
+                ),
+            )
+            # Причина всё равно нужна тому, кто чинит: ответ клиенту её
+            # сокращает, а лог сервера обязан сохранить полный трейсбек.
+            traceback.print_exc()
 
     def _dispatch_api_get(self, parsed: Any, lang: str) -> None:
         """Диспетчеризация GET /api/* — вызывается только после `_guard_request()`.
@@ -225,23 +285,49 @@ class _ApiRoutesMixin(_GuardMixin):
             if confined is None:
                 return
             path = confined
-            if mode == "bench":
-                reference = (qs.get("reference") or [""])[0].strip() or None
-                repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
-                data = grade_benchmark(
-                    path,
-                    repeats=repeats,
-                    reference=reference,
-                    lang=lang,
-                    workspace=self.server.workspace,
+            # issue #922 (ARCH-2-02): синхронный грейд занимает место в ОБЩЕМ
+            # учёте прогонов. Прежде этот путь job'у не заводил и потому в учёт
+            # не попадал вовсе: десять вкладок поднимали десять подпроцессов
+            # Python при любом значении `max_active_runs` — настройка была, а
+            # половина трафика шла мимо неё.
+            #
+            # Отмена и TTL так не чинятся и чиниться здесь не должны: HTTP-запрос
+            # держится открытым всю длительность прогона, отменять нечего, а
+            # результат никуда не складывается. Для отмены есть асинхронный
+            # путь, и находка называет три разных свойства, а не одно.
+            try:
+                with runs.sync_slot():
+                    if mode == "bench":
+                        reference = (qs.get("reference") or [""])[0].strip() or None
+                        repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
+                        data = grade_benchmark(
+                            path,
+                            repeats=repeats,
+                            reference=reference,
+                            lang=lang,
+                            workspace=self.server.workspace,
+                        )
+                    elif mode == "microbench":
+                        number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
+                        data = grade_microbench(
+                            path, number=number, lang=lang, workspace=self.server.workspace
+                        )
+                    else:
+                        data = grade_path(path, lang=lang, workspace=self.server.workspace)
+            except runs.TooManyRunsError as exc:
+                # Тот же код и то же сообщение, что у асинхронного пути: для
+                # пользователя это одна и та же причина отказа.
+                self._send(
+                    429,
+                    "application/json; charset=utf-8",
+                    _json(
+                        {
+                            "kind": "error",
+                            **message_fields("too_many_runs", lang, limit=exc.limit),
+                        }
+                    ),
                 )
-            elif mode == "microbench":
-                number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
-                data = grade_microbench(
-                    path, number=number, lang=lang, workspace=self.server.workspace
-                )
-            else:
-                data = grade_path(path, lang=lang, workspace=self.server.workspace)
+                return
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _get_glossary(self, parsed: Any, lang: str) -> None:
@@ -261,10 +347,20 @@ class _ApiRoutesMixin(_GuardMixin):
         self._send(200, "application/json; charset=utf-8", _json(cards))
 
     def _get_glossary_missing(self, parsed: Any, lang: str) -> None:
-        self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
+        # issue #966: очередь ищется относительно рабочей директории сервера, а
+        # не cwd процесса — иначе раздел пуст, хотя пополнение шло.
+        queue = missing_queue_path(self.server.workspace)
+        self._send(
+            200, "application/json; charset=utf-8", _json(glossary_missing(queue_path=queue))
+        )
 
     def _get_glossary_card(self, parsed: Any, lang: str) -> None:
-        card_id = parsed.path[len("/api/glossary/") :]
+        # issue #969: путь берётся из запроса ЗАКОДИРОВАННЫМ. У карточек есть
+        # кириллические id («остаток», «срез»), фронтенд шлёт их через
+        # encodeURIComponent, и без декодирования сервер искал строку
+        # «%D0%BE%D1%81…» — то есть прямая ссылка на такую карточку не работала
+        # вовсе. Путь здесь не файловый (id ищется в базе), обхода каталогов нет.
+        card_id = unquote(parsed.path[len("/api/glossary/") :])
         card = glossary_get(card_id, lang=lang)
         if card is None:
             self._send(
@@ -280,6 +376,45 @@ class _ApiRoutesMixin(_GuardMixin):
         else:
             self._send(200, "application/json; charset=utf-8", _json(card))
 
+    def _post_glossary_hit(self, parsed: Any) -> None:
+        """POST /api/glossary/hit (issue #1220) — отметить переход в карточку из ошибки.
+
+        Тело: ``{"card_id", "failure_kind"?, "error_class"?}`` → ``200``
+        ``{"kind": "glossary_hit", "recorded": bool}``. ``recorded=false`` — не
+        отказ, а честный ответ «история выключена»: тумблер один на весь журнал
+        (ADR-0002), и отдельного согласия эта запись не заводит.
+
+        Метод POST, а не параметр к ``GET /api/glossary/<id>``: у записи есть
+        побочный эффект, а GET браузер волен повторить или предзагрузить — тогда
+        метрика «пришёл из ошибки» считала бы кэш и префетчи.
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        card_id = str(body.get("card_id") or "").strip()
+        if not card_id:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("glossary_no_card_id", lang)}),
+            )
+            return
+        db_path = history_db_path_if_enabled()
+        recorded = False
+        if db_path is not None:
+            recorded = record_glossary_hit(
+                card_id,
+                db_path=db_path,
+                failure_kind=str(body.get("failure_kind") or "") or None,
+                error_class=str(body.get("error_class") or "") or None,
+            )
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"kind": "glossary_hit", "recorded": recorded}),
+        )
+
     def _get_rules(self, parsed: Any, lang: str) -> None:
         qs = parse_qs(parsed.query)
         cards = rules_search(
@@ -291,13 +426,20 @@ class _ApiRoutesMixin(_GuardMixin):
     def _get_insights(self, parsed: Any, lang: str) -> None:
         self._send(200, "application/json; charset=utf-8", _json(insights_cards()))
 
+    def _get_insights_revisited(self, parsed: Any, lang: str) -> None:
+        # issue #1608: темы, к которым возвращаются из ошибок (повторные переходы
+        # в глоссарий) — отдельным списком, чтобы форма `/api/insights` не менялась.
+        self._send(200, "application/json; charset=utf-8", _json(revisited_topics()))
+
     def _get_progress(self, parsed: Any, lang: str) -> None:
         # issue #538: агрегатный отчёт прогресса (KPI solved/total, вердикты,
         # TTFG по задачам в ``tasks``) — тот же движок, что CLI --export-progress.
         self._send(200, "application/json; charset=utf-8", _json(progress_report()))
 
     def _get_rule_card(self, parsed: Any, lang: str) -> None:
-        code = parsed.path[len("/api/rules/") :]
+        # issue #969: коды правил ASCII, но декодируем по той же причине —
+        # чтобы соседние эндпоинты не расходились в обращении с путём.
+        code = unquote(parsed.path[len("/api/rules/") :])
         card = rules_get(code)
         if card is None:
             self._send(
@@ -354,6 +496,99 @@ class _ApiRoutesMixin(_GuardMixin):
                 data = read_source(confined, lang=lang)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
+    def _get_tasks_index(self, parsed: Any, lang: str) -> None:
+        """GET /api/tasks/index?path=<корень>&refresh=1 (issue #1179).
+
+        Дерево скачанных задач со статусами — данные для панели навигации.
+        В сеть не ходит: работает с тем, что уже на диске.
+
+        Пустое дерево возвращается как обычный ответ, а не как ошибка: у
+        человека может не быть ни одной скачанной задачи, и панель обязана
+        показать «пока пусто», а не сбой.
+        """
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил 403
+            refresh = (qs.get("refresh") or [""])[0] in {"1", "true", "yes"}
+            data = read_task_tree(confined, refresh=refresh)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_task_statement(self, parsed: Any, lang: str) -> None:
+        """GET /api/task/statement?path=<каталог задачи> (issue #1177).
+
+        Отдаёт условие скачанной задачи: шапку из ``meta.json``, очищенное тело
+        и список вложений. В сеть не ходит — работает с тем, что уже на диске.
+
+        **Параметр — каталог, а не файл.** Соседний ``_get_source`` вынужден
+        фильтровать расширение (issue #811: без фильтра он отдавал `200` с
+        `client_secret` на `?path=secrets.json`), потому что имя файла приходит
+        от вызывающего. Здесь имя не приходит вовсе: адаптер сам читает
+        ``task.html`` внутри названного каталога, поэтому назвать чужой файл
+        нечем. Конфайнмент в workspace всё равно обязателен — он отвечает на
+        другой вопрос, «внутри ли рабочей папки».
+        """
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил 403
+            data = read_statement(confined)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_task_image(self, parsed: Any, lang: str) -> None:
+        """GET /api/task/image?path=<каталог задачи>&name=<файл> (issue #1177).
+
+        Отдаёт байты картинки-вложения, на которую ссылается условие. Ручка
+        нужна потому, что в браузере ``src="pic.png"`` разрешается относительно
+        корня сервера, а не каталога задачи: без неё переписанный ``src`` давал
+        бы 404 на каждой иллюстрации.
+
+        **Имя сверяется со списком вложений из ``meta.json``, а не берётся как
+        путь**, и расширение обязано быть картиночным. Иначе это была бы вторая
+        серия issue #811: ручка чтения произвольного файла, только теперь ещё и
+        отдающая его ``inline`` со своего origin. SVG не отдаётся вовсе — он
+        носит скрипт и обошёл бы всю очистку HTML.
+        """
+        qs = parse_qs(parsed.query)
+        raw_dir = (qs.get("path") or [""])[0].strip()
+        name = (qs.get("name") or [""])[0].strip()
+        if not raw_dir or not name:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_path_folder", lang)}),
+            )
+            return
+
+        confined = self._confined_path(raw_dir, lang)
+        if confined is None:
+            return  # _confined_path уже отправил 403
+
+        found = read_image(confined, name)
+        if found is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("attachment_not_found", lang, name=name)}),
+            )
+            return
+        body, content_type = found
+        self._send(200, content_type, body)
+
     def _get_auth_status(self, parsed: Any, lang: str) -> None:
         # issue #402: валиден ли токен Stepik. issue #723: путь к secrets.json —
         # из stepik_config.json, тот же, что использует скачивание; раньше здесь
@@ -361,10 +596,25 @@ class _ApiRoutesMixin(_GuardMixin):
         secrets_path = secrets_path_for(self.server.workspace)
         status = auth_adapter.auth_status(secrets_path)
         config = read_config(self.server.workspace)
+        # issue #1213: `reason` говорит, что делать (нужна форма), но не что
+        # случилось. Пользователю нужно второе: «файла нет по пути X» и «файл
+        # есть, но не читается» — разные проблемы с разными действиями. Отдаём
+        # КАТЕГОРИЮ состояния, никогда содержимое: рядом лежат client_secret и
+        # токен (SECURITY.md, прецедент с `?path=secrets.json`).
         self._send(
             200,
             "application/json; charset=utf-8",
-            _json({**status, "secrets_path": config["secrets_path"]}),
+            _json(
+                {
+                    **status,
+                    "secrets_path": config["secrets_path"],
+                    # Настроенный путь бывает относительным («secrets.json»), и
+                    # на вопрос «где искали» он не отвечает. Разрешённый путь —
+                    # отвечает, а форма ниже по-прежнему правит настроенный.
+                    "secrets_path_resolved": str(secrets_path),
+                    "secrets_state": auth_adapter.secrets_state(secrets_path),
+                }
+            ),
         )
 
     def _get_downloader_config(self, parsed: Any, lang: str) -> None:
@@ -411,7 +661,7 @@ class _ApiRoutesMixin(_GuardMixin):
             return True
         try:
             existing = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except OSError, ValueError:
             existing = None
         if isinstance(existing, dict) and "client_id" in existing:
             return True
@@ -479,11 +729,15 @@ class _ApiRoutesMixin(_GuardMixin):
                 return  # _confined_path уже отправил ошибку
             try:
                 terms_code = confined.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
+            except OSError, UnicodeDecodeError:
                 # issue #423: не-UTF8 файл не должен ронять /api/code-terms —
                 # best-effort детект пробелов на пустом коде.
                 terms_code = ""
-            queue_code_gaps(terms_code, source=confined.name)
+            queue_code_gaps(
+                terms_code,
+                source=confined.name,
+                queue_path=missing_queue_path(self.server.workspace),
+            )
         else:
             raw_code = body.get("code")
             terms_code = raw_code if isinstance(raw_code, str) else ""
@@ -601,6 +855,15 @@ class _ApiRoutesMixin(_GuardMixin):
         if raw_path:
             confined_target = self._confined_path(raw_path, lang)
             if confined_target is None:
+                return
+            # issue #963 (SEC-1-03): ручка сохраняет РЕШЕНИЕ, и её контракт —
+            # только это. Без фильтра конфайна хватало, чтобы записать что угодно
+            # внутри workspace: `path=secrets.json` затирал токен Stepik текстом
+            # решения, причём optimistic-lock не мешал (без `expected_mtime`
+            # проверки нет). Соседний `_get_source` такой гейт получил в #811,
+            # а `_secrets_path_is_writable` защищает только сам secrets.json —
+            # здесь распространяем правило на любой не-`.py`.
+            if not self._is_python_target(confined_target, lang):
                 return
             target_path = confined_target
         # issue #297: optimistic locking — фронтенд присылает mtime, запомненный
@@ -742,12 +1005,18 @@ class _ApiRoutesMixin(_GuardMixin):
         """POST /api/v1/settings (issue #660) — write-through UI-настроек в
         ``.grader_settings.json``.
 
-        Тело: ``{"onboarding_seen"?: bool}`` → ``200 {"ok": true}``. Пишутся только
-        явно переданные bool-поля. Клиент шлёт ``true`` при закрытии стартового
-        экрана с отмеченной галкой «не показывать» (чтобы он не всплывал снова) и
-        ``false``, если галку сняли (вернуть авто-показ при следующем запуске).
-        ``ai_hint_consent`` идёт своим consent-путём (``/api/v1/hint``), а не сюда —
-        у него отдельная приватностная семантика.
+        Тело: ``{"onboarding_seen"?: bool, "ai_hint_consent"?: false}`` →
+        ``200 {"ok": true, "ai_consent": bool}``. Пишутся только явно переданные
+        поля. Клиент шлёт ``onboarding_seen: true`` при закрытии стартового
+        экрана с отмеченной галкой «не показывать» и ``false``, если галку сняли.
+
+        ``ai_hint_consent`` принимается ТОЛЬКО как ``false`` — отзыв (issue
+        #933). Дать согласие здесь нельзя: выдача идёт своим путём
+        (``/api/v1/hint``), где рядом показано, кому именно уйдут данные, и
+        привязывается к получателю. Отзыв же обязан быть доступен оттуда, где
+        пользователь находится: до этого отозвать согласие можно было только
+        командой в терминале и только в текущей папке — согласие, которое
+        нельзя отозвать привычным способом, согласием не является.
         """
         res = self._guard_and_read_body(parsed)
         if res is None:
@@ -756,7 +1025,14 @@ class _ApiRoutesMixin(_GuardMixin):
         value = body.get("onboarding_seen")
         if isinstance(value, bool):
             set_flag(self.server.workspace, "onboarding_seen", value)
-        self._send(200, "application/json; charset=utf-8", _json({"ok": True}))
+        if body.get("ai_hint_consent") is False:
+            revoke_ai_consent(self.server.workspace)
+        settings = read_settings(self.server.workspace)
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"ok": True, "ai_consent": settings.ai_hint_consent is True}),
+        )
 
     def _handle_stepik_submit(self, parsed: Any) -> None:
         """POST /api/stepik/submit (issue #683) — отправить решение режима 1 на Stepik.
@@ -784,15 +1060,21 @@ class _ApiRoutesMixin(_GuardMixin):
             )
             return
 
+        # Папка задачи нужна не только ради ``step_id``: по ней считается ключ
+        # задачи, под которым вердикт платформы ложится рядом с нашим (#1175).
+        # Поэтому путь разбирается всегда, а не только когда ``step_id`` не
+        # прислали, — иначе привязка терялась ровно у тех клиентов, что уже
+        # знают идентификатор шага.
+        task_dir: pathlib.Path | None = None
+        raw_path = str(body.get("path") or "").strip()
+        if raw_path:
+            confined = self._confined_path(raw_path, lang)
+            if confined is None:
+                return
+            task_dir = confined if confined.is_dir() else confined.parent
         step_id = body.get("step_id")
-        if not isinstance(step_id, int):
-            raw_path = str(body.get("path") or "").strip()
-            if raw_path:
-                confined = self._confined_path(raw_path, lang)
-                if confined is None:
-                    return
-                task_dir = confined if confined.is_dir() else confined.parent
-                step_id = read_step_id(task_dir)
+        if not isinstance(step_id, int) and task_dir is not None:
+            step_id = read_step_id(task_dir)
         if not isinstance(step_id, int):
             self._send(
                 400,
@@ -811,7 +1093,12 @@ class _ApiRoutesMixin(_GuardMixin):
             lang,
             "stepik_submit",
             None,
-            {"step_id": step_id, "secrets_path": str(secrets_path)},
+            {
+                "step_id": step_id,
+                "secrets_path": str(secrets_path),
+                "task_dir": str(task_dir) if task_dir is not None else "",
+                "workspace": str(self.server.workspace),
+            },
             code=code,
         )
         if job is None:
@@ -842,10 +1129,15 @@ class _ApiRoutesMixin(_GuardMixin):
         lang, body = res
 
         # Consent-гейт — синхронно, ДО любого обращения к провайдеру (приватность).
-        granted = read_settings(self.server.workspace).ai_hint_consent is True
+        #
+        # issue #931: согласие сверяется С ПОЛУЧАТЕЛЕМ, а не только по факту.
+        # Прежде веб читал один флаг и игнорировал `ai_hint_consent_endpoint`,
+        # который CLI сверяет строго, — согласие, данное локальному ollama,
+        # молча распространялось на любой адрес, попавший в конфиг позже. А
+        # конфиг приезжает вместе с чужой папкой задач.
+        granted = has_ai_consent(self.server.workspace)
         if body.get("consent") is True and not granted:
-            set_flag(self.server.workspace, "ai_hint_consent", True)
-            granted = True
+            granted = grant_ai_consent(self.server.workspace)
         if not granted:
             self._send(
                 403,
@@ -861,6 +1153,13 @@ class _ApiRoutesMixin(_GuardMixin):
         if raw_path:
             confined = self._confined_path(raw_path, lang)
             if confined is None:
+                return
+            # issue #963 (SEC-1-01): здесь хуже, чем у чтения исходника, — файл не
+            # показывается, а УВОЗИТСЯ по сети внешнему AI-провайдеру. Без гейта
+            # `path=secrets.json` отправлял в промпт client_secret и access_token,
+            # и следов в интерфейсе не оставалось: в ответе только подсказка.
+            # Тот же фильтр, что `_get_source` получил в #811.
+            if not self._is_python_target(confined, lang):
                 return
             with contextlib.suppress(OSError):
                 code = confined.read_text(encoding="utf-8")

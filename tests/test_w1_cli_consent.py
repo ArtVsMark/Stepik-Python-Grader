@@ -6,8 +6,6 @@ Web-путь гейтит это с issue #543 (``403 consent_required``), CLI �
 согласие действует для обоих путей.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 import pytest
@@ -35,7 +33,7 @@ def _ai_configured(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _settings_file(tmp_path: pathlib.Path) -> pathlib.Path:
-    return tmp_path / user_settings.SETTINGS_FILE_NAME
+    return user_settings.default_settings_path(tmp_path)
 
 
 def _forbid_input(*_args: object) -> str:

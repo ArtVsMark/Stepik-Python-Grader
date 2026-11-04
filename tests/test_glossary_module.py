@@ -11,8 +11,6 @@
 ``core/glossary.py``.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import threading
@@ -58,7 +56,7 @@ def test_card_new_fields_default_to_empty() -> None:
     card = GlossaryCard.from_dict({"id": "x", "title": "X"})
     assert card.syntax == ""
     assert card.docs_url == ""
-    assert card.version == ""
+    assert card.added == ""
     assert card.subcat == ""
 
 
@@ -77,7 +75,7 @@ def test_card_parses_new_fields_with_docs_alias_and_null_version() -> None:
     )
     assert card.syntax.startswith("match x:")
     assert card.docs_url.endswith("compound_stmts.html")
-    assert card.version == ""
+    assert card.added == ""
     assert card.subcat == "ветвление"
     # round-trip сохраняет новые поля
     assert GlossaryCard.from_dict(card.to_dict()) == card
@@ -338,19 +336,30 @@ def test_provider_search_finds_body_only_word(tmp_path: pathlib.Path) -> None:
     assert [c.id for c in provider.search("обходциклов")] == ["gc"]
 
 
-def test_provider_list_by_status_and_tag() -> None:
-    provider = JsonGlossaryProvider.from_file(SAMPLE_FIXTURE)
-    ready = {c.id for c in provider.list_by_status("ready")}
-    assert ready == {"recursionerror", "match-case"}
-    assert [c.id for c in provider.list_by_status("draft")] == ["functools.reduce"]
-    assert {c.id for c in provider.list_by_tag("function")} == {"functools.reduce"}
-
-
 def test_provider_known_terms_includes_aliases() -> None:
+    """Псевдонимы готовой карточки попадают в покрытие вместе с её id."""
     provider = JsonGlossaryProvider.from_file(SAMPLE_FIXTURE)
-    terms = provider.known_terms()
+
+    terms = provider.known_terms(include_unfinished=True)
+
     assert "reduce" in terms  # alias of functools.reduce
     assert "recursionerror" in terms
+
+
+def test_provider_known_terms_skips_unfinished_cards() -> None:
+    """Черновик не закрывает пробел (issue #919, находка ``DATA-1-04``).
+
+    В фикстуре `functools.reduce` лежит со статусом `draft`. Считать его
+    покрытием — значит объявлять работу сделанной там, где она только начата:
+    показатель покажет не сделанное, а запланированное.
+    """
+    provider = JsonGlossaryProvider.from_file(SAMPLE_FIXTURE)
+
+    terms = provider.known_terms()
+
+    assert "recursionerror" in terms  # status=ready — засчитывается
+    assert "reduce" not in terms  # status=draft — нет
+    assert "functools.reduce" not in terms
 
 
 # ---------------------------------------------------------------------------
@@ -539,9 +548,20 @@ def test_detector_suppresses_known_aliases() -> None:
 
 
 def test_detector_suppresses_via_provider_known_terms() -> None:
+    """Начатая карточка подавляет дубль в очереди пополнения.
+
+    Здесь вопрос «есть ли уже такая карточка», а не «покрыт ли пробел», и
+    ответы на них разные: `functools.reduce` в фикстуре — черновик, в покрытие
+    он не идёт (issue #919, `DATA-1-04`), но заводить его в очередь повторно
+    незачем — отсюда `include_unfinished=True`.
+    """
     provider = JsonGlossaryProvider.from_file(SAMPLE_FIXTURE)
     code = "import functools\nfunctools.reduce(f, xs)\n"
-    entries = MissingConceptDetector().detect_from_code(code, known=provider.known_terms())
+
+    entries = MissingConceptDetector().detect_from_code(
+        code, known=provider.known_terms(include_unfinished=True)
+    )
+
     assert entries == []  # 'reduce' is an alias in the sample fixture
 
 

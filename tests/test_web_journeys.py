@@ -37,8 +37,6 @@ non-goals (no Selenium/Playwright) they're verified manually through a
 running server, the same tradeoff #125 documented.
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import threading

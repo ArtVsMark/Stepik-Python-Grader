@@ -41,10 +41,14 @@
 ## Обеспечение соблюдения
 
 О случаях оскорбительного или иного неприемлемого поведения можно сообщить
-мейнтейнеру проекта [@ArtVsMark](https://github.com/ArtVsMark) через личное
-сообщение на GitHub. Все жалобы будут рассмотрены и расследованы, а ответ будет
-соответствовать обстоятельствам. Мейнтейнеры обязаны уважать конфиденциальность
-заявителя.
+мейнтейнеру проекта письмом на **av.markitanov@gmail.com** (тот же адрес указан
+автором пакета в `pyproject.toml` и на странице PyPI). Все жалобы будут
+рассмотрены и расследованы, а ответ будет соответствовать обстоятельствам.
+Мейнтейнеры обязаны уважать конфиденциальность заявителя.
+
+Канал именно такой, потому что обещание конфиденциальности должно быть
+выполнимо: личных сообщений у GitHub нет, а issue и обсуждения публичны — жалоба
+в них видна тому, на кого жалуются.
 
 > Вопросы безопасности и уязвимости — **не** через этот канал, а по
 > [SECURITY.md](SECURITY.md) (GitHub Private Vulnerability Reporting).
@@ -61,8 +65,9 @@
 соблюдения».
 
 > **In English.** This project follows a Code of Conduct adapted from the
-> Contributor Covenant v1.4. Report unacceptable behaviour through
-> [GitHub Issues](https://github.com/ArtVsMark/Stepik-Python-Grader/issues) or
-> [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions);
-> security problems go through [SECURITY.md](SECURITY.md) instead. Reports in
-> English are fine.
+> Contributor Covenant v1.4. Report unacceptable behaviour by email to
+> **av.markitanov@gmail.com** — the same address the package lists as its author.
+> Issues and Discussions are public, so a report filed there is visible to the
+> person it is about; the promise of confidentiality above only holds for a
+> private channel. Security problems go through [SECURITY.md](SECURITY.md)
+> instead. Reports in English are fine.

@@ -12,8 +12,6 @@
     формат 3 (input.txt+output.txt)
 """
 
-from __future__ import annotations
-
 import json
 import pathlib
 import subprocess
@@ -58,6 +56,13 @@ def _make_popen_mock(
     mock_proc.kill = MagicMock()
     mock_proc.poll.return_value = returncode  # not None → finally-guard не убивает
     # Дренаж читает порциями до сигнального b"" (одна порция вывода + EOF).
+    #
+    # issue #952: дренаж зовёт `read1`, а не `read`. Настоящий pipe — это
+    # `BufferedReader`, у него есть оба; `read` ждал бы полный буфер или EOF и
+    # терял вывод решения, оставившего живого внука. Мок обязан отражать ту же
+    # пару, иначе он проверяет метод, которого продуктовый код не вызывает.
+    mock_proc.stdout.read1.side_effect = [stdout, b""]
+    mock_proc.stderr.read1.side_effect = [stderr, b""]
     mock_proc.stdout.read.side_effect = [stdout, b""]
     mock_proc.stderr.read.side_effect = [stderr, b""]
 
@@ -69,8 +74,9 @@ def _make_popen_mock(
     else:
         mock_proc.wait.return_value = returncode
 
-    # Fast-путь (без лимита/отмены) run_single_test не использует, но communicate
-    # застаблен на случай прямых вызовов.
+    # issue #1248: отдельного fast-пути через `communicate()` больше нет —
+    # сбор вывода идёт дренажом при любых значениях лимита и отмены. Стаб
+    # оставлен на случай прямых вызовов из чужих тестов.
     mock_proc.communicate.return_value = (stdout, stderr)
     return mock_proc
 
@@ -474,8 +480,14 @@ class TestRunTestsProgressAndCancel:
             "avg_time",
             "peak_memory_mb",
             "first_fail",
+            # issue #935: предупреждения загрузки набора — часть результата.
+            # Ключ присутствует всегда, на чистом наборе это пустой список:
+            # потребителю не нужно гадать, «нет предупреждений» это или «поле
+            # забыли положить».
+            "warnings",
             "cases",
         }
+        assert result["warnings"] == []
 
     def test_cancel_event_stops_before_all_cases_run(self, tmp_path: pathlib.Path) -> None:
         """Real subprocess (not mocked) -- pre-set cancel_event must stop the

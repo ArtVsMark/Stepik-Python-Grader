@@ -12,8 +12,6 @@
 фиксировали приватное как де-факто публичный API пакета (issue #830, ARCH-08).
 """
 
-from __future__ import annotations
-
 from stepik_grader.web.server import run_server
 from stepik_grader.web.viewmodels import (
     estimate_run_count,

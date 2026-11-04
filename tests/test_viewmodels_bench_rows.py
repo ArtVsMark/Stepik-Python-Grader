@@ -7,8 +7,6 @@
 а запись истории — общий ``_record_bench_history``.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader.web.viewmodels import (

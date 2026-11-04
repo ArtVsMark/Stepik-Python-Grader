@@ -4,8 +4,6 @@
 Здесь — прямые юнит-тесты преобразователей (cases/lint/db-path).
 """
 
-from __future__ import annotations
-
 import dataclasses
 import pathlib
 

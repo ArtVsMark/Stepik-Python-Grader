@@ -8,14 +8,14 @@
 реэкспортирует эти имена для обратной совместимости.
 """
 
-from __future__ import annotations
-
 import pathlib
 import re
+import sys
 from typing import Any
 
+from stepik_grader.atomic_io import atomic_write_json
 from stepik_grader.core.i18n import load_locale_messages
-from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
+from stepik_grader.core.storage import load_json_file, save_secrets
 
 __all__ = [
     "DEFAULT_REDIRECT_URI",
@@ -24,6 +24,7 @@ __all__ = [
     "ask_value",
     "create_or_update_config",
     "create_secrets_interactively",
+    "input_is_available",
     "load_or_create_config",
     "normalize_config_paths",
     "set_lang",
@@ -168,21 +169,53 @@ def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     root_dir = ask_value(_t("dl_config_root_dir"), DEFAULT_ROOT_DIR)
     secrets_path = ask_value(_t("dl_config_secrets_path"), "secrets.json")
     config: dict[str, Any] = {"root_dir": root_dir, "secrets_path": secrets_path}
-    save_json_file(config_path, config)
+    atomic_write_json(config_path, config)
     _print(_t("dl_config_saved", path=config_path.resolve()))
     return config
 
 
-def load_or_create_config(config_path: pathlib.Path) -> dict[str, Any]:
-    """Загружает конфиг; если не существует — запускает интерактивное создание."""
+def input_is_available() -> bool:
+    """Есть ли у процесса интерактивный ввод (issue #1109).
+
+    Пайп, запуск из скрипта, CI и GUI-обёртка дают закрытый или неинтерактивный
+    ``stdin``: спрашивать там нечего и некого. ``OSError``/``ValueError`` —
+    подменённый или уже закрытый поток; для наших целей это тоже «ввода нет».
+    """
+    try:
+        return bool(sys.stdin) and sys.stdin.isatty()
+    except OSError, ValueError:
+        return False
+
+
+def load_or_create_config(
+    config_path: pathlib.Path,
+    *,
+    ask_to_change: bool = True,
+) -> dict[str, Any]:
+    """Загружает конфиг; если не существует — запускает интерактивное создание.
+
+    ``ask_to_change=False`` — не предлагать правку существующего конфига:
+    так зовёт неинтерактивный запуск с URL в аргументах (issue #1109). Раньше
+    вопрос «Нужно изменить настройку?» задавался ВСЕГДА, поэтому
+    ``python -m stepik_grader.downloader <URL>`` в скрипте или из GUI не
+    работал вовсе: на закрытом ``stdin`` он падал ``EOFError``, а вызывающий
+    получал совет «исправьте файл или удалите его» — про исправный файл.
+    """
     if not config_path.exists():
         _print(_t("dl_config_missing"))
         return create_or_update_config(config_path)
     config = load_json_file(config_path)
+    if not ask_to_change or not input_is_available():
+        return config
     _print(f"\n{_t('dl_config_current')}")
     _print(f"root_dir:     {config.get('root_dir', '')}")
     _print(f"secrets_path: {config.get('secrets_path', '')}")
-    change = input(f"{_t('dl_config_change_prompt')} [y/N]: ").strip().lower()
+    try:
+        change = input(f"{_t('dl_config_change_prompt')} [y/N]: ").strip().lower()
+    except EOFError, OSError:
+        # Ввод пропал уже после проверки (терминал закрыли, поток отобрали).
+        # Это не повод объявлять конфиг сломанным — работаем с тем, что есть.
+        return config
     if change in {"y", "yes", "д", "да"}:
         return create_or_update_config(config_path)
     return config
@@ -226,5 +259,5 @@ def normalize_config_paths(
         "root_dir": str(root_dir),
         "secrets_path": str(secrets_path),
     }
-    save_json_file(config_path, normalized)
+    atomic_write_json(config_path, normalized)
     return normalized

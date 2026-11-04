@@ -6,8 +6,6 @@ JS в этом проекте проверяется разбором исход
 перестаёт закрывать модалку, и ни один существующий тест этого не замечает.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 _STATIC = pathlib.Path(__file__).parent.parent / "src" / "stepik_grader" / "web" / "static"

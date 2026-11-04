@@ -12,6 +12,9 @@ on:
 
 jobs:
   claude:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший агент держит слот и очередь проверок на PR.
+    timeout-minutes: 30
     # issue #807: агент запускается с OAuth-токеном владельца, а триггеры
     # issues/issue_comment открыты всему интернету — раньше условием было только
     # наличие «@claude» в тексте, поэтому любой посторонний мог заводить issue и
@@ -32,7 +35,7 @@ jobs:
       (github.event_name == 'issues' &&
         (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       pull-requests: read
@@ -47,7 +50,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
+        uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 

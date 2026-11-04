@@ -7,8 +7,6 @@ Retrieval-заземление AI-подсказки: по концептам к
 при отсутствии совпадений — пустая строка (промпт деградирует к плоскому).
 """
 
-from __future__ import annotations
-
 import pytest
 
 from stepik_grader.core import ai_grounding

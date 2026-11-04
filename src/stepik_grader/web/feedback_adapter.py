@@ -10,8 +10,6 @@
 нет ни токена, ни сервера для этого (см. docstring ``core/feedback.py``).
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from stepik_grader.core import feedback

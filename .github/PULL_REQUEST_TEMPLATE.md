@@ -18,15 +18,20 @@ Closes #
 
 ## Чеклист
 
-- [ ] Ветка от свежего `main`, PR — в `main` (не коммит в `main` напрямую)
+- [ ] `python scripts/preflight.py` — всё чисто (ветка свежая, весь набор,
+      линтеры, типы; см. `docs/agent/preflight.md`)
+- [ ] Ветка от свежего `main` и обновлена из `origin/main` ПЕРЕД прогоном
+      гейтов: «зелено на моей ветке» ≠ «зелено после мержа»
+- [ ] Владелец значится в КАЖДОМ коммите — автором или соавтором
+      (`Co-Authored-By`): работа делается вместе, и история это показывает
 - [ ] `pytest tests/ -x -q` — зелёные
 - [ ] `ruff check .` и `ruff format --check .` — чисто
 - [ ] `mypy src/stepik_grader scripts` — чисто
-- [ ] Новые функции: type hints + docstring; новые модули: `__all__` и
-      `from __future__ import annotations`
+- [ ] Новые функции: type hints + docstring; новые модули: `__all__`
+      (без `from __future__ import annotations` — с планки 3.14 он лишний)
 - [ ] Версия не правится вручную (динамическая, `setuptools-scm`)
-- [ ] CHANGELOG.md: запись под `## [Unreleased]` добавлена — в КАЖДОМ PR, без исключений для рефакторингов
-- [ ] docs/archive/history.md — НЕ на каждый PR, только при релизе
+- [ ] Запись о изменении добавлена файлом `changelog.d/<slug>.<секция>.md` — в КАЖДОМ PR, без исключений для рефакторингов (формат — `changelog.d/README.md`)
+- [ ] HISTORY.md — НЕ на каждый PR, только при релизе
 - [ ] Нет секретов в диффе (`secrets.json`, токены, `stepik_config.json`)
 
 ## Как проверял

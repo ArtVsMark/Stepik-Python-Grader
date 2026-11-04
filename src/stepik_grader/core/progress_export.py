@@ -14,8 +14,6 @@
   импорта «класса» — стабильные ключи, JSON-совместимые значения.
 """
 
-from __future__ import annotations
-
 import html
 from pathlib import Path
 from typing import Any
@@ -28,6 +26,7 @@ __all__ = [
     "build_progress_report",
     "render_html",
     "render_markdown",
+    "submissions_summary",
 ]
 
 # Версия формата агрегата — для будущего импорта «класса» (AC #432).
@@ -47,6 +46,39 @@ def _messages(lang: str) -> dict[str, str]:
     return messages or load_locale_messages(_FALLBACK_LANG)
 
 
+#: Поля записи о расхождении, которые уходят наружу: без пути к решению и кода.
+_SUBMISSION_FIELDS = ("ts_utc", "step_id", "task_key", "verdict", "our_verdict", "hint")
+
+
+def submissions_summary(db_path: Path, *, recent: int = 10, limit: int = 10000) -> dict[str, Any]:
+    """Сверка «наш вердикт ↔ вердикт Stepik» по отправкам из истории (issue #1607).
+
+    Расхождение «у нас AC, у платформы нет» (и обратное) — самый ценный сигнал
+    о качестве самого грейдера: каждое — кандидат в дефект сравнения. Флаг
+    ``diverged`` посчитан при записи отправки, а не здесь: он отвечает про
+    момент отправки, а не про сегодняшнее состояние базы.
+
+    - ``total`` — отправок в истории;
+    - ``compared`` — из них с обеими сторонами (наш прогон был, ответ платформы
+      известен): только по ним расхождение вообще определено;
+    - ``diverged`` — разошедшихся;
+    - ``recent_diverged`` — последние ``recent`` расхождений, новые первыми.
+    """
+    rows = history.read_stepik_submissions(db_path, limit=limit)
+    compared = [
+        r for r in rows if r.get("our_verdict") and r.get("verdict") in history.PLATFORM_VERDICTS
+    ]
+    diverged = [r for r in rows if r.get("diverged")]
+    return {
+        "total": len(rows),
+        "compared": len(compared),
+        "diverged": len(diverged),
+        "recent_diverged": [
+            {name: r.get(name) for name in _SUBMISSION_FIELDS} for r in diverged[:recent]
+        ],
+    }
+
+
 def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any]:
     """Собрать агрегатный отчёт прогресса из истории (issue #432).
 
@@ -54,13 +86,15 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
 
     - ``schema`` — версия формата (``SCHEMA``);
     - ``total_runs`` — число прогонов в истории;
-    - ``tasks`` — список TTFG по задачам (``task_key``/``attempts``/``solved``/
-      ``total_runs``/``seconds_to_first_ac``);
+    - ``tasks`` — список TTFG по задачам (``task_key``/``display_name``/
+      ``attempts``/``solved``/``total_runs``/``seconds_to_first_ac``);
     - ``solved_tasks``/``total_tasks`` — сводные счётчики;
     - ``verdicts`` — тали вердиктов кейсов (``{"AC": n, "WA": n, ...}``);
     - ``failure_kinds`` — тали ключей падений (``{"timeout": n, ...}``);
     - ``streak`` — текущая серия зачётов подряд (issue #823);
-    - ``badges`` — бейджи достижений (``{"id", "earned"}``, issue #823).
+    - ``badges`` — бейджи достижений (``{"id", "earned"}``, issue #823);
+    - ``submissions`` — сверка вердиктов с платформой
+      (:func:`submissions_summary`, issue #1607).
 
     ``streak``/``badges`` прежде дописывал только web-адаптер, поэтому
     экспортируемый файл — единственный артефакт «поделиться» — оставался сухой
@@ -83,6 +117,11 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
     tasks = [
         {
             "task_key": p.task_key,
+            # issue #1212: имя задачи рядом с ключом, а не вместо него. Ключ с
+            # #990 — идентификатор шага (`step:<id>`), человеку он ничего не
+            # говорит; но и убрать его нельзя, иначе одноимённые папки из разных
+            # курсов снова сольются в одну строку.
+            "display_name": p.display_name,
             "attempts": p.attempts,
             "solved": p.solved,
             "total_runs": p.total_runs,
@@ -104,6 +143,7 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
         "badges": insights.achievement_badges(
             ac_cases=verdicts.get("AC", 0), solved_tasks=solved_tasks, streak=streak
         ),
+        "submissions": submissions_summary(db_path),
     }
 
 
@@ -134,13 +174,23 @@ def _earned_badge_labels(report: dict[str, Any], msgs: dict[str, str]) -> list[s
     ]
 
 
-def _task_label(task_key: str | None, msgs: dict[str, str]) -> str:
-    """Подпись задачи в отчёте: «.» и пустой ключ — не имя задачи (issue #817).
+def _task_label(task: dict[str, Any], msgs: dict[str, str]) -> str:
+    """Подпись задачи в отчёте: имя, если оно есть, иначе ключ (issue #1212).
 
-    Записи, сделанные до нормализации ключа, хранят «.» (грейдер запускали из
-    папки задачи) — показывать точку как название задачи бессмысленно, поэтому
-    такие строки помечаются тем же «(без задачи)», что и записи без ключа.
+    Отчёт показывают ментору (issue #823), а с #990 ключ — идентификатор шага
+    (`step:<id>`): человек ищет задачу по названию, а не по номеру. Имя берётся
+    из истории и не выдумывается — записи, сделанные до появления колонки,
+    печатаются по-прежнему ключом.
+
+    «.» и пустой ключ — не имя задачи (issue #817). Записи, сделанные до
+    нормализации ключа, хранят «.» (грейдер запускали из папки задачи) —
+    показывать точку как название бессмысленно, поэтому такие строки помечаются
+    тем же «(без задачи)», что и записи без ключа.
     """
+    name = task.get("display_name")
+    if name:
+        return str(name)
+    task_key = task.get("task_key")
     return task_key if task_key and task_key != "." else msgs["progress_export_no_task"]
 
 
@@ -175,7 +225,7 @@ def render_markdown(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> st
     for t in report["tasks"]:
         mark = "✅" if t["solved"] else "…"
         lines.append(
-            f"| {_task_label(t['task_key'], msgs)} | {mark} | {t['attempts']} | "
+            f"| {_task_label(t, msgs)} | {mark} | {t['attempts']} | "
             f"{_fmt_secs(t['seconds_to_first_ac'], msgs)} |"
         )
     lines += ["", f"## {msgs['progress_export_verdicts_heading']}", ""]
@@ -203,7 +253,7 @@ def render_html(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> str:
         body = f"<p><em>{esc(msgs['progress_export_empty'])}</em></p>"
     else:
         rows = "".join(
-            f"<tr><td>{esc(_task_label(t['task_key'], msgs))}</td>"
+            f"<tr><td>{esc(_task_label(t, msgs))}</td>"
             f"<td style='text-align:center'>{'✅' if t['solved'] else '…'}</td>"
             f"<td style='text-align:right'>{t['attempts']}</td>"
             "<td style='text-align:right'>"

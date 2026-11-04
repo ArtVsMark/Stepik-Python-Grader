@@ -27,6 +27,7 @@ ADR отвечают на «**почему** так», документы ниж
 | [api.md](api.md) | Справочник HTTP API `--serve`: все эндпоинты, параметры, лимиты, коды ответов, curl-примеры. Защищён контрактным тестом `test_web_api_contract.py` |
 | [result-contract.md](result-contract.md) | Контракт результата проверки для CLI/Web/API: поля case/solution/run, семантика вердиктов, стабильность |
 | [trace-format.md](trace-format.md) | Формат JSON-трейса пошагового исполнения (`core/tracer.py`) |
+| [facts-export.md](facts-export.md) | Факты проекта для соседних репозиториев: числа тестов, версии матрицы и эталонный набор проверок PR — веткой `badges`, чтобы сосед не клонировал нас ради двух подсчётов |
 | [glossary.md](glossary.md) | Локальный глоссарий: формат JSON карточек и очереди пополнения, Python-API `stepik_grader.glossary`, инвентарь stdlib и coverage-отчёт |
 | [rules-insights.md](rules-insights.md) | Правила PEP 8 и учебные инсайты: формат `RuleCard`, `core/lint.py`, таксономия падений и затухание карточек |
 

@@ -9,8 +9,6 @@
 Перенесён в core/ (Issue #26).
 """
 
-from __future__ import annotations
-
 import pathlib
 import shutil
 from collections.abc import Mapping, Sequence
@@ -23,9 +21,11 @@ if TYPE_CHECKING:
     from stepik_grader.core.grader_core import TestCase
 
 __all__ = [
+    "escape_control_chars",
     "fmt_time",
     "format_benchmark_row",
     "format_correctness_row",
+    "invisible_difference",
     "print_benchmark_header",
     "print_benchmark_results",
     "print_case_verbose",
@@ -235,6 +235,10 @@ _STATUS_COLORS: dict[str, str] = {
     "RE": "red",
     "ERROR": "red",
     "CANCELLED": "yellow",
+    # issue #1517: вывод перерос потолок и урезан. Красный, как WA: проверка
+    # не состоялась, и решение к дальнейшим кейсам не допущено — это не
+    # «медленно» (TLE) и не отмена человеком (CANCELLED).
+    "OLE": "red",
     "SANDBOX_VIOLATION": "red",
     "NO TESTS": "yellow",
 }
@@ -244,7 +248,7 @@ _VERDICT_COLORS: dict[str, str] = {
     "SIMILAR": "green",
     "SLOWER": "yellow",
     # issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) — двойной алиас
-    # с пробел-формой больше не нужен (apply_relative_micro унифицирован).
+    # с пробел-формой больше не нужен (вердикт считает microbench_runner.classify_relative).
     "MUCH_SLOWER": "red",
 }
 
@@ -354,6 +358,10 @@ def print_stats_summary(summary: dict[str, Any]) -> None:
     for verdict, count in sorted(summary.get("verdict_totals", {}).items()):
         rows.append((f"Verdict {verdict}", str(count)))
     rows.append(("Total time", fmt_time(summary.get("total_time", 0.0))))
+    # issue #1192: среднее — рядом с суммой и тем же форматтером. Прежде в
+    # накопителе копилась только сумма, и вопрос «сколько занимает один прогон»
+    # пользователь считал в уме по двум другим строкам таблицы.
+    rows.append(("Average time", fmt_time(summary.get("avg_time", 0.0))))
 
     if _RICH and _console is not None:
         table = Table(title="Local run stats", show_lines=False)
@@ -488,7 +496,11 @@ def print_progress_summary(progress: list[Any], *, labels: Mapping[str, str] | N
     lbl = _labels(_PROGRESS_LABELS, labels)
     rows = [
         (
-            p.task_key or lbl["no_task"],
+            # issue #990: показываем имя папки, а ключ (`step:<id>`) оставляем
+            # внутренним. Fallback на ключ — для задач, записанных до появления
+            # имени, и для папок, скачанных не downloader'ом: там ключ и есть
+            # имя папки.
+            p.display_name or p.task_key or lbl["no_task"],
             "✅" if p.solved else "…",
             str(p.attempts),
             _fmt_duration(p.seconds_to_first_ac, lbl),
@@ -551,22 +563,127 @@ def _cprint(text: str, *, style: str = "") -> None:
         print(text)
 
 
+def escape_control_chars(value: str) -> str:
+    """Обезвредить управляющие символы вывода решения перед печатью (issue #981).
+
+    Грейдер — инструмент оценивания, и его отчёт не должен подчиняться тому,
+    кого он оценивает. Вывод печатался сырым, поэтому решение, печатающее
+    ``\\x1b[2J\\x1b[H``, стирало уже напечатанный отчёт и рисовало на его месте
+    зелёный «AC», которого грейдер не выносил. Достаточно `print` со строкой из
+    интернета — сценарий не теоретический: решения копируют из чужих
+    репозиториев и из «Подсмотреть решения» на Stepik.
+
+    Экранируются все C0-символы и ``DEL``, кроме ``\\n`` и ``\\t``: перевод
+    строки и табуляция — обычные данные вывода, а вот ``\\r`` уже опасен (он
+    возвращает каретку и затирает строку). Форма ``\\x1b`` выбрана вместо
+    ``^[``, потому что читается как то, чем является, и не путается с реальным
+    текстом решения.
+    """
+    return "".join(
+        ch if ch in "\n\t" or (ord(ch) >= 32 and ord(ch) != 127) else f"\\x{ord(ch):02x}"
+        for ch in value
+    )
+
+
+# issue #996 (STR-5-03): символы, которые на экране неотличимы от обычного
+# пробела или не видны вовсе. Различие только в них — самый тупиковый WA:
+# Expected и Actual напечатаны одинаково, и студенту нечего исправлять.
+_INVISIBLE_NAMES: dict[str, str] = {
+    "\u00a0": "неразрывный пробел (U+00A0)",
+    "\u2007": "цифровой пробел (U+2007)",
+    "\u202f": "узкий неразрывный пробел (U+202F)",
+    "\u200b": "пробел нулевой ширины (U+200B)",
+    "\u200e": "маркер направления письма (U+200E)",
+    "\ufeff": "BOM (U+FEFF)",
+}
+
+
+def _as_seen(text: str) -> str:
+    """Как строка выглядит на экране: без того, что глаз не различает.
+
+    Нулевая ширина исчезает, пробелы-двойники приводятся к обычному пробелу,
+    хвостовые пробелы отбрасываются — терминал их не показывает. Управляющие
+    символы, наоборот, ОСТАЮТСЯ различимыми: их печатает ``\x0d``-форма, то есть
+    такое расхождение пользователь видит и подсказка ему не нужна.
+    """
+    for char in ("\u200b", "\u200e", "\ufeff"):
+        text = text.replace(char, "")
+    for char in _INVISIBLE_NAMES:
+        if char not in ("\u200b", "\u200e", "\ufeff"):
+            text = text.replace(char, " ")
+    return escape_control_chars(text).rstrip()
+
+
+def invisible_difference(expected: str, actual: str) -> str:
+    """Подсказка о различии, которого не видно на экране; пусто — видно и так.
+
+    issue #996 (``STR-5-03``): строки различаются, а напечатаны одинаково —
+    хвостовой пробел, неразрывный пробел вместо обычного, нулевая ширина. Для
+    студента это тупик: вердикт `WA`, две одинаковые строки и нечего править.
+    Сообщение появляется только в этом случае, иначе оно превратилось бы в шум
+    на каждом обычном расхождении.
+    """
+    if expected == actual or _as_seen(expected) != _as_seen(actual):
+        return ""
+    found = sorted(
+        {
+            name
+            for text in (expected, actual)
+            for char, name in _INVISIBLE_NAMES.items()
+            if char in text
+        }
+    )
+    if expected.rstrip() == actual.rstrip() and expected != actual:
+        found.insert(0, "пробелы в конце строки")
+    if not found:
+        return "различие не видно на экране: символы совпадают по виду, но не по коду"
+    return "различие не видно на экране: " + ", ".join(found)
+
+
 def _clip_value(value: str) -> str:
     """Обрезать однострочное значение до ``_VERBOSE_MAX_VALUE_CHARS`` (issue #824).
 
     Хвост объявляется числом отброшенных символов: «обрезано» без объёма врёт не
     меньше, чем молчаливая обрезка — по нему не понять, потерялся ли один символ
     или сто тысяч.
+
+    issue #981: рез не должен приходиться на середину управляющей
+    последовательности — её незакрытый остаток съедал само уведомление об
+    обрезке. Инвариант сохранён, но достигается иначе: режем СЫРУЮ строку и
+    экранируем уже отрезанное. Последовательность порождается из одного
+    символа, поэтому рез по границе символа разорвать её не может.
+
+    issue #952 (RUN-4-02): и это же ограничивает СТОИМОСТЬ. Прежний порядок
+    (экранировать всё, потом обрезать) обрабатывал посимвольно всю строку —
+    миллион символов ради четырёхсот показанных. Обрезка результата от этого
+    не спасала: вешал не объём вывода, а работа по его подготовке.
+
+    ``dropped`` считается в исходных символах — так понятнее читателю: столько
+    вывода решения не показано.
     """
     if len(value) <= _VERBOSE_MAX_VALUE_CHARS:
-        return value
+        return escape_control_chars(value)
+    head = escape_control_chars(value[:_VERBOSE_MAX_VALUE_CHARS])
     dropped = len(value) - _VERBOSE_MAX_VALUE_CHARS
-    return f"{value[:_VERBOSE_MAX_VALUE_CHARS]}… ещё {dropped} симв."
+    return f"{head}… ещё {dropped} симв."
 
 
 def _clip_diff_lines(diff: str) -> tuple[list[str], int]:
-    """Первые ``_VERBOSE_MAX_DIFF_LINES`` строк diff и число отброшенных (issue #824)."""
-    lines = diff.splitlines()
+    """Первые ``_VERBOSE_MAX_DIFF_LINES`` строк diff и число отброшенных (issue #824).
+
+    issue #981: строки diff тоже приходят из вывода решения, поэтому
+    экранируются — иначе подделать отчёт можно было бы через diff вместо
+    строки ``Actual:``.
+
+    issue #952 (RUN-4-02): каждая строка обрезается и ПО ДЛИНЕ. Число строк
+    ограничивалось и раньше, а длина — нет, и одной строки хватало, чтобы
+    подвесить вывод: рендер rich растёт быстрее линейного (замер в issue —
+    8k символов 0.39 с, 16k 1.61 с, 32k 6.44 с), так что мегабайтная строка
+    от `print('x' * 10**6)` останавливает CLI совсем. Соседняя строка
+    ``Actual:`` защищена ``_clip_value`` — здесь та же граница и тот же
+    формат хвоста, чтобы обрезка читалась одинаково.
+    """
+    lines = [_clip_value(line) for line in diff.splitlines()]
     if len(lines) <= _VERBOSE_MAX_DIFF_LINES:
         return lines, 0
     return lines[:_VERBOSE_MAX_DIFF_LINES], len(lines) - _VERBOSE_MAX_DIFF_LINES
@@ -583,14 +700,33 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     после «✗ Test 7: WA», — на каких данных сломалось, а раньше за этим
     приходилось уходить из терминала в ``tests/`` и сопоставлять нумерацию
     вручную. Все три значения и diff обрезаются (DESC-02).
+
+    issue #965 (MET-1-01): обещание докстринга держалось только для WA. Ветка
+    ``error`` печатала ``[ERROR]`` и делала ``return``, поэтому при RE и TLE —
+    там, где «на каких данных сломалось» нужнее всего, — вход не показывался
+    вовсе. Теперь он печатается ДО разбора причины, то есть при любом провале.
+    Для TLE добавлены ``Expected``/``Actual``: решение не уложилось в лимит, и
+    видно, чего от него ждали и что оно успело напечатать. Для RE после текста
+    ошибки печать заканчивается: ``output`` там пуст по построению
+    (``grader_core._fail_result``), а diff не строился.
     """
     result = TestResult.from_dict(r)
     icon = "✓" if result.passed else "✗"
     color = "green" if result.passed else "red"
     _cprint(f"  {icon} Test {case.index}: {result.verdict}", style=color)
+    if result.passed:
+        return
+
+    stdin = " | ".join(case.input_lines) or "(empty)"
+    _cprint(f"    Input:    {_clip_value(stdin)}", style="dim")
 
     if result.error:
-        _cprint(f"    [ERROR] {result.error}", style="red")
+        # issue #981: текст ошибки — это stderr решения целиком
+        # (grader_core: error=stderr.strip()), то есть строка, которую пишет
+        # проверяемый код. Печать её сырой оставляла открытым тот же канал
+        # подделки отчёта, что и `Actual:`, и даже удобнее: решению достаточно
+        # намеренно упасть, чтобы попасть в эту ветку.
+        _cprint(f"    [ERROR] {_clip_value(result.error)}", style="red")
         # issue #72/#356: подсказка по типу исключения из общей базы карточек
         # (bundled JSON → компактная карта fallback). Ссылки наружу нет
         # (issue #684) — полная карточка живёт в своём разделе «Глоссарий»
@@ -598,17 +734,17 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
         entry = resolve_error_hint(result.error)
         if entry is not None:
             _cprint(f"    💡 {entry.exception}: {entry.hint}", style="yellow")
-        return
-    if result.passed:
-        return
+        if result.verdict != "TLE":
+            return
 
-    # WA: вход кейса + компактное сравнение expected vs actual + diff.
-    stdin = " | ".join(case.input_lines) or "(empty)"
+    # WA (и TLE): компактное сравнение expected vs actual + diff, если он есть.
     expected = " | ".join(result.expected) or "(empty)"
     actual = " | ".join(result.output) or "(empty)"
-    _cprint(f"    Input:    {_clip_value(stdin)}", style="dim")
     _cprint(f"    Expected: {_clip_value(expected)}")
     _cprint(f"    Actual:   {_clip_value(actual)}")
+    hint = invisible_difference(expected, actual)
+    if hint:
+        _cprint(f"    ⚠ {hint}", style="yellow")
     if result.diff:
         _cprint("    Diff:")
         lines, dropped = _clip_diff_lines(result.diff)

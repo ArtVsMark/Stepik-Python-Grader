@@ -1,0 +1,125 @@
+name: python-next
+
+# issue #1564: предрелизная версия следующего цикла — отдельным прогоном.
+#
+# Почему не ячейкой в ci.yml: значок и вердикт `CI` показывают исход всего
+# прогона. Ячейка под `continue-on-error` красила бы его зелёным при красной
+# 3.15 и не отвечала на вопрос о ней (так флаг пережил выход 3.14 — #1529), а
+# без него держала бы слияние из-за чужого календаря. Отдельный файл отвечает
+# своим цветом, и красное здесь честное: «на 3.15 пока не заработает», а не
+# «ветка сломана».
+#
+# Ни очередь мержа, ни перезапуск красного `main` этот прогон не видят: они
+# подписаны на workflow `CI` по имени. На `pull_request` он не просыпается —
+# необязательный канал не держит слияние (правило 084).
+#
+# Выйдет 3.15 — она переезжает в матрицу ci.yml и в `requires-python`, а сюда
+# встаёт 3.16. Что флаг «предрелизная» не пережил выход, сверяет ночной обход
+# (`scripts/check_experimental_python.py`).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Голова названа в группе (правило 179): иначе событие другого коммита
+# вытесняло бы прогон, и о свежей голове ответа не осталось бы.
+concurrency:
+  group: python-next-${{ github.ref }}-${{ github.sha }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
+    # issue #1232: на предрелизных раннерах спавн подпроцесса стабильно не
+    # укладывается в дефолтные двадцать секунд. Порог поднимается только здесь:
+    # дефолт в коде отличает «подвисло» от «под нагрузкой» на машине
+    # пользователя, и полторы минуты ожидания ему не нужны.
+    env:
+      STEPIK_GRADER_LAUNCH_TIMEOUT_S: "90"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-26.04", "windows-latest", "macos-latest"]
+        python-version: ["3.15"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      # Пакет требует `requires-python` планки, а предрелизная выше неё — pip
+      # ставит без оговорок.
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: pip install -e ".[dev]"
+
+      # issue #1526: `--junitxml` тем же образцом `test-results-*`, что у CI, —
+      # разбор `scripts/report_failed_tests.py` идёт по маске и об источнике
+      # отчёта ничего не знает.
+      - name: Run tests
+        env:
+          STEPIK_REQUIRE_SANDBOX_TESTS: ${{ (matrix.os == 'macos-latest' || matrix.os == 'windows-latest') && '1' || '' }}
+        run: pytest -q --no-cov --junitxml=test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+
+      # `if: always()` — отчёт нужен ровно красному прогону.
+      - name: Upload test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+          path: test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # issue #1526: красный python-next без сводки — тупик для облачной сессии:
+  # логи и артефакты закрыты ей (403), а локально предрелизной версии нет.
+  # Канал тот же, что у push в main (#1519), — комментарий к коммиту, но со
+  # СВОИМ маркером (`--channel python-next`): CI отвечает на тот же коммит, и
+  # с общим маркером сводки затирали бы друг друга.
+  report-failures:
+    needs: [test]
+    if: ${{ always() && needs.test.result == 'failure' }}
+    timeout-minutes: 10
+    runs-on: ubuntu-26.04
+    permissions:
+      # Комментарий к коммиту живёт в скоупе содержимого.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Download test reports
+        timeout-minutes: 5
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: test-results-*
+          path: test-reports
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Name the failed tests on the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python scripts/report_failed_tests.py --dir test-reports
+          --channel python-next
+          --commit ${{ github.sha }}
+          --run-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          --apply

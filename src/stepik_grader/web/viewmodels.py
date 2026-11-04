@@ -9,8 +9,6 @@ issue #397 — ранжирование живёт в core, не дублиру�
 ``web → core`` ациклично.
 """
 
-from __future__ import annotations
-
 import functools
 import pathlib
 import re
@@ -21,9 +19,8 @@ from typing import TYPE_CHECKING, Any
 
 from stepik_grader import rules
 from stepik_grader.config import CONFIG, get_config
-from stepik_grader.core import history, history_recording, lint
+from stepik_grader.core import history, history_recording, insights, lint
 from stepik_grader.core.error_glossary import resolve_error_hint
-from stepik_grader.core.mtime_cache import MtimeCache
 from stepik_grader.core.result import BenchResult
 from stepik_grader.glossary.detector import MissingConceptDetector
 from stepik_grader.glossary.json_provider import (
@@ -31,10 +28,12 @@ from stepik_grader.glossary.json_provider import (
     JsonGlossaryProvider,
     append_missing_entries,
 )
+from stepik_grader.mtime_cache import MtimeCache
 from stepik_grader.web.grading import (
     apply_reference_ranking,
     apply_relative_ranking,
     collect_grouped_files,
+    compat_report,
     find_all_solution_files,
     fmt_time,
     hash_solution,
@@ -55,13 +54,26 @@ if TYPE_CHECKING:
 # Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
 # suggestions/...) заполняются только для них (issue #125, web-contracts.md §
 # «Модель error cards»).
-_FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
+# issue #1517: OLE — тоже провал кейса, и карточка ошибки ему нужна: без
+# неё студент видит вердикт без объяснения, почему проверка не состоялась.
+_FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE", "OLE"})
+
+# issue #968: границы вывода кейса, уезжающего в браузер. Забытый выход из
+# цикла — типичная студенческая ошибка, и решение печатает десятки тысяч строк;
+# до 10 МБ такого вывода превращались в сотни тысяч DOM-узлов диффа. Порог
+# щедрый: он отсекает патологию, а не рабочие случаи (самый длинный вывод в
+# корпусе задач — десятки строк).
+_MAX_CASE_LINES = 2000
+# Отдельно от числа строк: одна строка на мегабайт вешает браузер не хуже
+# тысячи коротких, а `visibleWhitespace` ещё и раздувает её разметкой.
+_MAX_CASE_LINE_CHARS = 4000
 
 __all__ = [
     "estimate_run_count",
     "grade_benchmark",
     "grade_microbench",
     "grade_path",
+    "history_db_path_if_enabled",
     "list_solutions",
     "read_source",
     "save_solution",
@@ -220,7 +232,11 @@ def _known_glossary_terms() -> set[str]:
     terms = _TERMS_CACHE.get_or_load(
         f"store:{p}",
         [p],
-        lambda: JsonGlossaryProvider.load(p).known_terms(),
+        # issue #919 (DATA-1-04): здесь вопрос «есть ли уже такая карточка»,
+        # а не «покрыт ли пробел» — поэтому заготовки СЧИТАЮТСЯ. Начатую
+        # карточку заводить в очередь пополнения повторно незачем; в покрытии
+        # она не участвует, и это разные вопросы к одному набору.
+        lambda: JsonGlossaryProvider.load(p).known_terms(include_unfinished=True),
         on_error=GlossaryError,
     )
     return terms if terms is not None else set()
@@ -240,8 +256,28 @@ def _queue_missing_concept(
         )
         if entry is not None:
             append_missing_entries(missing_queue_path, [entry])
-    except (GlossaryError, OSError):
+    except GlossaryError, OSError:
         pass
+
+
+def _clip_output(lines: list[str] | None) -> tuple[str, bool]:
+    """Склеить вывод кейса для UI, обрезав патологию (issue #968).
+
+    Возвращает текст и признак усечения. Обрезаются оба измерения: число строк
+    и длина каждой строки — вешает браузер и то, и другое.
+
+    Усечение объявляется флагом, а не молчит: человек должен видеть, что смотрит
+    начало вывода, иначе будет искать несуществующее расхождение в конце.
+    """
+    rows = lines or []
+    clipped = [
+        line if len(line) <= _MAX_CASE_LINE_CHARS else line[:_MAX_CASE_LINE_CHARS]
+        for line in rows[:_MAX_CASE_LINES]
+    ]
+    truncated = len(rows) > _MAX_CASE_LINES or any(
+        len(line) > _MAX_CASE_LINE_CHARS for line in rows[:_MAX_CASE_LINES]
+    )
+    return "\n".join(clipped), truncated
 
 
 def _case_view(
@@ -252,12 +288,13 @@ def _case_view(
     source: str = "",
     missing_queue_path: pathlib.Path | None = None,
     lang: str = DEFAULT_LANG,
+    timeout_s: float | None = None,
 ) -> dict[str, Any]:
     """Представление одного тест-кейса для UI — ErrorCard для WA/RE/TLE (issue #125)."""
     error = case.get("error", "")
     verdict = case.get("verdict") or ("RE" if error else "?")
     passed = bool(case.get("passed"))
-    actual = "\n".join(case.get("output") or [])
+    actual, actual_truncated = _clip_output(case.get("output"))
 
     # issue #72/#356: карточка ошибки — тип исключения, пояснение и якорь
     # карточки СВОЕГО глоссария (issue #684 — наружу не ссылаемся); из общей
@@ -276,6 +313,9 @@ def _case_view(
         "diff": "" if passed else case.get("diff", ""),
         "stdin": stdin,
         "actual": actual,
+        # issue #968: поле появляется только когда усечение случилось —
+        # молчаливое отсутствие означает «вывод целиком», как и раньше.
+        **({"output_truncated": True} if actual_truncated else {}),
         "actions": _error_card_actions(
             verdict=verdict, stdin=stdin, actual=actual, glossary_ids=glossary_ids
         ),
@@ -288,6 +328,13 @@ def _case_view(
         }
 
     if verdict in _FAILURE_VERDICTS:
+        # issue #1220: тот же ключ ошибки, под которым кейс лёг в историю
+        # (``insights.failure_kind``). Без него браузер не может сказать, ИЗ
+        # ЧЕГО человек ушёл в глоссарий, — и переход не соединяется с карточкой
+        # «Подучить», хотя обе стороны говорят про одну и ту же ошибку.
+        view["failure_kind"] = insights.failure_kind(
+            verdict, error=error, output=case.get("output"), expected=case.get("expected")
+        )
         view["severity"] = "warning" if verdict == "TLE" else "error"
         suggestions: list[str] = []
         if verdict == "RE" and entry is not None:
@@ -302,12 +349,21 @@ def _case_view(
         view["suggestions"] = suggestions
 
     if verdict == "WA":
-        view["expected"] = "\n".join(case.get("expected") or [])
+        expected_text, expected_truncated = _clip_output(case.get("expected"))
+        view["expected"] = expected_text
+        if expected_truncated:
+            view["output_truncated"] = True
     if verdict in ("RE", "TLE"):
         view["stderr"] = error
         view["exit_code"] = case.get("exit_code")
     if verdict == "TLE":
-        view["timeout_s"] = CONFIG.timeout_seconds
+        # issue #962 (TW-1-01): контракт обещает «лимит, который был превышен», а
+        # здесь стояла константа конфига. Веб принимает `timeout_s` в запросе и
+        # честно грейдит с ним — то есть карточка TLE называла пользователю
+        # чужое число ровно там, где оно и нужно. Фактический лимит приходит
+        # параметром; без него читаем конфиг В МОМЕНТ ВЫЗОВА, а не связанный на
+        # импорте `CONFIG`, иначе флаги CLI сюда снова не дойдут.
+        view["timeout_s"] = get_config().timeout_seconds if timeout_s is None else timeout_s
     if verdict == "RE":
         view["glossary_ids"] = glossary_ids
         if not glossary_ids:
@@ -392,6 +448,60 @@ def _next_solution_filename(folder: pathlib.Path) -> str:
     return f"{prefix}_{max_n + 1}.py"
 
 
+#: Сколько раз пробуем занять следующее свободное имя, прежде чем сдаться.
+#: Каждая неудача означает, что имя перехватил параллельный запрос, то есть
+#: попытки тратятся ровно на число соперников. Восьми хватает с запасом:
+#: сохранение — действие руками, а не поток; предел здесь не для нагрузки, а
+#: чтобы не было бесконечного цикла, если ФС отдаёт `FileExistsError` по
+#: причине, которой мы не ждём (issue #922).
+_NEW_FILE_ATTEMPTS = 8
+
+
+def _create_new_solution(folder: pathlib.Path, code: str) -> pathlib.Path | None:
+    """Создать НОВЫЙ файл решения так, чтобы соседа нельзя было затереть.
+
+    Гонка была в разрыве между «узнать свободное имя» и «записать по нему»:
+    `_next_solution_filename` смотрит на папку, а запись шла отдельным шагом.
+    Восемь одновременных сохранений давали восемь ответов ``ok: true``, четыре
+    файла на диске и четыре молча потерянных решения — измерено, не
+    предположено (issue #922, находка ``RUN-3-02``).
+
+    Разрыв закрывается режимом ``"x"``: он создаёт файл и падает
+    ``FileExistsError``, если тот уже есть, — то есть проверка и захват имени
+    происходят одним системным вызовом. Проигравший не переписывает чужое, а
+    спрашивает следующее имя.
+
+    Блокировки здесь не нужны: имя, занятое эксклюзивным созданием, никто
+    другой занять уже не может, а межпроцессный лок пришлось бы держать и
+    снимать — и он не переживал бы падение процесса.
+
+    Args:
+        folder: папка, в которой заводится файл (существует, проверено выше).
+        code: текст решения.
+
+    Returns:
+        Путь созданного файла либо ``None``, если свободное имя не удалось
+        занять за :data:`_NEW_FILE_ATTEMPTS` попыток. Два исхода разделены
+        намеренно: «все имена перехватили» и «запись не удалась» — разные
+        причины, и человеку про них надо сказать разное.
+
+    Raises:
+        OSError: запись не удалась (нет прав, кончилось место) — вызывающая
+            сторона превращает это в ``{"ok": False, …}``, как и раньше.
+    """
+    for _ in range(_NEW_FILE_ATTEMPTS):
+        target = folder / _next_solution_filename(folder)
+        try:
+            # newline не задаём — как у `write_text`, чтобы перевод строк на
+            # Windows остался прежним.
+            with target.open("x", encoding=CONFIG.encoding) as handle:
+                handle.write(code)
+        except FileExistsError:
+            continue
+        return target
+    return None
+
+
 def save_solution(
     folder: pathlib.Path,
     path: pathlib.Path | None,
@@ -416,12 +526,33 @@ def save_solution(
     возвращается ``{"ok": False, "conflict": True, ...}``. Фронтенд решает,
     перезаписывать ли (повторный вызов без ``expected_mtime``). Для нового
     файла (``path is None``) проверка не применяется — там нечего затирать.
+
+    Новый файл создаётся атомарно (issue #922, ``RUN-3-02``): имя занимается
+    тем же вызовом, что и создание, поэтому параллельные сохранения не
+    получают одно имя на всех. Перезапись СУЩЕСТВУЮЩЕГО файла атомарной не
+    становится — там окно между проверкой ``mtime`` и записью остаётся, и
+    закрывает его не блокировка, а сам optimistic lock: ожидаемый ``mtime``
+    приходит от того, кто файл читал, и разошедшийся вернёт ``conflict``.
     """
     folder_p = folder.expanduser()
     if not folder_p.is_dir():
         return {"ok": False, **message_fields("folder_not_found", lang, path=str(folder))}
-    target = path.expanduser() if path else folder_p / _next_solution_filename(folder_p)
-    if expected_mtime is not None and path is not None and target.is_file():
+    if path is None:
+        # Новый файл заводится атомарно — см. `_create_new_solution`. Проверка
+        # `expected_mtime` к этой ветке не относится: затирать нечего.
+        try:
+            created = _create_new_solution(folder_p, code)
+        except OSError as exc:
+            return {"ok": False, **message_fields("file_save_failed", lang, error=str(exc))}
+        if created is None:
+            return {
+                "ok": False,
+                **message_fields("new_file_name_taken", lang, path=str(folder_p)),
+            }
+        return {"ok": True, "path": str(created), "mtime": created.stat().st_mtime}
+
+    target = path.expanduser()
+    if expected_mtime is not None and target.is_file():
         actual_mtime = target.stat().st_mtime
         # Допуск 1 мс: mtime проходит через JSON float round-trip, а точность
         # st_mtime разнится по ФС (NTFS ~100нс, некоторые FS — секунды) —
@@ -463,6 +594,19 @@ def _history_enabled() -> bool:
     return CONFIG.record_history if _web_record_history is None else _web_record_history
 
 
+def history_db_path_if_enabled() -> pathlib.Path | None:
+    """Куда web пишет историю — или ``None``, если запись выключена (issue #1175).
+
+    Гейт согласия живёт здесь, потому что только web-слой знает действующее
+    значение: поверх ``CONFIG.record_history`` лежит оверрайд ``--serve
+    --no-history``. Ядро (``core/submission``) принимает готовый путь и не
+    решает за пользователя — ``None`` означает «не писать».
+    """
+    if not _history_enabled():
+        return None
+    return history_recording.default_history_db_path()
+
+
 @functools.lru_cache(maxsize=1)
 def _ruff_available_cached() -> bool:
     """Доступен ли ruff (extra ``[lint]``), кэш на процесс (issue #403).
@@ -489,7 +633,7 @@ def _web_lint_records(solutions: list[pathlib.Path]) -> list[history.LintRecord]
         violations = [
             v for sol in solutions for v in lint.run_lint(sol, select=select, preview=True)
         ]
-    except (lint.LintUnavailable, OSError):
+    except lint.LintUnavailable, OSError:
         return []
     return history_recording.lint_records_from_violations(violations)
 
@@ -499,6 +643,7 @@ def _record_history_if_enabled(
     case_records: list[history.CaseRecord],
     *,
     task_key: str,
+    task_title: str | None = None,
     duration_s: float,
     solution_name: str | None = None,
     solution_hash: str | None = None,
@@ -517,11 +662,13 @@ def _record_history_if_enabled(
         mode,
         case_records,
         db_path=history_recording.default_history_db_path(),
+        task_title=task_title,
         source="web",
         task_key=task_key,
         solution_name=solution_name,
         solution_hash=solution_hash,
         duration_s=duration_s,
+        isolation=history_recording.current_isolation(),
         lint=lint_records or None,
     )
 
@@ -666,6 +813,7 @@ def _preflight_skip(
             passed=report["passed"],
             total=report["total"],
             verdict=report["verdict"] or "—",
+            case=report["case"] or "—",
         ),
         "runs": 0,
         "verdict": "SKIPPED",
@@ -692,8 +840,18 @@ def _record_bench_history(
         mode,
         history_recording.cases_from_bench_results(results),
         task_key=_task_key(base, workspace),
+        task_title=base.name,
         duration_s=total_time,
     )
+
+
+def _compat_view(solution: pathlib.Path) -> dict[str, Any] | None:
+    """Совместимость решения с версией Python шага Stepik для веба (issue #1621)."""
+    try:
+        code = solution.read_text(encoding="utf-8")
+    except OSError, UnicodeDecodeError:
+        return None
+    return compat_report(code, solution.parent).to_dict()
 
 
 def grade_path(
@@ -706,6 +864,7 @@ def grade_path(
     workspace: pathlib.Path | None = None,
     timeout: float | None = None,
     max_memory_mb: int | None = None,
+    display_path: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
@@ -723,11 +882,37 @@ def grade_path(
     проверяется перед каждым решением (симметрично ``grade_benchmark``).
     Используются, когда режим 1 идёт через async job (``web/runs.py``,
     ``kind="tests"``) с кодом в теле — прогресс тикает раз на тест-кейс.
+
+    ``display_path`` — чем подписывать результат, если исполнялся не тот файл,
+    который выбрал пользователь (issue #1211). Режим 1 с кодом в теле грейдит
+    временный файл рядом с задачей (#297 — чтобы не было гонки ``save → grade``),
+    и подпись ``tmpXXXXXX.py`` обесценивала верный вердикт: по ней человек и
+    убеждается, что проверено выбранное им решение. Подменяется ТОЛЬКО подпись —
+    путь исполнения остаётся настоящим, он нужен диагностике.
     """
     resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
         return resolved
     kind, base, solutions = resolved
+
+    def _shown(sol: pathlib.Path) -> str:
+        """Подпись решения: выбранный пользователем файл, если он известен.
+
+        Отдельный случай — код из редактора без выбранного файла: грейдится
+        папка задачи, то есть ``display_path`` совпадает с ``base``, и
+        относительный путь вырождается в ``"."``. На экране точка не значит
+        ничего, поэтому папка подписывается своим именем — оно и отвечает на
+        вопрос «что проверено».
+        """
+        if display_path is None:
+            return _rel(sol, base)
+        shown = _rel(display_path, base)
+        return display_path.name if shown == "." else shown
+
+    # Фактический лимит прогона считается ОДИН раз: с ним грейдится решение, он
+    # же уезжает в карточку TLE. Раньше эти два места расходились — прогон шёл с
+    # запрошенным таймаутом, а карточка называла конфигурационный (issue #962).
+    effective_timeout = get_config().timeout_seconds if timeout is None else timeout
 
     rows: list[dict[str, Any]] = []
     graded: list[tuple[pathlib.Path, SolutionResult]] = []  # issue #395: для истории
@@ -736,12 +921,12 @@ def grade_path(
             break
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not test_dir.is_dir():
-            rows.append({"file": _rel(sol, base), "status": "NO TESTS", "passed": 0, "total": 0})
+            rows.append({"file": _shown(sol), "status": "NO TESTS", "passed": 0, "total": 0})
             continue
         res = run_tests(
             sol,
             test_dir,
-            timeout=CONFIG.timeout_seconds if timeout is None else timeout,
+            timeout=effective_timeout,
             max_memory_mb=max_memory_mb,
             progress_callback=progress_callback,
             cancel_event=cancel_event,
@@ -762,7 +947,7 @@ def grade_path(
         # уже есть свой stdin), zip(strict=True) с рассинхроном не нужен.
         rows.append(
             {
-                "file": _rel(sol, base),
+                "file": _shown(sol),
                 "status": status,
                 "passed": res["passed"],
                 "total": res["total"],
@@ -774,12 +959,16 @@ def grade_path(
                         i,
                         c,
                         stdin=c.get("stdin", ""),
-                        source=_rel(sol, base),
+                        source=_shown(sol),
                         missing_queue_path=missing_queue_path,
                         lang=lang,
+                        timeout_s=effective_timeout,
                     )
                     for i, c in enumerate(res["cases"], 1)
                 ],
+                # issue #1621: что в коде не поддерживает версия Python шага
+                # Stepik. Предупреждение, а не вердикт: статус не меняет.
+                "compat": _compat_view(sol),
             }
         )
 
@@ -793,7 +982,8 @@ def grade_path(
                 1,
                 history_recording.cases_from_test_results(res["cases"]),
                 task_key=_task_key(sol.parent, workspace),
-                solution_name=sol.name,
+                task_title=sol.parent.name,
+                solution_name=(display_path or sol).name,
                 solution_hash=hash_solution(sol),
                 duration_s=res["total_time"],
                 lint_records=_web_lint_records([sol]) or None,
@@ -805,6 +995,7 @@ def grade_path(
                 2,
                 history_recording.cases_from_test_results(all_cases),
                 task_key=_task_key(base, workspace),
+                task_title=base.name,
                 duration_s=total_time,
                 lint_records=_web_lint_records([s for s, _ in graded]) or None,
             )
@@ -922,7 +1113,7 @@ def grade_benchmark(
     if ref_path is not None:
         try:
             response["reference_source"] = ref_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        except OSError, UnicodeDecodeError:
             # issue #423: не-UTF8 reference-файл не должен ронять bench-ответ.
             response["reference_source"] = None
         response["reference_file"] = _rel(ref_path, base)

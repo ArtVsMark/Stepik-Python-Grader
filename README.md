@@ -1,15 +1,7 @@
 # Stepik Python Grader
 
-[![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/ArtVsMark/Stepik-Python-Grader)](https://github.com/ArtVsMark/Stepik-Python-Grader/releases)
-[![PyPI](https://img.shields.io/pypi/v/stepik-python-grader)](https://pypi.org/project/stepik-python-grader/)
-[![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/version.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/CHANGELOG.md)
-[![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-<!-- Бейджей покрытия два не случайно: что именно меряет каждый — CONTRIBUTING.md § Покрытие. -->
-[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/dev/glossary.md)
-[![Good first issues](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/good-first-issues.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/good%20first%20issue)
-![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14%20%28exp%29-blue)
+[![CI: Python, версии, ОС, наборы, покрытие, выпуск, версия](https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/badges/.github/badges/python.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+<!-- Единый значок: каждая часть окрашена своим прогоном на main; что значат части и цвета — docs/dev/versioning.md. -->
 
 > **Status:** Stable &nbsp;·&nbsp; 🇬🇧 [English quick start & generic mode](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/README.en.md)
 
@@ -22,7 +14,7 @@
 > (opt-in, свой ключ).
 
 ```bash
-pipx install stepik-python-grader && stepik-grader
+pipx install stepik-python-grader && stepik-grader   # меню; stepik-grader-gui — окно без терминала
 ```
 
 ![Веб-интерфейс --serve: грейдинг папки решений против тест-кейсов с вердиктом OK и таблицей результатов](https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/docs/assets/hero-serve.gif)
@@ -58,7 +50,7 @@ pipx install stepik-python-grader && stepik-grader
 | «Подучить» — свои частые ошибки из истории | ❌ | ❌ | ✅ |
 | Код остаётся на машине | ❌ | ✅ | ✅ |
 
-Детальное сравнение с проектом-первоисточником — в [docs/use/versions.md](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/use/versions.md#что-изменилось-по-сравнению-с-оригиналом).
+Как проект дошёл до текущего состояния — в [HISTORY.md](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/HISTORY.md): происхождение, одиннадцать релизов, эволюция метрик.
 
 ---
 
@@ -185,8 +177,8 @@ as-is).
 
 ## Прозрачность и доверие
 
-- ✅ **Автотесты на каждый PR** (pytest), CI-матрица на 3 ОС × Python 3.12/3.13
-  (+3.14 экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
+- ✅ **Автотесты на каждый PR** (pytest), CI-матрица на 3 ОС × Python 3.14, предрелизная 3.15 — отдельным прогоном
+  (+3.15 предрелизная, экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
 - 🧠 **Строгий mypy** (`disallow_untyped_defs`, `warn_return_any`, …) + `ruff`
   (lint + format) в pre-commit и CI — типы и стиль проверяются на каждый PR.
 - 🔐 **Приватный репорт уязвимостей** (GitHub Private Vulnerability Reporting) +
@@ -211,7 +203,8 @@ Commits) — в [CONTRIBUTING.md § Первый вклад за 15 минут](
 
 ## Python версия
 
-Python **3.12+** (3.14 — экспериментальная).
+Python **3.14+**. На 3.12–3.13 работает выпуск 1.12 — последний, который их
+поддерживает. Предрелизная 3.15 проверяется отдельным прогоном и слияние не держит.
 
 ---
 

@@ -5,8 +5,6 @@
     - _is_python_code_block    — классификация блока (Python-код vs stdin)
 """
 
-from __future__ import annotations
-
 from stepik_grader.grader import _is_python_code_block, _parse_testblock_file
 
 # ===========================================================================

@@ -16,8 +16,6 @@
 ``RunOutcome.sandbox_violation`` в ``core/runner.py``).
 """
 
-from __future__ import annotations
-
 import contextlib
 import signal
 import subprocess
@@ -41,11 +39,23 @@ __all__ = ["run_argv_with_limits"]
 
 
 def _drain(pipe: Any, sink: list[bytes], on_chunk: Any) -> None:
+    """Слить трубу в ``sink``, отдавая байты по мере прихода (issue #1143).
+
+    ``read1``, а не ``read``: последний ждёт ЛИБО полные 65536 байт, ЛИБО EOF, и
+    отдаёт накопленное только тогда. Решение, оставившее живого внука с открытым
+    stdout, EOF не даёт — «7» лежит в буфере, ``proc.wait()`` уже вернулся по
+    основному процессу, ``join(timeout=1.0)`` истекает, поток бросают, и sink
+    остаётся ПУСТЫМ. Верное решение получает ``WA`` с пустым ``Actual``.
+
+    То же исправление, что в ``LocalRunner`` (issue #952, RUN-4-01): там его
+    сделали, а в backend'ы песочницы не перенесли — и контракт паритета
+    ``--sandbox`` (issue #986) держался лишь до первого такого решения.
+    """
     try:
-        for chunk in iter(lambda: pipe.read(65536), b""):
+        for chunk in iter(lambda: pipe.read1(65536), b""):
             sink.append(chunk)
             on_chunk(len(chunk))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         pass
 
 
@@ -67,6 +77,10 @@ def _poll_memory(
     backstop ``RLIMIT_AS`` (см. ``_linux.py``); на macOS поллинг —
     единственная линия обороны.
     """
+    # issue #996 (JRN-1-01): пик публикуется СРАЗУ, а не одной строкой на
+    # выходе из функции. Выход наступает после `stop`, а `join` вызывающей
+    # стороны ограничен по времени: не успел поток — замер терялся целиком.
+    # В `LocalRunner` тот же порядок делал пик нулевым ВСЕГДА (см. runner.py).
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
@@ -75,16 +89,16 @@ def _poll_memory(
                 rss = sample_tree_rss(ps_proc)
                 if rss > peak:
                     peak = rss
+                    peak_result[0] = peak
                 if rss > max_memory_mb:
                     exceeded.set()
                     proc.kill()
                     break
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess:
                 break
             stop.wait(0.02)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
+    except psutil.NoSuchProcess, psutil.AccessDenied:
         pass
-    peak_result[0] = peak
 
 
 def build_minimal_env() -> dict[str, str]:
@@ -109,6 +123,19 @@ def build_minimal_env() -> dict[str, str]:
         # без ANSI-раскраски traceback'а (Python 3.13+).
         "PYTHON_COLORS": "0",
     }
+
+
+def _killed_by(returncode: int, sig: int) -> bool:
+    """Убит ли процесс сигналом ``sig`` (issue #986).
+
+    Две формы одного и того же: прямой потомок даёт отрицательный код
+    (``-SIGXCPU``), а процесс, запущенный через посредника вроде ``bwrap``, —
+    обычный ``128 + N``. Жёсткий ``RLIMIT_CPU`` шлёт ``SIGXCPU`` и следом
+    добивает ``SIGKILL``, поэтому оба варианта означают одно: квота исчерпана.
+    """
+    if returncode < 0:
+        return -returncode in {sig, signal.SIGKILL}
+    return returncode - 128 in {sig, signal.SIGKILL} if returncode > 128 else False
 
 
 def run_argv_with_limits(
@@ -310,7 +337,14 @@ def run_argv_with_limits(
     # на каждой ОС матрицы отдельно и без ignore здесь падал бы на
     # windows-latest.
     returncode = proc.returncode
-    if returncode is not None and returncode < 0 and -returncode == signal.SIGXCPU:  # type: ignore[attr-defined]
+    # issue #986 (SBX-3-01): сигнал ищется и в положительном коде. Прямой потомок
+    # отдаёт убийство сигналом как отрицательный код, но под изоляцией мы ждём
+    # bwrap — он переживает своего ребёнка и транслирует его гибель обычным
+    # кодом `128 + N` (SIGXCPU → 152, добитый следом SIGKILL → 137). Проверка
+    # смотрела только на отрицательные, поэтому исчерпание CPU-квоты не
+    # распознавалось ВООБЩЕ: ни таймаута, ни нарушения — «ненулевой код», то
+    # есть RE, «решение упало». Падала квота, а отвечало решение.
+    if returncode is not None and _killed_by(returncode, signal.SIGXCPU):  # type: ignore[attr-defined]
         return RunOutcome(
             sandbox_violation="cpu",
             elapsed=elapsed,

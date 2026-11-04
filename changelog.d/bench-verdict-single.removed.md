@@ -1,0 +1,1 @@
+Вердикт скорости считается в одной точке (`microbench_runner.classify_relative`); убраны имена без читателя вне тестов: `MicrobenchResult` и `apply_relative_micro` (третья копия вердикта со своими порогами 5 %/15 % вместо порогов конфига), `config._find_pyproject`, `RunProfile.isolated`, `list_by_status`/`list_by_tag` у провайдеров глоссария и правил (#1587)

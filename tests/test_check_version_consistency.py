@@ -4,8 +4,6 @@
 приёмом, что и test_version_script.py.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import subprocess
 import sys
@@ -32,7 +30,9 @@ def test_passes_on_current_repo() -> None:
 
 def test_cli_exits_zero() -> None:
     """`python scripts/check_version_consistency.py` завершается 0."""
-    result = subprocess.run([sys.executable, str(_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT)], capture_output=True, text=True, encoding="utf-8"
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -120,5 +120,87 @@ def test_skips_without_git_tags(monkeypatch, capsys) -> None:
     (pyproject на текущем репо динамический)."""
     module = _load_module()
     monkeypatch.setattr(module, "_latest_tag_baseline", lambda: None)
+    monkeypatch.delenv("CI", raising=False)
     assert module.main() == 0
     assert "SKIP" in capsys.readouterr().out
+
+
+class TestBaselineRequiredInCi:
+    """Гейт обязан падать там, где проверять было чем, но не вышло (issue #988)."""
+
+    def test_missing_baseline_in_ci_is_an_error(self, monkeypatch, capsys) -> None:
+        """В CI теги доступны (fetch-depth: 0) — их отсутствие означает поломку.
+
+        Прежде эта ветка печатала SKIP, затем «OK: versions consistent» и
+        выходила нулём: гейт зеленел ровно тогда, когда не проверил ничего,
+        кроме pyproject.
+        """
+        module = _load_module()
+        monkeypatch.setattr(module, "_latest_tag_baseline", lambda: None)
+        monkeypatch.setenv("CI", "true")
+
+        code = module.main()
+
+        assert code == 1
+        assert "OK: versions consistent" not in capsys.readouterr().out
+
+    @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes"])
+    def test_ci_flag_recognised(self, monkeypatch, value: str) -> None:
+        module = _load_module()
+        monkeypatch.setenv("CI", value)
+        assert module._baseline_is_required() is True
+
+    @pytest.mark.parametrize("value", ["", "0", "false", "no"])
+    def test_local_run_keeps_skip(self, monkeypatch, value: str) -> None:
+        """Локально сборка из sdist без истории по-прежнему не падает."""
+        module = _load_module()
+        monkeypatch.setenv("CI", value)
+        assert module._baseline_is_required() is False
+
+
+class TestHistoryMetricsRow:
+    """issue #1181: проверка переехала с `docs/use/versions.md` на `HISTORY.md`.
+
+    Форма изменилась вместе с местом: в прежнем документе релизы шли **колонками**
+    и хватало проверки «есть ли такая подстрока», а в `HISTORY.md` они строки
+    таблицы — и та же подстрока встречается ещё и в заголовке записи о релизе.
+    Проверка «где угодно» проходила бы на пустой таблице.
+    """
+
+    def _history(self, tmp_path, body: str, monkeypatch):
+        module = _load_module()
+        path = tmp_path / "HISTORY.md"
+        path.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(module, "_HISTORY", path)
+        return module
+
+    def test_row_present_is_silent(self, tmp_path, monkeypatch) -> None:
+        module = self._history(tmp_path, "| Релиз |\n|---|\n| v1.10.0 | 2295 |\n", monkeypatch)
+        warnings: list[str] = []
+
+        module._check_history_md((1, 10, 0), warnings)
+
+        assert warnings == []
+
+    def test_missing_row_warns(self, tmp_path, monkeypatch) -> None:
+        module = self._history(tmp_path, "| Релиз |\n|---|\n| v1.9.0 | 1600+ |\n", monkeypatch)
+        warnings: list[str] = []
+
+        module._check_history_md((1, 10, 0), warnings)
+
+        assert warnings and "v1.10.0" in warnings[0]
+
+    def test_heading_alone_is_not_a_row(self, tmp_path, monkeypatch) -> None:
+        """Заголовок записи о релизе — не строка таблицы.
+
+        Ровно этот случай прежняя проверка «tag in text» приняла бы за
+        заполненную таблицу и промолчала.
+        """
+        module = self._history(
+            tmp_path, "## v1.10.0 · 30 июля 2026 · тема\n\nтекст записи\n", monkeypatch
+        )
+        warnings: list[str] = []
+
+        module._check_history_md((1, 10, 0), warnings)
+
+        assert warnings and "v1.10.0" in warnings[0]

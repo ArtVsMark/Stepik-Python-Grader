@@ -1,0 +1,1 @@
+Список зелёных исходов проверок объявлен один раз — `gh_rest.OK_CONCLUSIONS`; копии в `check_pr_ready.py` и `ci_aggregate.py` удалены, `rerun_red_main.py` больше не обращается к приватному имени (#1527)

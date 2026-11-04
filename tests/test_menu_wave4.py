@@ -8,8 +8,7 @@
 подстроки локали en.json.
 """
 
-from __future__ import annotations
-
+import json
 from pathlib import Path
 
 import pytest
@@ -171,7 +170,7 @@ def test_web_menu_item_respects_explicit_off(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.chdir(tmp_path)
     user_settings.save_settings(
         user_settings.UserSettings(record_history=False),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     called: list[dict] = []
     monkeypatch.setattr(web, "run_server", lambda **k: called.append(k))
@@ -221,19 +220,53 @@ def test_history_toggle_on_persists(tmp_path: Path, monkeypatch, capsys) -> None
     cli._interactive_menu()
     out = capsys.readouterr().out
     assert "enabled" in out
-    settings = user_settings.load_settings(tmp_path / user_settings.SETTINGS_FILE_NAME)
+    settings = user_settings.load_settings(user_settings.default_settings_path(tmp_path))
     assert settings.record_history is True
 
 
 def test_history_toggle_off_persists(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    path = user_settings.default_settings_path(tmp_path)
     user_settings.save_settings(user_settings.UserSettings(record_history=True), path)
     inputs = iter(["7", "0"])
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()
     assert "disabled" in capsys.readouterr().out
     assert user_settings.load_settings(path).record_history is False
+
+
+def test_history_toggle_does_not_resurrect_revoked_consent(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """issue #997 (CNC-5-01/CNC-5-04): открытое меню воскрешало отозванное согласие.
+
+    Меню снимает снапшот настроек при запуске. Пока оно открыто, согласие на
+    отправку кода AI-провайдеру отзывают другим каналом (веб или
+    ``--revoke-ai-consent``) — и переключение тумблера истории возвращало на
+    диск весь снапшот, включая ``ai_hint_consent: true``.
+    """
+    monkeypatch.chdir(tmp_path)
+    path = user_settings.default_settings_path(tmp_path)
+    path.write_text(
+        json.dumps({"ai_hint_consent": True, "ai_hint_consent_endpoint": "http://ai"}),
+        encoding="utf-8",
+    )
+
+    inputs = iter(["7", "0"])
+
+    def _input_with_revocation(*_a):
+        value = next(inputs)
+        if value == "7":
+            # Момент между снапшотом меню и записью тумблера.
+            user_settings.save_fields(path, ai_hint_consent=None, ai_hint_consent_endpoint=None)
+        return value
+
+    monkeypatch.setattr("builtins.input", _input_with_revocation)
+    cli._interactive_menu()
+
+    settings = user_settings.load_settings(path)
+    assert settings.ai_hint_consent is None, "меню вернуло отозванное согласие на диск"
+    assert settings.record_history is True, "тумблер истории не сохранился"
 
 
 def test_history_toggle_save_failure_is_graceful(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -244,7 +277,7 @@ def test_history_toggle_save_failure_is_graceful(tmp_path: Path, monkeypatch, ca
     def _boom(*_a, **_k):
         raise OSError("read-only file system")
 
-    monkeypatch.setattr(user_settings, "save_settings", _boom)
+    monkeypatch.setattr(user_settings, "save_fields", _boom)
     inputs = iter(["7", "0"])
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()  # не должно упасть трейсбеком
@@ -299,7 +332,7 @@ def test_no_nudge_when_history_on(tmp_path: Path, monkeypatch, capsys) -> None:
     sol = _make_solution(tmp_path)
     user_settings.save_settings(
         user_settings.UserSettings(record_history=True),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     monkeypatch.setattr(cli, "run_tests", lambda *a, **k: _failing_result())
     inputs = iter(["1", str(sol), "0"])
@@ -459,7 +492,7 @@ def test_no_success_nudge_when_history_on(tmp_path: Path, monkeypatch, capsys) -
     sol = _make_solution(tmp_path)
     user_settings.save_settings(
         user_settings.UserSettings(record_history=True),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: False)
     inputs = iter(["1", str(sol), "1", str(sol), "1", str(sol), "0"])
@@ -624,3 +657,90 @@ def test_insights_flag_path_keeps_flag_wording() -> None:
     from stepik_grader.core.i18n import load_locale_messages
 
     assert "--history" in load_locale_messages("ru")["insights_no_data"]
+
+
+# ---------------------------------------------------------------------------
+# Меню говорит, что сделало — issue #997 (DES-2-08, JRN-1-05)
+# ---------------------------------------------------------------------------
+
+
+class TestProfileFallbackIsAnnounced:
+    """DES-2-08: неверный номер профиля не подменяется молча."""
+
+    def _ctx(self):
+        return cli._build_cli_context()
+
+    def test_bench_unknown_profile_says_so(self, monkeypatch, capsys):
+        monkeypatch.setattr("builtins.input", lambda *_a: "7")
+
+        repeats = interactive._ask_bench_profile(self._ctx())
+
+        out = capsys.readouterr().out
+        assert repeats == interactive._BENCH_PROFILES["2"]
+        assert "7" in out and "2" in out
+
+    def test_micro_unknown_profile_says_so(self, monkeypatch, capsys):
+        monkeypatch.setattr("builtins.input", lambda *_a: "9")
+
+        number = interactive._ask_micro_profile(self._ctx())
+
+        out = capsys.readouterr().out
+        assert number == interactive._MICRO_PROFILES["2"]
+        assert "9" in out
+
+    def test_valid_profile_is_silent(self, monkeypatch, capsys):
+        """Регрессия: правильный выбор не обрастает лишней строкой."""
+        ctx = self._ctx()
+        monkeypatch.setattr("builtins.input", lambda *_a: "3")
+
+        repeats = interactive._ask_bench_profile(ctx)
+
+        warning = ctx.t("profile_unknown_default_used", value="3", default="2")
+        assert repeats == interactive._BENCH_PROFILES["3"]
+        assert warning not in capsys.readouterr().out
+
+    def test_empty_input_keeps_default_without_warning(self, monkeypatch, capsys):
+        """Пустой ввод — это выбор дефолта, а не опечатка."""
+        ctx = self._ctx()
+        monkeypatch.setattr("builtins.input", lambda *_a: "")
+
+        repeats = interactive._ask_bench_profile(ctx)
+
+        warning = ctx.t("profile_unknown_default_used", value="", default="2")
+        assert repeats == interactive._BENCH_PROFILES["2"]
+        assert warning not in capsys.readouterr().out
+
+
+class TestInsightsNamesItsSource:
+    """JRN-1-05: раздел «Подучить» называет базу и окно, по которым считал."""
+
+    def test_source_line_printed_with_cards(self, tmp_path, monkeypatch, capsys):
+        from stepik_grader.core import history_recording, insights
+
+        db_path = tmp_path / "history.db"
+        card = insights.InsightCard(
+            key="runtime-error:KeyError",
+            category="failure",
+            status="active",
+            hits=3,
+            runs_considered=10,
+        )
+        monkeypatch.setattr(history_recording, "default_history_db_path", lambda *a, **k: db_path)
+        monkeypatch.setattr(insights, "learning_cards", lambda *a, **k: [card])
+
+        interactive._show_insights(cli._build_cli_context())
+
+        out = capsys.readouterr().out
+        assert str(db_path) in out, "не сказано, из какой базы взяты карточки"
+
+    def test_no_source_line_when_nothing_to_show(self, tmp_path, monkeypatch, capsys):
+        """Пустой раздел не должен обрастать технической шапкой."""
+        from stepik_grader.core import history_recording, insights
+
+        db_path = tmp_path / "history.db"
+        monkeypatch.setattr(history_recording, "default_history_db_path", lambda *a, **k: db_path)
+        monkeypatch.setattr(insights, "learning_cards", lambda *a, **k: [])
+
+        interactive._show_insights(cli._build_cli_context())
+
+        assert str(db_path) not in capsys.readouterr().out

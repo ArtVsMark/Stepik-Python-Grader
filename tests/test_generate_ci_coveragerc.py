@@ -4,8 +4,6 @@
 приёмом, что и test_check_docs_guardrails.py.
 """
 
-from __future__ import annotations
-
 import importlib.util
 import subprocess
 import sys
@@ -81,7 +79,10 @@ def test_main_writes_valid_coveragerc(tmp_path, monkeypatch) -> None:
     assert "src/stepik_grader/core/sandbox/_macos.py" in text
     assert "src/stepik_grader/core/sandbox/_posix_common.py" in text
     assert "src/stepik_grader/core/sandbox/_windows.py" not in text
-    assert "fail_under = 85" in text
+    assert "fail_under" not in text, (
+        "issue #954: порог задаётся флагом --cov-fail-under в шаге прогона. "
+        "В конфиге он применялся и к частичным запускам, делая их ложно-красными"
+    )
     assert "tests/*" in text  # base omit entry survives alongside the extra ones
 
 
@@ -107,7 +108,11 @@ def test_main_writes_base_omit_from_real_pyproject(monkeypatch) -> None:
 
 def _run_cli(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, str(_SCRIPT), *args], capture_output=True, text=True, cwd=_REAL_ROOT
+        [sys.executable, str(_SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        cwd=_REAL_ROOT,
+        encoding="utf-8",
     )
 
 

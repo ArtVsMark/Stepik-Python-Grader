@@ -26,12 +26,16 @@ keywords = [
     "sandbox",
     "glossary",
     "testing",
+    "pytest",
+    "cli",
+    "education",
+    "learn-python",
 ]
 # Уезжает в long_description дистрибутива КАК ЕСТЬ. Относительные ссылки PyPI не
 # переписывает — резолвит к pypi.org, поэтому README держит абсолютные адреса, а
 # следит за этим `scripts/check_docs_guardrails.check_pypi_readme_is_absolute`.
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 # Провенанс: без authors/urls связь «дистрибутив ↔ репозиторий» не выражена в
@@ -61,8 +65,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Education",
     "Topic :: Education :: Testing",
     "Topic :: Software Development :: Testing",
@@ -91,6 +94,11 @@ dev = [
     "pytest>=8.2",
     "pytest-cov>=5.0",
     "pytest-timeout>=2.3",
+    # Параллельный прогон набора: `pytest -n auto`. В `addopts` НЕ включён
+    # намеренно — тесты поднимают настоящие процессы, слушают порты и пишут в
+    # общие файлы, поэтому распараллеливание включается осознанно, когда нужен
+    # быстрый заход, а не по умолчанию для всех (в том числе для CI).
+    "pytest-xdist>=3.5",
     # issue #791: единственное место, где задаётся версия ruff — pre-commit
     # берёт его из окружения (`language: system`), а не ставит по своему `rev`.
     # Верхняя граница обязательна: минорный скачок ruff меняет и правила, и
@@ -99,9 +107,26 @@ dev = [
     # контрибьютора расходятся молча, в момент выхода релиза. Границу поднимать
     # осознанно, отдельным PR, прогнав `ruff format --check .` на всём дереве.
     "ruff>=0.16,<0.17",
-    "mypy>=1.10",
+    # issue #1349: у mypy механизм расхождения тот же и даже прямее — минорный
+    # релиз добавляет диагностику, и CI краснеет на НЕИЗМЕННОМ коде, в день
+    # выхода, у того, кто пересоздал окружение. Поверхность гарантированная:
+    # `[tool.mypy]` здесь со сниженной терпимостью (issue #441), а гейт гоняет
+    # `mypy src/stepik_grader scripts`. Границу поднимать так же осознанно, как
+    # у ruff: отдельным PR, прогнав весь набор.
+    "mypy>=2.3,<2.4",
     # issue #405: property-based тесты (parse_testblock_file, normalize_floats).
     "hypothesis>=6.0",
+    # issue #1349: почему `pytest`/`pytest-cov`/`pytest-xdist` НЕ пришпилены
+    # сверху, хотя соседи по списку — да. Верхняя граница здесь защищает от
+    # одного: инструмент меняет ВЕРДИКТ о неизменном коде. У ruff и mypy это
+    # ровно так — новое правило или новая диагностика краснеют на том же файле.
+    # Прогонные инструменты меняют не вердикт, а поведение прогона: сломанный
+    # релиз pytest валит набор целиком и шумно, в первом же прогоне, — это
+    # видно сразу и чинится подъёмом границы, а не разбором ложного красного.
+    # Отвергнутый вариант — пришпилить всё подряд: он делает окружение
+    # неподвижным и заставляет поднимать четыре границы там, где содержательно
+    # нужны две. Решение пересматривается, если прогонный инструмент хоть раз
+    # даст РАЗНЫЙ вердикт на одном коде.
 ]
 watch = [
     "watchfiles>=0.21,<2.0",
@@ -124,7 +149,7 @@ lint = [
 ]
 
 [project.scripts]
-stepik-grader = "stepik_grader.cli:main"
+stepik-grader = "stepik_grader.cli:run_cli"
 
 # issue #661: GUI-лаунчер веб-интерфейса без командной строки. gui-scripts (не
 # обычный scripts) — на Windows создаёт pythonw-exe БЕЗ консольного окна: двойной
@@ -156,6 +181,17 @@ where = ["src"]
 # единственным источником истины, зафиксированным в момент сборки sdist.
 [tool.setuptools_scm]
 version_scheme = "post-release"
+# issue #958: дерево без `.git` — не экзотика, а обычный способ получить
+# исходники: «Download ZIP» с GitHub, `git archive`, вендоренная копия, образ
+# с `.dockerignore` на `.git`. Без запасного значения setuptools-scm падает
+# `LookupError` ещё на `get_requires_for_build_wheel`, то есть пакет не
+# собирается вовсе, а сообщение ничего не говорит о причине.
+#
+# «0.0.0» выбрано намеренно как заведомо неправдоподобная версия: сборка
+# проходит, но число само сообщает «версия неизвестна, это не релиз».
+# Инвариант CLAUDE.md не нарушен — статической `version` в [project]
+# по-прежнему нет, git остаётся единственным источником истины там, где он есть.
+fallback_version = "0.0.0"
 
 # issue #101: PEP 561 — маркер py.typed, чтобы mypy у downstream-потребителей
 # видел типы установленного пакета. Достаточно на верхнем уровне пакета —
@@ -172,6 +208,7 @@ version_scheme = "post-release"
 [tool.setuptools.package-data]
 stepik_grader = [
     "py.typed",
+    "_build_info.json",
     "core/locales/*.json",
     "glossary/data/*.json",
     "rules/data/*.json",
@@ -183,7 +220,28 @@ stepik_grader = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+# Цели нет намеренно: ruff выводит её из `requires-python` (issue #1570).
+# Вписанная копия застывает при следующем подъёме планки и молча
+# разрешает синтаксис, которого младший поддерживаемый Python не знает.
+#
+# Исключения — код, который исполняет НЕ интерпретатор грейдера:
+# - три файла движка кода студента (эпик #1575: движок 3.12);
+# - хуки окна: их запускает системный python облачного образа (3.11);
+# - корневой `__init__` пакета: он отказывает словами под старым Python;
+# - точки входа гейтов и проверка версии (`_require_python.py` и зовущие):
+#   отказ «нужен Python X» печатается ПОСЛЕ разбора файла, и синтаксис новее
+#   старого интерпретатора превратил бы его в `SyntaxError` (issue #1507).
+# Компилирует их соответствующими версиями шаг `static` в ci.yml.
+[tool.ruff.per-file-target-version]
+"src/stepik_grader/__init__.py" = "py39"
+"scripts/_require_python.py" = "py39"
+"scripts/preflight.py" = "py39"
+"scripts/gh_rest.py" = "py39"
+"scripts/check_pr_ready.py" = "py39"
+"src/stepik_grader/core/tracer.py" = "py312"
+"src/stepik_grader/core/wrapper_builder.py" = "py312"
+"src/stepik_grader/core/sandbox/_posix_bootstrap.py" = "py312"
+".claude/hooks/*.py" = "py311"
 
 [tool.ruff.lint]
 # issue #443: PTH (только pathlib, инвариант CLAUDE.md), SIM105/SIM115
@@ -226,7 +284,7 @@ convention = "google"
 # ошибки [attr-defined] на untyped-стабах сторонних либ (psutil/requests/
 # ctypes) — их не берём, чтобы не плодить # type: ignore на границе.
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 ignore_missing_imports = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
@@ -290,8 +348,9 @@ scripts = [
 # generates a CI-only `.coveragerc.ci` (scripts/generate_ci_coveragerc.py)
 # that layers on top of THIS list, omitting only the core/sandbox/ backend
 # files structurally unreachable on that job's own OS -- so that job's own
-# `fail_under` gate below isn't dragged down by platforms it can never
-# exercise (ubuntu measured ~86.1%, ~1pp margin, before this). The
+# `--cov-fail-under` gate (declared in the CI step, issue #954) isn't dragged
+# down by platforms it can never exercise (ubuntu measured ~86.1%, ~1pp
+# margin, before this). The
 # `coverage-combine` job (cross-OS aggregate, `--fail-under=90`) does NOT use
 # `.coveragerc.ci` and keeps reading this exact list, so the combined number
 # stays a true aggregate -- no sandbox file is omitted from every job at once.
@@ -311,12 +370,44 @@ omit = [
     # pytester в tests/test_pytest_plugin.py). Измерять его coverage бессмысленно
     # — число было бы артефактом порядка загрузки, а не реальным пробелом.
     "src/stepik_grader/pytest_plugin.py",
+    # issue #976: разовые тулзы мейнтейнера — из измерения исключены, но
+    # `scripts/` в целом остаётся в контуре (инвариант issue #790 про релизный
+    # конвейер продолжает действовать).
+    #
+    # Граница между списками одна: **что ломается у пользователя, если скрипт
+    # сломан**. Гейты и конвейер (check_*, generate_*_badge, combine_coverage,
+    # extract_release_notes, preflight, check_pr_ready, collect_changelog) —
+    # ломают релиз или пропускают дефект в продукт, поэтому меряются. Файлы
+    # ниже запускает вручную мейнтейнер, их поломка видна ему же в тот же
+    # момент, и никакой пользователь её не увидит. Измерение заставляло писать
+    # под них тесты ради процента: 4349 из 7263 LOC `scripts/` (около 60%) не
+    # вызываются ни одним шагом workflow.
+    #
+    # Новый скрипт по умолчанию МЕРЯЕТСЯ — сюда он попадает только осознанно.
+    "scripts/check_contrast.py",
+    "scripts/check_work_overlap.py",
+    "scripts/corpus_fetch.py",
+    "scripts/corpus_mutations.py",
+    "scripts/corpus_run.py",
+    "scripts/corpus_sweep.py",
+    "scripts/perf_baseline.py",
+    "scripts/skip_inventory.py",
     "tests/*",
     "conftest.py",
 ]
 
 [tool.coverage.report]
-fail_under = 85
+# issue #954: порога здесь НЕТ намеренно. `addopts` включает `--cov`
+# безусловно, поэтому `fail_under` в конфиге превращал любой частичный прогон
+# (`pytest tests/test_packaging.py`, `pytest -k ...`) в ложно-красный: тесты
+# зелёные, покрытие пакета по паре файлов — 0%, код возврата 1. Читающий exit
+# code — контрибьютор, агент или скрипт — делает вывод «тесты упали» и чинит
+# несуществующую поломку.
+#
+# Гейт не отменён, а перенесён туда, где прогон заведомо полный: флаг
+# `--cov-fail-under` в шаге `Run tests` (.github/workflows/ci.yml) и
+# `--fail-under 90` в `coverage-combine`. Что порог не исчез из CI молча,
+# следит `scripts/check_workflow_guardrails.py`.
 exclude_lines = [
     "if __name__ == .__main__.:",
     "pragma: no cover",

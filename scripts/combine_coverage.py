@@ -21,19 +21,24 @@ privileged-контейнера ТИХО скипало весь cross-OS gate 9
 
     python scripts/combine_coverage.py \
         --artifacts coverage-artifacts --fail-under 90 \
-        --require ubuntu-latest --require windows-latest \
+        --require ubuntu-26.04 --require windows-latest \
         --require macos-latest --require sandbox-linux
 """
 
-from __future__ import annotations
-
 import argparse
+import contextlib
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 import coverage
+
+# issue #1394: консоль Windows работает в cp1251/cp866, и печать символов вне
+# этой кодировки роняет скрипт `UnicodeEncodeError` прямо в CI-джобе.
+for _stream in (sys.stdout, sys.stderr):
+    with contextlib.suppress(AttributeError, ValueError, OSError):
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 __all__ = [
     "discover_coverage_files",
@@ -44,7 +49,7 @@ __all__ = [
 ]
 
 # ``coverage combine`` ищет файлы вида ``.coverage.<suffix>``; артефакты матрицы —
-# ``.coverage.<os>`` (ubuntu-latest/windows-latest/macos-latest) и
+# ``.coverage.<os>`` (ubuntu-26.04/windows-latest/macos-latest) и
 # ``.coverage.sandbox-linux`` (issue #283/#420).
 _COVERAGE_PREFIX = ".coverage."
 

@@ -7,8 +7,6 @@
 один, без дублирования.
 """
 
-from __future__ import annotations
-
 import pathlib
 
 from stepik_grader.cli.commands import build_failure_context as cli_builder

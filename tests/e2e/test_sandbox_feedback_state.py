@@ -16,8 +16,6 @@ prefilled-URL прежнего черновика.
 Не входит в обычный ``pytest tests/`` — см. ``tests/e2e/conftest.py``.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any
 
@@ -61,7 +59,7 @@ def test_failed_cancel_returns_the_button(page: Any, e2e_server: str) -> None:
 
     _open_sandbox(page, e2e_server)
     page.click("#sandbox-editor .cm-content")
-    page.keyboard.type("print(1)")
+    page.keyboard.insert_text("print(1)")
     page.click("#sandbox-run")
 
     cancel = page.locator("#sandbox-cancel")
@@ -124,3 +122,22 @@ def test_stale_link_is_dropped_while_the_draft_is_rebuilt(page: Any, e2e_server:
     page.click('[data-fbkind="idea"]')
     expect(link).to_have_attribute("aria-disabled", "true", timeout=_TIMEOUT_MS)
     assert link.get_attribute("href") is None
+
+
+def test_the_preview_is_open_before_any_click(page: Any, e2e_server: str) -> None:
+    """ADD-4-02: «что уйдёт» видно сразу, а не по любопытству пользователя.
+
+    Контракт приватности обещает показать поля ДО отправки. Свёрнутый по
+    умолчанию блок выполняет обещание формально: не нажал — не увидел, и
+    человек жмёт «Открыть GitHub», так и не увидев, что уходит. Раскрытый
+    закрывается одним кликом; свёрнутый требует клика, чтобы обещание вообще
+    сработало.
+    """
+    _route_draft(page)
+    _open_feedback(page, e2e_server)
+
+    body = page.locator("#feedback-preview-body")
+    expect(body).to_be_visible(timeout=_TIMEOUT_MS)
+    # Именно содержимое, а не пустая раскрытая рамка: пустой блок обещание
+    # выполняет так же формально, как и свёрнутый.
+    expect(body).to_contain_text("черновик", timeout=_TIMEOUT_MS)

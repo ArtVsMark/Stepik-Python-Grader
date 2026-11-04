@@ -212,7 +212,19 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 ::selection { background: oklch(from var(--color-primary) l c h / 0.22); color: var(--color-text); }
 :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; border-radius: var(--radius-sm); }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  /* issue #970 (DES-1-02): без `animation-iteration-count` короткая
+     длительность бесконечную анимацию не останавливает, а ПЕРЕЗАПУСКАЕТ каждый
+     кадр — .skeleton и .progress-indeterminate объявлены с `infinite`, и
+     0.01ms × infinite давало строб. То есть настройка, включённая по
+     медицинским причинам, выдавала ровно то, от чего человек защищается.
+     `scroll-behavior` сбрасывается здесь же: плавная прокрутка — тоже движение. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  html { scroll-behavior: auto; }
 }
 a, button, [role="button"] {
   transition: color var(--transition-interactive), background var(--transition-interactive),
@@ -426,8 +438,48 @@ a.btn { text-decoration: none; }
 .data-table tbody tr:hover { background: var(--color-surface-offset); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table .mono { font-family: var(--font-mono); }
-.data-table .file-cell { cursor: pointer; }
-.data-table .file-cell:hover { text-decoration: underline; }
+/* issue #1212: ключ шага под названием задачи. Он нужен — иначе одноимённые
+   папки из разных курсов неразличимы, — но за внимание с именем не спорит.
+   Размер относительный, а не токеном: таблица сама уже на `--text-xs`, и токен
+   здесь ничего не изменил бы (проверено в браузере), а отдельная ступень
+   «мельче xs» ради одной подписи в системе не нужна. */
+.data-table .task-key { font-family: var(--font-mono); font-size: 0.9em; color: var(--color-text-muted); }
+/* issue #922 (FE-3-05): запасное поле ввода, когда бандл редактора не
+   загрузился. Вид — как у редактора, чтобы разница читалась как «нет
+   подсветки», а не как «страница сломалась». */
+.plain-editor {
+  width: 100%;
+  min-height: 240px;
+  box-sizing: border-box;
+  background: transparent;
+  border: 0;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+.plain-editor:focus { outline: none; }
+.plain-editor-note { margin: 0; padding: var(--space-2) var(--space-3); }
+
+/* issue #922 (FE-3-02): раскрытие строки и выбор кейса — кнопки, а не
+   кликабельные ячейки. Кнопка даёт клавиатуру и роль даром; вид остаётся
+   прежним — «как текст в таблице», иначе правка доступности выглядела бы
+   сменой оформления. */
+.row-toggle,
+.case-pick {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row-toggle:hover,
+.case-pick:hover { text-decoration: underline; }
 .verdict-similar { color: var(--color-success); font-weight: 600; }
 .verdict-slower  { color: var(--color-warning); font-weight: 600; }
 .verdict-faster  { color: var(--color-primary); font-weight: 600; }
@@ -622,6 +674,12 @@ select.form-input { cursor: pointer; }
 .errcard.severity-error { border-left-color: var(--color-error); background: var(--color-error-highlight); }
 .errcard-ex { font-weight: 600; }
 .errcard a { color: var(--color-primary); }
+/* issue #921 (находка DES-1-04): ссылка без собственного правила берёт цвет из
+   UA-таблицы браузера (#0000EE). На светлой теме это ещё читается, на тёмной —
+   2.01:1, то есть текст, которого почти не видно. Поймано измерением в
+   браузере: статический гейт про такую ссылку не узнаёт в принципе — он
+   сторожит токены, а здесь не использован ни один. */
+.empty-state a { color: var(--color-primary); }
 .msg { color: var(--color-error); margin-top: var(--space-4); }
 /* issue #296: cancelled run is not a failure -- neutral tone, not error red. */
 .msg-neutral { color: var(--color-text-muted); margin-top: var(--space-4); }
@@ -639,6 +697,10 @@ select.form-input { cursor: pointer; }
 .single-pane > .split-pane-panel { border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .auth-state { font-weight: 500; }
 .auth-state-warn { color: var(--color-warning); }
+/* issue #1213: причина отказа стоит НАД развилкой «мастер / готовый файл» —
+   иначе выбор предлагается раньше, чем сказано, из-за чего он возник. */
+.auth-problem { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  margin-bottom: var(--space-3); }
 .auth-choice .row { gap: var(--space-3); }
 .config-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text); }
 .config-label { color: var(--color-text-muted); }
@@ -679,12 +741,23 @@ select.form-input { cursor: pointer; }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
+  /* issue #970 (DES-1-01): на узком экране прокручивается ДОКУМЕНТ, а не
+     внутренняя область. Десктопная раскладка держит единственный скролл в
+     .panel-body, и это работает, пока у ряда grid есть определённая высота.
+     При `height: auto` ряд `1fr` резолвится по max-content, `flex: 1` внутри
+     теряет опору — а `body { overflow: hidden }` сверху блокирует и прокрутку
+     документа. Итог: на телефоне контент под сгибом недоступен вовсе, и
+     расширить окно человеку нечем. Поэтому здесь скролл отдаётся документу, а
+     `overflow: hidden` снимается со всей цепочки, а не только с оболочки. */
+  body { overflow: auto; }
   .app-shell {
     grid-template-columns: 1fr;
-    grid-template-rows: var(--topbar-h) auto 1fr;
+    grid-template-rows: var(--topbar-h) auto auto;
     grid-template-areas: "topbar" "sidebar" "main";
-    height: auto; overflow: auto;
+    height: auto; min-height: 100dvh; overflow: visible;
   }
+  .main, .main-view { overflow: visible; }
+  .panel-body { overflow-y: visible; }
   .sidebar { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--color-border); max-height: 52px; }
   .sidebar-section { display: flex; flex-direction: row; align-items: center; gap: var(--space-1); padding: var(--space-2); }
   .sidebar-label, .sidebar-badge { display: none; }
@@ -1117,3 +1190,81 @@ textarea.feedback-input { min-height: 72px; resize: vertical; }
 /* Ссылки без href (черновик ещё не собран или не собрался) не должны выглядеть
    и вести себя как рабочие. */
 .feedback-actions [aria-disabled="true"] { opacity: .55; pointer-events: none; }
+
+/* ── УСЛОВИЕ ЗАДАЧИ (issue #1178) ──
+   Шире остальных модалок: в условии таблицы примеров и иллюстрации, в ширину
+   диалога согласия (560px) они не помещаются. Прокрутка — ВНУТРИ окна, чтобы
+   страница под ним не смещалась при длинном условии. Цвета только на токенах,
+   поэтому тёмная тема работает без отдельных правил. */
+.modal.statement {
+  width: min(860px, 94vw); max-height: 80vh; display: flex; flex-direction: column;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+.statement-head { display: flex; align-items: flex-start; gap: var(--space-2); flex: 0 0 auto; }
+.statement-head h2 { margin: 0; font-size: var(--text-lg); }
+.statement-head > div { flex: 1; min-width: 0; }
+.statement-crumbs { margin: 0 0 var(--space-1); color: var(--color-text-muted); font-size: var(--text-sm); }
+.statement-body { flex: 1 1 auto; overflow-y: auto; margin-top: var(--space-3); line-height: 1.6; }
+.statement-body > :first-child { margin-top: 0; }
+.statement-body img { max-width: 100%; height: auto; }
+.statement-body pre {
+  background: var(--color-surface-offset); border: 1px solid var(--color-border);
+  border-radius: var(--radius-md); padding: var(--space-3); overflow-x: auto;
+}
+.statement-body code { font-family: var(--font-mono); font-size: 0.92em; }
+/* Таблица примеров — единственное, что реально приезжает из условия шире окна;
+   прокручивается сама, не растягивая диалог. */
+.statement-body table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; }
+.statement-body th, .statement-body td {
+  border: 1px solid var(--color-border); padding: var(--space-2) var(--space-3); text-align: left;
+}
+.statement-body th { background: var(--color-surface-offset); }
+.statement-body blockquote {
+  margin: var(--space-3) 0; padding-left: var(--space-3);
+  border-left: 3px solid var(--color-border); color: var(--color-text-muted);
+}
+.statement-attachments {
+  flex: 0 0 auto; margin-top: var(--space-3); padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border); font-size: var(--text-sm);
+}
+.statement-attachments ul { margin: var(--space-1) 0 0; padding-left: var(--space-4); }
+/* Не приехавшее вложение помечается словом, а не только цветом: цвет один в
+   один не читается при дальтонизме и не озвучивается скринридером. */
+.statement-missing { color: var(--color-error); }
+
+/* ── НАВИГАЦИЯ ПО СКАЧАННЫМ ЗАДАЧАМ (issue #1179) ──
+   Панель — альтернатива вводу пути, а не замена: поле пути остаётся на месте.
+   Цвета только на токенах, поэтому тёмная тема работает без отдельных правил. */
+.nav-panel { margin-bottom: var(--space-3); }
+.nav-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.nav-level { width: auto; flex: 0 0 auto; }
+.nav-counter { color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
+.nav-context {
+  margin: var(--space-2) 0 0; color: var(--color-text-muted); font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.nav-list {
+  list-style: none; margin: var(--space-2) 0 0; padding: 0;
+  max-height: 320px; overflow-y: auto;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.nav-list li {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); cursor: pointer;
+  border-bottom: 1px solid var(--color-divider); font-size: var(--text-sm);
+}
+.nav-list li:last-child { border-bottom: none; }
+.nav-list li:hover { background: var(--color-surface-offset); }
+.nav-list li.active { background: var(--color-primary-highlight); font-weight: 600; }
+.nav-status { flex: 0 0 auto; color: var(--color-text-muted); white-space: nowrap; }
+/* Статус назван словом, а не только цветом: цвет не читается при дальтонизме
+   и не озвучивается скринридером. Цвет здесь — усиление, а не носитель смысла. */
+.nav-status-solved { color: var(--color-success); }
+.nav-status-in_progress { color: var(--color-warning); }
+
+@media (max-width: 768px) {
+  /* Стрелки не прячутся никогда — они и есть основной способ листать. */
+  .nav-context { display: none; }
+  .nav-counter { font-size: var(--text-sm); }
+  .nav-list { max-height: 240px; }
+}

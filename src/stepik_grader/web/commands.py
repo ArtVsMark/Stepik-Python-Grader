@@ -12,8 +12,6 @@
 плагинов команд (out of scope здесь) можно расширить.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 __all__ = ["COMMANDS", "filter_commands"]

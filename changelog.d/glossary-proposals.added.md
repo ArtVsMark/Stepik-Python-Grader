@@ -1,0 +1,1 @@
+Обратный канал в Glossary-Python: `.glossary/proposals.json` с предложениями к содержанию глоссария (синтаксис и модули stdlib без карточки, встроенные имена, id ≠ имени) собирает `scripts/glossary_proposals.py` по встроенной копии (#1623)

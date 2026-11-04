@@ -18,8 +18,7 @@
   прогоны и считать эту метрику по остатку значит занижать её (issue #819).
 """
 
-from __future__ import annotations
-
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -31,22 +30,35 @@ __all__ = [
     "DEFAULT_ACTIVE_T",
     "DEFAULT_CLEAN_K",
     "DEFAULT_WINDOW_N",
+    "MIN_REVISITS",
     "CardStatus",
     "InsightCard",
+    "RevisitedTopic",
     "TaskProgress",
     "achievement_badges",
     "classify_status",
     "current_streak",
     "failure_kind",
     "learning_cards",
+    "revisited_topics",
     "time_to_first_green",
     "violated_rule_codes",
 ]
 
 # Пороги затухания по умолчанию (переопределяются из [tool.stepik-grader]):
-DEFAULT_WINDOW_N = 10  # окно последних N прогонов
+DEFAULT_WINDOW_N = 10  # окно последних N прогонов НА ОДНУ активную задачу
 DEFAULT_ACTIVE_T = 2  # ключ активен при ≥T попаданиях в окне
 DEFAULT_CLEAN_K = 3  # ≥K чистых прогонов подряд → архив
+
+# issue #972 (PROD-2-05): сколько активных задач учитывать при расширении окна.
+# База истории одна на пользователя, поэтому окно «Подучить» общее: студент
+# учится вообще, а не в одной задаче, и карточка `KeyError` осмысленна поперёк
+# задач. Но при фиксированных десяти прогонах на всю базу три чистых прогона
+# СОСЕДНЕЙ задачи выталкивали неисправленную ошибку в архив — она исчезала из
+# «Подучить», хотя решение не менялось. Поэтому окно масштабируется числом
+# задач, по которым в базе вообще есть прогоны; потолок не даёт ему вырасти в
+# полное чтение истории на большой базе.
+_WINDOW_TASKS_CAP = 20
 
 CardStatus = Literal["active", "fading", "archived", "watch"]
 
@@ -168,6 +180,9 @@ class TaskProgress:
     solved: bool
     total_runs: int
     seconds_to_first_ac: float | None = None
+    # issue #990: имя папки задачи. Ключ — идентификатор шага (`step:<id>`), его
+    # показывать нельзя: человек ищет задачу по названию, а не по номеру.
+    display_name: str | None = None
 
 
 def _is_bench_run(run: dict[str, Any]) -> bool:
@@ -234,6 +249,7 @@ def time_to_first_green(db_path: Path, *, limit: int = 1000) -> list[TaskProgres
         progress.append(
             TaskProgress(
                 task_key=row.get("task_key") or "",
+                display_name=row.get("display_name") or None,
                 attempts=int(attempts) if attempts is not None else total_runs,
                 solved=attempts is not None,
                 total_runs=total_runs,
@@ -296,6 +312,79 @@ def violated_rule_codes(db_path: Path, *, limit: int = DEFAULT_WINDOW_N) -> set[
     }
 
 
+def _scaled_window(db_path: Path, per_task: int) -> int:
+    """Глубина общего окна «Подучить»: ``per_task`` × число задач (issue #972).
+
+    Число задач берётся из агрегата ``task_progress`` — он монотонен и не
+    зависит от retention, поэтому не занижает окно у активного пользователя.
+    Потолок ``_WINDOW_TASKS_CAP`` не даёт окну выродиться в полное чтение
+    истории: на базе из сотни задач это была бы уже не выборка последних
+    прогонов, а полный скан на каждый вызов раздела.
+
+    Ошибка чтения агрегата — не повод падать: возвращаем прежнее окно
+    (``per_task``), как и при единственной задаче.
+    """
+    try:
+        tasks = len(history.read_task_progress(db_path, limit=_WINDOW_TASKS_CAP))
+    except Exception:  # pragma: no cover - best-effort, как весь модуль истории
+        tasks = 1
+    return per_task * max(1, min(tasks, _WINDOW_TASKS_CAP))
+
+
+#: С какого числа переходов тема считается «возвращаются»: один переход — это
+#: любопытство или случайный клик, повтор — признак, что тема не далась
+#: (issue #1608).
+MIN_REVISITS = 2
+
+
+@dataclass(frozen=True)
+class RevisitedTopic:
+    """Карточка глоссария, в которую раз за разом приходят из своих ошибок (issue #1608).
+
+    ``error_class`` — самый частый класс ошибки, из которой приходили: он
+    объясняет, ПОЧЕМУ тема всплывает. ``last_ts`` — последний переход.
+    """
+
+    card_id: str
+    hits: int
+    last_ts: str
+    error_class: str | None = None
+
+
+def revisited_topics(
+    db_path: Path, *, min_hits: int = MIN_REVISITS, limit: int = 1000
+) -> list[RevisitedTopic]:
+    """Темы «Подучить» по повторным переходам из ошибки в глоссарий (issue #1608).
+
+    Переходы пишет UI (``POST /api/glossary/hit``) в таблицу ``glossary_hits``.
+    Одиночный переход рекомендации не даёт — нужен повтор (``min_hits``).
+    Порядок: чаще — выше, при равенстве — свежее выше. Пустая история → ``[]``.
+    """
+    hits = history.read_glossary_hits(db_path, limit=limit)
+    by_card: dict[str, list[dict[str, Any]]] = {}
+    for hit in hits:
+        card_id = str(hit.get("card_id") or "")
+        if card_id:
+            by_card.setdefault(card_id, []).append(hit)
+    topics: list[RevisitedTopic] = []
+    for card_id, rows in by_card.items():
+        if len(rows) < min_hits:
+            continue
+        classes = Counter(str(r["error_class"]) for r in rows if r.get("error_class"))
+        topics.append(
+            RevisitedTopic(
+                card_id=card_id,
+                hits=len(rows),
+                # read_glossary_hits отдаёт новые первыми.
+                last_ts=str(rows[0].get("ts_utc") or ""),
+                error_class=classes.most_common(1)[0][0] if classes else None,
+            )
+        )
+    topics.sort(key=lambda topic: topic.last_ts, reverse=True)
+    topics.sort(key=lambda topic: topic.hits, reverse=True)
+    return topics
+
+
 def learning_cards(
     db_path: Path,
     *,
@@ -313,17 +402,30 @@ def learning_cards(
 
     Пустая история → ``[]`` (не ошибка). Ключи сортируются: сначала failure,
     потом lint, внутри — по ключу, для стабильного вывода.
+
+    **Окно общее, но масштабируется числом задач** (issue #972, PROD-2-05).
+    ``n`` — это глубина на ОДНУ активную задачу: база истории одна на
+    пользователя, и при фиксированных десяти прогонах на всю базу три чистых
+    прогона соседней задачи выталкивали неисправленную ошибку в архив. Карточка
+    исчезала из «Подучить», хотя решение не менялось. Окно осталось общим
+    намеренно — ошибка вроде ``KeyError`` осмысленна поперёк задач, — но теперь
+    его хватает, чтобы работа над одной задачей не стирала историю другой.
     """
-    runs = history.read_recent_runs(db_path, limit=n)
+    runs = history.read_recent_runs(db_path, limit=_scaled_window(db_path, n))
     if not runs:
         return []
     # read_recent_runs отдаёт новые первыми — разворачиваем в хронологию.
     chronological = list(reversed(runs))
 
     per_run_keys: list[set[str]] = []
+    per_run_task: list[str] = []
     category: dict[str, Literal["failure", "lint"]] = {}
     glossary_ref: dict[str, str | None] = {}
+    # issue #972 (PROD-2-05): задачи, в которых ключ вообще встречался. Затухание
+    # считается по ним, а не по всей базе — см. комментарий у `flags` ниже.
+    key_tasks: dict[str, set[str]] = {}
     for run in chronological:
+        per_run_task.append(str(run.get("task_key") or ""))
         keys: set[str] = set()
         for case in run.get("cases", []):
             fk = case.get("failure_kind")
@@ -337,10 +439,24 @@ def learning_cards(
                 keys.add(code)
                 category[code] = "lint"
         per_run_keys.append(keys)
+        for key in keys:
+            key_tasks.setdefault(key, set()).add(per_run_task[-1])
 
     cards: list[InsightCard] = []
     for key in sorted(category, key=lambda kk: (category[kk] != "failure", kk)):
-        flags = [key in run_keys for run_keys in per_run_keys]
+        # issue #972 (PROD-2-05): последовательность строится по прогонам ТЕХ
+        # задач, где ключ встречался. Карточка остаётся общей — ошибка вроде
+        # `KeyError` осмысленна поперёк задач, — но «чистая серия» набирается
+        # только там, где ошибка была. Иначе три чистых прогона СОСЕДНЕЙ задачи
+        # уводили в архив неисправленную ошибку: она исчезала из «Подучить»,
+        # хотя решение не менялось и по-прежнему падало. Размер окна тут не
+        # спасал — хвост окна всё равно оказывался чужим.
+        relevant = key_tasks.get(key, set())
+        flags = [
+            key in run_keys
+            for run_keys, task in zip(per_run_keys, per_run_task, strict=True)
+            if task in relevant
+        ]
         status = classify_status(flags, n=n, t=t, k=k)
         if status == "archived" and not include_archived:
             continue

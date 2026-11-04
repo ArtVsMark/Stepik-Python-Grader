@@ -24,8 +24,6 @@ ephemeral port), just with a real browser navigating to it instead of
 ``urllib``.
 """
 
-from __future__ import annotations
-
 import os
 import threading
 from collections.abc import Iterator
@@ -37,18 +35,47 @@ import pytest
 from stepik_grader.core import user_settings
 from stepik_grader.web import server as web_server
 
+from ._helpers import REQUIRE_E2E_ENV, executed_beyond_guards
+
 __all__: list[str] = []
+
+_EXECUTED: set[str] = set()
+"""nodeid'ы тестов, у которых реально выполнилось тело (не setup, не пропуск)."""
+
+
+def _guard_enabled() -> bool:
+    """Жёсткий режим: пропуск набора обязан стать отказом (job ``e2e`` в CI)."""
+    return bool(os.environ.get(REQUIRE_E2E_ENV))
+
+
+def load_sync_api() -> Any:
+    """``playwright.sync_api``: жёстко под флагом, мягким пропуском без него.
+
+    Без ``STEPIK_REQUIRE_E2E_TESTS`` отсутствие пакета — чистый пропуск: extra
+    опциональный (``pip install -e ".[e2e]"``), и разработчик без него не должен
+    получать красный прогон.
+
+    С переменной импорт **жёсткий** (issue #921, находка `QA-2-03`). Прежде
+    ``importorskip`` стоял безусловно, и сломанное окружение пропускало заодно
+    сами guard'ы — те, что заведены ровно для этого случая: фикстура
+    отрабатывает раньше, чем тело теста успевает проверить флаг, поэтому
+    «playwright сломан» выглядело как «guard пропущен», то есть как норма.
+
+    Отдельной функцией, а не строкой в фикстуре: фикстуру нельзя вызвать
+    напрямую, а решение о жёсткости обязано проверяться в обычном прогоне —
+    в том, где браузера нет.
+    """
+    if _guard_enabled():
+        import playwright.sync_api as sync_api
+
+        return sync_api
+    return pytest.importorskip("playwright.sync_api")
 
 
 @pytest.fixture(scope="session")
 def playwright_instance() -> Iterator[Any]:
-    """One ``sync_playwright()`` context for the whole test session.
-
-    Skips the whole e2e suite (instead of erroring) if ``playwright`` isn't
-    installed -- it's an opt-in dev-extra (``pip install -e ".[e2e]"``).
-    """
-    sync_api = pytest.importorskip("playwright.sync_api")
-    with sync_api.sync_playwright() as p:
+    """One ``sync_playwright()`` context for the whole test session."""
+    with load_sync_api().sync_playwright() as p:
         yield p
 
 
@@ -68,16 +95,35 @@ def browser(playwright_instance: Any) -> Iterator[Any]:
     browser.close()
 
 
-@pytest.fixture
-def page(browser: Any) -> Iterator[Any]:
-    """A fresh browser context + page per test -- isolated ``localStorage``.
+#: Каталог трейсов Playwright (issue #1582). Задан — у каждого теста пишется
+#: трейс, а сохраняется только у упавшего: на CI e2e падает «каждый раз другим
+#: тестом», и без трейса причина остаётся догадкой. Не задан (локально) —
+#: трейсинг не включается вовсе и прогон не дорожает.
+TRACE_DIR_ENV = "E2E_TRACE_DIR"
 
-    Плюс (issue #804): непойманное исключение в странице роняет тест. Раньше
-    оно было невидимым — падал только косвенный симптом (раздел не открылся), а
-    первопричину (``TypeError`` в обработчике) приходилось искать вручную.
-    Тест, которому ошибка нужна по замыслу, глушит её ``page_errors.clear()``.
+#: Флаг «уведомление об истории уже видели» — тот же ключ, что ставит кнопка
+#: «Понятно» (`maybeShowHistoryNotice` в `app.js`).
+_HISTORY_NOTICE_SEEN = "localStorage.setItem('grader_history_notice_seen', '1');"
+
+
+def _open_page(
+    browser: Any, *, history_notice_seen: bool, node: pytest.Item | None = None
+) -> Iterator[Any]:
+    """Свежий контекст и страница; непойманная ошибка JS роняет тест (issue #804).
+
+    ``history_notice_seen`` (issue #1582): уведомление об истории — карточка с
+    ``position: fixed`` в правом нижнем углу, и пока её не закрыли, она
+    перехватывает клики по всему, что под ней. В чистом ``localStorage`` она
+    всплывает в КАЖДОМ тесте, и попадёт ли под неё строка таблицы, решает
+    раскладка: в CI это мигание «через раз», локально — стабильное падение.
+    Флаг ставится до загрузки страницы, на каждой навигации.
     """
     context = browser.new_context()
+    trace_dir = os.environ.get(TRACE_DIR_ENV)
+    if trace_dir:
+        context.tracing.start(screenshots=True, snapshots=True)
+    if history_notice_seen:
+        context.add_init_script(_HISTORY_NOTICE_SEEN)
     pg = context.new_page()
     errors: list[str] = []
     # `stack` есть у Error из страницы — без него в отчёте остаётся один текст
@@ -85,8 +131,50 @@ def page(browser: Any) -> Iterator[Any]:
     pg.on("pageerror", lambda exc: errors.append(getattr(exc, "stack", None) or str(exc)))
     pg.page_errors = errors  # доступ из теста: разрешить ожидаемую ошибку
     yield pg
+    if trace_dir:
+        _finish_trace(context, Path(trace_dir), node)
     context.close()
     assert not errors, "непойманные ошибки JS на странице:\n" + "\n".join(errors)
+
+
+def _finish_trace(context: Any, trace_dir: Path, node: pytest.Item | None) -> None:
+    """Сохранить трейс упавшего теста, у прошедшего — выбросить (issue #1582)."""
+    report = getattr(node, "rep_call", None)
+    if node is None or report is None or not report.failed:
+        context.tracing.stop()
+        return
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    name = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in node.nodeid)
+    context.tracing.stop(path=str(trace_dir / f"{name}.zip"))
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> Iterator[None]:
+    """Положить отчёт фазы на элемент: фикстура в teardown узнаёт, упал ли тест."""
+    outcome = yield
+    report = outcome.get_result()  # type: ignore[attr-defined]
+    setattr(item, f"rep_{report.when}", report)
+
+
+@pytest.fixture
+def page(browser: Any, request: pytest.FixtureRequest) -> Iterator[Any]:
+    """A fresh browser context + page per test -- isolated ``localStorage``.
+
+    Плюс (issue #804): непойманное исключение в странице роняет тест. Раньше
+    оно было невидимым — падал только косвенный симптом (раздел не открылся), а
+    первопричину (``TypeError`` в обработчике) приходилось искать вручную.
+    Тест, которому ошибка нужна по замыслу, глушит её ``page_errors.clear()``.
+
+    Уведомление об истории здесь уже «видели» (issue #1582) — иначе оно
+    перекрывает клики; тесту самого уведомления — :func:`fresh_page`.
+    """
+    yield from _open_page(browser, history_notice_seen=True, node=request.node)
+
+
+@pytest.fixture
+def fresh_page(browser: Any, request: pytest.FixtureRequest) -> Iterator[Any]:
+    """То же, что :func:`page`, но с нетронутым ``localStorage``: первый визит."""
+    yield from _open_page(browser, history_notice_seen=False, node=request.node)
 
 
 @pytest.fixture
@@ -102,7 +190,7 @@ def e2e_server(tmp_path: Path) -> Iterator[str]:
     # проверяют основные потоки, где онбординг только мешал бы.
     user_settings.save_settings(
         user_settings.UserSettings(onboarding_seen=True),
-        tmp_path / user_settings.SETTINGS_FILE_NAME,
+        user_settings.default_settings_path(tmp_path),
     )
     httpd = web_server._GraderServer(
         ("127.0.0.1", 0), web_server._Handler, workspace=tmp_path, confine=True
@@ -116,3 +204,39 @@ def e2e_server(tmp_path: Path) -> Iterator[str]:
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Запомнить тесты, у которых выполнилось ТЕЛО (issue #921, `QA-2-02`).
+
+    Фаза ``call`` бывает только у теста, который действительно запустился:
+    пропуск и падение в setup сюда не попадают. Именно эта разница и была
+    дефектом — прежний guard считал СОБРАННЫЕ элементы, а собираются они и
+    когда каждый следом пропускается.
+    """
+    if report.when == "call" and report.outcome in {"passed", "failed"}:
+        _EXECUTED.add(report.nodeid)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Под ``STEPIK_REQUIRE_E2E_TESTS`` пустой прогон обязан быть красным.
+
+    Проверка живёт в конце сессии, а не в тесте: только здесь известны исходы
+    ВСЕХ тестов. Тест, стоящий в середине прогона, о своих соседях знает лишь
+    то, что они собраны.
+
+    Единственный сценарий, который сюда не достаёт, — не загруженный
+    ``conftest.py`` (переименовали каталог, ошиблись путём). Он закрыт самим
+    pytest: «ничего не собрано» — код возврата 5, «путь не найден» — 4, и job
+    краснеет без нашего участия.
+    """
+    if not _guard_enabled() or exitstatus != 0:
+        return
+    if executed_beyond_guards(_EXECUTED):
+        return
+    session.exitstatus = pytest.ExitCode.TESTS_FAILED
+    print(
+        f"\nFAIL ({REQUIRE_E2E_ENV}=1): ни один e2e-тест не выполнился — "
+        "собрать набор мало, он весь пропущен. Проверьте установку extra "
+        '"e2e" и браузер (playwright install chromium).'
+    )

@@ -22,13 +22,22 @@ __all__: list[str] = []
 # параметра, иначе — позиционно в порядке присваиваний блока (issue #622).
 # Имена параметров и имена переменных теста часто расходятся (date1/date2 vs
 # start/end), поэтому fallback обязателен, иначе получаем KeyError → ложный RE.
+#
+# issue #938 (DEV-2-01): совпадение по имени проверяется по `_assigned` — тому,
+# что реально присвоил тест-блок, — а не по `_local_vars`. На уровне модуля
+# обёртки `locals()` это её globals, куда уже импортированы `date`, `time`,
+# `datetime`, `timedelta`, `Decimal`, `Fraction`. Решение `days_between(date,
+# delta)` при блоке `d = "2020-01-01"` / `delta = 5` находило параметр `date`
+# среди импортов, связывало его с классом stdlib вместо значения теста, и
+# позиционный fallback не срабатывал вовсе — верное решение получало WA.
+# `_local_vars` остаётся только источником ЗНАЧЕНИЙ, но не критерием выбора.
 _NAMED_BINDING_TEMPLATE = """_sig = inspect.signature({func})
 _local_vars = locals()
 _param_names = list(_sig.parameters)
-if all(_n in _local_vars for _n in _param_names):
+_assigned = {assigned}
+if all(_n in _assigned for _n in _param_names):
     _args = [_local_vars[_n] for _n in _param_names]
 else:
-    _assigned = {assigned}
     _args = [_local_vars[_n] for _n in _assigned if _n in _local_vars][: len(_param_names)]"""
 
 
@@ -82,6 +91,15 @@ def _build_function_wrapper(
     печатает результат сама, ничего не возвращает, и безусловный ``print``
     добавлял к её выводу строку ``'None'`` (issue #785).
 
+    Сравнивается именно **напечатанное**, поэтому тип возврата в вердикте не
+    участвует: ``return 5`` и ``return "5"`` дают один текст и оба получают
+    ``AC`` (issue #996, ``MTX-4-03``). Это ограничение формата, а не упущение —
+    ожидание задаётся текстовым файлом, и строка ``5`` о типе не говорит.
+    Печатать ``repr()`` бессмысленно: у чисел, списков и словарей он совпадает
+    со ``str()``, а строкам добавил бы кавычки и завернул бы все задачи со
+    строковым ответом. Канон — `docs/use/configuration.md § Что именно
+    сравнивается в function-режиме`.
+
     Поддерживает два стиля legacy-теста (issue #622):
 
     1. **Именованный** — блок объявляет переменные (``a = 5``). Блок
@@ -97,6 +115,7 @@ def _build_function_wrapper(
         function_name: имя функции для импорта.
     """
     abs_path = str(solution_path.resolve())
+    solution_file = solution_path.name
     safe_input = input_data.strip()
     safe_func = function_name
     module_stem = solution_path.stem
@@ -137,7 +156,14 @@ from datetime import date, time, datetime, timedelta
 from decimal import Decimal
 from fractions import Fraction
 
-sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
+# issue #992: каталог решения ищется рядом с обёрткой и только потом по
+# исходному пути. Под --sandbox путь хоста внутри изоляции не существует, а
+# решение кладётся рядом со скриптом; вне изоляции рядом ничего нет и работает
+# исходный путь. Одна и та же обёртка обязана исполняться в обоих режимах —
+# иначе изоляция становится вторым исполнителем со своим поведением.
+_here = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(_here if (_here / {solution_file!r}).exists()
+                       else pathlib.Path({abs_path!r}).parent))
 
 # Импортируем функцию из файла решения
 from {module_stem} import {safe_func}
@@ -160,6 +186,23 @@ if _result is not None:
 """
 
 
+def _is_bare_expression(block: str) -> bool:
+    """Блок — ровно одно выражение верхнего уровня, без присваиваний (issue #996).
+
+    Такой блок вычисляет значение и **отбрасывает** его: `Vector(-5).length()`
+    исполняется и не печатает ничего. Признак того, что результат надо напечатать
+    самим — ровно как это делает function-обёртка (issue #785).
+
+    Блок из нескольких инструкций сюда не попадает намеренно: там последняя
+    строка чаще служебная, и печатать её значение — догадка, а не правило.
+    """
+    try:
+        tree = ast.parse(block)
+    except SyntaxError:
+        return False
+    return len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr)
+
+
 def _build_call_wrapper(solution_path: pathlib.Path, call_block: str) -> str:
     """Генерирует скрипт, импортирующий все публичные имена из решения и
     исполняющий call_block как есть.
@@ -167,10 +210,27 @@ def _build_call_wrapper(solution_path: pathlib.Path, call_block: str) -> str:
     Используется для python-generation function-call формата (Module_3.1, 3.3),
     где блок теста уже содержит полный вызов вида `print(func(args))`.
     inspect.signature НЕ используется — аргументы заданы в самом блоке.
+
+    issue #996 (RUN-1-06): если блок — одно голое выражение (`Vector(-5).length()`
+    без `print`), его значение печатается, когда оно не ``None``. Прежде такой
+    блок исполнялся, результат отбрасывался, и верное решение получало ``WA`` с
+    пустым `Actual` — при том, что function-обёртка в ровно том же положении
+    результат печатает (issue #785). Вердикт зависел от того, каким из двух
+    маршрутов режима пошёл кейс.
+
+    Блок подставляется **дословно**, без ``ast.unparse``: обёртка не переписывает
+    пользовательский тест, а только оборачивает его в присваивание.
     """
     abs_path = str(solution_path.resolve())
-    solution_dir = str(pathlib.Path(abs_path).parent)
+    solution_file = solution_path.name
     module_name = pathlib.Path(abs_path).stem
+
+    if _is_bare_expression(call_block):
+        # Скобки — чтобы многострочное выражение осталось одним выражением;
+        # `print(...)` сюда тоже попадает и безвреден: он возвращает None.
+        body = f"_result = (\n{call_block}\n)\nif _result is not None:\n    print(_result)"
+    else:
+        body = call_block
 
     return f"""import sys
 import importlib.util
@@ -244,8 +304,15 @@ from functools import (  # noqa: F401
 from decimal import Decimal  # noqa: F401
 from fractions import Fraction  # noqa: F401
 
-sys.path.insert(0, {solution_dir!r})
-_spec = importlib.util.spec_from_file_location({module_name!r}, {abs_path!r})
+# issue #992: решение ищется рядом с обёрткой и только потом по исходному пути —
+# под --sandbox путь хоста внутри изоляции не существует (см. legacy-обёртку).
+import pathlib as _pathlib
+
+_here = _pathlib.Path(__file__).resolve().parent
+_beside = _here / {solution_file!r}
+_solution_path = str(_beside) if _beside.exists() else {abs_path!r}
+sys.path.insert(0, str(_pathlib.Path(_solution_path).parent))
+_spec = importlib.util.spec_from_file_location({module_name!r}, _solution_path)
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 # Импорт из решения идёт ПОСЛЕДНИМ — публичные имена решения
@@ -254,5 +321,5 @@ for _name in dir(_mod):
     if not _name.startswith('_'):
         globals()[_name] = getattr(_mod, _name)
 
-{call_block}
+{body}
 """

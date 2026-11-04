@@ -12,14 +12,25 @@ on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
 
+# issue #1036 (REL-1-02): одно ревью на PR. Каждый пуш в ветку запускал новое, а
+# предыдущее продолжало занимать слот и дописывать комментарии к уже
+# переписанному диффу — при разводке конфликтов это несколько ревью одного и
+# того же PR подряд.
+concurrency:
+  group: review-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
+    # issue #1271: без этого действует умолчание GitHub в 6 часов —
+    # зависший агент держит слот и очередь проверок на PR.
+    timeout-minutes: 20
     # issue #808 (ACT-04): на форковых PR секрета нет — job не падал бы с
     # осмысленной ошибкой, а тихо ломался на шаге агента. Явный скип делает
     # ограничение видимым в списке проверок вместо «красного» шага без причины.
     if: github.event.pull_request.head.repo.full_name == github.repository
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       pull-requests: read
@@ -34,7 +45,7 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
+        uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # issue #808 (ACT-03): сам action запинен по SHA выше, а вот
@@ -46,6 +57,22 @@ jobs:
           # вендора, что и сам action, и права job'а read-only.
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
+          # issue #1272: без этой строки ревью отказывалось работать на каждом
+          # PR, где последнее событие пришло от агентского окна — «Workflow
+          # initiated by non-human actor: claude (type: Bot)». Причина не в
+          # авторстве PR (он создаётся от человека, и первый прогон проходит), а
+          # в событии `synchronize`: его шлёт тот, кто толкнул в ветку, а
+          # обновление ветки из `main` обязательно — в ruleset включено
+          # «Require branches to be up to date». То есть красная проверка
+          # получалась на каждом PR, и ревьюилось состояние ДО обновления.
+          #
+          # Список именной, а не `*`: разрешён ровно один бот — тот, чьи правки
+          # и так подписаны сессией владельца. `*` пустил бы сюда любое
+          # приложение с доступом к репозиторию. Периметр от этой строки не
+          # расширяется: job остаётся read-only, форковые PR по-прежнему
+          # пропускаются (условие `if` выше), а запуск по упоминанию
+          # (`claude.yml`) сохраняет свой гейт по `author_association`.
+          allowed_bots: 'claude'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options

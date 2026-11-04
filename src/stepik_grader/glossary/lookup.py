@@ -8,8 +8,6 @@
 ребра ``glossary → core`` здесь нет и быть не должно (ADR-0011).
 """
 
-from __future__ import annotations
-
 import keyword
 import sys
 
